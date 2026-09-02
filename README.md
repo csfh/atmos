@@ -104,3 +104,10 @@ This tree does not import `$OMARCHY_PATH/shell` QML.
 ```bash
 ./tests/run
 ```
+
+## License
+
+This project is licensed under the [MIT License](LICENSE), Copyright (c) 2026 Christoffer Hallas.
+
+Contributions are subject to the [Contributor License Agreement](CLA.md). See [CONTRIBUTING.md](CONTRIBUTING.md).
+

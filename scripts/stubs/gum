@@ -1,0 +1,7 @@
+#!/bin/bash
+# Prefs already confirmed in-window. Answer yes to gum confirm; otherwise
+# hand off to the real gum binary.
+if [[ ${1:-} == confirm ]]; then
+  exit 0
+fi
+exec /usr/bin/gum "$@"

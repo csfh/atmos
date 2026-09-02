@@ -1,0 +1,348 @@
+{
+  // Open the standalone Omarchy preferences window from Setup.
+  // `omarchy-prefs` focuses a running instance over IPC, or launches one.
+  "setup.preferences": {
+    "icon": "",
+    "label": "Preferences",
+    "action": "omarchy-prefs",
+    "when": "command -v omarchy-prefs",
+    "keywords": "settings prefs appearance windows input security bar defaults idle",
+    "description": "The window for themes, windows, input, security, and the rest of this machine"
+  },
+  "style.preferences": {
+    "icon": "",
+    "label": "Preferences",
+    "action": "omarchy-prefs appearance",
+    "when": "command -v omarchy-prefs",
+    "keywords": "settings prefs appearance theme font",
+    "description": "Colors, wallpaper, type, and night light"
+  },
+  "style.font.preferences": {
+    "icon": "",
+    "label": "Preferences",
+    "action": "omarchy-prefs appearance",
+    "when": "command -v omarchy-prefs",
+    "keywords": "settings prefs appearance font family typeface",
+    "description": "The monospace face and size the shell and terminals use"
+  },
+  "style.bar.preferences": {
+    "icon": "",
+    "label": "Preferences",
+    "action": "omarchy-prefs bar",
+    "when": "command -v omarchy-prefs",
+    "keywords": "settings prefs bar clock indicators agents",
+    "description": "Where the bar sits, the clock, and its widgets"
+  },
+  "style.disks.preferences": {
+    "icon": "",
+    "label": "Preferences",
+    "action": "omarchy-prefs disks",
+    "when": "command -v omarchy-prefs",
+    "keywords": "settings prefs disks drive snapshot luks",
+    "description": "Drive space, encryption, snapshots, and hibernation"
+  },
+  "style.sound.preferences": {
+    "icon": "",
+    "label": "Preferences",
+    "action": "omarchy-prefs sound",
+    "when": "command -v omarchy-prefs",
+    "keywords": "settings prefs sound audio volume mute microphone",
+    "description": "Volume, devices, and a PipeWire restart if audio hangs"
+  },
+  "style.display.preferences": {
+    "icon": "󰍹",
+    "label": "Preferences",
+    "action": "omarchy-prefs display",
+    "when": "command -v omarchy-prefs",
+    "keywords": "settings prefs display monitor scale brightness",
+    "description": "Scale, brightness, and laptop input"
+  },
+  "style.bar.position.preferences": {
+    "icon": "",
+    "label": "Preferences",
+    "action": "omarchy-prefs bar",
+    "when": "command -v omarchy-prefs",
+    "keywords": "settings prefs bar position top bottom left right",
+    "description": "Which edge of the screen the bar sits on"
+  },
+  "setup.applications": {
+    "icon": "",
+    "label": "Applications",
+    "action": "omarchy-prefs applications",
+    "when": "command -v omarchy-prefs",
+    "keywords": "settings prefs applications desktop tui webapp remove uninstall",
+    "description": "Remove desktop, terminal, and web launchers you added"
+  },
+  "setup.default.preferences": {
+    "icon": "",
+    "label": "Preferences",
+    "action": "omarchy-prefs defaults",
+    "when": "command -v omarchy-prefs",
+    "keywords": "settings prefs defaults browser terminal editor agent",
+    "description": "The browser, terminal, editor, and coding agent Omarchy opens"
+  },
+  "setup.default.browser.preferences": {
+    "icon": "",
+    "label": "Preferences",
+    "action": "omarchy-prefs defaults",
+    "when": "command -v omarchy-prefs",
+    "keywords": "settings prefs browser chrome firefox chromium brave edge zen",
+    "description": "The browser that opens links and web apps"
+  },
+  "setup.default.terminal.preferences": {
+    "icon": "",
+    "label": "Preferences",
+    "action": "omarchy-prefs defaults",
+    "when": "command -v omarchy-prefs",
+    "keywords": "settings prefs terminal alacritty foot ghostty kitty",
+    "description": "The terminal other apps launch when they need a console"
+  },
+  "setup.default.editor.preferences": {
+    "icon": "",
+    "label": "Preferences",
+    "action": "omarchy-prefs defaults",
+    "when": "command -v omarchy-prefs",
+    "keywords": "settings prefs editor nvim neovim vscode code cursor zed sublime helix vim emacs",
+    "description": "The editor Omarchy opens when you ask to edit a file"
+  },
+  "setup.default.agent.preferences": {
+    "icon": "",
+    "label": "Preferences",
+    "action": "omarchy-prefs defaults",
+    "when": "command -v omarchy-prefs",
+    "keywords": "settings prefs agent claude codex copilot crush gemini grok omp opencode pi",
+    "description": "The coding agent Omarchy treats as the default"
+  },
+  "setup.network.preferences": {
+    "icon": "",
+    "label": "Preferences",
+    "action": "omarchy-prefs network",
+    "when": "command -v omarchy-prefs",
+    "keywords": "settings prefs network dns bluetooth wifi band",
+    "description": "What you are connected to, plus DNS, Wi-Fi, and Bluetooth"
+  },
+  "setup.network.dns.preferences": {
+    "icon": "",
+    "label": "Preferences",
+    "action": "omarchy-prefs network",
+    "when": "command -v omarchy-prefs",
+    "keywords": "settings prefs dns cloudflare google dhcp custom nameserver",
+    "description": "Who answers name lookups for this machine"
+  },
+  "setup.power": {
+    "icon": "",
+    "label": "Power",
+    "action": "omarchy-prefs power",
+    "when": "command -v omarchy-prefs",
+    "keywords": "settings prefs power profile battery percentage",
+    "description": "How hard the machine works, and the battery if you have one"
+  },
+  "setup.idle": {
+    "icon": "",
+    "label": "Idle",
+    "action": "omarchy-prefs idle",
+    "when": "command -v omarchy-prefs",
+    "keywords": "settings prefs idle screensaver lock stay awake suspend",
+    "description": "Screensaver, lock, stay awake, and suspend"
+  },
+  "setup.system": {
+    "icon": "",
+    "label": "System",
+    "action": "omarchy-prefs system",
+    "when": "command -v omarchy-prefs",
+    "keywords": "settings prefs system about weather crash printer cups",
+    "description": "This machine's name, language, clock, weather, printers, and crash capture"
+  },
+  "style.screensaver.preferences": {
+    "icon": "",
+    "label": "Preferences",
+    "action": "omarchy-prefs idle",
+    "when": "command -v omarchy-prefs",
+    "keywords": "settings prefs idle screensaver lock stay awake suspend",
+    "description": "Screensaver, lock, stay awake, and suspend"
+  },
+  "style.about.preferences": {
+    "icon": "",
+    "label": "Preferences",
+    "action": "omarchy-prefs system",
+    "when": "command -v omarchy-prefs",
+    "keywords": "settings prefs system about weather crash",
+    "description": "This machine's name, language, clock, weather, and crash capture"
+  },
+  "trigger.preferences": {
+    "icon": "",
+    "label": "Preferences",
+    "action": "omarchy-prefs notifications",
+    "when": "command -v omarchy-prefs",
+    "keywords": "settings prefs toggle stay awake notifications crash screensaver",
+    "description": "Stay awake, notifications, and the other switches"
+  },
+  "trigger.reminder.preferences": {
+    "icon": "",
+    "label": "Preferences",
+    "action": "omarchy-prefs notifications",
+    "when": "command -v omarchy-prefs",
+    "keywords": "settings prefs reminder timer notify later",
+    "description": "Reminders and Do not disturb"
+  },
+  "trigger.toggle.preferences": {
+    "icon": "",
+    "label": "Preferences",
+    "action": "omarchy-prefs",
+    "when": "command -v omarchy-prefs",
+    "keywords": "settings prefs toggle stay awake notifications crash screensaver nightlight bar battery",
+    "description": "Stay awake, notifications, night light, and the other switches"
+  },
+  "install.preferences": {
+    "icon": "",
+    "label": "Preferences",
+    "action": "omarchy-prefs",
+    "when": "command -v omarchy-prefs",
+    "keywords": "settings prefs appearance defaults theme font browser terminal editor agent",
+    "description": "Themes and the programs Omarchy opens by default"
+  },
+  "install.style.preferences": {
+    "icon": "",
+    "label": "Preferences",
+    "action": "omarchy-prefs appearance",
+    "when": "command -v omarchy-prefs",
+    "keywords": "settings prefs appearance theme background font install extra",
+    "description": "Colors, wallpaper, type, and night light"
+  },
+  "install.style.font.preferences": {
+    "icon": "",
+    "label": "Preferences",
+    "action": "omarchy-prefs appearance",
+    "when": "command -v omarchy-prefs",
+    "keywords": "settings prefs appearance font family typeface install nerd",
+    "description": "The monospace face and size the shell and terminals use"
+  },
+  "install.browser.preferences": {
+    "icon": "",
+    "label": "Preferences",
+    "action": "omarchy-prefs defaults",
+    "when": "command -v omarchy-prefs",
+    "keywords": "settings prefs defaults browser chrome firefox chromium brave edge zen",
+    "description": "The browser that opens links and web apps"
+  },
+  "install.terminal.preferences": {
+    "icon": "",
+    "label": "Preferences",
+    "action": "omarchy-prefs defaults",
+    "when": "command -v omarchy-prefs",
+    "keywords": "settings prefs defaults terminal alacritty foot ghostty kitty",
+    "description": "The terminal other apps launch when they need a console"
+  },
+  "install.editor.preferences": {
+    "icon": "",
+    "label": "Preferences",
+    "action": "omarchy-prefs defaults",
+    "when": "command -v omarchy-prefs",
+    "keywords": "settings prefs defaults editor nvim neovim vscode code cursor zed sublime helix vim emacs",
+    "description": "The editor Omarchy opens when you ask to edit a file"
+  },
+  "install.ai.preferences": {
+    "icon": "",
+    "label": "Preferences",
+    "action": "omarchy-prefs defaults",
+    "when": "command -v omarchy-prefs",
+    "keywords": "settings prefs defaults agent claude codex copilot crush gemini grok omp opencode pi",
+    "description": "The coding agent Omarchy treats as the default"
+  },
+  "remove.browser.preferences": {
+    "icon": "",
+    "label": "Preferences",
+    "action": "omarchy-prefs defaults",
+    "when": "command -v omarchy-prefs",
+    "keywords": "settings prefs defaults browser chrome firefox chromium brave edge zen",
+    "description": "The browser that opens links and web apps"
+  },
+  "system.preferences": {
+    "icon": "",
+    "label": "Preferences",
+    "action": "omarchy-prefs idle",
+    "when": "command -v omarchy-prefs",
+    "keywords": "settings prefs idle screensaver lock stay awake suspend",
+    "description": "Screensaver, lock, stay awake, and suspend"
+  },
+  "setup.windows": {
+    "icon": "",
+    "label": "Windows",
+    "action": "omarchy-prefs windows",
+    "when": "command -v omarchy-prefs",
+    "keywords": "settings prefs windows gaps blur tiling dwindle scrolling keybinding window rule",
+    "description": "Gaps, corners, tiling, keybindings, and window rules"
+  },
+  "setup.input": {
+    "icon": "",
+    "label": "Input",
+    "action": "omarchy-prefs input",
+    "when": "command -v omarchy-prefs",
+    "keywords": "settings prefs input mouse touchpad scroll repeat",
+    "description": "Pointer, touchpad, and keyboard feel"
+  },
+  "setup.security": {
+    "icon": "",
+    "label": "Security",
+    "action": "omarchy-prefs security",
+    "when": "command -v omarchy-prefs",
+    "keywords": "settings prefs security fingerprint fido2 ssh sudo",
+    "description": "Fingerprint, a security key, SSH, and passwordless sudo"
+  },
+  "setup.capture": {
+    "icon": "",
+    "label": "Capture",
+    "action": "omarchy-prefs capture",
+    "when": "command -v omarchy-prefs",
+    "keywords": "settings prefs capture screenshot record ocr qr",
+    "description": "Screenshots, recordings, OCR, and QR"
+  },
+  "setup.notifications": {
+    "icon": "",
+    "label": "Notifications",
+    "action": "omarchy-prefs notifications",
+    "when": "command -v omarchy-prefs",
+    "keywords": "settings prefs notifications dnd reminder toast",
+    "description": "Do not disturb, a test toast, and reminders"
+  },
+  "setup.software": {
+    "icon": "",
+    "label": "Software",
+    "action": "omarchy-prefs software",
+    "when": "command -v omarchy-prefs",
+    "keywords": "settings prefs software install browser gaming steam",
+    "description": "Optional browsers, services, gaming, and editors"
+  },
+  "setup.accessibility": {
+    "icon": "",
+    "label": "Accessibility",
+    "action": "omarchy-prefs accessibility",
+    "when": "command -v omarchy-prefs",
+    "keywords": "settings prefs accessibility a11y cursor text size animations",
+    "description": "Motion, type size, the pointer, and touch"
+  },
+  "setup.hooks": {
+    "icon": "",
+    "label": "Hooks",
+    "action": "omarchy-prefs hooks",
+    "when": "command -v omarchy-prefs",
+    "keywords": "settings prefs hooks theme-set script",
+    "description": "Scripts Omarchy runs after theme, font, boot, and update"
+  },
+  "update.preferences": {
+    "icon": "",
+    "label": "Preferences",
+    "action": "omarchy-prefs system",
+    "when": "command -v omarchy-prefs",
+    "keywords": "settings prefs system update channel firmware",
+    "description": "Omarchy channel, updates, firmware, and package cleanup"
+  },
+  "remove.preferences": {
+    "icon": "",
+    "label": "Preferences",
+    "action": "omarchy-prefs appearance",
+    "when": "command -v omarchy-prefs",
+    "keywords": "settings prefs appearance theme extra remove uninstall",
+    "description": "Install, update, or remove extra themes"
+  }
+}

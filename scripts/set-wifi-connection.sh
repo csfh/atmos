@@ -1,0 +1,40 @@
+#!/bin/bash
+# Mutate NetworkManager Wi-Fi radio or a saved connection.
+# omarchy has no wifi-power / connection-up CLI; nmcli is the source of truth.
+
+set -euo pipefail
+
+action=${1:-}
+target=${2:-}
+
+usage() {
+  echo "Usage: set-wifi-connection.sh radio <on|off> | up <uuid> | down <uuid> | delete <uuid>" >&2
+  exit 1
+}
+
+if ! command -v nmcli >/dev/null 2>&1; then
+  echo "set-wifi-connection.sh: nmcli is not installed" >&2
+  exit 1
+fi
+
+uuid_ok() {
+  [[ $1 =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]]
+}
+
+case "$action" in
+  radio)
+    [[ $target == on || $target == off ]] || usage
+    nmcli radio wifi "$target"
+    ;;
+  up | down)
+    uuid_ok "$target" || usage
+    nmcli connection "$action" uuid "$target"
+    ;;
+  delete)
+    uuid_ok "$target" || usage
+    nmcli connection delete uuid "$target"
+    ;;
+  *)
+    usage
+    ;;
+esac

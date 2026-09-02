@@ -1,0 +1,512 @@
+#!/bin/bash
+set -euo pipefail
+
+ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+cd "$ROOT"
+
+node tests/parse.test.js
+
+if [[ -x scripts/snapshot.sh ]] && command -v omarchy >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
+  json=$(bash scripts/snapshot.sh)
+  echo "$json" | jq -e '.theme and .themes and has("extraThemes") and (.extraThemes | type == "array") and has("desktopApps") and (.desktopApps | type == "array") and has("tuiApps") and (.tuiApps | type == "array") and has("webApps") and (.webApps | type == "array") and .barPosition and .idleScreensaver and has("stayAwake") and has("nightlight") and has("nightlightTemperature") and has("screensaverEnabled") and has("barVisible") and has("dns") and has("bluetooth") and has("suspendEnabled") and has("powerProfile") and has("powerProfileAc") and has("powerProfileBattery") and (.powerProfiles | type == "array") and has("crashCapture") and has("plymouth") and (.plymouthThemes | type == "array") and has("doNotDisturb") and has("weatherLocation") and has("weatherCoords") and has("weatherAuto") and has("weatherPresent") and has("weatherUnit") and has("weatherRefreshMinutes") and has("reminderCount") and has("reminderActive") and has("reminders") and (.reminders | type == "array") and has("clockFormat") and has("clockFormatAlt") and has("clockWeekStart") and has("clockPresent") and has("clockBirthYear") and has("clockLifeExpectancy") and has("indicatorsPresent") and has("indicatorsAlwaysShow") and has("indicatorsItems") and (.indicatorsItems | type == "array") and has("agentsPresent") and has("agentsRefreshIntervalSec") and has("agentsSync") and has("agentsSyncDir") and has("agentsSyncFileName") and has("agentsSyncDeviceId") and has("spacerPresent") and has("spacerSize") and has("trayPresent") and has("trayHidden") and (.trayHidden | type == "array") and has("trayPinned") and (.trayPinned | type == "array") and has("powerPresent") and has("powerShowPercentage") and has("isLaptop") and has("batteryPresent") and has("monitors") and (.monitors | type == "array") and has("internalPresent") and has("internalEnabled") and has("externalPresent") and has("mirroring") and has("touchpadPresent") and has("touchpadEnabled") and has("touchscreenPresent") and has("touchscreenEnabled") and has("keyboardBacklightPresent") and has("keyboardBrightness") and has("wifiConnected") and has("wifiBandSelected") and (.wifiBands | type == "array") and has("wifiIface") and has("netKind") and has("netIface") and has("netIp") and has("wifiHw") and has("wifiRadio") and has("wifiConnections") and (.wifiConnections | type == "array") and has("bluetoothDevices") and (.bluetoothDevices | type == "array") and has("audioSinks") and (.audioSinks | type == "array") and has("audioSources") and (.audioSources | type == "array") and has("audioOutputVolume") and has("audioOutputMuted") and has("audioInputVolume") and has("audioInputMuted") and has("audioTuningMatch") and has("audioTuningOn") and has("disks") and (.disks | type == "array") and has("luksDevices") and (.luksDevices | type == "array") and has("swapDevices") and (.swapDevices | type == "array") and has("snapperPresent") and has("snapperConfigs") and (.snapperConfigs | type == "array") and has("snapshots") and (.snapshots | type == "array") and has("hibernationAvailable") and has("hibernationSupported") and has("hibernationConfigured") and has("screensaverBranded") and has("aboutBranded") and has("timezone") and has("timezones") and (.timezones | type == "array") and has("hostname") and has("keyboardLayout") and has("keyboardLayouts") and (.keyboardLayouts | type == "array") and has("ntp") and has("ntpAvailable") and has("ntpSynchronized") and has("locale") and has("locales") and (.locales | type == "array") and has("parallelDownloads") and has("fullName") and has("hyprLook") and has("hyprInput") and has("hyprLookManaged") and has("hyprNoGaps") and has("fingerprintAvailable") and has("sshdEnabled") and has("omarchyChannel") and has("updateAvailable") and has("plugins") and (.plugins | type == "array") and has("voxtypeInstalled") and has("fstrimEnabled") and has("directBootAvailable") and has("mimePdf") and has("picturesDir") and has("videosDir") and has("recordingActive") and has("webcamOverlay") and has("services") and has("gaming") and has("extras") and has("hooks") and (.hooks | type == "array") and has("autostart") and (.autostart | type == "array") and has("autostartManaged") and has("nightlightDay") and has("nightlightNight") and has("nightlightNightOn") and has("tailscalePeers") and (.tailscalePeers | type == "array") and (.hyprLook | has("cursorSize")) and (.hyprLook | has("activeOpacity")) and has("bindings") and (.bindings | type == "array") and has("bindingsManaged") and has("windowRules") and (.windowRules | type == "array") and has("windowRulesManaged") and has("keybindings") and (.keybindings | type == "array") and has("focusedClass") and has("cupsActive") and has("printerSetup")' >/dev/null
+  echo "ok - snapshot.sh emits a usable JSON object"
+else
+  echo "ok - skipping live snapshot (omarchy/jq not available)"
+fi
+
+if [[ -x scripts/set-bar-widget.sh ]] && command -v omarchy-shell-config >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
+  widget_home=$(mktemp -d)
+  mkdir -p "$widget_home/.config/omarchy"
+  cat >"$widget_home/.config/omarchy/shell.json" <<'JSON'
+{
+  "version": 1,
+  "bar": {
+    "layout": {
+      "left": [],
+      "center": [{ "id": "omarchy.indicators" }],
+      "right": ["omarchy.tray"]
+    }
+  },
+  "plugins": []
+}
+JSON
+  HOME="$widget_home" bash scripts/set-bar-widget.sh omarchy.indicators items '["Dnd","NightLight"]'
+  HOME="$widget_home" bash scripts/set-bar-widget.sh omarchy.tray hidden '["app.one"]'
+  jq -e '
+    .bar.layout.center[0].items == ["Dnd","NightLight"] and
+    .bar.layout.right[0].id == "omarchy.tray" and
+    .bar.layout.right[0].hidden == ["app.one"]
+  ' "$widget_home/.config/omarchy/shell.json" >/dev/null
+  rm -rf "$widget_home"
+  echo "ok - set-bar-widget.sh writes JSON array widget settings"
+else
+  echo "ok - skipping set-bar-widget.sh (omarchy-shell-config/jq not available)"
+fi
+
+if [[ -x scripts/set-wifi-connection.sh ]]; then
+  if bash scripts/set-wifi-connection.sh radio maybe >/dev/null 2>&1; then
+    echo "not ok - set-wifi-connection.sh accepted a bad radio value"
+    exit 1
+  fi
+  if bash scripts/set-wifi-connection.sh up not-a-uuid >/dev/null 2>&1; then
+    echo "not ok - set-wifi-connection.sh accepted a bad uuid"
+    exit 1
+  fi
+  echo "ok - set-wifi-connection.sh rejects bad radio and uuid values"
+else
+  echo "ok - skipping set-wifi-connection.sh"
+fi
+
+if [[ -x scripts/set-audio.sh ]]; then
+  if bash scripts/set-audio.sh output-volume 101 >/dev/null 2>&1; then
+    echo "not ok - set-audio.sh accepted a volume over 100"
+    exit 1
+  fi
+  echo "ok - set-audio.sh rejects an out-of-range volume"
+else
+  echo "ok - skipping set-audio.sh"
+fi
+
+if [[ -x scripts/list-apps.py ]] && command -v python3 >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
+  apps_home=$(mktemp -d)
+  mkdir -p "$apps_home/.local/share/applications"
+  cat >"$apps_home/.local/share/applications/HEY.desktop" <<'EOF'
+[Desktop Entry]
+Name=HEY
+Exec=omarchy-launch-webapp https://hey.com
+Type=Application
+EOF
+  cat >"$apps_home/.local/share/applications/Btop.desktop" <<'EOF'
+[Desktop Entry]
+Name=Btop
+Exec=xdg-terminal-exec --app-id=TUI.float -e btop
+Type=Application
+EOF
+  cat >"$apps_home/.local/share/applications/Notes.desktop" <<'EOF'
+[Desktop Entry]
+Name=Notes
+Exec=notes
+Type=Application
+EOF
+  HOME="$apps_home" XDG_DATA_HOME="$apps_home/.local/share" python3 scripts/list-apps.py | jq -e '
+    (.web | map(.name) | index("HEY") != null) and
+    (.tui | map(.name) | index("Btop") != null) and
+    (.desktop | map(.name) | index("Notes") != null)
+  ' >/dev/null
+  rm -rf "$apps_home"
+  echo "ok - list-apps.py classifies desktop, TUI, and web launchers"
+else
+  echo "ok - skipping list-apps.py"
+fi
+
+if [[ -x scripts/add-desktop-launcher.sh ]]; then
+  launcher_home=$(mktemp -d)
+  mkdir -p "$launcher_home/.local/share/applications"
+  if HOME="$launcher_home" XDG_DATA_HOME="$launcher_home/.local/share" bash scripts/add-desktop-launcher.sh 'foo/bar' notes; then
+    echo "not ok - add-desktop-launcher.sh accepted a slash in the name"
+    rm -rf "$launcher_home"
+    exit 1
+  fi
+  HOME="$launcher_home" XDG_DATA_HOME="$launcher_home/.local/share" bash scripts/add-desktop-launcher.sh Notes notes application-x-executable
+  grep -q '^Name=Notes$' "$launcher_home/.local/share/applications/Notes.desktop"
+  grep -q '^Exec=notes$' "$launcher_home/.local/share/applications/Notes.desktop"
+  rm -rf "$launcher_home"
+  echo "ok - add-desktop-launcher.sh writes a desktop file and rejects a slash"
+else
+  echo "ok - skipping add-desktop-launcher.sh"
+fi
+
+if [[ -x scripts/disk-inventory.py ]] && command -v python3 >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
+  python3 scripts/disk-inventory.py | jq -e '(.disks | type == "array") and (.luksDevices | type == "array") and (.swapDevices | type == "array") and (.snapshots | type == "array")' >/dev/null
+  echo "ok - disk-inventory.py emits disks, luksDevices, swapDevices, and snapshots"
+else
+  echo "ok - skipping disk-inventory.py"
+fi
+
+if [[ -x scripts/set-keyboard-layout.sh ]]; then
+  if bash scripts/set-keyboard-layout.sh --bad >/dev/null 2>&1; then
+    echo "not ok - set-keyboard-layout.sh accepted a flag"
+    exit 1
+  fi
+  if bash scripts/set-keyboard-layout.sh US >/dev/null 2>&1; then
+    echo "not ok - set-keyboard-layout.sh accepted uppercase"
+    exit 1
+  fi
+  if bash scripts/set-keyboard-layout.sh zz >/dev/null 2>&1; then
+    echo "not ok - set-keyboard-layout.sh accepted an unknown layout"
+    exit 1
+  fi
+  echo "ok - set-keyboard-layout.sh rejects bad layout ids"
+else
+  echo "ok - skipping set-keyboard-layout.sh"
+fi
+
+if [[ -x scripts/set-full-name.sh ]]; then
+  if bash scripts/set-full-name.sh --bad >/dev/null 2>&1; then
+    echo "not ok - set-full-name.sh accepted a flag"
+    exit 1
+  fi
+  if bash scripts/set-full-name.sh 'bad:name' >/dev/null 2>&1; then
+    echo "not ok - set-full-name.sh accepted a colon"
+    exit 1
+  fi
+  if bash scripts/set-full-name.sh 'Last, First' >/dev/null 2>&1; then
+    echo "not ok - set-full-name.sh accepted a comma"
+    exit 1
+  fi
+  echo "ok - set-full-name.sh rejects bad names"
+else
+  echo "ok - skipping set-full-name.sh"
+fi
+
+if [[ -x scripts/set-hostname.sh ]]; then
+  if bash scripts/set-hostname.sh --bad >/dev/null 2>&1; then
+    echo "not ok - set-hostname.sh accepted a flag"
+    exit 1
+  fi
+  if bash scripts/set-hostname.sh 'has space' >/dev/null 2>&1; then
+    echo "not ok - set-hostname.sh accepted a space"
+    exit 1
+  fi
+  if bash scripts/set-hostname.sh 'bad-.name' >/dev/null 2>&1; then
+    echo "not ok - set-hostname.sh accepted a trailing hyphen in a label"
+    exit 1
+  fi
+  echo "ok - set-hostname.sh rejects bad hostnames"
+else
+  echo "ok - skipping set-hostname.sh"
+fi
+
+if [[ -x scripts/set-parallel-downloads.sh ]]; then
+  if bash scripts/set-parallel-downloads.sh 0 >/dev/null 2>&1; then
+    echo "not ok - set-parallel-downloads.sh accepted 0"
+    exit 1
+  fi
+  if bash scripts/set-parallel-downloads.sh 21 >/dev/null 2>&1; then
+    echo "not ok - set-parallel-downloads.sh accepted 21"
+    exit 1
+  fi
+  if bash scripts/set-parallel-downloads.sh --5 >/dev/null 2>&1; then
+    echo "not ok - set-parallel-downloads.sh accepted a flag"
+    exit 1
+  fi
+  echo "ok - set-parallel-downloads.sh rejects bad counts"
+else
+  echo "ok - skipping set-parallel-downloads.sh"
+fi
+
+if [[ -x scripts/set-locale.sh ]]; then
+  if bash scripts/set-locale.sh --bad >/dev/null 2>&1; then
+    echo "not ok - set-locale.sh accepted a flag"
+    exit 1
+  fi
+  if bash scripts/set-locale.sh en >/dev/null 2>&1; then
+    echo "not ok - set-locale.sh accepted a language-only tag"
+    exit 1
+  fi
+  if bash scripts/set-locale.sh zz_ZZ.UTF-8 >/dev/null 2>&1; then
+    echo "not ok - set-locale.sh accepted an unknown locale"
+    exit 1
+  fi
+  echo "ok - set-locale.sh rejects bad locale ids"
+else
+  echo "ok - skipping set-locale.sh"
+fi
+
+if [[ -x scripts/set-ntp.sh ]]; then
+  if bash scripts/set-ntp.sh maybe >/dev/null 2>&1; then
+    echo "not ok - set-ntp.sh accepted a junk value"
+    exit 1
+  fi
+  if bash scripts/set-ntp.sh --true >/dev/null 2>&1; then
+    echo "not ok - set-ntp.sh accepted a flag"
+    exit 1
+  fi
+  echo "ok - set-ntp.sh rejects bad values"
+else
+  echo "ok - skipping set-ntp.sh"
+fi
+
+if [[ -x scripts/set-timezone.sh ]]; then
+  if bash scripts/set-timezone.sh --bad >/dev/null 2>&1; then
+    echo "not ok - set-timezone.sh accepted a flag"
+    exit 1
+  fi
+  if bash scripts/set-timezone.sh '../etc/passwd' >/dev/null 2>&1; then
+    echo "not ok - set-timezone.sh accepted a path"
+    exit 1
+  fi
+  if bash scripts/set-timezone.sh 'Not/AZone' >/dev/null 2>&1; then
+    echo "not ok - set-timezone.sh accepted an unknown zone"
+    exit 1
+  fi
+  echo "ok - set-timezone.sh rejects bad timezone ids"
+else
+  echo "ok - skipping set-timezone.sh"
+fi
+
+if [[ -x scripts/set-hypr-look.sh ]] && command -v python3 >/dev/null 2>&1; then
+  look_home=$(mktemp -d)
+  cat >"$look_home/looknfeel.lua" <<'LUA'
+-- keep this comment
+hl.config({ general = { gaps_in = 1 } })
+LUA
+  OMARCHY_PREFS_LOOK_FILE="$look_home/looknfeel.lua" OMARCHY_PREFS_SKIP_HYPR=1 \
+    bash scripts/set-hypr-look.sh '{"gapsIn":8,"gapsOut":12,"layout":"scrolling"}'
+  grep -q -- '-- keep this comment' "$look_home/looknfeel.lua"
+  grep -q -- '-- omarchy-prefs:look begin' "$look_home/looknfeel.lua"
+  grep -q 'gaps_in = 8' "$look_home/looknfeel.lua"
+  grep -q 'layout = "scrolling"' "$look_home/looknfeel.lua"
+  OMARCHY_PREFS_LOOK_FILE="$look_home/looknfeel.lua" OMARCHY_PREFS_SKIP_HYPR=1 \
+    bash scripts/set-hypr-look.sh --reset
+  if grep -q -- '-- omarchy-prefs:look begin' "$look_home/looknfeel.lua"; then
+    echo "not ok - set-hypr-look.sh --reset left the look block"
+    rm -rf "$look_home"
+    exit 1
+  fi
+  grep -q -- '-- keep this comment' "$look_home/looknfeel.lua"
+  rm -rf "$look_home"
+  echo "ok - set-hypr-look.sh writes and resets a look sentinel"
+else
+  echo "ok - skipping set-hypr-look.sh"
+fi
+
+if [[ -x scripts/set-hypr-input.sh ]] && command -v python3 >/dev/null 2>&1; then
+  input_home=$(mktemp -d)
+  cat >"$input_home/input.lua" <<'LUA'
+-- user note
+LUA
+  OMARCHY_PREFS_INPUT_FILE="$input_home/input.lua" OMARCHY_PREFS_SKIP_HYPR=1 \
+    bash scripts/set-hypr-input.sh '{"sensitivity":-0.5,"accelProfile":"flat","naturalScroll":true}'
+  grep -q -- '-- user note' "$input_home/input.lua"
+  grep -q 'sensitivity = -0.5' "$input_home/input.lua"
+  grep -q 'accel_profile = "flat"' "$input_home/input.lua"
+  grep -q 'natural_scroll = true' "$input_home/input.lua"
+  if OMARCHY_PREFS_INPUT_FILE="$input_home/input.lua" OMARCHY_PREFS_SKIP_HYPR=1 \
+    bash scripts/set-hypr-input.sh --bad >/dev/null 2>&1; then
+    echo "not ok - set-hypr-input.sh accepted a bad flag"
+    rm -rf "$input_home"
+    exit 1
+  fi
+  rm -rf "$input_home"
+  echo "ok - set-hypr-input.sh writes an input sentinel and rejects a flag"
+else
+  echo "ok - skipping set-hypr-input.sh"
+fi
+
+if [[ -x scripts/set-nightlight-temp.sh ]]; then
+  if bash scripts/set-nightlight-temp.sh 2000 >/dev/null 2>&1; then
+    echo "not ok - set-nightlight-temp.sh accepted 2000"
+    exit 1
+  fi
+  if bash scripts/set-nightlight-temp.sh 9000 >/dev/null 2>&1; then
+    echo "not ok - set-nightlight-temp.sh accepted 9000"
+    exit 1
+  fi
+  echo "ok - set-nightlight-temp.sh rejects out-of-range kelvin"
+else
+  echo "ok - skipping set-nightlight-temp.sh"
+fi
+
+if [[ -x scripts/set-mime-default.sh ]]; then
+  if bash scripts/set-mime-default.sh pdf not-a-desktop >/dev/null 2>&1; then
+    echo "not ok - set-mime-default.sh accepted a bare name"
+    exit 1
+  fi
+  if bash scripts/set-mime-default.sh pdf ../evil.desktop >/dev/null 2>&1; then
+    echo "not ok - set-mime-default.sh accepted a path"
+    exit 1
+  fi
+  echo "ok - set-mime-default.sh rejects bad desktop ids"
+else
+  echo "ok - skipping set-mime-default.sh"
+fi
+
+if [[ -x scripts/set-snapper-policy.sh ]]; then
+  if bash scripts/set-snapper-policy.sh number-limit 0 >/dev/null 2>&1; then
+    echo "not ok - set-snapper-policy.sh accepted 0"
+    exit 1
+  fi
+  if bash scripts/set-snapper-policy.sh timeline maybe >/dev/null 2>&1; then
+    echo "not ok - set-snapper-policy.sh accepted a junk timeline"
+    exit 1
+  fi
+  echo "ok - set-snapper-policy.sh rejects bad values"
+else
+  echo "ok - skipping set-snapper-policy.sh"
+fi
+
+if [[ -x scripts/set-fstrim.sh ]]; then
+  if bash scripts/set-fstrim.sh maybe >/dev/null 2>&1; then
+    echo "not ok - set-fstrim.sh accepted a junk value"
+    exit 1
+  fi
+  echo "ok - set-fstrim.sh rejects a junk value"
+else
+  echo "ok - skipping set-fstrim.sh"
+fi
+
+if [[ -x scripts/set-sshd.sh ]]; then
+  if bash scripts/set-sshd.sh enable >/dev/null 2>&1; then
+    echo "not ok - set-sshd.sh accepted enable"
+    exit 1
+  fi
+  echo "ok - set-sshd.sh only accepts disable"
+else
+  echo "ok - skipping set-sshd.sh"
+fi
+
+if [[ -x scripts/set-hyprsunset.sh ]] && command -v python3 >/dev/null 2>&1; then
+  sunset_home=$(mktemp -d)
+  if OMARCHY_PREFS_HYPRSUNSET_FILE="$sunset_home/hyprsunset.conf" OMARCHY_PREFS_SKIP_HYPR=1 \
+    bash scripts/set-hyprsunset.sh '{"day":"07:00","night":"25:00","nightOn":true,"temperature":4000}' >/dev/null 2>&1; then
+    echo "not ok - set-hyprsunset.sh accepted a bad night time"
+    rm -rf "$sunset_home"
+    exit 1
+  fi
+  OMARCHY_PREFS_HYPRSUNSET_FILE="$sunset_home/hyprsunset.conf" OMARCHY_PREFS_SKIP_HYPR=1 \
+    bash scripts/set-hyprsunset.sh '{"day":"07:00","night":"20:00","nightOn":true,"temperature":4000}'
+  grep -q 'time = 07:00' "$sunset_home/hyprsunset.conf"
+  grep -q 'temperature = 4000' "$sunset_home/hyprsunset.conf"
+  rm -rf "$sunset_home"
+  echo "ok - set-hyprsunset.sh writes a schedule and rejects a bad time"
+else
+  echo "ok - skipping set-hyprsunset.sh"
+fi
+
+if [[ -x scripts/set-hypr-autostart.sh ]] && command -v python3 >/dev/null 2>&1; then
+  auto_home=$(mktemp -d)
+  cat >"$auto_home/autostart.lua" <<'LUA'
+-- Extra autostart processes.
+o.launch_on_start("waybar")
+LUA
+  OMARCHY_PREFS_AUTOSTART_FILE="$auto_home/autostart.lua" OMARCHY_PREFS_SKIP_HYPR=1 \
+    bash scripts/set-hypr-autostart.sh '{"commands":["hyprsunset"]}'
+  grep -q -- '-- Extra autostart processes.' "$auto_home/autostart.lua"
+  grep -q 'o.launch_on_start("waybar")' "$auto_home/autostart.lua"
+  grep -q -- '-- omarchy-prefs:autostart begin' "$auto_home/autostart.lua"
+  grep -q 'o.launch_on_start("hyprsunset")' "$auto_home/autostart.lua"
+  listed=$(python3 scripts/hypr-sentinel.py autostart list "$auto_home/autostart.lua")
+  echo "$listed" | jq -e 'map(select(.command == "waybar" and .managed == false)) | length == 1' >/dev/null
+  echo "$listed" | jq -e 'map(select(.command == "hyprsunset" and .managed == true)) | length == 1' >/dev/null
+  rm -rf "$auto_home"
+  echo "ok - set-hypr-autostart.sh writes a sentinel and keeps unmanaged lines"
+else
+  echo "ok - skipping set-hypr-autostart.sh"
+fi
+
+if [[ -x scripts/set-hypr-bindings.sh ]] && command -v python3 >/dev/null 2>&1; then
+  bind_home=$(mktemp -d)
+  cat >"$bind_home/bindings.lua" <<'LUA'
+-- Keep only your personal keybinding overrides here.
+o.bind("SUPER + D", "Desks", "omarchy-shell shell toggle com.mdtrr.omadesk")
+LUA
+  OMARCHY_PREFS_BINDINGS_FILE="$bind_home/bindings.lua" OMARCHY_PREFS_SKIP_HYPR=1 \
+    bash scripts/set-hypr-bindings.sh '{"items":[{"keys":"SUPER + F","label":"Files","command":"nautilus","unbind":true}]}'
+  grep -q -- '-- Keep only your personal keybinding overrides here.' "$bind_home/bindings.lua"
+  grep -q 'o.bind("SUPER + D", "Desks"' "$bind_home/bindings.lua"
+  grep -q -- '-- omarchy-prefs:bindings begin' "$bind_home/bindings.lua"
+  grep -q 'hl.unbind("SUPER + F")' "$bind_home/bindings.lua"
+  grep -q 'o.bind("SUPER + F", "Files", "nautilus")' "$bind_home/bindings.lua"
+  listed=$(python3 scripts/hypr-sentinel.py bindings list "$bind_home/bindings.lua")
+  echo "$listed" | jq -e 'map(select(.keys == "SUPER + D" and .managed == false)) | length == 1' >/dev/null
+  echo "$listed" | jq -e 'map(select(.keys == "SUPER + F" and .managed == true and .unbind == true)) | length == 1' >/dev/null
+  rm -rf "$bind_home"
+  echo "ok - set-hypr-bindings.sh writes a sentinel and keeps unmanaged binds"
+else
+  echo "ok - skipping set-hypr-bindings.sh"
+fi
+
+if [[ -x scripts/set-hypr-windows.sh ]] && command -v python3 >/dev/null 2>&1; then
+  win_home=$(mktemp -d)
+  cat >"$win_home/omarchy_prefs.lua" <<'LUA'
+o.window("org.omarchy.prefs", { float = true })
+o.window("org.omarchy.prefs", { center = true })
+LUA
+  cat >"$win_home/hyprland.lua" <<'LUA'
+require("hypr.autostart")
+require("default.hypr.toggles")
+LUA
+  OMARCHY_PREFS_WINDOWS_FILE="$win_home/omarchy_prefs.lua" OMARCHY_PREFS_HYPRLAND_FILE="$win_home/hyprland.lua" OMARCHY_PREFS_SKIP_HYPR=1 \
+    bash scripts/set-hypr-windows.sh '{"items":[{"match":"^Emulator$","placement":"float","center":true,"width":1280,"height":800}]}'
+  grep -q 'o.window("org.omarchy.prefs", { float = true })' "$win_home/omarchy_prefs.lua"
+  grep -q -- '-- omarchy-prefs:windows begin' "$win_home/omarchy_prefs.lua"
+  grep -q 'o.window("^Emulator$", { float = true, center = true, size = { 1280, 800 } })' "$win_home/omarchy_prefs.lua"
+  grep -q 'require("hypr.omarchy_prefs")' "$win_home/hyprland.lua"
+  listed=$(python3 scripts/hypr-sentinel.py windows list "$win_home/omarchy_prefs.lua")
+  echo "$listed" | jq -e 'map(select(.match == "org.omarchy.prefs" and .managed == false)) | length == 2' >/dev/null
+  echo "$listed" | jq -e 'map(select(.match == "^Emulator$" and .managed == true)) | length == 1' >/dev/null
+  rm -rf "$win_home"
+  echo "ok - set-hypr-windows.sh writes a sentinel and ensures the prefs require"
+else
+  echo "ok - skipping set-hypr-windows.sh"
+fi
+
+if [[ -x scripts/list-hooks.py ]] && command -v python3 >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
+  hooks_home=$(mktemp -d)
+  mkdir -p "$hooks_home/.config/omarchy/hooks/theme-set.d"
+  printf '#!/bin/bash\necho "$1"\n' >"$hooks_home/.config/omarchy/hooks/theme-set.d/mine.sh"
+  printf '#!/bin/bash\n' >"$hooks_home/.config/omarchy/hooks/theme-set.d/show.sample"
+  printf '#!/bin/bash\necho flat\n' >"$hooks_home/.config/omarchy/hooks/theme-set"
+  HOME="$hooks_home" python3 scripts/list-hooks.py | jq -e '
+    (map(select(.type == "theme-set" and .name == "mine.sh" and .sample == false and .flat == false)) | length == 1) and
+    (map(select(.name == "show.sample" and .sample == true)) | length == 1) and
+    (map(select(.flat == true and .name == "theme-set")) | length == 1)
+  ' >/dev/null
+  rm -rf "$hooks_home"
+  echo "ok - list-hooks.py lists user hooks, samples, and a flat file"
+else
+  echo "ok - skipping list-hooks.py"
+fi
+
+if [[ -x scripts/create-hook.sh ]]; then
+  if bash scripts/create-hook.sh --bad notify 'echo hi' >/dev/null 2>&1; then
+    echo "not ok - create-hook.sh accepted a flag"
+    exit 1
+  fi
+  if bash scripts/create-hook.sh theme-set 'bad/name' 'echo hi' >/dev/null 2>&1; then
+    echo "not ok - create-hook.sh accepted a slash in the name"
+    exit 1
+  fi
+  if bash scripts/create-hook.sh theme-set keep.sample 'echo hi' >/dev/null 2>&1; then
+    echo "not ok - create-hook.sh accepted a sample name"
+    exit 1
+  fi
+  echo "ok - create-hook.sh rejects a flag, slash, and sample name"
+else
+  echo "ok - skipping create-hook.sh"
+fi
+
+if [[ -x scripts/set-hook-sample.sh ]]; then
+  sample_home=$(mktemp -d)
+  mkdir -p "$sample_home/.config/omarchy/hooks/theme-set.d"
+  printf '#!/bin/bash\n' >"$sample_home/.config/omarchy/hooks/theme-set.d/show.sample"
+  HOME="$sample_home" bash scripts/set-hook-sample.sh enable "$sample_home/.config/omarchy/hooks/theme-set.d/show.sample"
+  [[ -f $sample_home/.config/omarchy/hooks/theme-set.d/show ]]
+  [[ ! -f $sample_home/.config/omarchy/hooks/theme-set.d/show.sample ]]
+  HOME="$sample_home" bash scripts/set-hook-sample.sh disable "$sample_home/.config/omarchy/hooks/theme-set.d/show"
+  [[ -f $sample_home/.config/omarchy/hooks/theme-set.d/show.sample ]]
+  if HOME="$sample_home" bash scripts/set-hook-sample.sh enable /etc/passwd >/dev/null 2>&1; then
+    echo "not ok - set-hook-sample.sh accepted a path outside hooks"
+    rm -rf "$sample_home"
+    exit 1
+  fi
+  rm -rf "$sample_home"
+  echo "ok - set-hook-sample.sh enables and disables a .d script"
+else
+  echo "ok - skipping set-hook-sample.sh"
+fi
+
+if [[ -x scripts/set-dns-custom.sh ]]; then
+  if bash scripts/set-dns-custom.sh --bad >/dev/null 2>&1; then
+    echo "not ok - set-dns-custom.sh accepted a flag"
+    exit 1
+  fi
+  if bash scripts/set-dns-custom.sh not-an-ip >/dev/null 2>&1; then
+    echo "not ok - set-dns-custom.sh accepted a non-address"
+    exit 1
+  fi
+  echo "ok - set-dns-custom.sh rejects bad servers"
+else
+  echo "ok - skipping set-dns-custom.sh"
+fi

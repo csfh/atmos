@@ -1,0 +1,68 @@
+#!/bin/bash
+# Launch or focus the Omarchy preferences window.
+
+set -euo pipefail
+
+ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+PAGE=${1:-}
+
+if ! command -v quickshell >/dev/null 2>&1; then
+  echo "omarchy-prefs: quickshell is not installed" >&2
+  exit 1
+fi
+
+HUB=${PAGE%%/*}
+if [[ -n $PAGE && $HUB != appearance && $HUB != display && $HUB != windows && $HUB != input && $HUB != accessibility && $HUB != sound && $HUB != capture && $HUB != disks && $HUB != bar && $HUB != notifications && $HUB != defaults && $HUB != applications && $HUB != software && $HUB != network && $HUB != power && $HUB != idle && $HUB != security && $HUB != hooks && $HUB != system ]]; then
+  echo "Usage: omarchy-prefs [appearance|display|windows|input|accessibility|sound|capture|disks|bar|notifications|defaults|applications|software|network|power|idle|security|hooks|system][/theme|background|boot|speedtest|wifi|bluetooth|bindings|rules]" >&2
+  exit 1
+fi
+
+prefs_pid() {
+  ps -eo pid=,args= | awk -v root="$ROOT" '
+    $2 == "quickshell" {
+      for (i = 3; i <= NF; i++) if ($i == "-p" && $(i + 1) == root) { print $1; exit }
+    }
+  '
+}
+
+ipc() {
+  quickshell ipc -p "$ROOT" call -- prefs "$@"
+}
+
+focus_existing() {
+  if [[ -n $PAGE ]]; then
+    ipc open "$PAGE"
+  else
+    ipc show
+  fi
+}
+
+if ipc ping >/dev/null 2>&1; then
+  focus_existing
+  exit 0
+fi
+
+# A starting instance has a process before IpcHandler answers. Do not spawn
+# a second engine with the same QS_APP_ID; the portal rejects it.
+if [[ -n $(prefs_pid) ]]; then
+  for _ in 1 2 3 4 5 6 7 8 9 10; do
+    if ipc ping >/dev/null 2>&1; then
+      focus_existing
+      exit 0
+    fi
+    sleep 0.15
+  done
+  echo "omarchy-prefs: a preferences process is running but IPC is not answering" >&2
+  exit 1
+fi
+
+if [[ -n $PAGE ]]; then
+  export OMARCHY_PREFS_PAGE=$PAGE
+fi
+
+export QS_APP_ID=org.omarchy.prefs
+# Qt logs this on every launch when xdg-desktop-portal already has a connection
+# for the desktop file name. It does not stop the window from opening.
+export QT_LOGGING_RULES="${QT_LOGGING_RULES:-qt.qpa.services=false}"
+
+exec quickshell -n -p "$ROOT"

@@ -1,0 +1,166 @@
+import QtQuick
+import "../components"
+import "../services"
+import "../services/Theme.js" as ThemeJs
+
+PrefsPage {
+  id: root
+  title: "Idle and lock"
+  description: "How long the machine waits before the screensaver and lock. You can also keep it awake or change the screensaver logo."
+
+  PrefsGroup {
+    title: "Timings"
+    query: root.query
+    detail: "Screensaver and lock are separate timers in ~/.config/omarchy/shell.json. Zero means that step is off."
+
+    PrefsRow {
+      stretchControl: true
+      label: "Screensaver"
+      description: "How long you can sit still before the screensaver starts. Zero turns that step off."
+      hint: "~/.config/omarchy/shell.json · idle.screensaver"
+      query: root.query
+      keywords: ["idle", "timeout", "sleep"]
+
+      PrefsSlider {
+        width: parent.width
+        from: 0
+        to: 1800
+        stepSize: 60
+        value: Omarchy.idleScreensaver
+        valueText: ThemeJs.formatSeconds(Omarchy.idleScreensaver)
+        formatTick: function(v) { return ThemeJs.formatSeconds(v) }
+        enabled: !Omarchy.busy
+        onChanged: function(value) {
+          var next = Math.round(value)
+          if (next !== Omarchy.idleScreensaver)
+            Omarchy.setIdle(next, Omarchy.idleLock)
+        }
+      }
+    }
+
+    PrefsRow {
+      stretchControl: true
+      label: "Lock"
+      description: "How long you can sit still before the session locks. Zero turns that step off."
+      hint: "~/.config/omarchy/shell.json · idle.lock"
+      query: root.query
+      keywords: ["screen lock", "security"]
+
+      PrefsSlider {
+        width: parent.width
+        from: 0
+        to: 3600
+        stepSize: 60
+        value: Omarchy.idleLock
+        valueText: ThemeJs.formatSeconds(Omarchy.idleLock)
+        formatTick: function(v) { return ThemeJs.formatSeconds(v) }
+        enabled: !Omarchy.busy
+        onChanged: function(value) {
+          var next = Math.round(value)
+          if (next !== Omarchy.idleLock)
+            Omarchy.setIdle(Omarchy.idleScreensaver, next)
+        }
+      }
+    }
+  }
+
+  PrefsGroup {
+    title: "Behavior"
+    query: root.query
+    detail: "Stay awake skips the screensaver and lock timers. Allow screensaver and Allow suspend hide those actions when they are off."
+
+    PrefsRow {
+      label: "Stay awake"
+      description: "Keep the screen on and unlocked while this is on. Handy for a long compile or a movie."
+      hint: "omarchy toggle idle"
+      query: root.query
+      keywords: ["caffeine", "inhibit", "awake", "sleep"]
+
+      PrefsToggle {
+        checked: Omarchy.stayAwake
+        enabled: !Omarchy.busy
+        onToggled: Omarchy.setStayAwake(!Omarchy.stayAwake)
+      }
+    }
+
+    PrefsRow {
+      label: "Allow screensaver"
+      description: "Let the screensaver run after the idle timeout. Off keeps the desktop visible until lock."
+      hint: "omarchy toggle screensaver"
+      query: root.query
+      keywords: ["screensaver", "disable", "tte"]
+
+      PrefsToggle {
+        checked: Omarchy.screensaverEnabled
+        enabled: !Omarchy.busy
+        onToggled: Omarchy.setScreensaverEnabled(!Omarchy.screensaverEnabled)
+      }
+    }
+
+    PrefsRow {
+      label: "Allow suspend"
+      description: "Keep Suspend in the system menu. Off hides that action."
+      hint: "omarchy toggle suspend"
+      query: root.query
+      keywords: ["sleep", "power", "system menu"]
+
+      PrefsToggle {
+        checked: Omarchy.suspendEnabled
+        enabled: !Omarchy.busy
+        onToggled: Omarchy.setSuspendEnabled(!Omarchy.suspendEnabled)
+      }
+    }
+  }
+
+  PrefsGroup {
+    title: "Branding"
+    query: root.query
+    detail: "ASCII art on the screensaver. Image turns a picture into that art. Edit opens the text file if you want to write it yourself. Reset puts the Omarchy logo back."
+
+    PrefsRow {
+      label: "Screensaver logo"
+      description: Omarchy.screensaverBranded
+        ? "You are using custom ASCII art on the screensaver."
+        : "The stock Omarchy logo. Image turns a picture into ASCII. Edit opens the text file."
+      hint: "omarchy branding screensaver"
+      query: root.query
+      keywords: ["ascii", "logo", "branding", "tte"]
+
+      Row {
+        spacing: 8
+        PrefsButton {
+          text: "Image…"
+          enabled: !Omarchy.busy
+          onClicked: Omarchy.setScreensaverBranding("image")
+        }
+        PrefsButton {
+          text: "Edit"
+          enabled: !Omarchy.busy
+          onClicked: Omarchy.setScreensaverBranding("text")
+        }
+        PrefsButton {
+          visible: Omarchy.screensaverBranded
+          text: "Reset"
+          danger: true
+          enabled: !Omarchy.busy && Omarchy.screensaverBranded
+          onClicked: Omarchy.setScreensaverBranding("reset")
+        }
+      }
+    }
+  }
+
+  PrefsGroup {
+    title: "Advanced"
+    query: Omarchy.isLaptop ? root.query : "."
+    detail: "Lid close already locks when the machine is undocked. Omarchy runs that from logind, not from a switch here."
+
+    PrefsRow {
+      available: Omarchy.isLaptop
+      label: "Lid close"
+      description: "Closing the lid locks the session when no external monitor is connected. A docked lid stays unlocked on the other screen."
+      hint: "omarchy-system-lid-close"
+      query: root.query
+      keywords: ["lid", "clamshell", "lock", "close"]
+    }
+  }
+}

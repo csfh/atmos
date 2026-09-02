@@ -251,15 +251,15 @@ if [[ -x scripts/set-hypr-look.sh ]] && command -v python3 >/dev/null 2>&1; then
 -- keep this comment
 hl.config({ general = { gaps_in = 1 } })
 LUA
-  OMARCHY_PREFS_LOOK_FILE="$look_home/looknfeel.lua" OMARCHY_PREFS_SKIP_HYPR=1 \
+  ATMOS_LOOK_FILE="$look_home/looknfeel.lua" ATMOS_SKIP_HYPR=1 \
     bash scripts/set-hypr-look.sh '{"gapsIn":8,"gapsOut":12,"layout":"scrolling"}'
   grep -q -- '-- keep this comment' "$look_home/looknfeel.lua"
-  grep -q -- '-- omarchy-prefs:look begin' "$look_home/looknfeel.lua"
+  grep -q -- '-- atmos:look begin' "$look_home/looknfeel.lua"
   grep -q 'gaps_in = 8' "$look_home/looknfeel.lua"
   grep -q 'layout = "scrolling"' "$look_home/looknfeel.lua"
-  OMARCHY_PREFS_LOOK_FILE="$look_home/looknfeel.lua" OMARCHY_PREFS_SKIP_HYPR=1 \
+  ATMOS_LOOK_FILE="$look_home/looknfeel.lua" ATMOS_SKIP_HYPR=1 \
     bash scripts/set-hypr-look.sh --reset
-  if grep -q -- '-- omarchy-prefs:look begin' "$look_home/looknfeel.lua"; then
+  if grep -q -- '-- atmos:look begin' "$look_home/looknfeel.lua"; then
     echo "not ok - set-hypr-look.sh --reset left the look block"
     rm -rf "$look_home"
     exit 1
@@ -276,13 +276,13 @@ if [[ -x scripts/set-hypr-input.sh ]] && command -v python3 >/dev/null 2>&1; the
   cat >"$input_home/input.lua" <<'LUA'
 -- user note
 LUA
-  OMARCHY_PREFS_INPUT_FILE="$input_home/input.lua" OMARCHY_PREFS_SKIP_HYPR=1 \
+  ATMOS_INPUT_FILE="$input_home/input.lua" ATMOS_SKIP_HYPR=1 \
     bash scripts/set-hypr-input.sh '{"sensitivity":-0.5,"accelProfile":"flat","naturalScroll":true}'
   grep -q -- '-- user note' "$input_home/input.lua"
   grep -q 'sensitivity = -0.5' "$input_home/input.lua"
   grep -q 'accel_profile = "flat"' "$input_home/input.lua"
   grep -q 'natural_scroll = true' "$input_home/input.lua"
-  if OMARCHY_PREFS_INPUT_FILE="$input_home/input.lua" OMARCHY_PREFS_SKIP_HYPR=1 \
+  if ATMOS_INPUT_FILE="$input_home/input.lua" ATMOS_SKIP_HYPR=1 \
     bash scripts/set-hypr-input.sh --bad >/dev/null 2>&1; then
     echo "not ok - set-hypr-input.sh accepted a bad flag"
     rm -rf "$input_home"
@@ -358,13 +358,13 @@ fi
 
 if [[ -x scripts/set-hyprsunset.sh ]] && command -v python3 >/dev/null 2>&1; then
   sunset_home=$(mktemp -d)
-  if OMARCHY_PREFS_HYPRSUNSET_FILE="$sunset_home/hyprsunset.conf" OMARCHY_PREFS_SKIP_HYPR=1 \
+  if ATMOS_HYPRSUNSET_FILE="$sunset_home/hyprsunset.conf" ATMOS_SKIP_HYPR=1 \
     bash scripts/set-hyprsunset.sh '{"day":"07:00","night":"25:00","nightOn":true,"temperature":4000}' >/dev/null 2>&1; then
     echo "not ok - set-hyprsunset.sh accepted a bad night time"
     rm -rf "$sunset_home"
     exit 1
   fi
-  OMARCHY_PREFS_HYPRSUNSET_FILE="$sunset_home/hyprsunset.conf" OMARCHY_PREFS_SKIP_HYPR=1 \
+  ATMOS_HYPRSUNSET_FILE="$sunset_home/hyprsunset.conf" ATMOS_SKIP_HYPR=1 \
     bash scripts/set-hyprsunset.sh '{"day":"07:00","night":"20:00","nightOn":true,"temperature":4000}'
   grep -q 'time = 07:00' "$sunset_home/hyprsunset.conf"
   grep -q 'temperature = 4000' "$sunset_home/hyprsunset.conf"
@@ -380,11 +380,11 @@ if [[ -x scripts/set-hypr-autostart.sh ]] && command -v python3 >/dev/null 2>&1;
 -- Extra autostart processes.
 o.launch_on_start("waybar")
 LUA
-  OMARCHY_PREFS_AUTOSTART_FILE="$auto_home/autostart.lua" OMARCHY_PREFS_SKIP_HYPR=1 \
+  ATMOS_AUTOSTART_FILE="$auto_home/autostart.lua" ATMOS_SKIP_HYPR=1 \
     bash scripts/set-hypr-autostart.sh '{"commands":["hyprsunset"]}'
   grep -q -- '-- Extra autostart processes.' "$auto_home/autostart.lua"
   grep -q 'o.launch_on_start("waybar")' "$auto_home/autostart.lua"
-  grep -q -- '-- omarchy-prefs:autostart begin' "$auto_home/autostart.lua"
+  grep -q -- '-- atmos:autostart begin' "$auto_home/autostart.lua"
   grep -q 'o.launch_on_start("hyprsunset")' "$auto_home/autostart.lua"
   listed=$(python3 scripts/hypr-sentinel.py autostart list "$auto_home/autostart.lua")
   echo "$listed" | jq -e 'map(select(.command == "waybar" and .managed == false)) | length == 1' >/dev/null
@@ -401,11 +401,11 @@ if [[ -x scripts/set-hypr-bindings.sh ]] && command -v python3 >/dev/null 2>&1; 
 -- Keep only your personal keybinding overrides here.
 o.bind("SUPER + D", "Desks", "omarchy-shell shell toggle com.mdtrr.omadesk")
 LUA
-  OMARCHY_PREFS_BINDINGS_FILE="$bind_home/bindings.lua" OMARCHY_PREFS_SKIP_HYPR=1 \
+  ATMOS_BINDINGS_FILE="$bind_home/bindings.lua" ATMOS_SKIP_HYPR=1 \
     bash scripts/set-hypr-bindings.sh '{"items":[{"keys":"SUPER + F","label":"Files","command":"nautilus","unbind":true}]}'
   grep -q -- '-- Keep only your personal keybinding overrides here.' "$bind_home/bindings.lua"
   grep -q 'o.bind("SUPER + D", "Desks"' "$bind_home/bindings.lua"
-  grep -q -- '-- omarchy-prefs:bindings begin' "$bind_home/bindings.lua"
+  grep -q -- '-- atmos:bindings begin' "$bind_home/bindings.lua"
   grep -q 'hl.unbind("SUPER + F")' "$bind_home/bindings.lua"
   grep -q 'o.bind("SUPER + F", "Files", "nautilus")' "$bind_home/bindings.lua"
   listed=$(python3 scripts/hypr-sentinel.py bindings list "$bind_home/bindings.lua")
@@ -419,22 +419,22 @@ fi
 
 if [[ -x scripts/set-hypr-windows.sh ]] && command -v python3 >/dev/null 2>&1; then
   win_home=$(mktemp -d)
-  cat >"$win_home/omarchy_prefs.lua" <<'LUA'
-o.window("org.omarchy.prefs", { float = true })
-o.window("org.omarchy.prefs", { center = true })
+  cat >"$win_home/atmos.lua" <<'LUA'
+o.window("dev.csfh.atmos", { float = true })
+o.window("dev.csfh.atmos", { center = true })
 LUA
   cat >"$win_home/hyprland.lua" <<'LUA'
 require("hypr.autostart")
 require("default.hypr.toggles")
 LUA
-  OMARCHY_PREFS_WINDOWS_FILE="$win_home/omarchy_prefs.lua" OMARCHY_PREFS_HYPRLAND_FILE="$win_home/hyprland.lua" OMARCHY_PREFS_SKIP_HYPR=1 \
+  ATMOS_WINDOWS_FILE="$win_home/atmos.lua" ATMOS_HYPRLAND_FILE="$win_home/hyprland.lua" ATMOS_SKIP_HYPR=1 \
     bash scripts/set-hypr-windows.sh '{"items":[{"match":"^Emulator$","placement":"float","center":true,"width":1280,"height":800}]}'
-  grep -q 'o.window("org.omarchy.prefs", { float = true })' "$win_home/omarchy_prefs.lua"
-  grep -q -- '-- omarchy-prefs:windows begin' "$win_home/omarchy_prefs.lua"
-  grep -q 'o.window("^Emulator$", { float = true, center = true, size = { 1280, 800 } })' "$win_home/omarchy_prefs.lua"
-  grep -q 'require("hypr.omarchy_prefs")' "$win_home/hyprland.lua"
-  listed=$(python3 scripts/hypr-sentinel.py windows list "$win_home/omarchy_prefs.lua")
-  echo "$listed" | jq -e 'map(select(.match == "org.omarchy.prefs" and .managed == false)) | length == 2' >/dev/null
+  grep -q 'o.window("dev.csfh.atmos", { float = true })' "$win_home/atmos.lua"
+  grep -q -- '-- atmos:windows begin' "$win_home/atmos.lua"
+  grep -q 'o.window("^Emulator$", { float = true, center = true, size = { 1280, 800 } })' "$win_home/atmos.lua"
+  grep -q 'require("hypr.atmos")' "$win_home/hyprland.lua"
+  listed=$(python3 scripts/hypr-sentinel.py windows list "$win_home/atmos.lua")
+  echo "$listed" | jq -e 'map(select(.match == "dev.csfh.atmos" and .managed == false)) | length == 2' >/dev/null
   echo "$listed" | jq -e 'map(select(.match == "^Emulator$" and .managed == true)) | length == 1' >/dev/null
   rm -rf "$win_home"
   echo "ok - set-hypr-windows.sh writes a sentinel and ensures the prefs require"

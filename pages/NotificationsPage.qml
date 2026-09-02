@@ -37,7 +37,7 @@ PrefsPage {
 
     PrefsRow {
       label: "Test toast"
-      description: "Send a sample notification from Preferences."
+      description: "Send a sample notification from Atmos."
       hint: "omarchy notification send"
       query: root.query
       keywords: ["test", "toast", "notify", "send"]

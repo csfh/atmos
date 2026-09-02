@@ -1,7 +1,7 @@
 // Managed o.bind / hl.unbind lines in ~/.config/hypr/bindings.lua.
 
-var BEGIN = "-- omarchy-prefs:bindings begin"
-var END = "-- omarchy-prefs:bindings end"
+var BEGIN = "-- atmos:bindings begin"
+var END = "-- atmos:bindings end"
 
 function luaString(v) {
   return '"' + String(v).replace(/\\/g, "\\\\").replace(/"/g, '\\"') + '"'

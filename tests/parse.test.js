@@ -352,7 +352,7 @@ const lookLua = hypr.serializeLook({
   allowTearing: true,
   resizeOnBorder: false
 })
-assert(lookLua.indexOf('-- omarchy-prefs:look begin') === 0, 'serializeLook starts with the look sentinel')
+assert(lookLua.indexOf('-- atmos:look begin') === 0, 'serializeLook starts with the look sentinel')
 assert(lookLua.indexOf('gaps_in = 8') !== -1, 'serializeLook writes gaps_in')
 assert(lookLua.indexOf('layout = "scrolling"') !== -1, 'serializeLook writes scrolling')
 assert(lookLua.indexOf('column_width = 0.97') !== -1, 'serializeLook writes column width')
@@ -377,13 +377,13 @@ assert(applied.indexOf('hl.config({ general = { gaps_in = 1 } })') !== -1, 'appl
 assert(hypr.hasSentinel(applied, hypr.LOOK_BEGIN, hypr.LOOK_END), 'applyLookFile inserts the look sentinel')
 const twice = hypr.applyLookFile(applied, { gapsIn: 9, gapsOut: 8 })
 assertEqual(
-  (twice.match(/-- omarchy-prefs:look begin/g) || []).length,
+  (twice.match(/-- atmos:look begin/g) || []).length,
   1,
   'applyLookFile replaces an existing look block'
 )
 assert(twice.indexOf('gaps_in = 9') !== -1, 'applyLookFile updates gaps')
 const resetLook = hypr.resetLookFile(twice)
-assert(resetLook.indexOf('-- omarchy-prefs:look begin') === -1, 'resetLookFile strips the look block')
+assert(resetLook.indexOf('-- atmos:look begin') === -1, 'resetLookFile strips the look block')
 assert(resetLook.indexOf('-- keep this comment') !== -1, 'resetLookFile keeps user comments')
 
 const inputLua = hypr.serializeInput({
@@ -491,19 +491,19 @@ const rules = load('services/WindowRules.js')
 assertEqual(rules.sanitizeMatch('firefox'), 'firefox', 'sanitizeMatch keeps a class')
 assertEqual(rules.sanitizeMatch('bad]]class'), '', 'sanitizeMatch rejects ]]')
 assertEqual(rules.sanitizeWorkspace('../etc'), '', 'sanitizeWorkspace rejects a path')
-const ruleSeed = 'o.window("org.omarchy.prefs", { float = true })\no.window("org.omarchy.prefs", { center = true })\n'
+const ruleSeed = 'o.window("dev.csfh.atmos", { float = true })\no.window("dev.csfh.atmos", { center = true })\n'
 const ruleApplied = rules.applyFile(ruleSeed, [
   { match: '^Emulator$', placement: 'float', center: true, width: 1280, height: 800 },
   { match: 'qemu', workspace: '5' }
 ])
-assert(ruleApplied.indexOf('o.window("org.omarchy.prefs", { float = true })') !== -1, 'applyFile keeps prefs window rules')
+assert(ruleApplied.indexOf('o.window("dev.csfh.atmos", { float = true })') !== -1, 'applyFile keeps prefs window rules')
 assert(ruleApplied.indexOf('o.window("^Emulator$", { float = true, center = true, size = { 1280, 800 } })') !== -1, 'applyFile writes a managed window rule')
 assert(ruleApplied.indexOf('o.window("qemu", { workspace = "5" })') !== -1, 'applyFile writes a workspace rule')
 const ruleParsed = rules.parseFile(ruleApplied)
 assertEqual(ruleParsed.filter(function(row) { return row.managed }).length, 2, 'parseFile marks managed window rules')
-assertEqual(ruleParsed.filter(function(row) { return !row.managed && row.match === 'org.omarchy.prefs' }).length, 2, 'parseFile keeps the prefs window rules')
+assertEqual(ruleParsed.filter(function(row) { return !row.managed && row.match === 'dev.csfh.atmos' }).length, 2, 'parseFile keeps the prefs window rules')
 const required = rules.ensureRequire('require("hypr.autostart")\nrequire("default.hypr.toggles")\n')
-assert(required.indexOf('require("hypr.omarchy_prefs")\nrequire("default.hypr.toggles")') !== -1, 'ensureRequire inserts before toggles')
+assert(required.indexOf('require("hypr.atmos")\nrequire("default.hypr.toggles")') !== -1, 'ensureRequire inserts before toggles')
 assertEqual(rules.ensureRequire(''), '', 'ensureRequire leaves an empty hyprland.lua alone')
 assertEqual(rules.describe({ placement: 'float', center: true }).indexOf('float') !== -1, true, 'describe names float')
 

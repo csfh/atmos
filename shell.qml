@@ -9,7 +9,7 @@ import "pages"
 ShellRoot {
   id: root
 
-  property string launchPath: Quickshell.env("OMARCHY_PREFS_PAGE") || "appearance"
+  property string launchPath: Quickshell.env("ATMOS_PAGE") || "appearance"
   property string currentPage: "appearance"
   property string query: ""
 
@@ -171,7 +171,7 @@ ShellRoot {
 
   FloatingWindow {
     id: window
-    title: "Omarchy Preferences"
+    title: "Atmos"
     color: Theme.background
     implicitWidth: 960
     implicitHeight: 680
@@ -197,7 +197,7 @@ ShellRoot {
           anchors.left: parent.left
           anchors.right: parent.right
           anchors.top: parent.top
-          text: "Preferences"
+          text: "Atmos"
           color: Theme.foreground
           font.family: Theme.fontFamily
           font.pixelSize: Theme.titleSize

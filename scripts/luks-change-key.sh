@@ -29,8 +29,8 @@ if [[ $found != true ]]; then
   exit 1
 fi
 
-oldf=$(mktemp /dev/shm/omarchy-prefs-luks-XXXXXX)
-newf=$(mktemp /dev/shm/omarchy-prefs-luks-XXXXXX)
+oldf=$(mktemp /dev/shm/atmos-luks-XXXXXX)
+newf=$(mktemp /dev/shm/atmos-luks-XXXXXX)
 cleanup() {
   rm -f "$oldf" "$newf"
 }

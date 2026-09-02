@@ -77,7 +77,7 @@ function parseConf(text) {
 function serializeConf(raw) {
   var s = clampSchedule(raw)
   var lines = [
-    "# Written by omarchy-prefs. Day leaves the screen untinted.",
+    "# Written by atmos. Day leaves the screen untinted.",
     "profile {",
     "    time = " + s.day,
     "    identity = true",

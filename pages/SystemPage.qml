@@ -52,7 +52,7 @@ PrefsPage {
   PrefsConfirm {
     id: refreshHyprConfirm
     title: "Restore Hyprland defaults"
-    message: "Replace the Hyprland Lua files in ~/.config/hypr with the shipped Omarchy copies. Your current files are backed up first. The Preferences drop-in require is written back so this window still floats."
+    message: "Replace the Hyprland Lua files in ~/.config/hypr with the shipped Omarchy copies. Your current files are backed up first. The Atmos drop-in require is written back so this window still floats."
     confirmText: "Restore"
     onConfirmed: Omarchy.refreshHyprland()
   }

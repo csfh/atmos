@@ -915,15 +915,15 @@ hypr_input_json=$(jq -n \
 [[ -n $hypr_input_json ]] || hypr_input_json='{}'
 
 hypr_look_managed=false
-if [[ -f $HOME/.config/hypr/looknfeel.lua ]] && grep -q -- '-- omarchy-prefs:look begin' "$HOME/.config/hypr/looknfeel.lua"; then
+if [[ -f $HOME/.config/hypr/looknfeel.lua ]] && grep -q -- '-- atmos:look begin' "$HOME/.config/hypr/looknfeel.lua"; then
   hypr_look_managed=true
 fi
 hypr_input_managed=false
-if [[ -f $HOME/.config/hypr/input.lua ]] && grep -q -- '-- omarchy-prefs:input begin' "$HOME/.config/hypr/input.lua"; then
+if [[ -f $HOME/.config/hypr/input.lua ]] && grep -q -- '-- atmos:input begin' "$HOME/.config/hypr/input.lua"; then
   hypr_input_managed=true
 fi
 hypr_workspace_gesture=false
-if [[ -f $HOME/.config/hypr/input.lua ]] && grep -q -- '-- omarchy-prefs:input begin' "$HOME/.config/hypr/input.lua" && grep -q 'action = "workspace"' "$HOME/.config/hypr/input.lua"; then
+if [[ -f $HOME/.config/hypr/input.lua ]] && grep -q -- '-- atmos:input begin' "$HOME/.config/hypr/input.lua" && grep -q 'action = "workspace"' "$HOME/.config/hypr/input.lua"; then
   hypr_workspace_gesture=true
 fi
 
@@ -1166,36 +1166,36 @@ if present python3; then
 fi
 [[ -n $hooks_json ]] || hooks_json='[]'
 
-autostart_file=${OMARCHY_PREFS_AUTOSTART_FILE:-"$HOME/.config/hypr/autostart.lua"}
+autostart_file=${ATMOS_AUTOSTART_FILE:-"$HOME/.config/hypr/autostart.lua"}
 autostart_json='[]'
 autostart_managed=false
 if present python3; then
   autostart_json=$(python3 "$SNAP_DIR/hypr-sentinel.py" autostart list "$autostart_file" 2>/dev/null || echo '[]')
 fi
 [[ -n $autostart_json ]] || autostart_json='[]'
-if [[ -f $autostart_file ]] && grep -q -- '-- omarchy-prefs:autostart begin' "$autostart_file"; then
+if [[ -f $autostart_file ]] && grep -q -- '-- atmos:autostart begin' "$autostart_file"; then
   autostart_managed=true
 fi
 
-bindings_file=${OMARCHY_PREFS_BINDINGS_FILE:-"$HOME/.config/hypr/bindings.lua"}
+bindings_file=${ATMOS_BINDINGS_FILE:-"$HOME/.config/hypr/bindings.lua"}
 bindings_json='[]'
 bindings_managed=false
 if present python3; then
   bindings_json=$(python3 "$SNAP_DIR/hypr-sentinel.py" bindings list "$bindings_file" 2>/dev/null || echo '[]')
 fi
 [[ -n $bindings_json ]] || bindings_json='[]'
-if [[ -f $bindings_file ]] && grep -q -- '-- omarchy-prefs:bindings begin' "$bindings_file"; then
+if [[ -f $bindings_file ]] && grep -q -- '-- atmos:bindings begin' "$bindings_file"; then
   bindings_managed=true
 fi
 
-windows_file=${OMARCHY_PREFS_WINDOWS_FILE:-"$HOME/.config/hypr/omarchy_prefs.lua"}
+windows_file=${ATMOS_WINDOWS_FILE:-"$HOME/.config/hypr/atmos.lua"}
 window_rules_json='[]'
 window_rules_managed=false
 if present python3; then
   window_rules_json=$(python3 "$SNAP_DIR/hypr-sentinel.py" windows list "$windows_file" 2>/dev/null || echo '[]')
 fi
 [[ -n $window_rules_json ]] || window_rules_json='[]'
-if [[ -f $windows_file ]] && grep -q -- '-- omarchy-prefs:windows begin' "$windows_file"; then
+if [[ -f $windows_file ]] && grep -q -- '-- atmos:windows begin' "$windows_file"; then
   window_rules_managed=true
 fi
 
@@ -1240,7 +1240,7 @@ if present system-config-printer; then
   printer_setup=true
 fi
 
-hyprsunset_file=${OMARCHY_PREFS_HYPRSUNSET_FILE:-"$HOME/.config/hypr/hyprsunset.conf"}
+hyprsunset_file=${ATMOS_HYPRSUNSET_FILE:-"$HOME/.config/hypr/hyprsunset.conf"}
 nightlight_day=07:00
 nightlight_night=20:00
 nightlight_night_on=false

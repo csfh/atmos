@@ -215,7 +215,7 @@ PrefsPage {
     PrefsRow {
       available: Omarchy.hyprInputManaged
       label: "Reset input"
-      description: "Remove the block Preferences wrote. Hyprland goes back to the rest of input.lua and the Omarchy defaults."
+      description: "Remove the block Atmos wrote. Hyprland goes back to the rest of input.lua and the Omarchy defaults."
       hint: "~/.config/hypr/input.lua"
       query: root.query
       keywords: ["reset", "default", "input"]

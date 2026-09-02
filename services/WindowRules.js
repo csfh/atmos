@@ -1,9 +1,10 @@
-// Managed o.window() lines in ~/.config/hypr/omarchy_prefs.lua.
+// Managed o.window() lines in ~/.config/hypr/atmos.lua.
 
-var BEGIN = "-- omarchy-prefs:windows begin"
-var END = "-- omarchy-prefs:windows end"
-var REQUIRE_LINE = 'require("hypr.omarchy_prefs")'
+var BEGIN = "-- atmos:windows begin"
+var END = "-- atmos:windows end"
+var REQUIRE_LINE = 'require("hypr.atmos")'
 var TOGGLES = 'require("default.hypr.toggles")'
+var WINDOW_CLASS = "dev.csfh.atmos"
 
 function luaString(v) {
   return '"' + String(v).replace(/\\/g, "\\\\").replace(/"/g, '\\"') + '"'
@@ -288,7 +289,7 @@ function managedItems(items) {
 
 function ensureRequire(text) {
   var src = String(text || "")
-  if (src.indexOf("hypr.omarchy_prefs") !== -1) return src
+  if (src.indexOf("hypr.atmos") !== -1) return src
   var trimmed = src.replace(/^\s+|\s+$/g, "")
   if (!trimmed) return src
   var at = src.indexOf(TOGGLES)
@@ -298,10 +299,10 @@ function ensureRequire(text) {
 
 function prefsSeed() {
   return [
-    "-- Float and center the standalone Omarchy preferences window.",
-    'o.window("org.omarchy.prefs", { float = true })',
-    'o.window("org.omarchy.prefs", { center = true })',
-    'o.window("org.omarchy.prefs", { size = { 960, 680 } })'
+    "-- Float and center the Atmos window.",
+    'o.window("' + WINDOW_CLASS + '", { float = true })',
+    'o.window("' + WINDOW_CLASS + '", { center = true })',
+    'o.window("' + WINDOW_CLASS + '", { size = { 960, 680 } })'
   ].join("\n")
 }
 

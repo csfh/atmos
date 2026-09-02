@@ -6,7 +6,7 @@ import "../../services/WindowRules.js" as RuleJs
 PrefsPage {
   id: root
   title: "Window rules"
-  description: "These write a managed block at the end of ~/.config/hypr/omarchy_prefs.lua. The Preferences window rules stay above that block. Lines in hyprland.lua stay there too."
+  description: "These write a managed block at the end of ~/.config/hypr/atmos.lua. The Atmos window rules stay above that block. Lines in hyprland.lua stay there too."
 
   property string matchDraft: ""
   property string placementDraft: "float"
@@ -29,7 +29,7 @@ PrefsPage {
     for (var i = 0; i < list.length; i++) {
       var row = list[i]
       if (!row || !row.match) continue
-      if (row.managed !== true && row.match === "org.omarchy.prefs") continue
+      if (row.managed !== true && row.match === "dev.csfh.atmos") continue
       out.push(row)
     }
     return out
@@ -89,12 +89,12 @@ PrefsPage {
     title: "Your rules"
     query: root.query
     detail: "Match is a window class, or a regex Hyprland applies to class. Use focused copies the class of the window that is focused right now."
-    hint: "~/.config/hypr/omarchy_prefs.lua"
+    hint: "~/.config/hypr/atmos.lua"
 
     PrefsRow {
       label: "Add a rule"
       description: "Float, tile, center, size, or pin a class to a workspace."
-      hint: "~/.config/hypr/omarchy_prefs.lua"
+      hint: "~/.config/hypr/atmos.lua"
       query: root.query
       keywords: ["window", "rule", "float", "tile", "class"]
 
@@ -110,7 +110,7 @@ PrefsPage {
       available: root.ruleRows.length === 0
       sectionHelp: false
       label: "None yet"
-      description: "No personal o.window lines in the Preferences block."
+      description: "No personal o.window lines in the Atmos block."
       query: root.query
       keywords: ["empty", "rules"]
     }
@@ -123,7 +123,7 @@ PrefsPage {
         sectionHelp: false
         label: modelData && modelData.match ? modelData.match : "class"
         description: RuleJs.describe(modelData) || "A window rule."
-        hint: "~/.config/hypr/omarchy_prefs.lua"
+        hint: "~/.config/hypr/atmos.lua"
         query: root.query
         keywords: ["window", "rule", "float"]
 
@@ -258,7 +258,7 @@ PrefsPage {
   PrefsConfirm {
     id: removeConfirm
     title: "Remove window rule"
-    message: "Remove the Preferences rule for " + root.pendingMatch + "?"
+    message: "Remove the Atmos rule for " + root.pendingMatch + "?"
     confirmText: "Remove"
     onConfirmed: Omarchy.removeWindowRule(root.pendingMatch)
   }

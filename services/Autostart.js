@@ -1,7 +1,7 @@
 // Managed o.launch_on_start() lines in ~/.config/hypr/autostart.lua.
 
-var BEGIN = "-- omarchy-prefs:autostart begin"
-var END = "-- omarchy-prefs:autostart end"
+var BEGIN = "-- atmos:autostart begin"
+var END = "-- atmos:autostart end"
 
 function luaString(v) {
   return '"' + String(v).replace(/\\/g, "\\\\").replace(/"/g, '\\"') + '"'

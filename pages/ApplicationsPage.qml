@@ -369,7 +369,7 @@ PrefsPage {
   PrefsGroup {
     title: "Advanced"
     query: root.query
-    detail: "Autostart writes a managed block at the end of ~/.config/hypr/autostart.lua. Lines you typed yourself stay. Remove only deletes a line Preferences added."
+    detail: "Autostart writes a managed block at the end of ~/.config/hypr/autostart.lua. Lines you typed yourself stay. Remove only deletes a line Atmos added."
     hint: "~/.config/hypr/autostart.lua"
 
     PrefsRow {
@@ -417,8 +417,8 @@ PrefsPage {
         sectionHelp: false
         label: modelData && modelData.command ? modelData.command : "command"
         description: modelData && modelData.managed
-          ? "Preferences wrote this line."
-          : "This line is outside the Preferences block, so Remove stays off."
+          ? "Atmos wrote this line."
+          : "This line is outside the Atmos block, so Remove stays off."
         hint: "~/.config/hypr/autostart.lua"
         query: root.query
         keywords: ["autostart", "startup"]

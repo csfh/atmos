@@ -1,10 +1,10 @@
 // Managed Hyprland look/input blocks in ~/.config/hypr/{looknfeel,input}.lua.
 // Prefs writes only the sentinel region. The rest of the user file stays.
 
-var LOOK_BEGIN = "-- omarchy-prefs:look begin"
-var LOOK_END = "-- omarchy-prefs:look end"
-var INPUT_BEGIN = "-- omarchy-prefs:input begin"
-var INPUT_END = "-- omarchy-prefs:input end"
+var LOOK_BEGIN = "-- atmos:look begin"
+var LOOK_END = "-- atmos:look end"
+var INPUT_BEGIN = "-- atmos:input begin"
+var INPUT_END = "-- atmos:input end"
 
 function defaultLook() {
   return {

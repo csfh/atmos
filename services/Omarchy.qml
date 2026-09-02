@@ -1835,7 +1835,7 @@ QtObject {
   }
 
   function sendTestNotification() {
-    runCommand(["omarchy", "notification", "send", "Preferences", "This is a test toast."])
+    runCommand(["omarchy", "notification", "send", "Atmos", "This is a test toast."])
   }
   function sendTimeNotification() {
     runCommand(["omarchy", "notification", "time"])

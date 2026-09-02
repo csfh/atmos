@@ -1,0 +1,12 @@
+[Desktop Entry]
+Name=Atmos
+Comment=Preferences for Omarchy: themes, the bar, network, power, and the rest of this machine
+Exec=atmos
+TryExec=atmos
+Icon=preferences-system
+Terminal=false
+Type=Application
+Categories=Settings;DesktopSettings;
+Keywords=atmos;omarchy;settings;preferences;theme;font;bar;
+StartupNotify=true
+StartupWMClass=dev.csfh.atmos

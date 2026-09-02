@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Apply or strip omarchy-prefs sentinel blocks in Hyprland Lua files."""
+"""Apply or strip Atmos sentinel blocks in Hyprland Lua files."""
 
 from __future__ import annotations
 
@@ -8,24 +8,25 @@ import re
 import sys
 from pathlib import Path
 
-LOOK_BEGIN = "-- omarchy-prefs:look begin"
-LOOK_END = "-- omarchy-prefs:look end"
-INPUT_BEGIN = "-- omarchy-prefs:input begin"
-INPUT_END = "-- omarchy-prefs:input end"
-AUTOSTART_BEGIN = "-- omarchy-prefs:autostart begin"
-AUTOSTART_END = "-- omarchy-prefs:autostart end"
-BINDINGS_BEGIN = "-- omarchy-prefs:bindings begin"
-BINDINGS_END = "-- omarchy-prefs:bindings end"
-WINDOWS_BEGIN = "-- omarchy-prefs:windows begin"
-WINDOWS_END = "-- omarchy-prefs:windows end"
-REQUIRE_LINE = 'require("hypr.omarchy_prefs")'
+LOOK_BEGIN = "-- atmos:look begin"
+LOOK_END = "-- atmos:look end"
+INPUT_BEGIN = "-- atmos:input begin"
+INPUT_END = "-- atmos:input end"
+AUTOSTART_BEGIN = "-- atmos:autostart begin"
+AUTOSTART_END = "-- atmos:autostart end"
+BINDINGS_BEGIN = "-- atmos:bindings begin"
+BINDINGS_END = "-- atmos:bindings end"
+WINDOWS_BEGIN = "-- atmos:windows begin"
+WINDOWS_END = "-- atmos:windows end"
+REQUIRE_LINE = 'require("hypr.atmos")'
 TOGGLES_LINE = 'require("default.hypr.toggles")'
+WINDOW_CLASS = "dev.csfh.atmos"
 PREFS_WINDOW_SEED = "\n".join(
     [
-        "-- Float and center the standalone Omarchy preferences window.",
-        'o.window("org.omarchy.prefs", { float = true })',
-        'o.window("org.omarchy.prefs", { center = true })',
-        'o.window("org.omarchy.prefs", { size = { 960, 680 } })',
+        "-- Float and center the Atmos window.",
+        f'o.window("{WINDOW_CLASS}", {{ float = true }})',
+        f'o.window("{WINDOW_CLASS}", {{ center = true }})',
+        f'o.window("{WINDOW_CLASS}", {{ size = {{ 960, 680 }} }})',
     ]
 )
 
@@ -730,8 +731,8 @@ def serialize_windows(raw: dict) -> str:
     return "\n".join(lines)
 
 
-def ensure_omarchy_prefs_require(text: str) -> str:
-    if "hypr.omarchy_prefs" in text:
+def ensure_atmos_require(text: str) -> str:
+    if "hypr.atmos" in text:
         return text
     if not text.strip():
         return text
@@ -784,7 +785,7 @@ def main() -> int:
         text = dest.read_text()
         if not text.strip():
             return 0
-        updated = ensure_omarchy_prefs_require(text)
+        updated = ensure_atmos_require(text)
         dest.write_text(updated if updated.endswith("\n") or not updated else updated + "\n")
         return 0
     if action == "list":

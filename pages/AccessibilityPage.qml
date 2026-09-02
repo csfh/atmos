@@ -170,7 +170,7 @@ PrefsPage {
       available: !(Omarchy.extras && Omarchy.extras.herdr === true)
       sectionHelp: false
       label: "Herdr"
-      description: "Herdr is not installed, so Preferences has nothing to open."
+      description: "Herdr is not installed, so Atmos has nothing to open."
       query: root.query
       keywords: ["herdr", "screen reader"]
     }

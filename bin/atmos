@@ -1,5 +1,5 @@
 #!/bin/bash
-# Launch or focus the Omarchy preferences window.
+# Launch or focus the Atmos window.
 
 set -euo pipefail
 
@@ -7,13 +7,13 @@ ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 PAGE=${1:-}
 
 if ! command -v quickshell >/dev/null 2>&1; then
-  echo "omarchy-prefs: quickshell is not installed" >&2
+  echo "atmos: quickshell is not installed" >&2
   exit 1
 fi
 
 HUB=${PAGE%%/*}
 if [[ -n $PAGE && $HUB != appearance && $HUB != display && $HUB != windows && $HUB != input && $HUB != accessibility && $HUB != sound && $HUB != capture && $HUB != disks && $HUB != bar && $HUB != notifications && $HUB != defaults && $HUB != applications && $HUB != software && $HUB != network && $HUB != power && $HUB != idle && $HUB != security && $HUB != hooks && $HUB != system ]]; then
-  echo "Usage: omarchy-prefs [appearance|display|windows|input|accessibility|sound|capture|disks|bar|notifications|defaults|applications|software|network|power|idle|security|hooks|system][/theme|background|boot|speedtest|wifi|bluetooth|bindings|rules]" >&2
+  echo "Usage: atmos [appearance|display|windows|input|accessibility|sound|capture|disks|bar|notifications|defaults|applications|software|network|power|idle|security|hooks|system][/theme|background|boot|speedtest|wifi|bluetooth|bindings|rules]" >&2
   exit 1
 fi
 
@@ -52,15 +52,15 @@ if [[ -n $(prefs_pid) ]]; then
     fi
     sleep 0.15
   done
-  echo "omarchy-prefs: a preferences process is running but IPC is not answering" >&2
+  echo "atmos: a preferences process is running but IPC is not answering" >&2
   exit 1
 fi
 
 if [[ -n $PAGE ]]; then
-  export OMARCHY_PREFS_PAGE=$PAGE
+  export ATMOS_PAGE=$PAGE
 fi
 
-export QS_APP_ID=org.omarchy.prefs
+export QS_APP_ID=dev.csfh.atmos
 # Qt logs this on every launch when xdg-desktop-portal already has a connection
 # for the desktop file name. It does not stop the window from opening.
 export QT_LOGGING_RULES="${QT_LOGGING_RULES:-qt.qpa.services=false}"

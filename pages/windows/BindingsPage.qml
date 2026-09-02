@@ -6,7 +6,7 @@ import "../../services/Bindings.js" as BindJs
 PrefsPage {
   id: root
   title: "Keybindings"
-  description: "The list is what Hyprland is running now. Add writes a managed block at the end of ~/.config/hypr/bindings.lua. Lines you typed yourself stay. Remove only deletes a row Preferences added."
+  description: "The list is what Hyprland is running now. Add writes a managed block at the end of ~/.config/hypr/bindings.lua. Lines you typed yourself stay. Remove only deletes a row Atmos added."
 
   property string keysDraft: ""
   property string labelDraft: ""
@@ -94,7 +94,7 @@ PrefsPage {
   PrefsGroup {
     title: "Your overrides"
     query: root.query
-    detail: "These lines live in the Preferences block of bindings.lua. Adding a chord that is already taken writes hl.unbind first, then o.bind."
+    detail: "These lines live in the Atmos block of bindings.lua. Adding a chord that is already taken writes hl.unbind first, then o.bind."
     hint: "~/.config/hypr/bindings.lua"
 
     PrefsRow {
@@ -272,7 +272,7 @@ PrefsPage {
   PrefsConfirm {
     id: removeConfirm
     title: "Remove binding"
-    message: "Remove the Preferences override for " + root.pendingKeys + "?"
+    message: "Remove the Atmos override for " + root.pendingKeys + "?"
     confirmText: "Remove"
     onConfirmed: Omarchy.removeBinding(root.pendingKeys)
   }

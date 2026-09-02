@@ -3,8 +3,10 @@
 set -euo pipefail
 
 ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
-FILE=${OMARCHY_PREFS_HYPRSUNSET_FILE:-"$HOME/.config/hypr/hyprsunset.conf"}
-SKIP_HYPR=${OMARCHY_PREFS_SKIP_HYPR:-0}
+# shellcheck source=atmos-env.sh
+source "$ROOT/atmos-env.sh"
+FILE=$ATMOS_HYPRSUNSET_FILE
+SKIP_HYPR=$ATMOS_SKIP_HYPR
 
 usage() {
   echo "Usage: set-hyprsunset.sh <json>" >&2
@@ -67,7 +69,7 @@ except (TypeError, ValueError):
 temp = max(3000, min(6500, temp))
 
 lines = [
-    "# Written by omarchy-prefs. Day leaves the screen untinted.",
+    "# Written by atmos. Day leaves the screen untinted.",
     "profile {",
     f"    time = {day}",
     "    identity = true",

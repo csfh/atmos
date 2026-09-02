@@ -6,7 +6,7 @@ import "windows" as Win
 PrefsPage {
   id: root
   title: "Windows"
-  description: "Gaps, corners, and the tiling layout. Keybindings and window rules have their own pages. Reset only removes the block Preferences wrote."
+  description: "Gaps, corners, and the tiling layout. Keybindings and window rules have their own pages. Reset only removes the block Atmos wrote."
 
   property var stack: null
   property var navigator: null
@@ -64,7 +64,7 @@ PrefsPage {
     PrefsLink {
       label: "Window rules"
       description: "Float, tile, center, or size a window class."
-      hint: "~/.config/hypr/omarchy_prefs.lua"
+      hint: "~/.config/hypr/atmos.lua"
       query: root.query
       keywords: ["window", "rule", "float", "tile", "class", "regex"]
       valueText: root.ruleCountText()
@@ -250,7 +250,7 @@ PrefsPage {
     PrefsRow {
       available: Omarchy.hyprLookManaged
       label: "Reset look"
-      description: "Remove the block Preferences wrote. Hyprland goes back to the rest of looknfeel.lua and the Omarchy defaults."
+      description: "Remove the block Atmos wrote. Hyprland goes back to the rest of looknfeel.lua and the Omarchy defaults."
       hint: "~/.config/hypr/looknfeel.lua"
       query: root.query
       keywords: ["reset", "default", "looknfeel"]

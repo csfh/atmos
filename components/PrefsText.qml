@@ -30,9 +30,16 @@ Item {
     font.pixelSize: Theme.fontSize
   }
 
+  property var _wordWidths: ({})
+
   function measureWord(word) {
+    var hit = _wordWidths[word]
+    if (hit !== undefined)
+      return hit
     metrics.text = word
-    return metrics.advanceWidth > 0 ? metrics.advanceWidth : metrics.width
+    var w = metrics.advanceWidth > 0 ? metrics.advanceWidth : metrics.width
+    _wordWidths[word] = w
+    return w
   }
 
   function refresh() {
@@ -42,19 +49,21 @@ Item {
       if (label.text !== raw) label.text = raw
       return
     }
-    metrics.text = " "
-    var space = metrics.advanceWidth > 0 ? metrics.advanceWidth : metrics.width
+    var space = measureWord(" ")
     var next = root.wrapStyle === "balance"
       ? TextWrap.balanceWrap(raw, measureWord, w, space)
       : TextWrap.prettyWrap(raw, measureWord, w, space)
     if (label.text !== next) label.text = next
   }
 
-  readonly property int _fontKey: label.font.pixelSize + label.font.weight
+  readonly property string _fontKey: label.font.family + "\t" + label.font.pixelSize + "\t" + label.font.weight + "\t" + label.font.italic
 
   onTextChanged: refresh()
   onWidthChanged: refresh()
   onWrapStyleChanged: refresh()
-  on_FontKeyChanged: refresh()
+  on_FontKeyChanged: {
+    _wordWidths = ({})
+    refresh()
+  }
   Component.onCompleted: refresh()
 }

@@ -5,7 +5,9 @@ Atmos is a standalone Quickshell preferences app for Omarchy. Do not import `qs.
 ## Run
 
 - `./bin/atmos` — launch or focus
-- `./tests/run` — parser tests plus a live snapshot check when `omarchy` is present
+- `npm install` — oxlint and oxfmt
+- `npm run lint` / `npm run fmt` — lint and format `services` and `tests`
+- `./tests/run` — oxlint, oxfmt --check, parser tests, plus a live snapshot check when `omarchy` is present
 
 ## Rules
 

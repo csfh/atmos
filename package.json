@@ -1,0 +1,15 @@
+{
+  "name": "atmos",
+  "private": true,
+  "description": "Omarchy preferences app",
+  "scripts": {
+    "fmt": "oxfmt services tests",
+    "fmt:check": "oxfmt --check services tests",
+    "lint": "oxlint services tests",
+    "lint:fix": "oxlint --fix services tests"
+  },
+  "devDependencies": {
+    "oxfmt": "^0.66.0",
+    "oxlint": "^1.81.0"
+  }
+}

@@ -29,8 +29,11 @@ That copies the launcher into `~/.local/bin`, the QML app into `~/.local/share/a
 ## Tests
 
 ```bash
+npm install
 ./tests/run
 ```
+
+`./tests/run` lints and checks formatting with [oxlint](https://oxc.rs/docs/guide/usage/linter) and [oxfmt](https://oxc.rs/docs/guide/usage/formatter), then runs the parser tests. `npm run lint` and `npm run fmt` run those tools on their own.
 
 ## License
 

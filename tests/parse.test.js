@@ -1,33 +1,29 @@
-const fs = require('fs')
-const path = require('path')
-const vm = require('vm')
+const fs = require("fs");
+const path = require("path");
+const vm = require("vm");
 
 function load(rel) {
-  const src = fs.readFileSync(path.join(__dirname, '..', rel), 'utf8')
-  const ctx = {}
-  vm.runInNewContext(src, ctx, { filename: rel })
-  return ctx
+  const src = fs.readFileSync(path.join(__dirname, "..", rel), "utf8");
+  const ctx = {};
+  vm.runInNewContext(src, ctx, { filename: rel });
+  return ctx;
 }
 
 function assert(condition, description, detail) {
   if (!condition) {
-    if (detail) console.error(detail)
-    console.error(`not ok - ${description}`)
-    process.exit(1)
+    if (detail) console.error(detail);
+    console.error(`not ok - ${description}`);
+    process.exit(1);
   }
-  console.log(`ok - ${description}`)
+  console.log(`ok - ${description}`);
 }
 
 function assertEqual(actual, expected, description) {
-  assert(
-    actual === expected,
-    description,
-    `expected: ${expected}\nactual:   ${actual}`
-  )
+  assert(actual === expected, description, `expected: ${expected}\nactual:   ${actual}`);
 }
 
-const theme = load('services/Theme.js')
-const shell = load('services/ShellConfig.js')
+const theme = load("services/Theme.js");
+const shell = load("services/ShellConfig.js");
 
 const colors = theme.parseColors(`
 foreground = "#a9b1d6"
@@ -35,12 +31,12 @@ background = "#1a1b26"
 accent = "#7aa2f7"
 muted = "#414868"
 red = "#f7768e"
-`)
-assertEqual(colors.foreground, '#a9b1d6', 'parseColors reads foreground')
-assertEqual(colors.background, '#1a1b26', 'parseColors reads background')
-assertEqual(colors.accent, '#7aa2f7', 'parseColors prefers accent over color4')
-assertEqual(colors.muted, '#414868', 'parseColors reads muted')
-assertEqual(colors.urgent, '#f7768e', 'parseColors maps red to urgent')
+`);
+assertEqual(colors.foreground, "#a9b1d6", "parseColors reads foreground");
+assertEqual(colors.background, "#1a1b26", "parseColors reads background");
+assertEqual(colors.accent, "#7aa2f7", "parseColors prefers accent over color4");
+assertEqual(colors.muted, "#414868", "parseColors reads muted");
+assertEqual(colors.urgent, "#f7768e", "parseColors maps red to urgent");
 
 const legacy = theme.parseColors(`
 color0 = "#111111"
@@ -48,12 +44,12 @@ color4 = "#0000ff"
 color7 = "#eeeeee"
 color8 = "#888888"
 color1 = "#ff0000"
-`)
-assertEqual(legacy.background, '#111111', 'parseColors falls back to color0')
-assertEqual(legacy.foreground, '#eeeeee', 'parseColors falls back to color7')
-assertEqual(legacy.accent, '#0000ff', 'parseColors falls back to color4')
-assertEqual(legacy.muted, '#888888', 'parseColors falls back to color8')
-assertEqual(legacy.urgent, '#ff0000', 'parseColors maps color1 to urgent')
+`);
+assertEqual(legacy.background, "#111111", "parseColors falls back to color0");
+assertEqual(legacy.foreground, "#eeeeee", "parseColors falls back to color7");
+assertEqual(legacy.accent, "#0000ff", "parseColors falls back to color4");
+assertEqual(legacy.muted, "#888888", "parseColors falls back to color8");
+assertEqual(legacy.urgent, "#ff0000", "parseColors maps color1 to urgent");
 
 const shellValues = theme.parseShell(`
 [font]
@@ -64,20 +60,24 @@ hover-cursor-fill-alpha = 0.08
 # comment
 [bar]
 position = top
-`)
-assertEqual(shellValues['font.base-size'], '14', 'parseShell reads numeric font.base-size')
-assertEqual(shellValues['controls.normal-fill-alpha'], '0.04', 'parseShell reads control alphas')
-assertEqual(shellValues['bar.position'], 'top', 'parseShell reads bare strings')
-assertEqual(theme.numberToken(shellValues, 'font.base-size', 12), 14, 'numberToken coerces font size')
+`);
+assertEqual(shellValues["font.base-size"], "14", "parseShell reads numeric font.base-size");
+assertEqual(shellValues["controls.normal-fill-alpha"], "0.04", "parseShell reads control alphas");
+assertEqual(shellValues["bar.position"], "top", "parseShell reads bare strings");
+assertEqual(
+  theme.numberToken(shellValues, "font.base-size", 12),
+  14,
+  "numberToken coerces font size",
+);
 
-const merged = theme.mergeShell({ 'font.base-size': '12' }, { 'font.base-size': '16' })
-assertEqual(merged['font.base-size'], '16', 'user shell.toml wins over theme')
+const merged = theme.mergeShell({ "font.base-size": "12" }, { "font.base-size": "16" });
+assertEqual(merged["font.base-size"], "16", "user shell.toml wins over theme");
 
-assertEqual(theme.formatSeconds(45), '45s', 'formatSeconds under a minute')
-assertEqual(theme.formatSeconds(150), '2m 30s', 'formatSeconds minutes and seconds')
-assertEqual(theme.formatSeconds(300), '5m', 'formatSeconds whole minutes')
-assertEqual(theme.formatSeconds(-12), '0s', 'formatSeconds clamps negative to zero')
-assertEqual(theme.formatSeconds('nope'), '0s', 'formatSeconds treats NaN as zero')
+assertEqual(theme.formatSeconds(45), "45s", "formatSeconds under a minute");
+assertEqual(theme.formatSeconds(150), "2m 30s", "formatSeconds minutes and seconds");
+assertEqual(theme.formatSeconds(300), "5m", "formatSeconds whole minutes");
+assertEqual(theme.formatSeconds(-12), "0s", "formatSeconds clamps negative to zero");
+assertEqual(theme.formatSeconds("nope"), "0s", "formatSeconds treats NaN as zero");
 const quotedShell = theme.parseShell(`
 orphan = 1
 [bar]
@@ -87,343 +87,734 @@ name = 'Dock'
 # skip
 [font]
 family = Inter
-`)
-assertEqual(quotedShell.orphan, undefined, 'parseShell skips keys before a section')
-assertEqual(quotedShell['bar.position'], 'left', 'parseShell reads a quoted string')
-assertEqual(quotedShell['bar.padding'], '8 12 8 12', 'parseShell reads a width list')
-assertEqual(quotedShell['bar.name'], 'Dock', 'parseShell reads a single-quoted string')
-assertEqual(quotedShell['font.family'], 'Inter', 'parseShell reads a bare identifier')
-assertEqual(theme.numberToken({}, 'font.base-size', 12), 12, 'numberToken uses fallback when missing')
-assertEqual(theme.mergeShell(null, { a: '1' }).a, '1', 'mergeShell accepts a null theme map')
-const fg = theme.parseColors('fg = "#abcdef"\nbg = "#010203"\nurgent = "#ff00aa"\n')
-assertEqual(fg.foreground, '#abcdef', 'parseColors reads fg alias')
-assertEqual(fg.background, '#010203', 'parseColors reads bg alias')
-assertEqual(fg.urgent, '#ff00aa', 'parseColors reads urgent key')
-assertEqual(fg.muted, '#abcdef', 'parseColors muted falls back to foreground')
+`);
+assertEqual(quotedShell.orphan, undefined, "parseShell skips keys before a section");
+assertEqual(quotedShell["bar.position"], "left", "parseShell reads a quoted string");
+assertEqual(quotedShell["bar.padding"], "8 12 8 12", "parseShell reads a width list");
+assertEqual(quotedShell["bar.name"], "Dock", "parseShell reads a single-quoted string");
+assertEqual(quotedShell["font.family"], "Inter", "parseShell reads a bare identifier");
+assertEqual(
+  theme.numberToken({}, "font.base-size", 12),
+  12,
+  "numberToken uses fallback when missing",
+);
+assertEqual(theme.mergeShell(null, { a: "1" }).a, "1", "mergeShell accepts a null theme map");
+const fg = theme.parseColors('fg = "#abcdef"\nbg = "#010203"\nurgent = "#ff00aa"\n');
+assertEqual(fg.foreground, "#abcdef", "parseColors reads fg alias");
+assertEqual(fg.background, "#010203", "parseColors reads bg alias");
+assertEqual(fg.urgent, "#ff00aa", "parseColors reads urgent key");
+assertEqual(fg.muted, "#abcdef", "parseColors muted falls back to foreground");
 
 const parsed = shell.parseShellJson(
   '{"idle":{"screensaver":90,"lock":120},"bar":{"position":"left","transparent":true}}',
-  '{}'
-)
-assertEqual(parsed.screensaver, 90, 'parseShellJson reads screensaver')
-assertEqual(parsed.lock, 120, 'parseShellJson reads lock')
-assertEqual(parsed.barPosition, 'left', 'parseShellJson reads bar position')
-assert(parsed.barTransparent === true, 'parseShellJson reads bar transparency')
+  "{}",
+);
+assertEqual(parsed.screensaver, 90, "parseShellJson reads screensaver");
+assertEqual(parsed.lock, 120, "parseShellJson reads lock");
+assertEqual(parsed.barPosition, "left", "parseShellJson reads bar position");
+assert(parsed.barTransparent === true, "parseShellJson reads bar transparency");
 
-const fromDefaults = shell.parseShellJson('', '{"idle":{"screensaver":150,"lock":300},"bar":{"position":"top"}}')
-assertEqual(fromDefaults.screensaver, 150, 'parseShellJson uses defaults when user file is empty')
-assertEqual(fromDefaults.barPosition, 'top', 'parseShellJson default bar position')
-const badIdle = shell.parseShellJson('{"idle":{"screensaver":-5,"lock":"nope"},"bar":{"position":"side","transparent":"yes"}}', '{}')
-assertEqual(badIdle.screensaver, 150, 'parseShellJson falls back on a negative screensaver')
-assertEqual(badIdle.lock, 300, 'parseShellJson falls back on a non-numeric lock')
-assertEqual(badIdle.barPosition, 'top', 'parseShellJson rejects an unknown bar position')
-assert(badIdle.barTransparent === false, 'parseShellJson requires transparent === true')
-const junkShell = shell.parseShellJson('not json', '{"idle":{"screensaver":40,"lock":80},"bar":{"position":"bottom"}}')
-assertEqual(junkShell.screensaver, 40, 'parseShellJson uses defaults when user JSON is junk')
-assertEqual(junkShell.barPosition, 'bottom', 'parseShellJson default bar position from defaultsRaw')
-assertEqual(shell.parseShellJson('[]', '{}').barPosition, 'top', 'parseShellJson rejects a JSON array')
-assertEqual(shell.positiveNumber(2.4, 0), 2, 'positiveNumber rounds')
-assertEqual(shell.positiveNumber(-1, 9), 9, 'positiveNumber falls back below zero')
+const fromDefaults = shell.parseShellJson(
+  "",
+  '{"idle":{"screensaver":150,"lock":300},"bar":{"position":"top"}}',
+);
+assertEqual(fromDefaults.screensaver, 150, "parseShellJson uses defaults when user file is empty");
+assertEqual(fromDefaults.barPosition, "top", "parseShellJson default bar position");
+const badIdle = shell.parseShellJson(
+  '{"idle":{"screensaver":-5,"lock":"nope"},"bar":{"position":"side","transparent":"yes"}}',
+  "{}",
+);
+assertEqual(badIdle.screensaver, 150, "parseShellJson falls back on a negative screensaver");
+assertEqual(badIdle.lock, 300, "parseShellJson falls back on a non-numeric lock");
+assertEqual(badIdle.barPosition, "top", "parseShellJson rejects an unknown bar position");
+assert(badIdle.barTransparent === false, "parseShellJson requires transparent === true");
+const junkShell = shell.parseShellJson(
+  "not json",
+  '{"idle":{"screensaver":40,"lock":80},"bar":{"position":"bottom"}}',
+);
+assertEqual(junkShell.screensaver, 40, "parseShellJson uses defaults when user JSON is junk");
+assertEqual(
+  junkShell.barPosition,
+  "bottom",
+  "parseShellJson default bar position from defaultsRaw",
+);
+assertEqual(
+  shell.parseShellJson("[]", "{}").barPosition,
+  "top",
+  "parseShellJson rejects a JSON array",
+);
+assertEqual(shell.positiveNumber(2.4, 0), 2, "positiveNumber rounds");
+assertEqual(shell.positiveNumber(-1, 9), 9, "positiveNumber falls back below zero");
 
-assert(shell.rowMatches('', ['Theme']), 'empty query matches')
-assert(shell.rowMatches('font', ['Theme', 'omarchy font set']), 'query matches hint')
-assert(!shell.rowMatches('network', ['Theme', 'font']), 'query rejects unrelated rows')
-assert(shell.haystackMatches('FONT', shell.joinSearchHaystack(['Theme', 'omarchy font set'])), 'haystackMatches reuses a lowered haystack')
-assert(!shell.haystackMatches('network', shell.joinSearchHaystack(['Theme', 'font'])), 'haystackMatches rejects unrelated rows')
+assert(shell.rowMatches("", ["Theme"]), "empty query matches");
+assert(shell.rowMatches("font", ["Theme", "omarchy font set"]), "query matches hint");
+assert(!shell.rowMatches("network", ["Theme", "font"]), "query rejects unrelated rows");
+assert(
+  shell.haystackMatches("FONT", shell.joinSearchHaystack(["Theme", "omarchy font set"])),
+  "haystackMatches reuses a lowered haystack",
+);
+assert(
+  !shell.haystackMatches("network", shell.joinSearchHaystack(["Theme", "font"])),
+  "haystackMatches rejects unrelated rows",
+);
 
-const search = require('../services/SearchIndex.js')
-assert(typeof search.setSetting === 'undefined', 'search index has no setSetting write path')
-assert(typeof search.writePrefs === 'undefined', 'search index has no writePrefs path')
-assert(typeof search.savePrefs === 'undefined', 'search index has no savePrefs path')
+const search = require("../services/SearchIndex.js");
+assert(typeof search.setSetting === "undefined", "search index has no setSetting write path");
+assert(typeof search.writePrefs === "undefined", "search index has no writePrefs path");
+assert(typeof search.savePrefs === "undefined", "search index has no savePrefs path");
 
 const catalog = [
-  { id: 'appearance/font', hub: 'appearance', hubTitle: 'Appearance', label: 'Font', description: 'The monospace face', hint: 'omarchy font set', keywords: ['theme', 'typeface'] },
-  { id: 'network/wifi', hub: 'network', hubTitle: 'Network', label: 'Wi-Fi', description: 'Wireless radio', hint: 'nmcli', keywords: ['ssid'] }
-]
-const index = search.openIndex()
-search.ingestRows(index, catalog)
-const emptyHits = search.queryRows(index, '')
-assert(emptyHits.length === 2, 'empty query matches every indexed row')
-const fontHits = search.queryRows(index, 'font')
-assert(fontHits.some(function(row) { return row.id === 'appearance/font' }), 'font matches the theme/font row')
-assert(!fontHits.some(function(row) { return row.id === 'network/wifi' }), 'font does not match an unrelated network row')
-const fontUpperHits = search.queryRows(index, 'FONT')
-assert(fontUpperHits.some(function(row) { return row.id === 'appearance/font' }), 'FONT matches the same lowered haystack')
-assertEqual(fontUpperHits.length, fontHits.length, 'FONT and font return the same hit count')
-const networkHits = search.queryRows(index, 'network')
-assert(!networkHits.some(function(row) { return row.id === 'appearance/font' }), 'network does not match a theme/font row')
+  {
+    id: "appearance/font",
+    hub: "appearance",
+    hubTitle: "Appearance",
+    label: "Font",
+    description: "The monospace face",
+    hint: "omarchy font set",
+    keywords: ["theme", "typeface"],
+  },
+  {
+    id: "network/wifi",
+    hub: "network",
+    hubTitle: "Network",
+    label: "Wi-Fi",
+    description: "Wireless radio",
+    hint: "nmcli",
+    keywords: ["ssid"],
+  },
+];
+const index = search.openIndex();
+search.ingestRows(index, catalog);
+const emptyHits = search.queryRows(index, "");
+assert(emptyHits.length === 2, "empty query matches every indexed row");
+const fontHits = search.queryRows(index, "font");
+assert(
+  fontHits.some(function (row) {
+    return row.id === "appearance/font";
+  }),
+  "font matches the theme/font row",
+);
+assert(
+  !fontHits.some(function (row) {
+    return row.id === "network/wifi";
+  }),
+  "font does not match an unrelated network row",
+);
+const fontUpperHits = search.queryRows(index, "FONT");
+assert(
+  fontUpperHits.some(function (row) {
+    return row.id === "appearance/font";
+  }),
+  "FONT matches the same lowered haystack",
+);
+assertEqual(fontUpperHits.length, fontHits.length, "FONT and font return the same hit count");
+const networkHits = search.queryRows(index, "network");
+assert(
+  !networkHits.some(function (row) {
+    return row.id === "appearance/font";
+  }),
+  "network does not match a theme/font row",
+);
 
-search.ingestSnapshot(index, { theme: 'omarchy', barPosition: 'top', nested: { lock: 300 } })
-assertEqual(search.getState(index, 'theme'), 'omarchy', 'derived state loads theme from snapshot JSON')
-assertEqual(search.getState(index, 'barPosition'), 'top', 'derived state loads barPosition from snapshot JSON')
-assertEqual(search.getState(index, 'nested.lock'), '300', 'derived state flattens nested snapshot fields')
-assertEqual(search.getState(index, 'missing'), null, 'derived state misses unknown keys')
+search.ingestSnapshot(index, { theme: "omarchy", barPosition: "top", nested: { lock: 300 } });
+assertEqual(
+  search.getState(index, "theme"),
+  "omarchy",
+  "derived state loads theme from snapshot JSON",
+);
+assertEqual(
+  search.getState(index, "barPosition"),
+  "top",
+  "derived state loads barPosition from snapshot JSON",
+);
+assertEqual(
+  search.getState(index, "nested.lock"),
+  "300",
+  "derived state flattens nested snapshot fields",
+);
+assertEqual(search.getState(index, "missing"), null, "derived state misses unknown keys");
 
-const qmlCatalog = search.catalogFromQmlDir(path.join(__dirname, '..', 'pages'))
-assert(qmlCatalog.some(function(row) { return row.label === 'Font' && row.hub === 'appearance' }), 'qml catalog indexes the Font row')
+const qmlCatalog = search.catalogFromQmlDir(path.join(__dirname, "..", "pages"));
+assert(
+  qmlCatalog.some(function (row) {
+    return row.label === "Font" && row.hub === "appearance";
+  }),
+  "qml catalog indexes the Font row",
+);
 
-const ui = load('services/RichUi.js')
-const qr = ui.parseQrOutput('meta\twlan0\tWPA\tCafe\n0110\n1001\n')
-assert(qr.ok === true, 'parseQrOutput accepts a meta header and matrix')
-assertEqual(qr.ssid, 'Cafe', 'parseQrOutput reads ssid')
-assertEqual(qr.size, 4, 'parseQrOutput matrix width')
-assertEqual(qr.rows[1][0], 1, 'parseQrOutput cell values')
+const ui = load("services/RichUi.js");
+const qr = ui.parseQrOutput("meta\twlan0\tWPA\tCafe\n0110\n1001\n");
+assert(qr.ok === true, "parseQrOutput accepts a meta header and matrix");
+assertEqual(qr.ssid, "Cafe", "parseQrOutput reads ssid");
+assertEqual(qr.size, 4, "parseQrOutput matrix width");
+assertEqual(qr.rows[1][0], 1, "parseQrOutput cell values");
 
-assertEqual(ui.parseMbpsLine('12.3'), 12.3, 'parseMbpsLine reads a rate')
-assert(isNaN(ui.parseMbpsLine('nope')), 'parseMbpsLine rejects junk')
+assertEqual(ui.parseMbpsLine("12.3"), 12.3, "parseMbpsLine reads a rate");
+assert(isNaN(ui.parseMbpsLine("nope")), "parseMbpsLine rejects junk");
+assertEqual(ui.formatMbps("12.3"), "12", "formatMbps rounds a fast rate");
+assertEqual(ui.formatMbps("9.14"), "9.1", "formatMbps keeps one decimal under 10");
+assertEqual(ui.formatMbps("0"), "0.0", "formatMbps formats zero");
+assertEqual(ui.formatMbps(""), "", "formatMbps empty");
+assertEqual(ui.formatMbps("-1"), "", "formatMbps rejects a negative rate");
+assertEqual(ui.mbpsLabel("42"), "42 Mbps", "mbpsLabel appends the unit");
+assertEqual(
+  ui.mbpsCopyText("Download", "42.2"),
+  "Download 42 Mbps",
+  "mbpsCopyText prefixes the direction",
+);
+assertEqual(ui.mbpsCopyText("Upload", ""), "", "mbpsCopyText empty without a sample");
 
-const diskLine = ui.parseDiskSpeedLine('read 450')
-assertEqual(diskLine.kind, 'read', 'parseDiskSpeedLine kind')
-assertEqual(diskLine.value, 450, 'parseDiskSpeedLine value')
-assertEqual(ui.parseDiskSpeedLine('disk WD Black').value, 'WD Black', 'parseDiskSpeedLine disk name')
+assertEqual(
+  ui.formatMonitorMode("6016x3384@59.99Hz"),
+  "6016×3384 @ 60 Hz",
+  "formatMonitorMode rounds Hz",
+);
+assertEqual(ui.parseMonitorMode("2560x1440@144.00Hz").width, 2560, "parseMonitorMode width");
+assertEqual(
+  ui.parseMonitorMode("2560 × 1440 @ 144 Hz").refresh,
+  144,
+  "parseMonitorMode spaced form",
+);
+assertEqual(ui.parseMonitorMode("nope"), null, "parseMonitorMode rejects junk");
+assertEqual(
+  ui.currentMonitorModeValue({
+    width: 2560,
+    height: 1440,
+    refresh: 144,
+    availableModes: ["1920x1080@60.00Hz", "2560x1440@144.00Hz"],
+  }),
+  "2560x1440@144.00Hz",
+  "currentMonitorModeValue matches availableModes",
+);
+assertEqual(
+  ui.monitorModeOptions({ width: 100, height: 100, refresh: 60, availableModes: [] }).length,
+  1,
+  "monitorModeOptions synthesizes the current mode",
+);
+assertEqual(
+  ui.monitorModeCopyText({
+    name: "DP-1",
+    width: 1920,
+    height: 1080,
+    refresh: 60,
+    availableModes: ["1920x1080@60.00Hz"],
+  }),
+  "DP-1 1920×1080 @ 60 Hz",
+  "monitorModeCopyText includes the output name",
+);
 
-const snaps = ui.parseSnapperList('{"root":[{"number":3,"date":"2026-01-01","description":"pre"}]}')
-assertEqual(snaps[0].id, 3, 'parseSnapperList id')
-assertEqual(snaps[0].config, 'root', 'parseSnapperList config')
-const snapArr = ui.parseSnapperList('[{"id":2,"dateIso":"2026-02-01","userdata":"post"},{"number":9,"date":"2026-03-01","description":"pre"},{"number":0}]')
-assertEqual(snapArr.length, 2, 'parseSnapperList array form skips id 0')
-assertEqual(snapArr[0].id, 2, 'parseSnapperList array form keeps input order')
-assertEqual(snapArr[0].date, '2026-02-01', 'parseSnapperList reads dateIso')
-assertEqual(snapArr[0].description, 'post', 'parseSnapperList falls back to userdata')
-assertEqual(snapArr[1].id, 9, 'parseSnapperList array form reads number')
-const snapKeyed = ui.parseSnapperList('{"root":[{"number":2},{"number":9}]}')
-assertEqual(snapKeyed[0].id, 9, 'parseSnapperList keyed form sorts by id descending')
-assertEqual(ui.parseSnapperList('not json').length, 0, 'parseSnapperList rejects junk JSON')
-assertEqual(ui.parseQrOutput('011\n01\n').ok, false, 'parseQrOutput rejects uneven rows')
-assertEqual(ui.parseQrOutput('meta\twlan0\tWPA\tCafe\n').ok, false, 'parseQrOutput rejects a header with no matrix')
-assert(isNaN(ui.parseMbpsLine('-1')), 'parseMbpsLine rejects a negative rate')
-assertEqual(ui.parseDiskSpeedLine('read -4'), null, 'parseDiskSpeedLine rejects a negative rate')
-assertEqual(ui.parseDiskSpeedLine('other 1'), null, 'parseDiskSpeedLine rejects an unknown kind')
+const diskLine = ui.parseDiskSpeedLine("read 450");
+assertEqual(diskLine.kind, "read", "parseDiskSpeedLine kind");
+assertEqual(diskLine.value, 450, "parseDiskSpeedLine value");
+assertEqual(
+  ui.parseDiskSpeedLine("disk WD Black").value,
+  "WD Black",
+  "parseDiskSpeedLine disk name",
+);
 
-const reminders = ui.parseReminders('{"reminders":[{"unit":"m","label":"Tea","message":"Tea is ready","remaining":"2m","atTime":"10:00","minutes":2},null]}')
-assertEqual(reminders.length, 1, 'parseReminders skips null items')
-assertEqual(reminders[0].label, 'Tea', 'parseReminders reads label')
-assertEqual(reminders[0].minutes, 2, 'parseReminders reads minutes')
-assertEqual(ui.parseReminders('{"reminders":[{"message":"Ping"}]}')[0].label, 'Ping', 'parseReminders falls back to message for label')
-assertEqual(ui.parseReminders('not json').length, 0, 'parseReminders rejects junk JSON')
-assertEqual(ui.parseReminders('{}').length, 0, 'parseReminders empty object')
-assertEqual(ui.filterOptions([{ label: 'Wi-Fi', value: 'wifi' }, { label: 'Theme', value: 'theme' }], 'wi').length, 1, 'filterOptions matches a label')
-assertEqual(ui.filterOptions([{ label: 'Wi-Fi', value: 'wlan' }, { label: 'Theme', value: 'theme' }], 'wlan').length, 1, 'filterOptions matches a value')
-assertEqual(ui.filterOptions(['alpha', 'beta'], 'BE')[0], 'beta', 'filterOptions matches a string option case-insensitively')
-assertEqual(ui.filterOptions(['alpha', 'beta'], '').length, 2, 'filterOptions empty query keeps all')
+const snaps = ui.parseSnapperList(
+  '{"root":[{"number":3,"date":"2026-01-01","description":"pre"}]}',
+);
+assertEqual(snaps[0].id, 3, "parseSnapperList id");
+assertEqual(snaps[0].config, "root", "parseSnapperList config");
+const snapArr = ui.parseSnapperList(
+  '[{"id":2,"dateIso":"2026-02-01","userdata":"post"},{"number":9,"date":"2026-03-01","description":"pre"},{"number":0}]',
+);
+assertEqual(snapArr.length, 2, "parseSnapperList array form skips id 0");
+assertEqual(snapArr[0].id, 2, "parseSnapperList array form keeps input order");
+assertEqual(snapArr[0].date, "2026-02-01", "parseSnapperList reads dateIso");
+assertEqual(snapArr[0].description, "post", "parseSnapperList falls back to userdata");
+assertEqual(snapArr[1].id, 9, "parseSnapperList array form reads number");
+const snapKeyed = ui.parseSnapperList('{"root":[{"number":2},{"number":9}]}');
+assertEqual(snapKeyed[0].id, 9, "parseSnapperList keyed form sorts by id descending");
+assertEqual(ui.parseSnapperList("not json").length, 0, "parseSnapperList rejects junk JSON");
+assertEqual(ui.parseQrOutput("011\n01\n").ok, false, "parseQrOutput rejects uneven rows");
+assertEqual(
+  ui.parseQrOutput("meta\twlan0\tWPA\tCafe\n").ok,
+  false,
+  "parseQrOutput rejects a header with no matrix",
+);
+assert(isNaN(ui.parseMbpsLine("-1")), "parseMbpsLine rejects a negative rate");
+assertEqual(ui.parseDiskSpeedLine("read -4"), null, "parseDiskSpeedLine rejects a negative rate");
+assertEqual(ui.parseDiskSpeedLine("other 1"), null, "parseDiskSpeedLine rejects an unknown kind");
 
-const dns = ui.parseDnsServers('1.1.1.1 8.8.8.8')
-assert(dns.ok === true, 'parseDnsServers accepts IPv4')
-assertEqual(dns.servers.length, 2, 'parseDnsServers token count')
-assert(ui.parseDnsServers('--bad').ok === false, 'parseDnsServers rejects flags')
-assert(ui.parseDnsServers('nope').ok === false, 'parseDnsServers rejects hostnames')
-assert(ui.parseDnsServers('2001:db8::1').ok === true, 'parseDnsServers accepts compressed IPv6')
-assert(ui.parseDnsServers('::').ok === false, 'parseDnsServers rejects unspecified IPv6')
-assertEqual(ui.formatDnsInput('1.1.1.1,8.8.8.8'), '1.1.1.1 8.8.8.8', 'formatDnsInput turns commas into spaces')
-assertEqual(ui.formatDnsInput('1921680'), '192.168.0', 'formatDnsInput splits IPv4 octets as they overflow')
-assertEqual(ui.formatDnsInput('1111'), '111.1', 'formatDnsInput starts a new octet after three digits')
-assertEqual(ui.formatDnsInput('2001:DB8::1'), '2001:db8::1', 'formatDnsInput lowercases IPv6')
-assert(ui.dnsInputStatus('1.1').error === '', 'dnsInputStatus allows a partial IPv4')
-assert(ui.dnsInputStatus('1:2:3:4:5:6:7:8:9').error.indexOf('Not an IPv4') === 0, 'dnsInputStatus rejects an overlong IPv6')
-assert(ui.dnsInputStatus('1..2.3').error.indexOf('Not an IPv4') === 0, 'dnsInputStatus rejects a double-dot IPv4')
-assert(ui.dnsInputStatus('1.1.1.1 8.8.8.8').ok === true, 'dnsInputStatus accepts two IPv4 servers')
-assert(ui.isPartialIpv6('2001:db8:') === true, 'isPartialIpv6 allows a trailing colon')
-assert(ui.isIpv6('fe80::1') === true, 'isIpv6 accepts link-local')
+const reminders = ui.parseReminders(
+  '{"reminders":[{"unit":"m","label":"Tea","message":"Tea is ready","remaining":"2m","atTime":"10:00","minutes":2},null]}',
+);
+assertEqual(reminders.length, 1, "parseReminders skips null items");
+assertEqual(reminders[0].label, "Tea", "parseReminders reads label");
+assertEqual(
+  ui.reminderCopyText(reminders[0]),
+  "Tea — in 2m · at 10:00 · Tea is ready",
+  "reminderCopyText includes remaining and time",
+);
+assertEqual(ui.reminderCopyText(null), "", "reminderCopyText empty without a row");
+assertEqual(
+  ui.bindingCopyText({ keys: "SUPER + Q", action: "Close window" }),
+  "SUPER + Q — Close window",
+  "bindingCopyText joins chord and action",
+);
+assertEqual(ui.bindingCopyText({ keys: "SUPER + F" }), "SUPER + F", "bindingCopyText keys only");
+assertEqual(reminders[0].minutes, 2, "parseReminders reads minutes");
+assertEqual(
+  ui.parseReminders('{"reminders":[{"message":"Ping"}]}')[0].label,
+  "Ping",
+  "parseReminders falls back to message for label",
+);
+assertEqual(ui.parseReminders("not json").length, 0, "parseReminders rejects junk JSON");
+assertEqual(ui.parseReminders("{}").length, 0, "parseReminders empty object");
+assertEqual(
+  ui.filterOptions(
+    [
+      { label: "Wi-Fi", value: "wifi" },
+      { label: "Theme", value: "theme" },
+    ],
+    "wi",
+  ).length,
+  1,
+  "filterOptions matches a label",
+);
+assertEqual(
+  ui.filterOptions(
+    [
+      { label: "Wi-Fi", value: "wlan" },
+      { label: "Theme", value: "theme" },
+    ],
+    "wlan",
+  ).length,
+  1,
+  "filterOptions matches a value",
+);
+assertEqual(
+  ui.filterOptions(["alpha", "beta"], "BE")[0],
+  "beta",
+  "filterOptions matches a string option case-insensitively",
+);
+assertEqual(
+  ui.filterOptions(["alpha", "beta"], "").length,
+  2,
+  "filterOptions empty query keeps all",
+);
 
-assertEqual(ui.parseLauncherName('Notes'), 'Notes', 'parseLauncherName accepts a name')
-assertEqual(ui.parseLauncherName('  Notes  '), 'Notes', 'parseLauncherName trims')
-assertEqual(ui.parseLauncherName('foo/bar'), '', 'parseLauncherName rejects a slash')
-assertEqual(ui.parseLauncherName('-secret'), '', 'parseLauncherName rejects a leading hyphen')
-assertEqual(ui.parseWebAppUrl('example.com'), 'https://example.com', 'parseWebAppUrl adds https')
-assertEqual(ui.parseWebAppUrl('https://hey.com'), 'https://hey.com', 'parseWebAppUrl keeps https')
-assertEqual(ui.parseWebAppUrl('javascript:alert(1)'), '', 'parseWebAppUrl rejects a non-http scheme')
-assertEqual(ui.parseWebAppUrl('http://hey.com'), 'http://hey.com', 'parseWebAppUrl keeps http')
-assertEqual(ui.parseWebAppUrl('hey com'), '', 'parseWebAppUrl rejects spaces')
-assertEqual(ui.parseWebAppUrl(''), '', 'parseWebAppUrl empty')
-assert(ui.isTuiWindowStyle('float') === true, 'isTuiWindowStyle accepts float')
-assert(ui.isTuiWindowStyle('tile') === true, 'isTuiWindowStyle accepts tile')
-assert(ui.isTuiWindowStyle('stack') === false, 'isTuiWindowStyle rejects other values')
+const dns = ui.parseDnsServers("1.1.1.1 8.8.8.8");
+assert(dns.ok === true, "parseDnsServers accepts IPv4");
+assertEqual(dns.servers.length, 2, "parseDnsServers token count");
+assert(ui.parseDnsServers("--bad").ok === false, "parseDnsServers rejects flags");
+assert(ui.parseDnsServers("nope").ok === false, "parseDnsServers rejects hostnames");
+assert(ui.parseDnsServers("2001:db8::1").ok === true, "parseDnsServers accepts compressed IPv6");
+assert(ui.parseDnsServers("::").ok === false, "parseDnsServers rejects unspecified IPv6");
+assertEqual(
+  ui.formatDnsInput("1.1.1.1,8.8.8.8"),
+  "1.1.1.1 8.8.8.8",
+  "formatDnsInput turns commas into spaces",
+);
+assertEqual(
+  ui.formatDnsInput("1921680"),
+  "192.168.0",
+  "formatDnsInput splits IPv4 octets as they overflow",
+);
+assertEqual(
+  ui.formatDnsInput("1111"),
+  "111.1",
+  "formatDnsInput starts a new octet after three digits",
+);
+assertEqual(ui.formatDnsInput("2001:DB8::1"), "2001:db8::1", "formatDnsInput lowercases IPv6");
+assert(ui.dnsInputStatus("1.1").error === "", "dnsInputStatus allows a partial IPv4");
+assert(
+  ui.dnsInputStatus("1:2:3:4:5:6:7:8:9").error.indexOf("Not an IPv4") === 0,
+  "dnsInputStatus rejects an overlong IPv6",
+);
+assert(
+  ui.dnsInputStatus("1..2.3").error.indexOf("Not an IPv4") === 0,
+  "dnsInputStatus rejects a double-dot IPv4",
+);
+assert(ui.dnsInputStatus("1.1.1.1 8.8.8.8").ok === true, "dnsInputStatus accepts two IPv4 servers");
+assert(ui.isPartialIpv6("2001:db8:") === true, "isPartialIpv6 allows a trailing colon");
+assert(ui.isIpv6("fe80::1") === true, "isIpv6 accepts link-local");
 
-assertEqual(ui.usagePercent(50, 100), 50, 'usagePercent')
-assertEqual(ui.usagePercent(50, 0), 0, 'usagePercent zero size')
-assertEqual(ui.usagePercent(-10, 100), 0, 'usagePercent clamps below 0')
-assertEqual(ui.usagePercent(200, 100), 100, 'usagePercent clamps above 100')
-assertEqual(ui.formatBytes(0), '0 B', 'formatBytes zero')
-assertEqual(ui.formatBytes(-4), '0 B', 'formatBytes negative')
-assertEqual(ui.formatBytes(1024), '1.00 KB', 'formatBytes one kilobyte')
-assertEqual(ui.formatBytes(1536), '1.50 KB', 'formatBytes fractional kilobyte')
-assertEqual(ui.formatBytes(10485760), '10.0 MB', 'formatBytes one-decimal megabytes')
-assertEqual(ui.pathFromUrl('file:///home/a/b.png'), '/home/a/b.png', 'pathFromUrl strips file://')
-assertEqual(ui.pathFromUrl('file:///C:/Users/a/b.png'), 'C:/Users/a/b.png', 'pathFromUrl strips a Windows file:// drive prefix')
-assertEqual(ui.pathFromUrl('file:///home/a/my%20wall.png'), '/home/a/my wall.png', 'pathFromUrl decodes percent-escapes')
-assertEqual(ui.fileBasename('/home/a/wall.png'), 'wall.png', 'fileBasename last path segment')
-assertEqual(ui.fileBasename('plain'), 'plain', 'fileBasename no slash')
-assertEqual(ui.fileBasename(''), '', 'fileBasename empty')
+assertEqual(ui.parseLauncherName("Notes"), "Notes", "parseLauncherName accepts a name");
+assertEqual(ui.parseLauncherName("  Notes  "), "Notes", "parseLauncherName trims");
+assertEqual(ui.parseLauncherName("foo/bar"), "", "parseLauncherName rejects a slash");
+assertEqual(ui.parseLauncherName("-secret"), "", "parseLauncherName rejects a leading hyphen");
+assertEqual(ui.parseWebAppUrl("example.com"), "https://example.com", "parseWebAppUrl adds https");
+assertEqual(ui.parseWebAppUrl("https://hey.com"), "https://hey.com", "parseWebAppUrl keeps https");
+assertEqual(
+  ui.parseWebAppUrl("javascript:alert(1)"),
+  "",
+  "parseWebAppUrl rejects a non-http scheme",
+);
+assertEqual(ui.parseWebAppUrl("http://hey.com"), "http://hey.com", "parseWebAppUrl keeps http");
+assertEqual(ui.parseWebAppUrl("hey com"), "", "parseWebAppUrl rejects spaces");
+assertEqual(ui.parseWebAppUrl(""), "", "parseWebAppUrl empty");
+assert(ui.isTuiWindowStyle("float") === true, "isTuiWindowStyle accepts float");
+assert(ui.isTuiWindowStyle("tile") === true, "isTuiWindowStyle accepts tile");
+assert(ui.isTuiWindowStyle("stack") === false, "isTuiWindowStyle rejects other values");
 
-const hw = load('services/Hardware.js')
-assertEqual(hw.parseDmiField(' Framework '), 'Framework', 'parseDmiField trims')
-assertEqual(hw.parseDmiField('To be filled by O.E.M.'), '', 'parseDmiField drops OEM filler')
-assertEqual(hw.parseDmiField('none'), '', 'parseDmiField drops none')
-assertEqual(hw.parseDmiField('Desktop (AMD Ryzen AI Max 300 Series)'), 'Desktop (AMD Ryzen AI Max 300 Series)', 'parseDmiField keeps a product name')
-assertEqual(hw.parseDmiField('evil\nname'), '', 'parseDmiField rejects a newline')
-assertEqual(hw.parseSystemStats('cpu1%\nmemory27.5GB / 125GB').cpu, '1%', 'parseSystemStats cpu')
-assertEqual(hw.parseSystemStats('cpu1%\nmemory27.5GB / 125GB').memory, '27.5GB / 125GB', 'parseSystemStats memory')
-assertEqual(hw.npuSummary({ npuIdentity: 'AMD Strix Halo NPU' }), 'AMD Strix Halo NPU', 'npuSummary present')
-assertEqual(hw.npuSummary({}), '', 'npuSummary absent')
-assertEqual(hw.machineSummary({ name: 'Desktop', vendor: 'Framework' }).indexOf('Framework') !== -1, true, 'machineSummary names the vendor')
-assert(hw.cpuSummary({ model: 'Ryzen 7', cores: 8, threads: 16, maxMhz: 5000.4 }).indexOf('8 cores') !== -1, 'cpuSummary names cores')
-assert(hw.cpuSummary({ model: 'Ryzen 7', cores: 8, threads: 16 }).indexOf('16 threads') !== -1, 'cpuSummary names extra threads')
-assert(hw.biosSummary({ vendor: 'AMI', version: '1.2', uefi: true }).indexOf('UEFI') !== -1, 'biosSummary names UEFI')
-assertEqual(hw.thermalSummary({ temp: 42.26 }), '42.3 °C', 'thermalSummary rounds tenths')
-assertEqual(hw.thermalSummary({}), '', 'thermalSummary empty without a temp')
-assertEqual(hw.tpmSummary({ present: true, version: '2.0' }).indexOf('TPM 2.0') !== -1, true, 'tpmSummary names the version')
-assertEqual(hw.tpmSummary({ present: false }), '', 'tpmSummary empty when absent')
+assertEqual(ui.usagePercent(50, 100), 50, "usagePercent");
+assertEqual(ui.usagePercent(50, 0), 0, "usagePercent zero size");
+assertEqual(ui.usagePercent(-10, 100), 0, "usagePercent clamps below 0");
+assertEqual(ui.usagePercent(200, 100), 100, "usagePercent clamps above 100");
+assertEqual(ui.formatBytes(0), "0 B", "formatBytes zero");
+assertEqual(ui.formatBytes(-4), "0 B", "formatBytes negative");
+assertEqual(ui.formatBytes(1024), "1.00 KB", "formatBytes one kilobyte");
+assertEqual(ui.formatBytes(1536), "1.50 KB", "formatBytes fractional kilobyte");
+assertEqual(ui.formatBytes(10485760), "10.0 MB", "formatBytes one-decimal megabytes");
+assertEqual(ui.pathFromUrl("file:///home/a/b.png"), "/home/a/b.png", "pathFromUrl strips file://");
+assertEqual(
+  ui.pathFromUrl("file:///C:/Users/a/b.png"),
+  "C:/Users/a/b.png",
+  "pathFromUrl strips a Windows file:// drive prefix",
+);
+assertEqual(
+  ui.pathFromUrl("file:///home/a/my%20wall.png"),
+  "/home/a/my wall.png",
+  "pathFromUrl decodes percent-escapes",
+);
+assertEqual(ui.fileBasename("/home/a/wall.png"), "wall.png", "fileBasename last path segment");
+assertEqual(ui.fileBasename("plain"), "plain", "fileBasename no slash");
+assertEqual(ui.fileBasename(""), "", "fileBasename empty");
 
-const cpuPresent = 'processor\t: 0\nmodel name\t: AMD RYZEN AI MAX+ 395 w/ Radeon 8060S\n'
-assertEqual(hw.parseCpuIdentity(cpuPresent), 'AMD RYZEN AI MAX+ 395 w/ Radeon 8060S', 'parseCpuIdentity present')
-assertEqual(hw.parseCpuIdentity('processor\t: 0\nvendor_id\t: AuthenticAMD\n'), '', 'parseCpuIdentity absent')
-assertEqual(hw.parseCpuIdentity('model name\t: --nproc\n'), '', 'parseCpuIdentity rejects a flag')
-assertEqual(hw.parseCpuIdentity('Hardware\t: Raspberry Pi 5\n'), 'Raspberry Pi 5', 'parseCpuIdentity ARM Hardware field')
+const hw = load("services/Hardware.js");
+assertEqual(hw.parseDmiField(" Framework "), "Framework", "parseDmiField trims");
+assertEqual(hw.parseDmiField("To be filled by O.E.M."), "", "parseDmiField drops OEM filler");
+assertEqual(hw.parseDmiField("none"), "", "parseDmiField drops none");
+assertEqual(
+  hw.parseDmiField("Desktop (AMD Ryzen AI Max 300 Series)"),
+  "Desktop (AMD Ryzen AI Max 300 Series)",
+  "parseDmiField keeps a product name",
+);
+assertEqual(hw.parseDmiField("evil\nname"), "", "parseDmiField rejects a newline");
+assertEqual(hw.parseSystemStats("cpu1%\nmemory27.5GB / 125GB").cpu, "1%", "parseSystemStats cpu");
+assertEqual(
+  hw.parseSystemStats("cpu1%\nmemory27.5GB / 125GB").memory,
+  "27.5GB / 125GB",
+  "parseSystemStats memory",
+);
+assertEqual(
+  hw.npuSummary({ npuIdentity: "AMD Strix Halo NPU" }),
+  "AMD Strix Halo NPU",
+  "npuSummary present",
+);
+assertEqual(hw.npuSummary({}), "", "npuSummary absent");
+assertEqual(
+  hw.machineSummary({ name: "Desktop", vendor: "Framework" }).indexOf("Framework") !== -1,
+  true,
+  "machineSummary names the vendor",
+);
+assert(
+  hw.cpuSummary({ model: "Ryzen 7", cores: 8, threads: 16, maxMhz: 5000.4 }).indexOf("8 cores") !==
+    -1,
+  "cpuSummary names cores",
+);
+assert(
+  hw.cpuSummary({ model: "Ryzen 7", cores: 8, threads: 16 }).indexOf("16 threads") !== -1,
+  "cpuSummary names extra threads",
+);
+assert(
+  hw.biosSummary({ vendor: "AMI", version: "1.2", uefi: true }).indexOf("UEFI") !== -1,
+  "biosSummary names UEFI",
+);
+assertEqual(hw.thermalSummary({ temp: 42.26 }), "42.3 °C", "thermalSummary rounds tenths");
+assertEqual(hw.thermalSummary({}), "", "thermalSummary empty without a temp");
+assertEqual(
+  hw.tpmSummary({ present: true, version: "2.0" }).indexOf("TPM 2.0") !== -1,
+  true,
+  "tpmSummary names the version",
+);
+assertEqual(hw.tpmSummary({ present: false }), "", "tpmSummary empty when absent");
 
-const gpuLine = 'c3:00.0 Display controller [0380]: Advanced Micro Devices, Inc. [AMD/ATI] Strix Halo [Radeon Graphics / Radeon 8050S Graphics / Radeon 8060S Graphics] [1002:1586] (rev c1)\n'
-const npuLine = 'c4:00.1 Signal processing controller [1180]: Advanced Micro Devices, Inc. [AMD] Strix/Krackan/Strix Halo Neural Processing Unit [1022:17f0] (rev 11)\n'
-const ethLine = 'c1:00.0 Ethernet controller [0200]: Intel Corporation Ethernet Controller [8086:125c]\n'
+const cpuPresent = "processor\t: 0\nmodel name\t: AMD RYZEN AI MAX+ 395 w/ Radeon 8060S\n";
+assertEqual(
+  hw.parseCpuIdentity(cpuPresent),
+  "AMD RYZEN AI MAX+ 395 w/ Radeon 8060S",
+  "parseCpuIdentity present",
+);
+assertEqual(
+  hw.parseCpuIdentity("processor\t: 0\nvendor_id\t: AuthenticAMD\n"),
+  "",
+  "parseCpuIdentity absent",
+);
+assertEqual(hw.parseCpuIdentity("model name\t: --nproc\n"), "", "parseCpuIdentity rejects a flag");
+assertEqual(
+  hw.parseCpuIdentity("Hardware\t: Raspberry Pi 5\n"),
+  "Raspberry Pi 5",
+  "parseCpuIdentity ARM Hardware field",
+);
+
+const gpuLine =
+  "c3:00.0 Display controller [0380]: Advanced Micro Devices, Inc. [AMD/ATI] Strix Halo [Radeon Graphics / Radeon 8050S Graphics / Radeon 8060S Graphics] [1002:1586] (rev c1)\n";
+const npuLine =
+  "c4:00.1 Signal processing controller [1180]: Advanced Micro Devices, Inc. [AMD] Strix/Krackan/Strix Halo Neural Processing Unit [1022:17f0] (rev 11)\n";
+const ethLine =
+  "c1:00.0 Ethernet controller [0200]: Intel Corporation Ethernet Controller [8086:125c]\n";
 assertEqual(
   hw.parseGpuIdentity(gpuLine + npuLine),
-  'Advanced Micro Devices, Inc. [AMD/ATI] Strix Halo [Radeon Graphics / Radeon 8050S Graphics / Radeon 8060S Graphics]',
-  'parseGpuIdentity present'
-)
-assertEqual(hw.parseGpuIdentity(ethLine + npuLine), '', 'parseGpuIdentity absent')
-assertEqual(hw.parseGpuIdentity('00:00.0 VGA compatible controller: ../../etc/passwd [1002:0000]\n'), '', 'parseGpuIdentity rejects a path')
+  "Advanced Micro Devices, Inc. [AMD/ATI] Strix Halo [Radeon Graphics / Radeon 8050S Graphics / Radeon 8060S Graphics]",
+  "parseGpuIdentity present",
+);
+assertEqual(hw.parseGpuIdentity(ethLine + npuLine), "", "parseGpuIdentity absent");
+assertEqual(
+  hw.parseGpuIdentity("00:00.0 VGA compatible controller: ../../etc/passwd [1002:0000]\n"),
+  "",
+  "parseGpuIdentity rejects a path",
+);
 assertEqual(
   hw.parseNpuIdentity(gpuLine + npuLine),
-  'Advanced Micro Devices, Inc. [AMD] Strix/Krackan/Strix Halo Neural Processing Unit',
-  'parseNpuIdentity present'
-)
-assertEqual(hw.parseNpuIdentity(gpuLine + ethLine), '', 'parseNpuIdentity absent')
-assertEqual(hw.parseNpuIdentity('00:00.0 Neural Processing Unit: -inject\n'), '', 'parseNpuIdentity rejects a flag')
-assertEqual(hw.parseHwIdentity('evil\nname'), '', 'parseHwIdentity rejects a newline')
+  "Advanced Micro Devices, Inc. [AMD] Strix/Krackan/Strix Halo Neural Processing Unit",
+  "parseNpuIdentity present",
+);
+assertEqual(hw.parseNpuIdentity(gpuLine + ethLine), "", "parseNpuIdentity absent");
+assertEqual(
+  hw.parseNpuIdentity("00:00.0 Neural Processing Unit: -inject\n"),
+  "",
+  "parseNpuIdentity rejects a flag",
+);
+assertEqual(hw.parseHwIdentity("evil\nname"), "", "parseHwIdentity rejects a newline");
 
-const mem = hw.parseMeminfo('MemTotal:       16398384 kB\nMemAvailable:    8000000 kB\nMemFree:         1000000 kB\nSwapTotal:             0 kB\nSwapFree:              0 kB\n')
-assertEqual(mem.total, 16398384 * 1024, 'parseMeminfo total bytes')
-const cpuinfo = hw.parseCpuinfo('processor: 0\nvendor_id: GenuineIntel\nmodel name: Intel(R) Xeon(R) Processor\ncpu cores: 4\nphysical id: 0\nflags: vmx avx2\n\nprocessor: 1\nvendor_id: GenuineIntel\nmodel name: Intel(R) Xeon(R) Processor\ncpu cores: 4\nphysical id: 0\n')
-assertEqual(cpuinfo.model, 'Intel(R) Xeon(R) Processor', 'parseCpuinfo reads the model')
-assertEqual(cpuinfo.cores, 4, 'parseCpuinfo uses cpu cores per socket')
-const lscpu = hw.parseLscpu('Architecture: x86_64\nCPU(s): 16\nOn-line CPU(s) list: 0-15\nVendor ID: AuthenticAMD\nModel name: AMD Ryzen 7\nThread(s) per core: 2\nCore(s) per socket: 8\nSocket(s): 1\nCPU MHz: 3800.000\nCPU max MHz: 5000.000\nL3 cache: 32 MiB\nFlags: fpu vme sse\nVirtualization: AMD-V\nHypervisor vendor: KVM\n')
-assertEqual(lscpu.model, 'AMD Ryzen 7', 'parseLscpu reads the model')
-assertEqual(lscpu.cores, 8, 'parseLscpu multiplies cores per socket')
-assertEqual(lscpu.threads, 16, 'parseLscpu reads CPU(s) as threads')
-assertEqual(lscpu.mhz, 3800, 'parseLscpu reads CPU MHz')
-assertEqual(lscpu.maxMhz, 5000, 'parseLscpu reads CPU max MHz')
-assert(lscpu.caches.indexOf('L3 32 MiB') !== -1, 'parseLscpu formats L3 cache')
-assertEqual(lscpu.flags.join(' '), 'fpu vme sse', 'parseLscpu splits flags')
-assertEqual(lscpu.virtualization, 'AMD-V', 'parseLscpu reads virtualization')
-assertEqual(lscpu.hypervisor, 'KVM', 'parseLscpu reads hypervisor vendor')
-assertEqual(mem.available, 8000000 * 1024, 'parseMeminfo available bytes')
-assertEqual(mem.used, (16398384 - 8000000) * 1024, 'parseMeminfo used bytes')
-const memFallback = hw.parseMeminfo('MemTotal: 4096 kB\nMemFree: 1000 kB\nCached: 500 kB\nBuffers: 200 kB\nSwapTotal: 1024 kB\nSwapFree: 24 kB\n')
-assertEqual(memFallback.available, (1000 + 500 + 200) * 1024, 'parseMeminfo falls back to free+cached+buffers')
-assertEqual(memFallback.swapUsed, 1000 * 1024, 'parseMeminfo swap used')
-const pci = hw.parseLspci('00:00.0 "Host bridge [0600]" "Intel Corporation [8086]" "Raptor Lake-P Host Bridge [a74f]"\n00:02.0 "VGA compatible controller [0300]" "Intel Corporation [8086]" "Raptor Lake-P Integrated Graphics [a7a0]"\n')
-assertEqual(hw.pickChipset(pci).name.indexOf('Raptor') !== -1, true, 'pickChipset finds the host bridge')
-assertEqual(hw.pickGpus(pci).length, 1, 'pickGpus finds the VGA device')
-assertEqual(hw.memoryTypeName(26), 'DDR4', 'memoryTypeName maps DDR4')
-assertEqual(hw.chassisTypeName(9), 'Laptop', 'chassisTypeName maps laptop')
-assertEqual(hw.formatModuleSize(16 * 1024 * 1024 * 1024), '16 GB', 'formatModuleSize uses whole gigabytes')
-assertEqual(hw.formatModuleSize(1536 * 1024 * 1024), '1.5 GB', 'formatModuleSize fractional gigabytes')
-assertEqual(hw.formatModuleSize(512 * 1024 * 1024), '512 MB', 'formatModuleSize megabytes')
-assertEqual(hw.formatModuleSize(0), '', 'formatModuleSize empty for zero')
-assert(hw.virtSummary({ hypervisor: 'KVM', kvm: true }).indexOf('Running on KVM') !== -1, 'virtSummary names the hypervisor')
-assert(hw.virtSummary({ guest: true }).indexOf('guest') !== -1, 'virtSummary guest without hypervisor')
-assertEqual(hw.virtSummary({}), '', 'virtSummary empty')
-assertEqual(hw.notableFlags(['vmx', 'avx2', 'nope']).join(','), 'VT-x,AVX2', 'notableFlags maps known CPU flags')
-assertEqual(hw.notableFlags(['svm', 'SVM']).join(','), 'AMD-V', 'notableFlags dedupes labels')
-assert(hw.batterySummary({ status: 'Charging', capacity: 80, technology: 'Li-ion' }).indexOf('80%') !== -1, 'batterySummary names capacity')
-assertEqual(hw.boardSummary({ vendor: 'Framework', name: 'Mainboard', version: 'A7' }).indexOf('Version A7') !== -1, true, 'boardSummary names the version')
-assert(hw.gpuSummary({ vendor: 'AMD', name: 'Strix Halo', driver: 'amdgpu', pciId: '1002:1586' }).indexOf('Driver amdgpu') !== -1, 'gpuSummary names the driver')
-assert(hw.nicSummary({ iface: 'wlan0', name: 'Wi-Fi', wireless: true, speed: 1200 }).indexOf('Wireless') !== -1, 'nicSummary marks wireless')
-assert(hw.moduleSummary({ size: 16 * 1024 * 1024 * 1024, typeCode: 26, speed: 5600 }).indexOf('DDR4') !== -1, 'moduleSummary maps typeCode')
-assertEqual(hw.pickNpus([{ className: 'Signal processing controller', name: 'Strix Halo Neural Processing Unit' }]).length, 1, 'pickNpus matches neural processing')
-assertEqual(hw.pickNpus([{ className: 'Ethernet controller', name: 'I225' }]).length, 0, 'pickNpus skips NICs')
-assert(hw.chipsetSummary({ vendor: 'Intel', name: 'Raptor', role: 'Host bridge', southbridge: 'LPC' }).indexOf('Southbridge LPC') !== -1, 'chipsetSummary names the southbridge')
-assertEqual(hw.parseKeyValues('A: 1\nB = 2', '=').B, '2', 'parseKeyValues uses a custom delimiter')
+const mem = hw.parseMeminfo(
+  "MemTotal:       16398384 kB\nMemAvailable:    8000000 kB\nMemFree:         1000000 kB\nSwapTotal:             0 kB\nSwapFree:              0 kB\n",
+);
+assertEqual(mem.total, 16398384 * 1024, "parseMeminfo total bytes");
+const cpuinfo = hw.parseCpuinfo(
+  "processor: 0\nvendor_id: GenuineIntel\nmodel name: Intel(R) Xeon(R) Processor\ncpu cores: 4\nphysical id: 0\nflags: vmx avx2\n\nprocessor: 1\nvendor_id: GenuineIntel\nmodel name: Intel(R) Xeon(R) Processor\ncpu cores: 4\nphysical id: 0\n",
+);
+assertEqual(cpuinfo.model, "Intel(R) Xeon(R) Processor", "parseCpuinfo reads the model");
+assertEqual(cpuinfo.cores, 4, "parseCpuinfo uses cpu cores per socket");
+const lscpu = hw.parseLscpu(
+  "Architecture: x86_64\nCPU(s): 16\nOn-line CPU(s) list: 0-15\nVendor ID: AuthenticAMD\nModel name: AMD Ryzen 7\nThread(s) per core: 2\nCore(s) per socket: 8\nSocket(s): 1\nCPU MHz: 3800.000\nCPU max MHz: 5000.000\nL3 cache: 32 MiB\nFlags: fpu vme sse\nVirtualization: AMD-V\nHypervisor vendor: KVM\n",
+);
+assertEqual(lscpu.model, "AMD Ryzen 7", "parseLscpu reads the model");
+assertEqual(lscpu.cores, 8, "parseLscpu multiplies cores per socket");
+assertEqual(lscpu.threads, 16, "parseLscpu reads CPU(s) as threads");
+assertEqual(lscpu.mhz, 3800, "parseLscpu reads CPU MHz");
+assertEqual(lscpu.maxMhz, 5000, "parseLscpu reads CPU max MHz");
+assert(lscpu.caches.indexOf("L3 32 MiB") !== -1, "parseLscpu formats L3 cache");
+assertEqual(lscpu.flags.join(" "), "fpu vme sse", "parseLscpu splits flags");
+assertEqual(lscpu.virtualization, "AMD-V", "parseLscpu reads virtualization");
+assertEqual(lscpu.hypervisor, "KVM", "parseLscpu reads hypervisor vendor");
+assertEqual(mem.available, 8000000 * 1024, "parseMeminfo available bytes");
+assertEqual(mem.used, (16398384 - 8000000) * 1024, "parseMeminfo used bytes");
+const memFallback = hw.parseMeminfo(
+  "MemTotal: 4096 kB\nMemFree: 1000 kB\nCached: 500 kB\nBuffers: 200 kB\nSwapTotal: 1024 kB\nSwapFree: 24 kB\n",
+);
+assertEqual(
+  memFallback.available,
+  (1000 + 500 + 200) * 1024,
+  "parseMeminfo falls back to free+cached+buffers",
+);
+assertEqual(memFallback.swapUsed, 1000 * 1024, "parseMeminfo swap used");
+const pci = hw.parseLspci(
+  '00:00.0 "Host bridge [0600]" "Intel Corporation [8086]" "Raptor Lake-P Host Bridge [a74f]"\n00:02.0 "VGA compatible controller [0300]" "Intel Corporation [8086]" "Raptor Lake-P Integrated Graphics [a7a0]"\n',
+);
+assertEqual(
+  hw.pickChipset(pci).name.indexOf("Raptor") !== -1,
+  true,
+  "pickChipset finds the host bridge",
+);
+assertEqual(hw.pickGpus(pci).length, 1, "pickGpus finds the VGA device");
+assertEqual(hw.memoryTypeName(26), "DDR4", "memoryTypeName maps DDR4");
+assertEqual(hw.chassisTypeName(9), "Laptop", "chassisTypeName maps laptop");
+assertEqual(
+  hw.formatModuleSize(16 * 1024 * 1024 * 1024),
+  "16 GB",
+  "formatModuleSize uses whole gigabytes",
+);
+assertEqual(
+  hw.formatModuleSize(1536 * 1024 * 1024),
+  "1.5 GB",
+  "formatModuleSize fractional gigabytes",
+);
+assertEqual(hw.formatModuleSize(512 * 1024 * 1024), "512 MB", "formatModuleSize megabytes");
+assertEqual(hw.formatModuleSize(0), "", "formatModuleSize empty for zero");
+assert(
+  hw.virtSummary({ hypervisor: "KVM", kvm: true }).indexOf("Running on KVM") !== -1,
+  "virtSummary names the hypervisor",
+);
+assert(
+  hw.virtSummary({ guest: true }).indexOf("guest") !== -1,
+  "virtSummary guest without hypervisor",
+);
+assertEqual(hw.virtSummary({}), "", "virtSummary empty");
+assertEqual(
+  hw.notableFlags(["vmx", "avx2", "nope"]).join(","),
+  "VT-x,AVX2",
+  "notableFlags maps known CPU flags",
+);
+assertEqual(hw.notableFlags(["svm", "SVM"]).join(","), "AMD-V", "notableFlags dedupes labels");
+assert(
+  hw.batterySummary({ status: "Charging", capacity: 80, technology: "Li-ion" }).indexOf("80%") !==
+    -1,
+  "batterySummary names capacity",
+);
+assertEqual(
+  hw
+    .boardSummary({ vendor: "Framework", name: "Mainboard", version: "A7" })
+    .indexOf("Version A7") !== -1,
+  true,
+  "boardSummary names the version",
+);
+assert(
+  hw
+    .gpuSummary({ vendor: "AMD", name: "Strix Halo", driver: "amdgpu", pciId: "1002:1586" })
+    .indexOf("Driver amdgpu") !== -1,
+  "gpuSummary names the driver",
+);
+assert(
+  hw
+    .nicSummary({ iface: "wlan0", name: "Wi-Fi", wireless: true, speed: 1200 })
+    .indexOf("Wireless") !== -1,
+  "nicSummary marks wireless",
+);
+assert(
+  hw.moduleSummary({ size: 16 * 1024 * 1024 * 1024, typeCode: 26, speed: 5600 }).indexOf("DDR4") !==
+    -1,
+  "moduleSummary maps typeCode",
+);
+assertEqual(
+  hw.pickNpus([
+    { className: "Signal processing controller", name: "Strix Halo Neural Processing Unit" },
+  ]).length,
+  1,
+  "pickNpus matches neural processing",
+);
+assertEqual(
+  hw.pickNpus([{ className: "Ethernet controller", name: "I225" }]).length,
+  0,
+  "pickNpus skips NICs",
+);
+assert(
+  hw
+    .chipsetSummary({ vendor: "Intel", name: "Raptor", role: "Host bridge", southbridge: "LPC" })
+    .indexOf("Southbridge LPC") !== -1,
+  "chipsetSummary names the southbridge",
+);
+assertEqual(hw.parseKeyValues("A: 1\nB = 2", "=").B, "2", "parseKeyValues uses a custom delimiter");
 const hwNorm = hw.normalize({
-  machine: { chassis: 9, vendor: 'Framework', name: 'Laptop' },
-  gpus: [{ name: '' }],
-  nics: [{ iface: 'wlan0' }]
-})
-assertEqual(hwNorm.machine.chassis, 'Laptop', 'normalize maps a chassis type code')
-assertEqual(hwNorm.gpus.length, 0, 'normalize drops a nameless GPU')
-assertEqual(hwNorm.nics[0].iface, 'wlan0', 'normalize keeps a NIC iface')
-assertEqual(hw.cleanText('To Be Filled By O.E.M.'), '', 'cleanText drops OEM filler')
-assertEqual(hw.memoryFormName(8), 'DIMM', 'memoryFormName maps DIMM')
-assertEqual(hw.memoryFormName(13), 'SODIMM', 'memoryFormName maps SODIMM')
-assertEqual(hw.memoryFormName(99), '', 'memoryFormName unknown code is empty')
-assertEqual(hw.decodeMemorySize(0, 0), 0, 'decodeMemorySize empty slot is zero')
-assertEqual(hw.decodeMemorySize(0xFFFF, 0), 0, 'decodeMemorySize unknown size is zero')
-assertEqual(hw.decodeMemorySize(0x7FFF, 8192), 8192 * 1024 * 1024, 'decodeMemorySize uses extended MiB')
-assertEqual(hw.decodeMemorySize(0x7FFF, 0), 0, 'decodeMemorySize extended with no MiB is zero')
-assertEqual(hw.decodeMemorySize(16, 0), 16 * 1024 * 1024, 'decodeMemorySize treats low words as MiB')
-assertEqual(hw.decodeMemorySize(0x8004, 0), 4 * 1024, 'decodeMemorySize bit 15 means KiB')
+  machine: { chassis: 9, vendor: "Framework", name: "Laptop" },
+  gpus: [{ name: "" }],
+  nics: [{ iface: "wlan0" }],
+});
+assertEqual(hwNorm.machine.chassis, "Laptop", "normalize maps a chassis type code");
+assertEqual(hwNorm.gpus.length, 0, "normalize drops a nameless GPU");
+assertEqual(hwNorm.nics[0].iface, "wlan0", "normalize keeps a NIC iface");
+assertEqual(hw.cleanText("To Be Filled By O.E.M."), "", "cleanText drops OEM filler");
+assertEqual(hw.memoryFormName(8), "DIMM", "memoryFormName maps DIMM");
+assertEqual(hw.memoryFormName(13), "SODIMM", "memoryFormName maps SODIMM");
+assertEqual(hw.memoryFormName(99), "", "memoryFormName unknown code is empty");
+assertEqual(hw.decodeMemorySize(0, 0), 0, "decodeMemorySize empty slot is zero");
+assertEqual(hw.decodeMemorySize(0xffff, 0), 0, "decodeMemorySize unknown size is zero");
+assertEqual(
+  hw.decodeMemorySize(0x7fff, 8192),
+  8192 * 1024 * 1024,
+  "decodeMemorySize uses extended MiB",
+);
+assertEqual(hw.decodeMemorySize(0x7fff, 0), 0, "decodeMemorySize extended with no MiB is zero");
+assertEqual(
+  hw.decodeMemorySize(16, 0),
+  16 * 1024 * 1024,
+  "decodeMemorySize treats low words as MiB",
+);
+assertEqual(hw.decodeMemorySize(0x8004, 0), 4 * 1024, "decodeMemorySize bit 15 means KiB");
 
-const atmosUp = load('services/AtmosUpdate.js')
-assertEqual(atmosUp.parseCheckOutput('status behind\nchannel alpha\nlocal abcdef0\nremote abcdef1\nshort abcdef0\n').status, 'behind', 'parseCheckOutput behind')
-assertEqual(atmosUp.parseCheckOutput('status behind\nchannel alpha\n').channel, 'alpha', 'parseCheckOutput channel')
-assertEqual(atmosUp.parseCheckOutput('status current\nshort abcdef0\n').status, 'current', 'parseCheckOutput current')
-assertEqual(atmosUp.parseChannel('alpha'), 'alpha', 'parseChannel accepts alpha')
-assertEqual(atmosUp.parseChannel('main'), '', 'parseChannel rejects main')
-assertEqual(atmosUp.parseSha('--help'), '', 'parseSha rejects a flag')
-assertEqual(atmosUp.parseCheckOutput('status behind\nsummary rm -rf /\n').summary, 'A newer Atmos is on alpha.', 'parseCheckOutput drops a junk summary')
-assertEqual(atmosUp.parseSha('AbCdEf01'), 'abcdef01', 'parseSha lowercases a hex sha')
-assertEqual(atmosUp.parseSha('xyz'), '', 'parseSha rejects non-hex')
-const fetchFailed = atmosUp.parseCheckOutput('status fetch-failed\nlocal deadbeef\nremote cafebabe\nshort dead\n')
-assertEqual(fetchFailed.status, 'fetch-failed', 'parseCheckOutput fetch-failed')
-assertEqual(fetchFailed.local, 'deadbeef', 'parseCheckOutput reads local sha')
-assertEqual(fetchFailed.remote, 'cafebabe', 'parseCheckOutput reads remote sha')
-assertEqual(fetchFailed.short, 'dead', 'parseCheckOutput reads short sha')
-assertEqual(fetchFailed.summary, 'Could not fetch the alpha branch.', 'parseCheckOutput default fetch-failed summary')
-assertEqual(atmosUp.parseCheckOutput('status current\n').summary, 'Atmos is up to date.', 'parseCheckOutput default current summary')
-assertEqual(atmosUp.parseCheckOutput('status weird\n').status, 'unknown', 'parseCheckOutput rejects an unknown status')
+const atmosUp = load("services/AtmosUpdate.js");
+assertEqual(
+  atmosUp.parseCheckOutput(
+    "status behind\nchannel alpha\nlocal abcdef0\nremote abcdef1\nshort abcdef0\n",
+  ).status,
+  "behind",
+  "parseCheckOutput behind",
+);
+assertEqual(
+  atmosUp.parseCheckOutput("status behind\nchannel alpha\n").channel,
+  "alpha",
+  "parseCheckOutput channel",
+);
+assertEqual(
+  atmosUp.parseCheckOutput("status current\nshort abcdef0\n").status,
+  "current",
+  "parseCheckOutput current",
+);
+assertEqual(atmosUp.parseChannel("alpha"), "alpha", "parseChannel accepts alpha");
+assertEqual(atmosUp.parseChannel("main"), "", "parseChannel rejects main");
+assertEqual(atmosUp.parseSha("--help"), "", "parseSha rejects a flag");
+assertEqual(
+  atmosUp.parseCheckOutput("status behind\nsummary rm -rf /\n").summary,
+  "A newer Atmos is on alpha.",
+  "parseCheckOutput drops a junk summary",
+);
+assertEqual(atmosUp.parseSha("AbCdEf01"), "abcdef01", "parseSha lowercases a hex sha");
+assertEqual(atmosUp.parseSha("xyz"), "", "parseSha rejects non-hex");
+const fetchFailed = atmosUp.parseCheckOutput(
+  "status fetch-failed\nlocal deadbeef\nremote cafebabe\nshort dead\n",
+);
+assertEqual(fetchFailed.status, "fetch-failed", "parseCheckOutput fetch-failed");
+assertEqual(fetchFailed.local, "deadbeef", "parseCheckOutput reads local sha");
+assertEqual(fetchFailed.remote, "cafebabe", "parseCheckOutput reads remote sha");
+assertEqual(fetchFailed.short, "dead", "parseCheckOutput reads short sha");
+assertEqual(
+  fetchFailed.summary,
+  "Could not fetch the alpha branch.",
+  "parseCheckOutput default fetch-failed summary",
+);
+assertEqual(
+  atmosUp.parseCheckOutput("status current\n").summary,
+  "Atmos is up to date.",
+  "parseCheckOutput default current summary",
+);
+assertEqual(
+  atmosUp.parseCheckOutput("status weird\n").status,
+  "unknown",
+  "parseCheckOutput rejects an unknown status",
+);
 
 const wifi = ui.sortWifiRows([
-  ui.wifiRow('b', 10, 'psk', false, false),
-  ui.wifiRow('a', 80, 'psk', true, true)
-])
-assertEqual(wifi[0].ssid, 'a', 'sortWifiRows puts connected first')
+  ui.wifiRow("b", 10, "psk", false, false),
+  ui.wifiRow("a", 80, "psk", true, true),
+]);
+assertEqual(wifi[0].ssid, "a", "sortWifiRows puts connected first");
 const wifiKnown = ui.sortWifiRows([
-  ui.wifiRow('open-net', 90, 'open', false, false),
-  ui.wifiRow('home', 40, 'psk', false, true)
-])
-assertEqual(wifiKnown[0].ssid, 'home', 'sortWifiRows puts a known network before a stronger unknown')
-assert(ui.requiresCredentials('psk') === true, 'psk needs a password')
-assert(ui.requiresCredentials('open') === false, 'open has no password')
-assert(ui.requiresCredentials('owe') === false, 'owe has no password')
-assert(ui.isEnterprise('enterprise') === true, 'enterprise kind')
-const bt = ui.bluetoothRow('AA:BB:CC:DD:EE:FF', 'Buds', 1, 0)
-assertEqual(bt.address, 'AA:BB:CC:DD:EE:FF', 'bluetoothRow keeps the address')
-assertEqual(bt.name, 'Buds', 'bluetoothRow keeps the name')
-assert(bt.connected === true, 'bluetoothRow coerces connected')
-assert(bt.paired === false, 'bluetoothRow coerces unpaired')
+  ui.wifiRow("open-net", 90, "open", false, false),
+  ui.wifiRow("home", 40, "psk", false, true),
+]);
+assertEqual(
+  wifiKnown[0].ssid,
+  "home",
+  "sortWifiRows puts a known network before a stronger unknown",
+);
+assert(ui.requiresCredentials("psk") === true, "psk needs a password");
+assert(ui.requiresCredentials("open") === false, "open has no password");
+assert(ui.requiresCredentials("owe") === false, "owe has no password");
+assert(ui.isEnterprise("enterprise") === true, "enterprise kind");
+const bt = ui.bluetoothRow("AA:BB:CC:DD:EE:FF", "Buds", 1, 0);
+assertEqual(bt.address, "AA:BB:CC:DD:EE:FF", "bluetoothRow keeps the address");
+assertEqual(bt.name, "Buds", "bluetoothRow keeps the name");
+assert(bt.connected === true, "bluetoothRow coerces connected");
+assert(bt.paired === false, "bluetoothRow coerces unpaired");
 
-assert(ui.isTimezoneId('America/New_York') === true, 'isTimezoneId accepts Area/City')
-assert(ui.isTimezoneId('UTC') === true, 'isTimezoneId accepts UTC')
-assert(ui.isTimezoneId('Etc/GMT+12') === true, 'isTimezoneId accepts Etc/GMT+12')
-assert(ui.parseTimezoneId('  Europe/Paris  ') === 'Europe/Paris', 'parseTimezoneId trims')
-assert(ui.isTimezoneId('../etc/passwd') === false, 'isTimezoneId rejects path traversal')
-assert(ui.isTimezoneId('-America/New_York') === false, 'isTimezoneId rejects flags')
-assert(ui.isTimezoneId('America/New York') === false, 'isTimezoneId rejects spaces')
-assert(ui.parseTimezoneId('nope!') === '', 'parseTimezoneId rejects junk')
+assert(ui.isTimezoneId("America/New_York") === true, "isTimezoneId accepts Area/City");
+assert(ui.isTimezoneId("UTC") === true, "isTimezoneId accepts UTC");
+assert(ui.isTimezoneId("Etc/GMT+12") === true, "isTimezoneId accepts Etc/GMT+12");
+assert(ui.parseTimezoneId("  Europe/Paris  ") === "Europe/Paris", "parseTimezoneId trims");
+assert(ui.isTimezoneId("../etc/passwd") === false, "isTimezoneId rejects path traversal");
+assert(ui.isTimezoneId("-America/New_York") === false, "isTimezoneId rejects flags");
+assert(ui.isTimezoneId("America/New York") === false, "isTimezoneId rejects spaces");
+assert(ui.parseTimezoneId("nope!") === "", "parseTimezoneId rejects junk");
 
-assert(ui.isHostname('hallas') === true, 'isHostname accepts a label')
-assert(ui.isHostname('my-pc') === true, 'isHostname accepts a hyphen')
-assert(ui.isHostname('a') === true, 'isHostname accepts a single character')
-assert(ui.isHostname('foo.bar') === true, 'isHostname accepts an FQDN')
-assert(ui.parseHostname('  omarchy  ') === 'omarchy', 'parseHostname trims')
-assert(ui.isHostname('-bad') === false, 'isHostname rejects a leading hyphen')
-assert(ui.isHostname('bad-') === false, 'isHostname rejects a trailing hyphen')
-assert(ui.isHostname('has space') === false, 'isHostname rejects spaces')
-assert(ui.parseHostname('--flag') === '', 'parseHostname rejects flags')
+assert(ui.isHostname("hallas") === true, "isHostname accepts a label");
+assert(ui.isHostname("my-pc") === true, "isHostname accepts a hyphen");
+assert(ui.isHostname("a") === true, "isHostname accepts a single character");
+assert(ui.isHostname("foo.bar") === true, "isHostname accepts an FQDN");
+assert(ui.parseHostname("  omarchy  ") === "omarchy", "parseHostname trims");
+assert(ui.isHostname("-bad") === false, "isHostname rejects a leading hyphen");
+assert(ui.isHostname("bad-") === false, "isHostname rejects a trailing hyphen");
+assert(ui.isHostname("has space") === false, "isHostname rejects spaces");
+assert(ui.parseHostname("--flag") === "", "parseHostname rejects flags");
 
-assert(ui.isKeyboardLayoutId('us') === true, 'isKeyboardLayoutId accepts us')
-assert(ui.isKeyboardLayoutId('gb') === true, 'isKeyboardLayoutId accepts gb')
-assert(ui.parseKeyboardLayoutId('us,ru') === 'us', 'parseKeyboardLayoutId takes the first layout')
-assert(ui.isKeyboardLayoutId('US') === false, 'isKeyboardLayoutId rejects uppercase')
-assert(ui.isKeyboardLayoutId('--us') === false, 'isKeyboardLayoutId rejects flags')
+assert(ui.isKeyboardLayoutId("us") === true, "isKeyboardLayoutId accepts us");
+assert(ui.isKeyboardLayoutId("gb") === true, "isKeyboardLayoutId accepts gb");
+assert(ui.parseKeyboardLayoutId("us,ru") === "us", "parseKeyboardLayoutId takes the first layout");
+assert(ui.isKeyboardLayoutId("US") === false, "isKeyboardLayoutId rejects uppercase");
+assert(ui.isKeyboardLayoutId("--us") === false, "isKeyboardLayoutId rejects flags");
 const xkbLayouts = ui.parseXkbLayoutList(`
 ! model
   pc105           Generic 105-key PC
@@ -433,170 +824,211 @@ const xkbLayouts = ui.parseXkbLayoutList(`
   de              German
 ! variant
   intl            English (US, intl.)
-`)
-assertEqual(xkbLayouts.length, 3, 'parseXkbLayoutList reads the layout section')
-assertEqual(xkbLayouts[0].value, 'us', 'parseXkbLayoutList value')
-assertEqual(xkbLayouts[0].label, 'English (US)', 'parseXkbLayoutList label')
-assertEqual(xkbLayouts[1].value, 'gb', 'parseXkbLayoutList gb')
+`);
+assertEqual(xkbLayouts.length, 3, "parseXkbLayoutList reads the layout section");
+assertEqual(xkbLayouts[0].value, "us", "parseXkbLayoutList value");
+assertEqual(xkbLayouts[0].label, "English (US)", "parseXkbLayoutList label");
+assertEqual(xkbLayouts[1].value, "gb", "parseXkbLayoutList gb");
 
-assert(ui.parseTimedatectlYes('yes') === true, 'parseTimedatectlYes yes')
-assert(ui.parseTimedatectlYes('YES') === true, 'parseTimedatectlYes is case-insensitive')
-assert(ui.parseTimedatectlYes('true') === true, 'parseTimedatectlYes true')
-assert(ui.parseTimedatectlYes('1') === true, 'parseTimedatectlYes 1')
-assert(ui.parseTimedatectlYes('on') === true, 'parseTimedatectlYes on')
-assert(ui.parseTimedatectlYes('no') === false, 'parseTimedatectlYes no')
-assert(ui.parseTimedatectlYes('maybe') === false, 'parseTimedatectlYes rejects junk')
+assert(ui.parseTimedatectlYes("yes") === true, "parseTimedatectlYes yes");
+assert(ui.parseTimedatectlYes("YES") === true, "parseTimedatectlYes is case-insensitive");
+assert(ui.parseTimedatectlYes("true") === true, "parseTimedatectlYes true");
+assert(ui.parseTimedatectlYes("1") === true, "parseTimedatectlYes 1");
+assert(ui.parseTimedatectlYes("on") === true, "parseTimedatectlYes on");
+assert(ui.parseTimedatectlYes("no") === false, "parseTimedatectlYes no");
+assert(ui.parseTimedatectlYes("maybe") === false, "parseTimedatectlYes rejects junk");
 
-assert(ui.isLocaleId('en_US.UTF-8') === true, 'isLocaleId accepts en_US.UTF-8')
-assert(ui.isLocaleId('C.UTF-8') === true, 'isLocaleId accepts C.UTF-8')
-assert(ui.isLocaleId('ca_ES.UTF-8@valencia') === true, 'isLocaleId accepts a modifier')
-assert(ui.parseLocaleId('  de_DE.UTF-8  ') === 'de_DE.UTF-8', 'parseLocaleId trims')
-assert(ui.isLocaleId('EN_US.UTF-8') === false, 'isLocaleId rejects uppercase language')
-assert(ui.isLocaleId('en') === false, 'isLocaleId rejects a language-only tag')
-assert(ui.parseLocaleId('--bad') === '', 'parseLocaleId rejects flags')
+assert(ui.isLocaleId("en_US.UTF-8") === true, "isLocaleId accepts en_US.UTF-8");
+assert(ui.isLocaleId("C.UTF-8") === true, "isLocaleId accepts C.UTF-8");
+assert(ui.isLocaleId("ca_ES.UTF-8@valencia") === true, "isLocaleId accepts a modifier");
+assert(ui.parseLocaleId("  de_DE.UTF-8  ") === "de_DE.UTF-8", "parseLocaleId trims");
+assert(ui.isLocaleId("EN_US.UTF-8") === false, "isLocaleId rejects uppercase language");
+assert(ui.isLocaleId("en") === false, "isLocaleId rejects a language-only tag");
+assert(ui.parseLocaleId("--bad") === "", "parseLocaleId rejects flags");
 
-assert(ui.isFullName('Ada Lovelace') === true, 'isFullName accepts a display name')
-assert(ui.isFullName('') === true, 'isFullName allows empty')
-assert(ui.parseFullName('  Jean-Luc  ') === 'Jean-Luc', 'parseFullName trims')
-assert(ui.isFullName('bad:name') === false, 'isFullName rejects a colon')
-assert(ui.isFullName('Last, First') === false, 'isFullName rejects a comma')
-assert(ui.parseFullName('--flag') === '', 'parseFullName rejects flags')
+assert(ui.isFullName("Ada Lovelace") === true, "isFullName accepts a display name");
+assert(ui.isFullName("") === true, "isFullName allows empty");
+assert(ui.parseFullName("  Jean-Luc  ") === "Jean-Luc", "parseFullName trims");
+assert(ui.isFullName("bad:name") === false, "isFullName rejects a colon");
+assert(ui.isFullName("Last, First") === false, "isFullName rejects a comma");
+assert(ui.parseFullName("--flag") === "", "parseFullName rejects flags");
 
-assertEqual(ui.parseParallelDownloads('ParallelDownloads = 5\n'), 5, 'parseParallelDownloads reads a value')
-assertEqual(ui.parseParallelDownloads('#ParallelDownloads = 9\nParallelDownloads = 3\n'), 3, 'parseParallelDownloads skips comments')
-assertEqual(ui.parseParallelDownloads('Color\n'), 0, 'parseParallelDownloads missing')
-assertEqual(ui.parseParallelDownloads('ParallelDownloads = 99\n'), 20, 'parseParallelDownloads clamps high values')
-assertEqual(ui.parseParallelDownloads('ParallelDownloads = 0\n'), 0, 'parseParallelDownloads rejects zero')
+assertEqual(
+  ui.parseParallelDownloads("ParallelDownloads = 5\n"),
+  5,
+  "parseParallelDownloads reads a value",
+);
+assertEqual(
+  ui.parseParallelDownloads("#ParallelDownloads = 9\nParallelDownloads = 3\n"),
+  3,
+  "parseParallelDownloads skips comments",
+);
+assertEqual(ui.parseParallelDownloads("Color\n"), 0, "parseParallelDownloads missing");
+assertEqual(
+  ui.parseParallelDownloads("ParallelDownloads = 99\n"),
+  20,
+  "parseParallelDownloads clamps high values",
+);
+assertEqual(
+  ui.parseParallelDownloads("ParallelDownloads = 0\n"),
+  0,
+  "parseParallelDownloads rejects zero",
+);
 
-const layout = load('services/Layout.js')
+const layout = load("services/Layout.js");
 
 function flags(items) {
-  return layout.splitAfterVisible(items).map(function(v) { return v ? 1 : 0 }).join('')
+  return layout
+    .splitAfterVisible(items)
+    .map(function (v) {
+      return v ? 1 : 0;
+    })
+    .join("");
 }
 
 assertEqual(
   flags([{ visible: true }, { visible: true }, { visible: true }]),
-  '110',
-  'splitAfterVisible splits between visible items, not after the last'
-)
+  "110",
+  "splitAfterVisible splits between visible items, not after the last",
+);
 assertEqual(
   flags([{ visible: true }, { visible: false }, { visible: true }]),
-  '100',
-  'splitAfterVisible skips hidden items between two visible ones'
-)
+  "100",
+  "splitAfterVisible skips hidden items between two visible ones",
+);
 assertEqual(
   flags([{ visible: false }, { visible: true }, { visible: false }]),
-  '000',
-  'splitAfterVisible has no split for a single visible item'
-)
+  "000",
+  "splitAfterVisible has no split for a single visible item",
+);
 assertEqual(
   flags([{ visible: false }, { visible: false }]),
-  '00',
-  'splitAfterVisible has no split when nothing is visible'
-)
-assertEqual(
-  flags([]).length,
-  0,
-  'splitAfterVisible empty list'
-)
-assertEqual(
-  flags(null).length,
-  0,
-  'splitAfterVisible ignores a non-array'
-)
+  "00",
+  "splitAfterVisible has no split when nothing is visible",
+);
+assertEqual(flags([]).length, 0, "splitAfterVisible empty list");
+assertEqual(flags(null).length, 0, "splitAfterVisible ignores a non-array");
 
 function beforeFlags(items) {
-  return layout.splitBeforeVisible(items).map(function(v) { return v ? 1 : 0 }).join('')
+  return layout
+    .splitBeforeVisible(items)
+    .map(function (v) {
+      return v ? 1 : 0;
+    })
+    .join("");
 }
 
 assertEqual(
   beforeFlags([{ visible: true }, { visible: true }, { visible: true }]),
-  '011',
-  'splitBeforeVisible draws on later items, not after the last'
-)
+  "011",
+  "splitBeforeVisible draws on later items, not after the last",
+);
 assertEqual(
   beforeFlags([{ visible: true }, { visible: false }, { visible: true }]),
-  '001',
-  'splitBeforeVisible skips hidden items'
-)
+  "001",
+  "splitBeforeVisible skips hidden items",
+);
 assertEqual(
   beforeFlags([{ visible: false }, { visible: true }, { visible: false }]),
-  '000',
-  'splitBeforeVisible has no split on the first visible item'
-)
+  "000",
+  "splitBeforeVisible has no split on the first visible item",
+);
 
 const helpTopics = layout.sectionHelpTopics([
-  { label: 'Theme', description: 'Palette.', detail: 'A named palette plus templates.', hint: 'omarchy theme set' },
-  { label: 'Font', description: 'Monospace family.', hint: 'omarchy font set' },
-  { label: '', description: '', detail: '', hint: '' },
-  null
-])
-assertEqual(helpTopics.length, 2, 'sectionHelpTopics skips empty rows')
-assertEqual(helpTopics[0].body, 'A named palette plus templates.', 'sectionHelpTopics prefers detail')
-assertEqual(helpTopics[1].body, 'Monospace family.', 'sectionHelpTopics falls back to description')
-assertEqual(helpTopics[1].command, 'omarchy font set', 'sectionHelpTopics keeps the command')
-assertEqual(layout.sectionHelpTopics(null).length, 0, 'sectionHelpTopics ignores a non-array')
+  {
+    label: "Theme",
+    description: "Palette.",
+    detail: "A named palette plus templates.",
+    hint: "omarchy theme set",
+  },
+  { label: "Font", description: "Monospace family.", hint: "omarchy font set" },
+  { label: "", description: "", detail: "", hint: "" },
+  null,
+]);
+assertEqual(helpTopics.length, 2, "sectionHelpTopics skips empty rows");
+assertEqual(
+  helpTopics[0].body,
+  "A named palette plus templates.",
+  "sectionHelpTopics prefers detail",
+);
+assertEqual(helpTopics[1].body, "Monospace family.", "sectionHelpTopics falls back to description");
+assertEqual(helpTopics[1].command, "omarchy font set", "sectionHelpTopics keeps the command");
+assertEqual(layout.sectionHelpTopics(null).length, 0, "sectionHelpTopics ignores a non-array");
 
-const wrap = load('services/TextWrap.js')
-function ch(s) { return s.length }
+const wrap = load("services/TextWrap.js");
+function ch(s) {
+  return s.length;
+}
 
 assertEqual(
-  wrap.prettyWrap('The quick brown fox jumps', ch, 20, 1),
-  'The quick brown\nfox jumps',
-  'prettyWrap balances a leftover last word'
-)
+  wrap.prettyWrap("The quick brown fox jumps", ch, 20, 1),
+  "The quick brown\nfox jumps",
+  "prettyWrap balances a leftover last word",
+);
 assertEqual(
-  wrap.balanceWrap('aaa bbb ccc ddd', ch, 7, 1),
-  'aaa bbb\nccc ddd',
-  'balanceWrap splits even groups'
-)
+  wrap.balanceWrap("aaa bbb ccc ddd", ch, 7, 1),
+  "aaa bbb\nccc ddd",
+  "balanceWrap splits even groups",
+);
 assertEqual(
-  wrap.balanceWrap('Word another last', ch, 12, 1),
-  'Word another\nlast',
-  'balanceWrap keeps the greedy line count'
-)
+  wrap.balanceWrap("Word another last", ch, 12, 1),
+  "Word another\nlast",
+  "balanceWrap keeps the greedy line count",
+);
 assertEqual(
-  wrap.prettyWrap('Word another last', ch, 12, 1),
-  'Word\nanother last',
-  'prettyWrap pulls a one-word last line up'
-)
+  wrap.prettyWrap("Word another last", ch, 12, 1),
+  "Word\nanother last",
+  "prettyWrap pulls a one-word last line up",
+);
 assertEqual(
-  wrap.prettyWrap('Hello world', ch, 20, 1),
-  'Hello world',
-  'prettyWrap leaves a single line alone'
-)
+  wrap.prettyWrap("Hello world", ch, 20, 1),
+  "Hello world",
+  "prettyWrap leaves a single line alone",
+);
 assertEqual(
-  wrap.prettyWrap('/home/foo/very-long-path', ch, 10, 1),
-  '/home/foo/very-long-path',
-  'prettyWrap leaves a path without spaces alone'
-)
-assertEqual(wrap.prettyWrap('', ch, 20, 1), '', 'prettyWrap empty')
-assertEqual(wrap.shouldSkip('oneword'), true, 'shouldSkip a token without spaces')
-assertEqual(wrap.shouldSkip('two words'), false, 'shouldSkip false when there is a space')
-assertEqual(wrap.wrapAll('aaa bbb\nccc ddd', ch, 7, 1, false), 'aaa bbb\nccc ddd', 'wrapAll wraps each line separately')
-assertEqual(wrap.wrapAll('aaa bbb', null, 7, 1, false), 'aaa bbb', 'wrapAll leaves text when measure is missing')
-assertEqual(wrap.wrapAll('aaa bbb', ch, 0, 1, false), 'aaa bbb', 'wrapAll leaves text when maxWidth is zero')
+  wrap.prettyWrap("/home/foo/very-long-path", ch, 10, 1),
+  "/home/foo/very-long-path",
+  "prettyWrap leaves a path without spaces alone",
+);
+assertEqual(wrap.prettyWrap("", ch, 20, 1), "", "prettyWrap empty");
+assertEqual(wrap.shouldSkip("oneword"), true, "shouldSkip a token without spaces");
+assertEqual(wrap.shouldSkip("two words"), false, "shouldSkip false when there is a space");
 assertEqual(
-  wrap.splitWords('  alpha   beta ').join(','),
-  'alpha,beta',
-  'splitWords collapses whitespace'
-)
+  wrap.wrapAll("aaa bbb\nccc ddd", ch, 7, 1, false),
+  "aaa bbb\nccc ddd",
+  "wrapAll wraps each line separately",
+);
 assertEqual(
-  wrap.wrapAll('aaa bbb\n\nccc ddd', ch, 7, 1, false),
-  'aaa bbb\n\nccc ddd',
-  'wrapAll preserves a blank line between paragraphs'
-)
+  wrap.wrapAll("aaa bbb", null, 7, 1, false),
+  "aaa bbb",
+  "wrapAll leaves text when measure is missing",
+);
 assertEqual(
-  wrap.wrapAll('aaa bbb', ch, 6, -1, false),
-  'aaa bbb',
-  'wrapAll treats a negative space as zero'
-)
+  wrap.wrapAll("aaa bbb", ch, 0, 1, false),
+  "aaa bbb",
+  "wrapAll leaves text when maxWidth is zero",
+);
+assertEqual(
+  wrap.splitWords("  alpha   beta ").join(","),
+  "alpha,beta",
+  "splitWords collapses whitespace",
+);
+assertEqual(
+  wrap.wrapAll("aaa bbb\n\nccc ddd", ch, 7, 1, false),
+  "aaa bbb\n\nccc ddd",
+  "wrapAll preserves a blank line between paragraphs",
+);
+assertEqual(
+  wrap.wrapAll("aaa bbb", ch, 6, -1, false),
+  "aaa bbb",
+  "wrapAll treats a negative space as zero",
+);
 
-const hypr = load('services/HyprPrefs.js')
-const look = hypr.clampLook({ gapsIn: 80, layout: 'niri', dimStrength: 2 })
-assertEqual(look.gapsIn, 64, 'clampLook caps gaps')
-assertEqual(look.layout, 'dwindle', 'clampLook rejects an unknown layout')
-assertEqual(look.dimStrength, 1, 'clampLook caps dim strength')
+const hypr = load("services/HyprPrefs.js");
+const look = hypr.clampLook({ gapsIn: 80, layout: "niri", dimStrength: 2 });
+assertEqual(look.gapsIn, 64, "clampLook caps gaps");
+assertEqual(look.layout, "dwindle", "clampLook rejects an unknown layout");
+assertEqual(look.dimStrength, 1, "clampLook caps dim strength");
 
 const lookLua = hypr.serializeLook({
   gapsIn: 8,
@@ -605,7 +1037,7 @@ const lookLua = hypr.serializeLook({
   rounding: 6,
   blur: true,
   shadow: false,
-  layout: 'scrolling',
+  layout: "scrolling",
   columnWidth: 0.97,
   dimInactive: true,
   dimStrength: 0.15,
@@ -613,121 +1045,228 @@ const lookLua = hypr.serializeLook({
   cursorHideOnKey: false,
   cursorWarp: true,
   allowTearing: true,
-  resizeOnBorder: false
-})
-assert(lookLua.indexOf('-- atmos:look begin') === 0, 'serializeLook starts with the look sentinel')
-assert(lookLua.indexOf('gaps_in = 8') !== -1, 'serializeLook writes gaps_in')
-assert(lookLua.indexOf('layout = "scrolling"') !== -1, 'serializeLook writes scrolling')
-assert(lookLua.indexOf('column_width = 0.97') !== -1, 'serializeLook writes column width')
-assert(lookLua.indexOf('warp_on_change_workspace = 1') !== -1, 'serializeLook writes cursor warp')
-assert(lookLua.indexOf('hl.env("HYPRCURSOR_SIZE", "24")') !== -1, 'serializeLook writes default cursor size')
-assert(lookLua.indexOf('active_opacity = 1') !== -1, 'serializeLook writes default active opacity')
-assert(lookLua.indexOf('preserve_split = false') !== -1, 'serializeLook writes preserve_split')
-assert(lookLua.indexOf('focus_on_activate = false') !== -1, 'serializeLook writes focus_on_activate')
+  resizeOnBorder: false,
+});
+assert(lookLua.indexOf("-- atmos:look begin") === 0, "serializeLook starts with the look sentinel");
+assert(lookLua.indexOf("gaps_in = 8") !== -1, "serializeLook writes gaps_in");
+assert(lookLua.indexOf('layout = "scrolling"') !== -1, "serializeLook writes scrolling");
+assert(lookLua.indexOf("column_width = 0.97") !== -1, "serializeLook writes column width");
+assert(lookLua.indexOf("warp_on_change_workspace = 1") !== -1, "serializeLook writes cursor warp");
+assert(
+  lookLua.indexOf('hl.env("HYPRCURSOR_SIZE", "24")') !== -1,
+  "serializeLook writes default cursor size",
+);
+assert(lookLua.indexOf("active_opacity = 1") !== -1, "serializeLook writes default active opacity");
+assert(lookLua.indexOf("preserve_split = false") !== -1, "serializeLook writes preserve_split");
+assert(
+  lookLua.indexOf("focus_on_activate = false") !== -1,
+  "serializeLook writes focus_on_activate",
+);
 
-const lookExtras = hypr.serializeLook({ cursorSize: 40, activeOpacity: 0.8, preserveSplit: true, focusOnActivate: true })
-assert(lookExtras.indexOf('hl.env("HYPRCURSOR_SIZE", "40")') !== -1, 'serializeLook writes a custom cursor size')
-assert(lookExtras.indexOf('hl.env("XCURSOR_SIZE", "40")') !== -1, 'serializeLook writes XCURSOR_SIZE')
-assert(lookExtras.indexOf('active_opacity = 0.8') !== -1, 'serializeLook writes active opacity')
-assert(lookExtras.indexOf('preserve_split = true') !== -1, 'serializeLook writes preserve_split on')
-assertEqual(hypr.clampLook({ cursorSize: 90 }).cursorSize, 64, 'clampLook caps cursor size')
-assertEqual(hypr.clampLook({ activeOpacity: 0.05 }).activeOpacity, 0.2, 'clampLook floors active opacity')
-assertEqual(hypr.luaNumber(8), '8', 'luaNumber writes an integer')
-assertEqual(hypr.luaNumber(0.97), '0.97', 'luaNumber trims trailing zeros')
-assertEqual(hypr.luaNumber(NaN), '0', 'luaNumber treats NaN as zero')
+const lookExtras = hypr.serializeLook({
+  cursorSize: 40,
+  activeOpacity: 0.8,
+  preserveSplit: true,
+  focusOnActivate: true,
+});
+assert(
+  lookExtras.indexOf('hl.env("HYPRCURSOR_SIZE", "40")') !== -1,
+  "serializeLook writes a custom cursor size",
+);
+assert(
+  lookExtras.indexOf('hl.env("XCURSOR_SIZE", "40")') !== -1,
+  "serializeLook writes XCURSOR_SIZE",
+);
+assert(lookExtras.indexOf("active_opacity = 0.8") !== -1, "serializeLook writes active opacity");
+assert(
+  lookExtras.indexOf("preserve_split = true") !== -1,
+  "serializeLook writes preserve_split on",
+);
+assertEqual(hypr.clampLook({ cursorSize: 90 }).cursorSize, 64, "clampLook caps cursor size");
+assertEqual(
+  hypr.clampLook({ activeOpacity: 0.05 }).activeOpacity,
+  0.2,
+  "clampLook floors active opacity",
+);
+assertEqual(hypr.luaNumber(8), "8", "luaNumber writes an integer");
+assertEqual(hypr.luaNumber(0.97), "0.97", "luaNumber trims trailing zeros");
+assertEqual(hypr.luaNumber(NaN), "0", "luaNumber treats NaN as zero");
 
-const seed = '-- keep this comment\n\nhl.config({ general = { gaps_in = 1 } })\n'
-const applied = hypr.applyLookFile(seed, { gapsIn: 4, gapsOut: 8 })
-assert(applied.indexOf('-- keep this comment') !== -1, 'applyLookFile keeps user comments')
-assert(applied.indexOf('hl.config({ general = { gaps_in = 1 } })') !== -1, 'applyLookFile keeps earlier hl.config')
-assert(hypr.hasSentinel(applied, hypr.LOOK_BEGIN, hypr.LOOK_END), 'applyLookFile inserts the look sentinel')
-const twice = hypr.applyLookFile(applied, { gapsIn: 9, gapsOut: 8 })
+const seed = "-- keep this comment\n\nhl.config({ general = { gaps_in = 1 } })\n";
+const applied = hypr.applyLookFile(seed, { gapsIn: 4, gapsOut: 8 });
+assert(applied.indexOf("-- keep this comment") !== -1, "applyLookFile keeps user comments");
+assert(
+  applied.indexOf("hl.config({ general = { gaps_in = 1 } })") !== -1,
+  "applyLookFile keeps earlier hl.config",
+);
+assert(
+  hypr.hasSentinel(applied, hypr.LOOK_BEGIN, hypr.LOOK_END),
+  "applyLookFile inserts the look sentinel",
+);
+const twice = hypr.applyLookFile(applied, { gapsIn: 9, gapsOut: 8 });
 assertEqual(
   (twice.match(/-- atmos:look begin/g) || []).length,
   1,
-  'applyLookFile replaces an existing look block'
-)
-assert(twice.indexOf('gaps_in = 9') !== -1, 'applyLookFile updates gaps')
-const resetLook = hypr.resetLookFile(twice)
-assert(resetLook.indexOf('-- atmos:look begin') === -1, 'resetLookFile strips the look block')
-assert(resetLook.indexOf('-- keep this comment') !== -1, 'resetLookFile keeps user comments')
-assertEqual(hypr.extractSentinel(applied, hypr.LOOK_BEGIN, hypr.LOOK_END).indexOf('gaps_in = 4') !== -1, true, 'extractSentinel returns the look block')
-assertEqual(hypr.extractSentinel('-- none\n', hypr.LOOK_BEGIN, hypr.LOOK_END), '', 'extractSentinel misses a file without a sentinel')
-assertEqual(hypr.stripSentinel('-- keep\n', hypr.LOOK_BEGIN, hypr.LOOK_END), '-- keep\n', 'stripSentinel is a no-op without a sentinel')
-assert(hypr.hasSentinel('-- none\n', hypr.LOOK_BEGIN, hypr.LOOK_END) === false, 'hasSentinel is false without a look block')
+  "applyLookFile replaces an existing look block",
+);
+assert(twice.indexOf("gaps_in = 9") !== -1, "applyLookFile updates gaps");
+const resetLook = hypr.resetLookFile(twice);
+assert(resetLook.indexOf("-- atmos:look begin") === -1, "resetLookFile strips the look block");
+assert(resetLook.indexOf("-- keep this comment") !== -1, "resetLookFile keeps user comments");
+assertEqual(
+  hypr.extractSentinel(applied, hypr.LOOK_BEGIN, hypr.LOOK_END).indexOf("gaps_in = 4") !== -1,
+  true,
+  "extractSentinel returns the look block",
+);
+assertEqual(
+  hypr.extractSentinel("-- none\n", hypr.LOOK_BEGIN, hypr.LOOK_END),
+  "",
+  "extractSentinel misses a file without a sentinel",
+);
+assertEqual(
+  hypr.stripSentinel("-- keep\n", hypr.LOOK_BEGIN, hypr.LOOK_END),
+  "-- keep\n",
+  "stripSentinel is a no-op without a sentinel",
+);
+assert(
+  hypr.hasSentinel("-- none\n", hypr.LOOK_BEGIN, hypr.LOOK_END) === false,
+  "hasSentinel is false without a look block",
+);
 
 const inputLua = hypr.serializeInput({
   sensitivity: -0.64,
-  accelProfile: 'flat',
+  accelProfile: "flat",
   naturalScroll: true,
-  kbLayoutOverride: 'us,dk',
+  kbLayoutOverride: "us,dk",
   kbGroupToggle: true,
-  workspaceGesture: true
-})
-assert(inputLua.indexOf('accel_profile = "flat"') !== -1, 'serializeInput writes a flat profile')
-assert(inputLua.indexOf('kb_layout = "us,dk"') !== -1, 'serializeInput writes a layout override')
-assert(inputLua.indexOf('grp:alts_toggle') !== -1, 'serializeInput adds the group toggle')
-assert(inputLua.indexOf('hl.gesture({ fingers = 3') !== -1, 'serializeInput writes the workspace gesture')
-assertEqual(hypr.clampInput({ kbLayoutOverride: 'US,dk' }).kbLayoutOverride, 'us,dk', 'clampInput lowercases layouts')
-assertEqual(hypr.clampInput({ kbLayoutOverride: 'us/dk' }).kbLayoutOverride, '', 'clampInput rejects a slash in layouts')
-assertEqual(hypr.parseCssFirst('5 5 5 5'), 5, 'parseCssFirst reads the first css number')
-assert(isNaN(hypr.parseCssFirst('')), 'parseCssFirst empty is NaN')
-assert(isNaN(hypr.parseCssFirst('nope 10')), 'parseCssFirst rejects a non-numeric first token')
-assertEqual(hypr.parseHyprOption({ css: 'nope', str: 'dwindle' }), 'dwindle', 'parseHyprOption falls through invalid css to str')
-assertEqual(hypr.parseHyprOption({ int: 40 }), 40, 'parseHyprOption reads int')
-assertEqual(hypr.parseHyprOption({ bool: false }), false, 'parseHyprOption reads bool')
-assertEqual(hypr.parseHyprOption({ css: '10 10 10 10' }), 10, 'parseHyprOption reads css')
-assertEqual(hypr.parseHyprOption({ str: '[[EMPTY]]' }), '', 'parseHyprOption treats empty str as blank')
-assertEqual(hypr.parseHyprOption({ str: 'dwindle' }), 'dwindle', 'parseHyprOption reads str')
-assertEqual(hypr.parseHyprOption({ float: 0.15 }), 0.15, 'parseHyprOption reads float')
-assertEqual(hypr.parseHyprOption('not json'), null, 'parseHyprOption rejects junk JSON')
-assertEqual(hypr.parseHyprOption('{"int":5}'), 5, 'parseHyprOption parses JSON text')
-assertEqual(hypr.sanitizeLayoutList(' us, DK '), 'us,dk', 'sanitizeLayoutList lowercases a list')
-assertEqual(hypr.sanitizeLayoutList('us,too-long-id'), '', 'sanitizeLayoutList rejects an overlong id')
-assertEqual(hypr.sanitizeVariantList('intl,nodeadkeys', 2), 'intl,nodeadkeys', 'sanitizeVariantList keeps matching variants')
-assertEqual(hypr.sanitizeVariantList('intl', 2), '', 'sanitizeVariantList rejects a count mismatch')
-assertEqual(hypr.clampInput({ kbLayoutOverride: 'us,dk', kbVariantOverride: 'intl' }).kbVariantOverride, '', 'clampInput drops a mismatched variant list')
+  workspaceGesture: true,
+});
+assert(inputLua.indexOf('accel_profile = "flat"') !== -1, "serializeInput writes a flat profile");
+assert(inputLua.indexOf('kb_layout = "us,dk"') !== -1, "serializeInput writes a layout override");
+assert(inputLua.indexOf("grp:alts_toggle") !== -1, "serializeInput adds the group toggle");
 assert(
-  hypr.serializeInput({ kbLayoutOverride: 'us,dk', kbVariantOverride: 'intl,nodeadkeys' }).indexOf('kb_variant = "intl,nodeadkeys"') !== -1,
-  'serializeInput writes a matching variant list'
-)
-assertEqual(hypr.lookFromHyprOptions({ gapsIn: 8 }).gapsIn, 8, 'lookFromHyprOptions picks gapsIn')
-assertEqual(hypr.lookFromHyprOptions({ gapsIn: 8 }).gapsOut, 10, 'lookFromHyprOptions fills look defaults')
-assertEqual(hypr.asBool('on', false), true, 'asBool accepts on')
-assertEqual(hypr.asBool('off', true), false, 'asBool accepts off')
-assertEqual(hypr.asBool('true', false), true, 'asBool accepts true string')
-assertEqual(hypr.asBool(1, false), true, 'asBool accepts 1')
-assertEqual(hypr.asBool('0', true), false, 'asBool accepts 0 string')
-assertEqual(hypr.asBool('maybe', true), true, 'asBool uses fallback on junk')
-assertEqual(hypr.clampFloat(0.1234, 0, 1, 0.5), 0.123, 'clampFloat rounds to thousandths')
-assertEqual(hypr.clampFloat(9, 0, 1, 0.5), 1, 'clampFloat caps at max')
-const inputSeed = '-- keep input comments\nhl.config({ input = { sensitivity = 0 } })\n'
-const inputApplied = hypr.applyInputFile(inputSeed, { sensitivity: -0.2, accelProfile: 'adaptive' })
-assert(inputApplied.indexOf('-- keep input comments') !== -1, 'applyInputFile keeps user comments')
-assert(hypr.hasSentinel(inputApplied, hypr.INPUT_BEGIN, hypr.INPUT_END), 'applyInputFile inserts the input sentinel')
-assert(inputApplied.indexOf('accel_profile = "adaptive"') !== -1, 'applyInputFile writes adaptive accel')
-const inputReset = hypr.resetInputFile(inputApplied)
-assert(inputReset.indexOf('-- atmos:input begin') === -1, 'resetInputFile strips the input block')
-assert(inputReset.indexOf('-- keep input comments') !== -1, 'resetInputFile keeps user comments')
+  inputLua.indexOf("hl.gesture({ fingers = 3") !== -1,
+  "serializeInput writes the workspace gesture",
+);
+assertEqual(
+  hypr.clampInput({ kbLayoutOverride: "US,dk" }).kbLayoutOverride,
+  "us,dk",
+  "clampInput lowercases layouts",
+);
+assertEqual(
+  hypr.clampInput({ kbLayoutOverride: "us/dk" }).kbLayoutOverride,
+  "",
+  "clampInput rejects a slash in layouts",
+);
+assertEqual(hypr.parseCssFirst("5 5 5 5"), 5, "parseCssFirst reads the first css number");
+assert(isNaN(hypr.parseCssFirst("")), "parseCssFirst empty is NaN");
+assert(isNaN(hypr.parseCssFirst("nope 10")), "parseCssFirst rejects a non-numeric first token");
+assertEqual(
+  hypr.parseHyprOption({ css: "nope", str: "dwindle" }),
+  "dwindle",
+  "parseHyprOption falls through invalid css to str",
+);
+assertEqual(hypr.parseHyprOption({ int: 40 }), 40, "parseHyprOption reads int");
+assertEqual(hypr.parseHyprOption({ bool: false }), false, "parseHyprOption reads bool");
+assertEqual(hypr.parseHyprOption({ css: "10 10 10 10" }), 10, "parseHyprOption reads css");
+assertEqual(
+  hypr.parseHyprOption({ str: "[[EMPTY]]" }),
+  "",
+  "parseHyprOption treats empty str as blank",
+);
+assertEqual(hypr.parseHyprOption({ str: "dwindle" }), "dwindle", "parseHyprOption reads str");
+assertEqual(hypr.parseHyprOption({ float: 0.15 }), 0.15, "parseHyprOption reads float");
+assertEqual(hypr.parseHyprOption("not json"), null, "parseHyprOption rejects junk JSON");
+assertEqual(hypr.parseHyprOption('{"int":5}'), 5, "parseHyprOption parses JSON text");
+assertEqual(hypr.sanitizeLayoutList(" us, DK "), "us,dk", "sanitizeLayoutList lowercases a list");
+assertEqual(
+  hypr.sanitizeLayoutList("us,too-long-id"),
+  "",
+  "sanitizeLayoutList rejects an overlong id",
+);
+assertEqual(
+  hypr.sanitizeVariantList("intl,nodeadkeys", 2),
+  "intl,nodeadkeys",
+  "sanitizeVariantList keeps matching variants",
+);
+assertEqual(
+  hypr.sanitizeVariantList("intl", 2),
+  "",
+  "sanitizeVariantList rejects a count mismatch",
+);
+assertEqual(
+  hypr.clampInput({ kbLayoutOverride: "us,dk", kbVariantOverride: "intl" }).kbVariantOverride,
+  "",
+  "clampInput drops a mismatched variant list",
+);
+assert(
+  hypr
+    .serializeInput({ kbLayoutOverride: "us,dk", kbVariantOverride: "intl,nodeadkeys" })
+    .indexOf('kb_variant = "intl,nodeadkeys"') !== -1,
+  "serializeInput writes a matching variant list",
+);
+assertEqual(hypr.lookFromHyprOptions({ gapsIn: 8 }).gapsIn, 8, "lookFromHyprOptions picks gapsIn");
+assertEqual(
+  hypr.lookFromHyprOptions({ gapsIn: 8 }).gapsOut,
+  10,
+  "lookFromHyprOptions fills look defaults",
+);
+assertEqual(hypr.asBool("on", false), true, "asBool accepts on");
+assertEqual(hypr.asBool("off", true), false, "asBool accepts off");
+assertEqual(hypr.asBool("true", false), true, "asBool accepts true string");
+assertEqual(hypr.asBool(1, false), true, "asBool accepts 1");
+assertEqual(hypr.asBool("0", true), false, "asBool accepts 0 string");
+assertEqual(hypr.asBool("maybe", true), true, "asBool uses fallback on junk");
+assertEqual(hypr.clampFloat(0.1234, 0, 1, 0.5), 0.123, "clampFloat rounds to thousandths");
+assertEqual(hypr.clampFloat(9, 0, 1, 0.5), 1, "clampFloat caps at max");
+const inputSeed = "-- keep input comments\nhl.config({ input = { sensitivity = 0 } })\n";
+const inputApplied = hypr.applyInputFile(inputSeed, {
+  sensitivity: -0.2,
+  accelProfile: "adaptive",
+});
+assert(inputApplied.indexOf("-- keep input comments") !== -1, "applyInputFile keeps user comments");
+assert(
+  hypr.hasSentinel(inputApplied, hypr.INPUT_BEGIN, hypr.INPUT_END),
+  "applyInputFile inserts the input sentinel",
+);
+assert(
+  inputApplied.indexOf('accel_profile = "adaptive"') !== -1,
+  "applyInputFile writes adaptive accel",
+);
+const inputReset = hypr.resetInputFile(inputApplied);
+assert(inputReset.indexOf("-- atmos:input begin") === -1, "resetInputFile strips the input block");
+assert(inputReset.indexOf("-- keep input comments") !== -1, "resetInputFile keeps user comments");
 const leftoverInput = [
-  '-- keep input comments',
-  '-- omarchy-prefs:input begin',
+  "-- keep input comments",
+  "-- omarchy-prefs:input begin",
   'hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })',
-  '-- omarchy-prefs:input end',
-  '-- atmos:input begin',
+  "-- omarchy-prefs:input end",
+  "-- atmos:input begin",
   'hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })',
-  '-- atmos:input end',
-  ''
-].join('\n')
-const inputMigrated = hypr.applyInputFile(leftoverInput, { workspaceGesture: true })
-assert(inputMigrated.indexOf('-- omarchy-prefs:input begin') === -1, 'applyInputFile strips a leftover omarchy-prefs input block')
-assertEqual((inputMigrated.match(/hl\.gesture\(/g) || []).length, 1, 'applyInputFile leaves one workspace gesture')
-assert(hypr.resetLookFile('-- omarchy-prefs:look begin\nhl.config({})\n-- omarchy-prefs:look end\n').indexOf('omarchy-prefs') === -1, 'resetLookFile strips a leftover omarchy-prefs look block')
+  "-- atmos:input end",
+  "",
+].join("\n");
+const inputMigrated = hypr.applyInputFile(leftoverInput, { workspaceGesture: true });
+assert(
+  inputMigrated.indexOf("-- omarchy-prefs:input begin") === -1,
+  "applyInputFile strips a leftover omarchy-prefs input block",
+);
+assertEqual(
+  (inputMigrated.match(/hl\.gesture\(/g) || []).length,
+  1,
+  "applyInputFile leaves one workspace gesture",
+);
+assert(
+  hypr
+    .resetLookFile("-- omarchy-prefs:look begin\nhl.config({})\n-- omarchy-prefs:look end\n")
+    .indexOf("omarchy-prefs") === -1,
+  "resetLookFile strips a leftover omarchy-prefs look block",
+);
 
-const sunset = load('services/HyprSunset.js')
-assertEqual(sunset.parseTime('7:00'), '07:00', 'parseTime pads an hour')
-assertEqual(sunset.parseTime('20:15'), '20:15', 'parseTime keeps a valid time')
-assertEqual(sunset.parseTime('25:00'), '', 'parseTime rejects a bad hour')
+const sunset = load("services/HyprSunset.js");
+assertEqual(sunset.parseTime("7:00"), "07:00", "parseTime pads an hour");
+assertEqual(sunset.parseTime("20:15"), "20:15", "parseTime keeps a valid time");
+assertEqual(sunset.parseTime("25:00"), "", "parseTime rejects a bad hour");
 const parsedSunset = sunset.parseConf(`
 profile {
     time = 06:30
@@ -738,26 +1277,40 @@ profile {
     time = 21:00
     temperature = 3800
 }
-`)
-assertEqual(parsedSunset.day, '06:30', 'parseConf reads the day profile')
-assertEqual(parsedSunset.night, '21:00', 'parseConf reads the night profile')
-assertEqual(parsedSunset.nightOn, true, 'parseConf sees a night profile')
-assertEqual(parsedSunset.temperature, 3800, 'parseConf reads temperature')
-const writtenSunset = sunset.serializeConf({ day: '07:00', night: '20:00', nightOn: true, temperature: 4000 })
-assert(writtenSunset.indexOf('time = 07:00') !== -1, 'serializeConf writes day')
-assert(writtenSunset.indexOf('temperature = 4000') !== -1, 'serializeConf writes temperature')
-assertEqual(sunset.serializeConf({ nightOn: false }).indexOf('temperature') === -1, true, 'serializeConf omits night when off')
-assertEqual(sunset.parseTime('9:05'), '09:05', 'parseTime pads a single-digit hour')
-assertEqual(sunset.parseTime('7:5'), '', 'parseTime rejects a single-digit minute')
-assertEqual(sunset.parseTime('24:00'), '', 'parseTime rejects 24:00')
-assertEqual(sunset.clampTemp(2500, 4000), 3000, 'clampTemp floors below 3000')
-assertEqual(sunset.clampTemp(9000, 4000), 6500, 'clampTemp caps above 6500')
-assertEqual(sunset.clampTemp('nope', 4000), 4000, 'clampTemp uses fallback on NaN')
-const clampedSunset = sunset.clampSchedule({ day: 'nope', night: '21:30', nightOn: 'yes', temperature: 2000 })
-assertEqual(clampedSunset.day, '07:00', 'clampSchedule falls back to default day')
-assertEqual(clampedSunset.night, '21:30', 'clampSchedule keeps a valid night')
-assertEqual(clampedSunset.nightOn, false, 'clampSchedule requires nightOn === true')
-assertEqual(clampedSunset.temperature, 3000, 'clampSchedule floors temperature')
+`);
+assertEqual(parsedSunset.day, "06:30", "parseConf reads the day profile");
+assertEqual(parsedSunset.night, "21:00", "parseConf reads the night profile");
+assertEqual(parsedSunset.nightOn, true, "parseConf sees a night profile");
+assertEqual(parsedSunset.temperature, 3800, "parseConf reads temperature");
+const writtenSunset = sunset.serializeConf({
+  day: "07:00",
+  night: "20:00",
+  nightOn: true,
+  temperature: 4000,
+});
+assert(writtenSunset.indexOf("time = 07:00") !== -1, "serializeConf writes day");
+assert(writtenSunset.indexOf("temperature = 4000") !== -1, "serializeConf writes temperature");
+assertEqual(
+  sunset.serializeConf({ nightOn: false }).indexOf("temperature") === -1,
+  true,
+  "serializeConf omits night when off",
+);
+assertEqual(sunset.parseTime("9:05"), "09:05", "parseTime pads a single-digit hour");
+assertEqual(sunset.parseTime("7:5"), "", "parseTime rejects a single-digit minute");
+assertEqual(sunset.parseTime("24:00"), "", "parseTime rejects 24:00");
+assertEqual(sunset.clampTemp(2500, 4000), 3000, "clampTemp floors below 3000");
+assertEqual(sunset.clampTemp(9000, 4000), 6500, "clampTemp caps above 6500");
+assertEqual(sunset.clampTemp("nope", 4000), 4000, "clampTemp uses fallback on NaN");
+const clampedSunset = sunset.clampSchedule({
+  day: "nope",
+  night: "21:30",
+  nightOn: "yes",
+  temperature: 2000,
+});
+assertEqual(clampedSunset.day, "07:00", "clampSchedule falls back to default day");
+assertEqual(clampedSunset.night, "21:30", "clampSchedule keeps a valid night");
+assertEqual(clampedSunset.nightOn, false, "clampSchedule requires nightOn === true");
+assertEqual(clampedSunset.temperature, 3000, "clampSchedule floors temperature");
 const quotedSunset = sunset.parseConf(`
 profile {
     time = "8:00"
@@ -767,208 +1320,471 @@ profile {
     time = "19:45"
     temperature = 5000
 }
-`)
-assertEqual(quotedSunset.day, '08:00', 'parseConf reads a quoted day time')
-assertEqual(quotedSunset.night, '19:45', 'parseConf reads a quoted night time')
-assertEqual(sunset.parseConf('').nightOn, false, 'parseConf empty file uses defaults with night off')
-assertEqual(sunset.parseConf('profile {\n    time = 99:99\n    identity = true\n}\n').day, '07:00', 'parseConf skips an invalid day time')
+`);
+assertEqual(quotedSunset.day, "08:00", "parseConf reads a quoted day time");
+assertEqual(quotedSunset.night, "19:45", "parseConf reads a quoted night time");
 assertEqual(
-  sunset.parseConf('profile {\n    time = 21:00\n}\n').nightOn,
+  sunset.parseConf("").nightOn,
   false,
-  'parseConf skips a profile with neither identity nor temperature'
-)
+  "parseConf empty file uses defaults with night off",
+);
+assertEqual(
+  sunset.parseConf("profile {\n    time = 99:99\n    identity = true\n}\n").day,
+  "07:00",
+  "parseConf skips an invalid day time",
+);
+assertEqual(
+  sunset.parseConf("profile {\n    time = 21:00\n}\n").nightOn,
+  false,
+  "parseConf skips a profile with neither identity nor temperature",
+);
 
-const hooks = load('services/Hooks.js')
-assertEqual(hooks.argFor('theme-set').indexOf('theme') !== -1, true, 'argFor describes theme-set')
-assertEqual(hooks.isType('battery-low'), true, 'isType accepts battery-low')
-assertEqual(hooks.isType('nope'), false, 'isType rejects an unknown hook')
-assertEqual(hooks.isHookId('waki-webapp-install'), true, 'isHookId accepts a custom kebab id')
-assertEqual(hooks.isHookId('Nope'), false, 'isHookId rejects uppercase')
-assertEqual(hooks.typeInfo('nope!'), null, 'typeInfo rejects a bad extra id')
-assertEqual(hooks.whenFor('post-boot'), 'After the desktop starts.', 'whenFor names post-boot')
-assertEqual(hooks.runArgFor('theme-set'), 'theme', 'runArgFor names theme-set')
-assert(hooks.eventBlurb('theme-set').indexOf('$1 is') !== -1, 'eventBlurb includes $1 for theme-set')
-assert(hooks.eventBlurb('post-boot').indexOf('no extra argument') !== -1, 'eventBlurb notes a hook with no arg')
-assertEqual(hooks.parseListing([{ type: 'theme-set', name: 'mine.sh', path: '/tmp/../etc/passwd', sample: false }]).length, 0, 'parseListing rejects a path with ..')
-assertEqual(hooks.itemsFor([{ type: 'theme-set', name: 'a.sh', path: '/home/u/.config/omarchy/hooks/theme-set.d/a.sh', sample: false }, { type: 'font-set', name: 'b.sh', path: '/home/u/.config/omarchy/hooks/font-set.d/b.sh', sample: false }], 'theme-set').length, 1, 'itemsFor filters by type')
-assertEqual(hooks.labelFor('theme-set'), 'Theme set', 'labelFor names theme-set')
-assertEqual(hooks.sanitizeName('notify'), 'notify.sh', 'sanitizeName adds .sh')
-assertEqual(hooks.sanitizeName('bad/name'), '', 'sanitizeName rejects a slash')
-assertEqual(hooks.sanitizeName('keep.sample'), '', 'sanitizeName rejects a sample suffix')
-assertEqual(hooks.sanitizeLine('echo "$1"'), 'echo "$1"', 'sanitizeLine keeps $1')
-assertEqual(hooks.sanitizeLine('bad\nline'), '', 'sanitizeLine rejects a newline')
-assert(hooks.scriptBody('theme-set', 'echo "$1"').indexOf('echo "$1"') !== -1, 'scriptBody writes the command')
-assertEqual(hooks.destHint('theme-set', 'notify'), '~/.config/omarchy/hooks/theme-set.d/notify.sh', 'destHint names the install path')
-assertEqual(hooks.displayTypes([{ type: 'waki-webapp-install', name: 'waki-webapp-install', path: '/home/u/.config/omarchy/hooks/waki-webapp-install', sample: false, flat: true }]).length, 7, 'displayTypes appends an extra hook id')
-assertEqual(hooks.typeIds().join(','), 'theme-set,font-set,post-boot,post-update,pre-refresh-pacman,battery-low', 'typeIds lists built-in hooks')
-assertEqual(hooks.options().length, 6, 'options lists built-in hook types')
-assertEqual(hooks.typeInfo('waki-webapp-install').when.indexOf('hook folder') !== -1, true, 'typeInfo describes an extra hook id')
-assertEqual(hooks.destHint('Nope', 'notify'), '', 'destHint rejects a bad hook type')
+const hooks = load("services/Hooks.js");
+assertEqual(hooks.argFor("theme-set").indexOf("theme") !== -1, true, "argFor describes theme-set");
+assertEqual(hooks.isType("battery-low"), true, "isType accepts battery-low");
+assertEqual(hooks.isType("nope"), false, "isType rejects an unknown hook");
+assertEqual(hooks.isHookId("waki-webapp-install"), true, "isHookId accepts a custom kebab id");
+assertEqual(hooks.isHookId("Nope"), false, "isHookId rejects uppercase");
+assertEqual(hooks.typeInfo("nope!"), null, "typeInfo rejects a bad extra id");
+assertEqual(hooks.whenFor("post-boot"), "After the desktop starts.", "whenFor names post-boot");
+assertEqual(hooks.runArgFor("theme-set"), "theme", "runArgFor names theme-set");
+assert(
+  hooks.eventBlurb("theme-set").indexOf("$1 is") !== -1,
+  "eventBlurb includes $1 for theme-set",
+);
+assert(
+  hooks.eventBlurb("post-boot").indexOf("no extra argument") !== -1,
+  "eventBlurb notes a hook with no arg",
+);
+assertEqual(
+  hooks.parseListing([
+    { type: "theme-set", name: "mine.sh", path: "/tmp/../etc/passwd", sample: false },
+  ]).length,
+  0,
+  "parseListing rejects a path with ..",
+);
+assertEqual(
+  hooks.itemsFor(
+    [
+      {
+        type: "theme-set",
+        name: "a.sh",
+        path: "/home/u/.config/omarchy/hooks/theme-set.d/a.sh",
+        sample: false,
+      },
+      {
+        type: "font-set",
+        name: "b.sh",
+        path: "/home/u/.config/omarchy/hooks/font-set.d/b.sh",
+        sample: false,
+      },
+    ],
+    "theme-set",
+  ).length,
+  1,
+  "itemsFor filters by type",
+);
+assertEqual(hooks.labelFor("theme-set"), "Theme set", "labelFor names theme-set");
+assertEqual(hooks.sanitizeName("notify"), "notify.sh", "sanitizeName adds .sh");
+assertEqual(hooks.sanitizeName("bad/name"), "", "sanitizeName rejects a slash");
+assertEqual(hooks.sanitizeName("keep.sample"), "", "sanitizeName rejects a sample suffix");
+assertEqual(hooks.sanitizeLine('echo "$1"'), 'echo "$1"', "sanitizeLine keeps $1");
+assertEqual(hooks.sanitizeLine("bad\nline"), "", "sanitizeLine rejects a newline");
+assert(
+  hooks.scriptBody("theme-set", 'echo "$1"').indexOf('echo "$1"') !== -1,
+  "scriptBody writes the command",
+);
+assertEqual(
+  hooks.destHint("theme-set", "notify"),
+  "~/.config/omarchy/hooks/theme-set.d/notify.sh",
+  "destHint names the install path",
+);
+assertEqual(
+  hooks.displayTypes([
+    {
+      type: "waki-webapp-install",
+      name: "waki-webapp-install",
+      path: "/home/u/.config/omarchy/hooks/waki-webapp-install",
+      sample: false,
+      flat: true,
+    },
+  ]).length,
+  7,
+  "displayTypes appends an extra hook id",
+);
+assertEqual(
+  hooks.typeIds().join(","),
+  "theme-set,font-set,post-boot,post-update,pre-refresh-pacman,battery-low",
+  "typeIds lists built-in hooks",
+);
+assertEqual(hooks.options().length, 6, "options lists built-in hook types");
+assertEqual(
+  hooks.typeInfo("waki-webapp-install").when.indexOf("hook folder") !== -1,
+  true,
+  "typeInfo describes an extra hook id",
+);
+assertEqual(hooks.destHint("Nope", "notify"), "", "destHint rejects a bad hook type");
 
-const auto = load('services/Autostart.js')
-const autoSeed = '-- Extra autostart processes.\no.launch_on_start("waybar")\n'
-const autoApplied = auto.applyFile(autoSeed, ['hyprsunset', 'mako'])
-assert(autoApplied.indexOf('-- Extra autostart processes.') !== -1, 'applyFile keeps user comments')
-assert(autoApplied.indexOf('o.launch_on_start("waybar")') !== -1, 'applyFile keeps unmanaged launch lines')
-assert(autoApplied.indexOf('o.launch_on_start("hyprsunset")') !== -1, 'applyFile writes a managed command')
-const autoParsed = auto.parseFile(autoApplied)
-assertEqual(autoParsed.filter(function(row) { return row.managed }).length, 2, 'parseFile marks managed commands')
-assertEqual(autoParsed.filter(function(row) { return !row.managed && row.command === 'waybar' }).length, 1, 'parseFile keeps unmanaged commands')
-assertEqual(auto.sanitizeCommand('bad\ncmd'), '', 'sanitizeCommand rejects a newline')
-assertEqual(auto.sanitizeCommand('x'.repeat(257)), '', 'sanitizeCommand rejects a command over 256 chars')
-assertEqual(auto.unescapeLua('\\"quoted\\"'), '"quoted"', 'unescapeLua restores escaped quotes')
-assertEqual(auto.luaString('say "hi"'), '"say \\"hi\\""', 'luaString escapes quotes')
-const quotedLaunch = auto.parseCalls('o.launch_on_start("echo \\"hi\\"")\n')
-assertEqual(quotedLaunch[0], 'echo "hi"', 'parseCalls unescapes a quoted command')
+const auto = load("services/Autostart.js");
+const autoSeed = '-- Extra autostart processes.\no.launch_on_start("waybar")\n';
+const autoApplied = auto.applyFile(autoSeed, ["hyprsunset", "mako"]);
+assert(
+  autoApplied.indexOf("-- Extra autostart processes.") !== -1,
+  "applyFile keeps user comments",
+);
+assert(
+  autoApplied.indexOf('o.launch_on_start("waybar")') !== -1,
+  "applyFile keeps unmanaged launch lines",
+);
+assert(
+  autoApplied.indexOf('o.launch_on_start("hyprsunset")') !== -1,
+  "applyFile writes a managed command",
+);
+const autoParsed = auto.parseFile(autoApplied);
+assertEqual(
+  autoParsed.filter(function (row) {
+    return row.managed;
+  }).length,
+  2,
+  "parseFile marks managed commands",
+);
+assertEqual(
+  autoParsed.filter(function (row) {
+    return !row.managed && row.command === "waybar";
+  }).length,
+  1,
+  "parseFile keeps unmanaged commands",
+);
+assertEqual(auto.sanitizeCommand("bad\ncmd"), "", "sanitizeCommand rejects a newline");
+assertEqual(
+  auto.sanitizeCommand("x".repeat(257)),
+  "",
+  "sanitizeCommand rejects a command over 256 chars",
+);
+assertEqual(auto.unescapeLua('\\"quoted\\"'), '"quoted"', "unescapeLua restores escaped quotes");
+assertEqual(auto.luaString('say "hi"'), '"say \\"hi\\""', "luaString escapes quotes");
+const quotedLaunch = auto.parseCalls('o.launch_on_start("echo \\"hi\\"")\n');
+assertEqual(quotedLaunch[0], 'echo "hi"', "parseCalls unescapes a quoted command");
 const managed = auto.managedCommands([
-  { command: 'waybar', managed: false },
-  { command: 'mako', managed: true },
-  'hyprsunset',
-  { command: 'bad\ncmd', managed: true },
-  null
-])
-assertEqual(managed.join(','), 'mako,hyprsunset', 'managedCommands keeps only managed or string rows')
-const autoReplaced = auto.applyFile(autoApplied, ['swaybg'])
-assertEqual((autoReplaced.match(/-- atmos:autostart begin/g) || []).length, 1, 'applyFile replaces an existing autostart sentinel')
-assert(autoReplaced.indexOf('o.launch_on_start("swaybg")') !== -1, 'applyFile writes the new managed command')
-assert(autoReplaced.indexOf('o.launch_on_start("mako")') === -1, 'applyFile drops previous managed commands')
-assert(auto.extractSentinel(autoApplied).indexOf('o.launch_on_start("hyprsunset")') !== -1, 'extractSentinel returns the autostart block')
-assertEqual(auto.extractSentinel('-- Extra autostart processes.\n'), '', 'extractSentinel misses a file without a sentinel')
-assertEqual(auto.sanitizeCommand(''), '', 'sanitizeCommand rejects empty')
-assert(auto.serialize([]).indexOf('o.launch_on_start') === -1, 'serialize empty list writes only the sentinel')
-assertEqual(auto.parseCalls('o.launch_on_start("")').length, 0, 'parseCalls skips an empty command')
+  { command: "waybar", managed: false },
+  { command: "mako", managed: true },
+  "hyprsunset",
+  { command: "bad\ncmd", managed: true },
+  null,
+]);
+assertEqual(
+  managed.join(","),
+  "mako,hyprsunset",
+  "managedCommands keeps only managed or string rows",
+);
+const autoReplaced = auto.applyFile(autoApplied, ["swaybg"]);
+assertEqual(
+  (autoReplaced.match(/-- atmos:autostart begin/g) || []).length,
+  1,
+  "applyFile replaces an existing autostart sentinel",
+);
+assert(
+  autoReplaced.indexOf('o.launch_on_start("swaybg")') !== -1,
+  "applyFile writes the new managed command",
+);
+assert(
+  autoReplaced.indexOf('o.launch_on_start("mako")') === -1,
+  "applyFile drops previous managed commands",
+);
+assert(
+  auto.extractSentinel(autoApplied).indexOf('o.launch_on_start("hyprsunset")') !== -1,
+  "extractSentinel returns the autostart block",
+);
+assertEqual(
+  auto.extractSentinel("-- Extra autostart processes.\n"),
+  "",
+  "extractSentinel misses a file without a sentinel",
+);
+assertEqual(auto.sanitizeCommand(""), "", "sanitizeCommand rejects empty");
+assert(
+  auto.serialize([]).indexOf("o.launch_on_start") === -1,
+  "serialize empty list writes only the sentinel",
+);
+assertEqual(
+  auto.parseCalls('o.launch_on_start("")').length,
+  0,
+  "parseCalls skips an empty command",
+);
 
-const software = load('services/Software.js')
-assertEqual(software.lookup('steam').wipe, true, 'catalog marks Steam as a wipe remove')
-assertEqual(software.presentIn(software.lookup('firefox'), { browsers: { firefox: true } }), true, 'presentIn reads a browser bag')
-assertEqual(software.presentIn(software.lookup('vscode'), { editors: { code: true } }), true, 'presentIn maps vscode to editors.code')
-assertEqual(software.isDevEnv('python'), true, 'isDevEnv accepts python')
-assertEqual(software.isDockerDb('PostgreSQL'), true, 'isDockerDb accepts PostgreSQL')
-assertEqual(software.groupItems('gaming').length > 3, true, 'groupItems lists gaming installers')
-assertEqual(software.lookup('nope'), null, 'lookup misses an unknown id')
-assertEqual(software.presentIn(software.lookup('zed'), { editors: { zeditor: true } }), true, 'presentIn maps zed to editors.zeditor')
-assertEqual(software.presentIn(software.lookup('firefox'), { browsers: {} }), false, 'presentIn is false when the bag flag is missing')
-assertEqual(software.isDevEnv('cobol'), false, 'isDevEnv rejects an unknown env')
-assertEqual(software.isDockerDb('sqlite'), false, 'isDockerDb rejects an unknown db')
-assertEqual(software.groupItems('browsers').length, 6, 'groupItems lists the browser installers')
-assertEqual(software.presentIn(software.lookup('1password'), { services: { onepassword: true } }), true, 'presentIn maps 1password to services.onepassword')
-assertEqual(software.groupItems('nope').length, 0, 'groupItems empty for an unknown group')
-assertEqual(software.presentIn(null, { browsers: { firefox: true } }), false, 'presentIn is false without an item')
+const software = load("services/Software.js");
+assertEqual(software.lookup("steam").wipe, true, "catalog marks Steam as a wipe remove");
+assertEqual(
+  software.presentIn(software.lookup("firefox"), { browsers: { firefox: true } }),
+  true,
+  "presentIn reads a browser bag",
+);
+assertEqual(
+  software.presentIn(software.lookup("vscode"), { editors: { code: true } }),
+  true,
+  "presentIn maps vscode to editors.code",
+);
+assertEqual(software.isDevEnv("python"), true, "isDevEnv accepts python");
+assertEqual(software.isDockerDb("PostgreSQL"), true, "isDockerDb accepts PostgreSQL");
+assertEqual(software.groupItems("gaming").length > 3, true, "groupItems lists gaming installers");
+assertEqual(software.lookup("nope"), null, "lookup misses an unknown id");
+assertEqual(
+  software.presentIn(software.lookup("zed"), { editors: { zeditor: true } }),
+  true,
+  "presentIn maps zed to editors.zeditor",
+);
+assertEqual(
+  software.presentIn(software.lookup("firefox"), { browsers: {} }),
+  false,
+  "presentIn is false when the bag flag is missing",
+);
+assertEqual(software.isDevEnv("cobol"), false, "isDevEnv rejects an unknown env");
+assertEqual(software.isDockerDb("sqlite"), false, "isDockerDb rejects an unknown db");
+assertEqual(software.groupItems("browsers").length, 6, "groupItems lists the browser installers");
+assertEqual(
+  software.presentIn(software.lookup("1password"), { services: { onepassword: true } }),
+  true,
+  "presentIn maps 1password to services.onepassword",
+);
+assertEqual(software.groupItems("nope").length, 0, "groupItems empty for an unknown group");
+assertEqual(
+  software.presentIn(null, { browsers: { firefox: true } }),
+  false,
+  "presentIn is false without an item",
+);
 
-const binds = load('services/Bindings.js')
-assertEqual(binds.sanitizeKeys('SUPER + SHIFT + R'), 'SUPER + SHIFT + R', 'sanitizeKeys keeps a chord')
-assertEqual(binds.sanitizeKeys('SUPER + F\n'), '', 'sanitizeKeys rejects a newline')
-assertEqual(binds.sanitizeCommand('bad\ncmd'), '', 'sanitizeCommand rejects a newline')
-const bindSeed = '-- Keep only your personal keybinding overrides here.\no.bind("SUPER + D", "Desks", "omarchy-shell shell toggle com.mdtrr.omadesk")\n'
+const binds = load("services/Bindings.js");
+assertEqual(
+  binds.sanitizeKeys("SUPER + SHIFT + R"),
+  "SUPER + SHIFT + R",
+  "sanitizeKeys keeps a chord",
+);
+assertEqual(binds.sanitizeKeys("SUPER + F\n"), "", "sanitizeKeys rejects a newline");
+assertEqual(binds.sanitizeCommand("bad\ncmd"), "", "sanitizeCommand rejects a newline");
+const bindSeed =
+  '-- Keep only your personal keybinding overrides here.\no.bind("SUPER + D", "Desks", "omarchy-shell shell toggle com.mdtrr.omadesk")\n';
 const bindApplied = binds.applyFile(bindSeed, [
-  { keys: 'SUPER + F', label: 'Files', command: 'nautilus', unbind: true },
-  { keys: 'SUPER + SHIFT + B', unbind: true }
-])
-assert(bindApplied.indexOf('-- Keep only your personal keybinding overrides here.') !== -1, 'applyFile keeps binding comments')
-assert(bindApplied.indexOf('o.bind("SUPER + D", "Desks"') !== -1, 'applyFile keeps unmanaged binds')
-assert(bindApplied.indexOf('hl.unbind("SUPER + F")') !== -1, 'applyFile writes unbind before a replacement')
-assert(bindApplied.indexOf('o.bind("SUPER + F", "Files", "nautilus")') !== -1, 'applyFile writes a managed bind')
-assert(bindApplied.indexOf('hl.unbind("SUPER + SHIFT + B")') !== -1, 'applyFile writes an unbind-only row')
-const bindParsed = binds.parseFile(bindApplied)
-assertEqual(bindParsed.filter(function(row) { return row.managed }).length, 2, 'parseFile marks managed bindings')
-assertEqual(bindParsed.filter(function(row) { return !row.managed && row.keys === 'SUPER + D' }).length, 1, 'parseFile keeps unmanaged bindings')
-const printed = binds.parsePrint('SUPER + Q                         \u2192 Close window\nSUPER + D                         \u2192 Desks\n')
-assertEqual(printed.length, 2, 'parsePrint reads display lines')
-assertEqual(printed[0].action, 'Close window', 'parsePrint reads the action')
-assertEqual(binds.catalogConflict(printed, 'SUPER + Q'), 'Close window', 'catalogConflict finds a taken chord')
-assertEqual(binds.catalogConflict(printed, 'SUPER + Z'), '', 'catalogConflict misses a free chord')
-assertEqual(binds.catalogConflict(printed, 'SUPER + Q\n'), '', 'catalogConflict rejects a newline chord')
-const asciiPrint = binds.parsePrint('SUPER + Return -> Terminal\nno arrow here\n')
-assertEqual(asciiPrint.length, 1, 'parsePrint reads an ASCII arrow')
-assertEqual(asciiPrint[0].keys, 'SUPER + Return', 'parsePrint ASCII keys')
-assertEqual(asciiPrint[0].action, 'Terminal', 'parsePrint ASCII action')
-assertEqual(binds.sanitizeLabel(' Files '), 'Files', 'sanitizeLabel trims')
-assertEqual(binds.sanitizeLabel('bad\nlabel'), '', 'sanitizeLabel rejects a newline')
-assertEqual(binds.sanitizeKeys('SUPER  +   Q'), 'SUPER + Q', 'sanitizeKeys collapses spaces')
-assertEqual(binds.sanitizeKeys('A'.repeat(65)), '', 'sanitizeKeys rejects a chord over 64 chars')
-assertEqual(binds.sanitizeKeys('SUPER + @'), '', 'sanitizeKeys rejects punctuation outside the charset')
-assertEqual(binds.sanitizeLabel('x'.repeat(65)), '', 'sanitizeLabel rejects a label over 64 chars')
-const nilBind = binds.serialize([{ keys: 'SUPER + X', command: 'foot' }])
-assert(nilBind.indexOf('o.bind("SUPER + X", nil, "foot")') !== -1, 'serialize uses nil when the label is empty')
+  { keys: "SUPER + F", label: "Files", command: "nautilus", unbind: true },
+  { keys: "SUPER + SHIFT + B", unbind: true },
+]);
+assert(
+  bindApplied.indexOf("-- Keep only your personal keybinding overrides here.") !== -1,
+  "applyFile keeps binding comments",
+);
+assert(
+  bindApplied.indexOf('o.bind("SUPER + D", "Desks"') !== -1,
+  "applyFile keeps unmanaged binds",
+);
+assert(
+  bindApplied.indexOf('hl.unbind("SUPER + F")') !== -1,
+  "applyFile writes unbind before a replacement",
+);
+assert(
+  bindApplied.indexOf('o.bind("SUPER + F", "Files", "nautilus")') !== -1,
+  "applyFile writes a managed bind",
+);
+assert(
+  bindApplied.indexOf('hl.unbind("SUPER + SHIFT + B")') !== -1,
+  "applyFile writes an unbind-only row",
+);
+const bindParsed = binds.parseFile(bindApplied);
+assertEqual(
+  bindParsed.filter(function (row) {
+    return row.managed;
+  }).length,
+  2,
+  "parseFile marks managed bindings",
+);
+assertEqual(
+  bindParsed.filter(function (row) {
+    return !row.managed && row.keys === "SUPER + D";
+  }).length,
+  1,
+  "parseFile keeps unmanaged bindings",
+);
+const printed = binds.parsePrint(
+  "SUPER + Q                         \u2192 Close window\nSUPER + D                         \u2192 Desks\n",
+);
+assertEqual(printed.length, 2, "parsePrint reads display lines");
+assertEqual(printed[0].action, "Close window", "parsePrint reads the action");
+assertEqual(
+  binds.catalogConflict(printed, "SUPER + Q"),
+  "Close window",
+  "catalogConflict finds a taken chord",
+);
+assertEqual(binds.catalogConflict(printed, "SUPER + Z"), "", "catalogConflict misses a free chord");
+assertEqual(
+  binds.catalogConflict(printed, "SUPER + Q\n"),
+  "",
+  "catalogConflict rejects a newline chord",
+);
+const asciiPrint = binds.parsePrint("SUPER + Return -> Terminal\nno arrow here\n");
+assertEqual(asciiPrint.length, 1, "parsePrint reads an ASCII arrow");
+assertEqual(asciiPrint[0].keys, "SUPER + Return", "parsePrint ASCII keys");
+assertEqual(asciiPrint[0].action, "Terminal", "parsePrint ASCII action");
+assertEqual(binds.sanitizeLabel(" Files "), "Files", "sanitizeLabel trims");
+assertEqual(binds.sanitizeLabel("bad\nlabel"), "", "sanitizeLabel rejects a newline");
+assertEqual(binds.sanitizeKeys("SUPER  +   Q"), "SUPER + Q", "sanitizeKeys collapses spaces");
+assertEqual(binds.sanitizeKeys("A".repeat(65)), "", "sanitizeKeys rejects a chord over 64 chars");
+assertEqual(
+  binds.sanitizeKeys("SUPER + @"),
+  "",
+  "sanitizeKeys rejects punctuation outside the charset",
+);
+assertEqual(binds.sanitizeLabel("x".repeat(65)), "", "sanitizeLabel rejects a label over 64 chars");
+const nilBind = binds.serialize([{ keys: "SUPER + X", command: "foot" }]);
+assert(
+  nilBind.indexOf('o.bind("SUPER + X", nil, "foot")') !== -1,
+  "serialize uses nil when the label is empty",
+);
 const managedBinds = binds.managedItems([
-  { keys: 'SUPER + D', command: 'desks', managed: false },
-  { keys: 'SUPER + F', command: 'nautilus', managed: true },
-  { keys: 'SUPER + Q' },
-  null
-])
-assertEqual(managedBinds.length, 1, 'managedItems drops unmanaged and commandless rows')
-assertEqual(managedBinds[0].keys, 'SUPER + F', 'managedItems keeps a managed bind')
-assertEqual(binds.commandFromArg({ launch: 'foot' }), 'foot', 'commandFromArg reads a launch table')
-assertEqual(binds.commandFromArg({ launch: 'bad\ncmd' }), '', 'commandFromArg sanitizes launch')
+  { keys: "SUPER + D", command: "desks", managed: false },
+  { keys: "SUPER + F", command: "nautilus", managed: true },
+  { keys: "SUPER + Q" },
+  null,
+]);
+assertEqual(managedBinds.length, 1, "managedItems drops unmanaged and commandless rows");
+assertEqual(managedBinds[0].keys, "SUPER + F", "managedItems keeps a managed bind");
+assertEqual(
+  binds.commandFromArg({ launch: "foot" }),
+  "foot",
+  "commandFromArg reads a launch table",
+);
+assertEqual(binds.commandFromArg({ launch: "bad\ncmd" }), "", "commandFromArg sanitizes launch");
 const folded = binds.foldEvents([
-  { kind: 'unbind', keys: 'SUPER + Q' },
-  { kind: 'bind', keys: 'SUPER + Q', label: 'Quit', command: 'kill' },
-  { kind: 'unbind', keys: 'SUPER + X' }
-])
-assertEqual(folded[0].unbind, true, 'foldEvents pairs unbind with the next bind')
-assertEqual(folded[0].command, 'kill', 'foldEvents keeps the replacement command')
-assertEqual(folded[1].command, '', 'foldEvents keeps a lone unbind')
+  { kind: "unbind", keys: "SUPER + Q" },
+  { kind: "bind", keys: "SUPER + Q", label: "Quit", command: "kill" },
+  { kind: "unbind", keys: "SUPER + X" },
+]);
+assertEqual(folded[0].unbind, true, "foldEvents pairs unbind with the next bind");
+assertEqual(folded[0].command, "kill", "foldEvents keeps the replacement command");
+assertEqual(folded[1].command, "", "foldEvents keeps a lone unbind");
 assertEqual(
   binds.parseCalls('o.bind("SUPER + T", nil, { launch = "foot" })')[0].command,
-  'foot',
-  'parseCalls reads a launch table bind'
-)
+  "foot",
+  "parseCalls reads a launch table bind",
+);
 
-const rules = load('services/WindowRules.js')
-assertEqual(rules.sanitizeMatch('firefox'), 'firefox', 'sanitizeMatch keeps a class')
-assertEqual(rules.sanitizeMatch('bad]]class'), '', 'sanitizeMatch rejects ]]')
-assertEqual(rules.sanitizeWorkspace('../etc'), '', 'sanitizeWorkspace rejects a path')
-assertEqual(rules.sanitizeWorkspace(' special:5 '), 'special:5', 'sanitizeWorkspace keeps a named workspace')
-assertEqual(rules.sanitizeWorkspace(''), '', 'sanitizeWorkspace empty')
-assertEqual(rules.sanitizeMatch('bad\nclass'), '', 'sanitizeMatch rejects a newline')
-assertEqual(rules.sanitizeMatch('x'.repeat(129)), '', 'sanitizeMatch rejects a match over 128 chars')
-assertEqual(rules.describe(null), '', 'describe empty for a missing row')
-assertEqual(rules.describe({ center: true }), 'center', 'describe names center')
-const ruleSeed = 'o.window("dev.csfh.atmos", { float = true })\no.window("dev.csfh.atmos", { center = true })\n'
+const rules = load("services/WindowRules.js");
+assertEqual(rules.sanitizeMatch("firefox"), "firefox", "sanitizeMatch keeps a class");
+assertEqual(rules.sanitizeMatch("bad]]class"), "", "sanitizeMatch rejects ]]");
+assertEqual(rules.sanitizeWorkspace("../etc"), "", "sanitizeWorkspace rejects a path");
+assertEqual(
+  rules.sanitizeWorkspace(" special:5 "),
+  "special:5",
+  "sanitizeWorkspace keeps a named workspace",
+);
+assertEqual(rules.sanitizeWorkspace(""), "", "sanitizeWorkspace empty");
+assertEqual(rules.sanitizeMatch("bad\nclass"), "", "sanitizeMatch rejects a newline");
+assertEqual(
+  rules.sanitizeMatch("x".repeat(129)),
+  "",
+  "sanitizeMatch rejects a match over 128 chars",
+);
+assertEqual(rules.describe(null), "", "describe empty for a missing row");
+assertEqual(rules.describe({ center: true }), "center", "describe names center");
+const ruleSeed =
+  'o.window("dev.csfh.atmos", { float = true })\no.window("dev.csfh.atmos", { center = true })\n';
 const ruleApplied = rules.applyFile(ruleSeed, [
-  { match: '^Emulator$', placement: 'float', center: true, width: 1280, height: 800 },
-  { match: 'qemu', workspace: '5' }
-])
-assert(ruleApplied.indexOf('o.window("dev.csfh.atmos", { float = true })') !== -1, 'applyFile keeps prefs window rules')
-assert(ruleApplied.indexOf('o.window("^Emulator$", { float = true, center = true, size = { 1280, 800 } })') !== -1, 'applyFile writes a managed window rule')
-assert(ruleApplied.indexOf('o.window("qemu", { workspace = "5" })') !== -1, 'applyFile writes a workspace rule')
-const ruleParsed = rules.parseFile(ruleApplied)
-assertEqual(ruleParsed.filter(function(row) { return row.managed }).length, 2, 'parseFile marks managed window rules')
-assertEqual(ruleParsed.filter(function(row) { return !row.managed && row.match === 'dev.csfh.atmos' }).length, 2, 'parseFile keeps the prefs window rules')
-const required = rules.ensureRequire('require("hypr.autostart")\nrequire("default.hypr.toggles")\n')
-assert(required.indexOf('require("hypr.atmos")\nrequire("default.hypr.toggles")') !== -1, 'ensureRequire inserts before toggles')
-assertEqual(rules.ensureRequire(''), '', 'ensureRequire leaves an empty hyprland.lua alone')
-assertEqual(rules.describe({ placement: 'float', center: true }).indexOf('float') !== -1, true, 'describe names float')
-assertEqual(rules.clampSize(1280), 1280, 'clampSize keeps a valid size')
-assertEqual(rules.clampSize(50), 0, 'clampSize rejects below 100')
-assertEqual(rules.clampSize(5000), 0, 'clampSize rejects above 4000')
-assertEqual(rules.clampSize('nope'), 0, 'clampSize rejects NaN')
-assert(rules.prefsSeed().indexOf('o.window("dev.csfh.atmos"') !== -1, 'prefsSeed floats the Atmos class')
-assert(rules.prefsSeed().indexOf('size = { 960, 680 }') !== -1, 'prefsSeed sets the Atmos size')
-assertEqual(rules.describe({ placement: 'tile', workspace: '5' }), 'tile \u00b7 workspace 5', 'describe names tile and workspace')
-assertEqual(rules.describe({ width: 1280, height: 800 }).indexOf('\u00d7') !== -1, true, 'describe names a size')
-const already = 'require("hypr.atmos")\nrequire("default.hypr.toggles")\n'
-assertEqual(rules.ensureRequire(already), already, 'ensureRequire is a no-op when hypr.atmos is present')
-const appended = rules.ensureRequire('require("hypr.autostart")\n')
-assert(appended.indexOf('require("hypr.atmos")') !== -1, 'ensureRequire appends when toggles are missing')
+  { match: "^Emulator$", placement: "float", center: true, width: 1280, height: 800 },
+  { match: "qemu", workspace: "5" },
+]);
+assert(
+  ruleApplied.indexOf('o.window("dev.csfh.atmos", { float = true })') !== -1,
+  "applyFile keeps prefs window rules",
+);
+assert(
+  ruleApplied.indexOf(
+    'o.window("^Emulator$", { float = true, center = true, size = { 1280, 800 } })',
+  ) !== -1,
+  "applyFile writes a managed window rule",
+);
+assert(
+  ruleApplied.indexOf('o.window("qemu", { workspace = "5" })') !== -1,
+  "applyFile writes a workspace rule",
+);
+const ruleParsed = rules.parseFile(ruleApplied);
+assertEqual(
+  ruleParsed.filter(function (row) {
+    return row.managed;
+  }).length,
+  2,
+  "parseFile marks managed window rules",
+);
+assertEqual(
+  ruleParsed.filter(function (row) {
+    return !row.managed && row.match === "dev.csfh.atmos";
+  }).length,
+  2,
+  "parseFile keeps the prefs window rules",
+);
+const required = rules.ensureRequire(
+  'require("hypr.autostart")\nrequire("default.hypr.toggles")\n',
+);
+assert(
+  required.indexOf('require("hypr.atmos")\nrequire("default.hypr.toggles")') !== -1,
+  "ensureRequire inserts before toggles",
+);
+assertEqual(rules.ensureRequire(""), "", "ensureRequire leaves an empty hyprland.lua alone");
+assertEqual(
+  rules.describe({ placement: "float", center: true }).indexOf("float") !== -1,
+  true,
+  "describe names float",
+);
+assertEqual(rules.clampSize(1280), 1280, "clampSize keeps a valid size");
+assertEqual(rules.clampSize(50), 0, "clampSize rejects below 100");
+assertEqual(rules.clampSize(5000), 0, "clampSize rejects above 4000");
+assertEqual(rules.clampSize("nope"), 0, "clampSize rejects NaN");
+assert(
+  rules.prefsSeed().indexOf('o.window("dev.csfh.atmos"') !== -1,
+  "prefsSeed floats the Atmos class",
+);
+assert(rules.prefsSeed().indexOf("size = { 960, 680 }") !== -1, "prefsSeed sets the Atmos size");
+assertEqual(
+  rules.describe({ placement: "tile", workspace: "5" }),
+  "tile \u00b7 workspace 5",
+  "describe names tile and workspace",
+);
+assertEqual(
+  rules.describe({ width: 1280, height: 800 }).indexOf("\u00d7") !== -1,
+  true,
+  "describe names a size",
+);
+const already = 'require("hypr.atmos")\nrequire("default.hypr.toggles")\n';
+assertEqual(
+  rules.ensureRequire(already),
+  already,
+  "ensureRequire is a no-op when hypr.atmos is present",
+);
+const appended = rules.ensureRequire('require("hypr.autostart")\n');
+assert(
+  appended.indexOf('require("hypr.atmos")') !== -1,
+  "ensureRequire appends when toggles are missing",
+);
 const managedRules = rules.managedItems([
-  { match: 'qemu', workspace: '5', managed: false },
-  { match: 'firefox', placement: 'float', managed: true },
-  { match: 'bad]]', placement: 'float' },
-  null
-])
-assertEqual(managedRules.length, 1, 'managedItems drops unmanaged and invalid rows')
-assertEqual(managedRules[0].match, 'firefox', 'managedItems keeps a managed float rule')
+  { match: "qemu", workspace: "5", managed: false },
+  { match: "firefox", placement: "float", managed: true },
+  { match: "bad]]", placement: "float" },
+  null,
+]);
+assertEqual(managedRules.length, 1, "managedItems drops unmanaged and invalid rows");
+assertEqual(managedRules[0].match, "firefox", "managedItems keeps a managed float rule");
 assertEqual(
   rules.parseCalls('o.window("foo\\"bar", { float = true })\n')[0].match,
   'foo"bar',
-  'parseCalls unescapes a quoted window match'
-)
+  "parseCalls unescapes a quoted window match",
+);
 assert(
-  rules.serialize([{ match: 'qemu', placement: 'tile' }]).indexOf('tile = true') !== -1,
-  'serialize writes tile = true'
-)
-assertEqual(rules.normalize({ match: 'firefox', float: true }).placement, 'float', 'normalize maps float true to placement')
-assertEqual(rules.normalize({ match: 'foot', size: [1280, 800] }).width, 1280, 'normalize reads a size array')
-assertEqual(rules.normalize({ match: 'ghost' }), null, 'normalize drops a match with no effects')
-
+  rules.serialize([{ match: "qemu", placement: "tile" }]).indexOf("tile = true") !== -1,
+  "serialize writes tile = true",
+);
+assertEqual(
+  rules.normalize({ match: "firefox", float: true }).placement,
+  "float",
+  "normalize maps float true to placement",
+);
+assertEqual(
+  rules.normalize({ match: "foot", size: [1280, 800] }).width,
+  1280,
+  "normalize reads a size array",
+);
+assertEqual(rules.normalize({ match: "ghost" }), null, "normalize drops a match with no effects");

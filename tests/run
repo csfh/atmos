@@ -4,6 +4,15 @@ set -euo pipefail
 ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$ROOT"
 
+if [[ ! -x node_modules/.bin/oxlint || ! -x node_modules/.bin/oxfmt ]]; then
+  echo "not ok - npm install (oxlint/oxfmt missing)"
+  exit 1
+fi
+./node_modules/.bin/oxlint services tests
+echo "ok - oxlint"
+./node_modules/.bin/oxfmt --check services tests
+echo "ok - oxfmt --check"
+
 node tests/parse.test.js
 
 catalog=$(mktemp)

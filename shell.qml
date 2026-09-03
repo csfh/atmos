@@ -36,31 +36,15 @@ ShellRoot {
   ]
 
   function pageMatches(page, q) {
-    if (!q || q.length === 0) return true
-    var haystack = (page.title + " " + page.keywords).toLowerCase()
-    return haystack.indexOf(q.toLowerCase()) !== -1
+    var nq = String(q || "").toLowerCase()
+    if (!nq) return true
+    if (!page.haystack)
+      page.haystack = (page.title + " " + page.keywords).toLowerCase()
+    return page.haystack.indexOf(nq) !== -1
   }
 
   function pageComponent(id) {
-    if (id === "display") return displayPage
-    if (id === "windows") return windowsPage
-    if (id === "input") return inputPage
-    if (id === "accessibility") return accessibilityPage
-    if (id === "sound") return soundPage
-    if (id === "capture") return capturePage
-    if (id === "disks") return disksPage
-    if (id === "bar") return barPage
-    if (id === "notifications") return notificationsPage
-    if (id === "defaults") return defaultsPage
-    if (id === "applications") return applicationsPage
-    if (id === "software") return softwarePage
-    if (id === "network") return networkPage
-    if (id === "power") return powerPage
-    if (id === "idle") return idlePage
-    if (id === "security") return securityPage
-    if (id === "hooks") return hooksPage
-    if (id === "system") return systemPage
-    return appearancePage
+    return pageById[id] || appearancePage
   }
 
   function hubId(id) {
@@ -156,6 +140,28 @@ ShellRoot {
   Component { id: hooksPage; HooksPage { query: root.query } }
   Component { id: systemPage; SystemPage { query: root.query } }
   Component { id: searchPage; SearchPage { query: root.query; navigator: prefsNavigator } }
+
+  readonly property var pageById: ({
+    appearance: appearancePage,
+    display: displayPage,
+    windows: windowsPage,
+    input: inputPage,
+    accessibility: accessibilityPage,
+    sound: soundPage,
+    capture: capturePage,
+    disks: disksPage,
+    bar: barPage,
+    notifications: notificationsPage,
+    defaults: defaultsPage,
+    applications: applicationsPage,
+    software: softwarePage,
+    network: networkPage,
+    power: powerPage,
+    idle: idlePage,
+    security: securityPage,
+    hooks: hooksPage,
+    system: systemPage
+  })
 
   IpcHandler {
     target: "prefs"
@@ -283,7 +289,7 @@ ShellRoot {
                 required property var modelData
                 width: navColumn.width
                 height: Theme.rowHeight
-                visible: root.query.length > 0 || root.pageMatches(modelData, root.query)
+                visible: root.pageMatches(modelData, root.query)
                 radius: Theme.radius
                 color: root.query.length === 0 && root.currentPage === modelData.id
                   ? Theme.fill(Theme.selectedFill)

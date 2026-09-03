@@ -17,17 +17,21 @@ Rectangle {
   height: implicitHeight
   radius: Theme.radius
   opacity: enabled ? 1 : 0.45
+  activeFocusOnTab: enabled
   color: {
-    if (mouse.containsMouse && enabled) return Theme.fill(Theme.hoverFill)
+    if ((mouse.containsMouse || root.activeFocus) && enabled) return Theme.fill(Theme.hoverFill)
     if (primary) return Theme.accentFill(0.22)
     return Theme.fill(Theme.normalFill)
   }
   border.width: 1
   border.color: {
     if (danger) return Theme.urgent
-    if (primary || (mouse.containsMouse && enabled)) return Theme.accent
+    if (primary || ((mouse.containsMouse || root.activeFocus) && enabled)) return Theme.accent
     return Theme.borderColor()
   }
+
+  Keys.onReturnPressed: if (enabled) root.clicked()
+  Keys.onSpacePressed: if (enabled) root.clicked()
 
   Behavior on color {
     ColorAnimation { duration: 90 }

@@ -20,14 +20,13 @@ Item {
     anchors.fill: parent
     spacing: 4
 
-    Text {
+    PrefsText {
       id: label
       width: parent.width
       text: RichUi.formatBytes(root.used) + " of " + RichUi.formatBytes(root.size) + " used (" + root.percent + "%). " + RichUi.formatBytes(root.avail) + " free."
       color: Theme.foreground
       font.family: Theme.fontFamily
       font.pixelSize: Theme.captionSize
-      wrapMode: Text.WordWrap
     }
 
     PrefsProgress {

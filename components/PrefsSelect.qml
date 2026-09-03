@@ -22,23 +22,55 @@ Item {
   opacity: enabled ? 1 : 0.45
 
   Accessible.role: Accessible.ComboBox
-  Accessible.name: currentLabel()
+  Accessible.name: displayLabel
   Accessible.onPressAction: if (enabled) popup.open()
 
   property string filter: ""
+  property string displayLabel: ""
+  property var shownOptions: []
 
   function optionValue(item) { return RichUi.optionValue(item) }
   function optionLabel(item) { return RichUi.optionLabel(item) }
 
-  function currentLabel() {
-    for (var i = 0; i < options.length; i++) {
-      if (optionValue(options[i]) === value) return optionLabel(options[i])
+  function refreshDisplayLabel() {
+    var list = options || []
+    for (var i = 0; i < list.length; i++) {
+      if (optionValue(list[i]) === value) {
+        displayLabel = optionLabel(list[i])
+        return
+      }
     }
-    return value
+    displayLabel = value
   }
 
-  function filteredOptions() {
-    return RichUi.filterOptions(options, useSearch ? filter : "")
+  function refreshShownOptions() {
+    shownOptions = RichUi.filterOptions(options, useSearch ? filter : "")
+  }
+
+  onValueChanged: refreshDisplayLabel()
+  onOptionsChanged: {
+    refreshDisplayLabel()
+    refreshShownOptions()
+  }
+  onFilterChanged: refreshShownOptions()
+  onUseSearchChanged: refreshShownOptions()
+  Component.onCompleted: {
+    refreshDisplayLabel()
+    refreshShownOptions()
+  }
+
+  function currentIndexOfValue() {
+    var listOpts = shownOptions || []
+    for (var i = 0; i < listOpts.length; i++) {
+      if (optionValue(listOpts[i]) === value) return i
+    }
+    return listOpts.length > 0 ? 0 : -1
+  }
+
+  function pickCurrent() {
+    if (list.currentIndex < 0 || list.currentIndex >= (shownOptions || []).length) return
+    changed(optionValue(shownOptions[list.currentIndex]))
+    popup.close()
   }
 
   Rectangle {
@@ -48,6 +80,13 @@ Item {
     color: triggerHover.containsMouse || trigger.focus ? Theme.fill(Theme.hoverFill) : Theme.fill(Theme.normalFill)
     border.width: 1
     border.color: trigger.focus || triggerHover.containsMouse ? Theme.accent : Theme.borderColor()
+
+    Behavior on color {
+      ColorAnimation { duration: 90 }
+    }
+    Behavior on border.color {
+      ColorAnimation { duration: 90 }
+    }
 
     activeFocusOnTab: root.enabled
 
@@ -60,7 +99,7 @@ Item {
       anchors.verticalCenter: parent.verticalCenter
       anchors.leftMargin: 10
       anchors.rightMargin: 8
-      text: root.currentLabel()
+      text: root.displayLabel
       color: Theme.foreground
       font.family: Theme.fontFamily
       font.pixelSize: Theme.fontSize
@@ -94,10 +133,13 @@ Item {
     padding: 0
     modal: false
     focus: true
+    closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
 
     onOpened: {
       root.filter = ""
+      list.currentIndex = currentIndexOfValue()
       if (root.useSearch) searchField.forceActiveFocus()
+      else list.forceActiveFocus()
     }
     onClosed: root.filter = ""
 
@@ -128,15 +170,22 @@ Item {
           clip: true
           selectByMouse: true
           verticalAlignment: TextInput.AlignVCenter
-          onTextChanged: root.filter = text
+          onTextChanged: {
+            root.filter = text
+            list.currentIndex = list.count > 0 ? 0 : -1
+          }
           Keys.onDownPressed: list.forceActiveFocus()
+          Keys.onReturnPressed: root.pickCurrent()
+          Keys.onEnterPressed: root.pickCurrent()
 
           Text {
+            anchors.fill: parent
             visible: searchField.text.length === 0 && !searchField.activeFocus
             text: "Find an option"
             color: Theme.muted
             font.family: Theme.fontFamily
             font.pixelSize: Theme.fontSize
+            verticalAlignment: Text.AlignVCenter
           }
         }
       }
@@ -146,14 +195,18 @@ Item {
         clip: true
         width: parent.width
         implicitHeight: Math.min(280, Math.max(36, contentHeight))
-        model: root.filteredOptions()
+        model: root.shownOptions
         boundsBehavior: Flickable.StopAtBounds
+        keyNavigationEnabled: true
+        highlightFollowsCurrentItem: true
+        Keys.onReturnPressed: root.pickCurrent()
+        Keys.onSpacePressed: root.pickCurrent()
         delegate: Rectangle {
           required property var modelData
           required property int index
           width: list.width
           height: Theme.rowHeight - 10
-          color: optionMouse.containsMouse || root.optionValue(modelData) === root.value
+          color: optionMouse.containsMouse || index === list.currentIndex || root.optionValue(modelData) === root.value
             ? Theme.fill(Theme.selectedFill)
             : "transparent"
 

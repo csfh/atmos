@@ -19,32 +19,38 @@ Item {
   signal changed(real value)
 
   readonly property real _step: stepSize > 0 ? stepSize : 1
-  readonly property int _stepCount: {
-    if (to <= from) return 0
-    return Math.round((to - from) / _step)
-  }
-  readonly property int _tickEvery: {
-    var n = _stepCount
-    if (n <= 0) return 1
-    var candidates = [1, 2, 3, 4, 5, 6, 10, 12, 15, 20, 24, 30, 60]
-    for (var i = 0; i < candidates.length; i++) {
-      if (n / candidates[i] <= 12)
-        return candidates[i]
+  property var ticks: []
+
+  function rebuildTicks() {
+    var n = 0
+    if (to > from)
+      n = Math.round((to - from) / _step)
+    var every = 1
+    if (n > 0) {
+      var candidates = [1, 2, 3, 4, 5, 6, 10, 12, 15, 20, 24, 30, 60]
+      every = Math.max(1, Math.ceil(n / 12))
+      for (var c = 0; c < candidates.length; c++) {
+        if (n / candidates[c] <= 12) {
+          every = candidates[c]
+          break
+        }
+      }
     }
-    return Math.max(1, Math.ceil(n / 12))
-  }
-  readonly property var ticks: {
-    var n = _stepCount
-    var every = _tickEvery
     var list = []
-    if (n <= 0) return list
-    for (var i = 0; i <= n; i++) {
-      if (i !== 0 && i !== n && i % every !== 0)
-        continue
-      list.push(from + i * _step)
+    if (n > 0) {
+      for (var i = 0; i <= n; i++) {
+        if (i !== 0 && i !== n && i % every !== 0)
+          continue
+        list.push(from + i * _step)
+      }
     }
-    return list
+    ticks = list
   }
+
+  onFromChanged: rebuildTicks()
+  onToChanged: rebuildTicks()
+  onStepSizeChanged: rebuildTicks()
+  Component.onCompleted: rebuildTicks()
 
   readonly property int valueLineHeight: showValue ? Theme.captionSize : 0
   readonly property int trackBoxHeight: 22

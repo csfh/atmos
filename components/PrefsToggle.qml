@@ -14,23 +14,29 @@ Item {
   width: implicitWidth
   height: implicitHeight
   opacity: enabled ? 1 : 0.45
+  activeFocusOnTab: enabled
 
   Accessible.role: Accessible.CheckBox
   Accessible.checkable: true
   Accessible.checked: checked
   Accessible.onPressAction: if (enabled) root.toggled()
 
+  Keys.onReturnPressed: if (enabled) root.toggled()
+  Keys.onSpacePressed: if (enabled) root.toggled()
+
   HoverHandler {
     id: toggleHover
     enabled: root.enabled
   }
 
+  readonly property bool highlight: toggleHover.hovered || root.activeFocus
+
   Rectangle {
     anchors.fill: parent
     radius: height / 2
-    color: root.checked ? Theme.accentFill(toggleHover.hovered ? 1 : 0.85) : Theme.fill(toggleHover.hovered ? Theme.hoverFill : 0.12)
+    color: root.checked ? Theme.accentFill(root.highlight ? 1 : 0.85) : Theme.fill(root.highlight ? Theme.hoverFill : 0.12)
     border.width: 1
-    border.color: root.checked || toggleHover.hovered ? Theme.accent : Theme.borderColor()
+    border.color: root.checked || root.highlight ? Theme.accent : Theme.borderColor()
 
     Behavior on color {
       ColorAnimation { duration: 90 }

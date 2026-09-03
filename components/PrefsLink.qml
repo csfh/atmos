@@ -19,12 +19,14 @@ Item {
 
   signal clicked()
 
-  readonly property bool matches: {
+  readonly property string searchHaystack: {
     var parts = [label, description, hint, valueText, detail]
     var list = keywords || []
     for (var i = 0; i < list.length; i++) parts.push(list[i])
-    return ShellConfigJs.rowMatches(query, parts)
+    return ShellConfigJs.joinSearchHaystack(parts)
   }
+
+  readonly property bool matches: ShellConfigJs.haystackMatches(query, searchHaystack)
 
   readonly property int controlCol: {
     var avail = parent ? parent.width : Theme.controlColumnWidth
@@ -47,13 +49,20 @@ Item {
     : 0
   height: implicitHeight
 
+  activeFocusOnTab: true
+
   Accessible.role: Accessible.Button
   Accessible.name: label
   Accessible.onPressAction: root.clicked()
 
+  Keys.onReturnPressed: root.clicked()
+  Keys.onSpacePressed: root.clicked()
+
+  readonly property bool highlight: linkMouse.containsMouse || root.activeFocus
+
   Rectangle {
     anchors.fill: parent
-    color: linkMouse.containsMouse ? Theme.fill(Theme.hoverFill) : "transparent"
+    color: root.highlight ? Theme.fill(Theme.hoverFill) : "transparent"
     radius: Theme.radius
 
     Behavior on color {
@@ -111,7 +120,7 @@ Item {
         width: Math.min(implicitWidth, parent.width - chevron.implicitWidth - Theme.space)
         anchors.verticalCenter: parent.verticalCenter
         text: root.valueText
-        color: linkMouse.containsMouse ? Theme.foreground : Theme.muted
+        color: root.highlight ? Theme.foreground : Theme.muted
         font.family: Theme.fontFamily
         font.pixelSize: Theme.fontSize
         elide: Text.ElideMiddle
@@ -127,10 +136,10 @@ Item {
         anchors.right: parent.right
         anchors.verticalCenter: parent.verticalCenter
         text: Theme.iconChevronRight
-        color: linkMouse.containsMouse ? Theme.foreground : Theme.muted
+        color: root.highlight ? Theme.foreground : Theme.muted
         font.family: Theme.fontFamily
         font.pixelSize: Theme.titleSize
-        scale: linkMouse.containsMouse ? 1.08 : 1
+        scale: root.highlight ? 1.08 : 1
 
         Behavior on color {
           ColorAnimation { duration: 90 }

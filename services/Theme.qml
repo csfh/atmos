@@ -45,6 +45,20 @@ QtObject {
   readonly property int titleSize: Math.max(fontSize + 6, Math.round(fontSize * 1.4))
   readonly property int captionSize: Math.max(11, fontSize - 2)
 
+  function contentColumnWidth(avail) {
+    var w = Number(avail)
+    if (!isFinite(w)) w = 0
+    return Math.max(240, Math.min(contentMaxWidth, w - spaceLg * 2))
+  }
+
+  function contentColumnX(avail, colWidth) {
+    var outer = Number(avail)
+    var inner = Number(colWidth)
+    if (!isFinite(outer)) outer = 0
+    if (!isFinite(inner)) inner = 0
+    return Math.max(spaceLg, Math.round((outer - inner) / 2))
+  }
+
   function fill(alpha) {
     return Qt.rgba(foreground.r, foreground.g, foreground.b, alpha)
   }

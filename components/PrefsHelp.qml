@@ -19,10 +19,14 @@ Item {
   width: implicitWidth
   height: implicitHeight
   z: 2
+  activeFocusOnTab: visible
 
   Accessible.role: Accessible.Button
   Accessible.name: "About " + title
   Accessible.onPressAction: popup.open()
+
+  Keys.onReturnPressed: popup.open()
+  Keys.onSpacePressed: popup.open()
 
   Text {
     anchors.centerIn: parent
@@ -38,7 +42,7 @@ Item {
     radius: width / 2
     color: "transparent"
     border.width: 1
-    border.color: helpMouse.containsMouse ? Theme.accent : Theme.borderColor()
+    border.color: helpMouse.containsMouse || root.activeFocus ? Theme.accent : Theme.borderColor()
   }
 
   MouseArea {

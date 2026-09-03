@@ -31,8 +31,8 @@ Item {
 
     Column {
       id: pageColumn
-      width: Math.max(240, Math.min(Theme.contentMaxWidth, flick.width - Theme.spaceLg * 2))
-      x: Math.max(Theme.spaceLg, Math.round((flick.width - width) / 2))
+      width: Theme.contentColumnWidth(flick.width)
+      x: Theme.contentColumnX(flick.width, width)
       y: root.embed ? 0 : Theme.spaceLg
       spacing: Theme.spaceLg
 

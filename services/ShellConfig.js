@@ -40,10 +40,23 @@ function barPosition(value) {
   return "top"
 }
 
-function rowMatches(query, parts) {
-  var q = String(query || "").toLowerCase().replace(/^\s+|\s+$/g, "")
-  if (!q) return true
+function normalizeQuery(query) {
+  return String(query || "").toLowerCase().replace(/^\s+|\s+$/g, "")
+}
+
+function joinSearchHaystack(parts) {
+  var list = parts || []
   var haystack = ""
-  for (var i = 0; i < parts.length; i++) haystack += " " + String(parts[i] || "")
-  return haystack.toLowerCase().indexOf(q) !== -1
+  for (var i = 0; i < list.length; i++) haystack += " " + String(list[i] || "")
+  return haystack.toLowerCase()
+}
+
+function haystackMatches(query, haystack) {
+  var q = normalizeQuery(query)
+  if (!q) return true
+  return String(haystack || "").indexOf(q) !== -1
+}
+
+function rowMatches(query, parts) {
+  return haystackMatches(query, joinSearchHaystack(parts))
 }

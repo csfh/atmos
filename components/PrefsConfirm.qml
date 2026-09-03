@@ -74,7 +74,8 @@ Popup {
 
       PrefsButton {
         text: root.confirmText
-        primary: true
+        primary: !root.destructive
+        danger: root.destructive
         onClicked: {
           root._accepted = true
           root.confirmed()

@@ -21,12 +21,14 @@ Item {
 
   default property alias extra: controlSlot.data
 
-  readonly property bool matches: {
+  readonly property string searchHaystack: {
     var parts = [label, description, hint, detail]
     var list = keywords || []
     for (var i = 0; i < list.length; i++) parts.push(list[i])
-    return ShellConfigJs.rowMatches(query, parts)
+    return ShellConfigJs.joinSearchHaystack(parts)
   }
+
+  readonly property bool matches: ShellConfigJs.haystackMatches(query, searchHaystack)
 
   readonly property int controlCol: {
     var avail = parent ? parent.width : Theme.controlColumnWidth
@@ -49,33 +51,14 @@ Item {
     spacing: Theme.spaceMd
     visible: !root.stretchControl
 
-    Column {
-      id: textCol
+    Item {
+      id: inlineCopyHost
       width: controlSlot.children.length > 0
         ? Math.max(160, parent.width - root.controlCol - parent.spacing)
         : parent.width
-      spacing: 4
-
-      PrefsText {
-        width: parent.width
-        visible: root.label.length > 0
-        text: root.label
-        color: Theme.foreground
-        font.family: Theme.fontFamily
-        font.pixelSize: Theme.fontSize
-        font.bold: true
-        horizontalAlignment: Text.AlignLeft
-      }
-
-      PrefsText {
-        width: parent.width
-        visible: root.description.length > 0
-        text: root.description
-        color: Theme.muted
-        font.family: Theme.fontFamily
-        font.pixelSize: Theme.captionSize
-        horizontalAlignment: Text.AlignLeft
-      }
+      implicitWidth: width
+      implicitHeight: copyCol.implicitHeight
+      height: implicitHeight
     }
 
     Item {
@@ -83,7 +66,7 @@ Item {
       visible: controlSlot.children.length > 0
       width: root.controlCol
       implicitWidth: width
-      implicitHeight: Math.max(Theme.controlHeight, controlSlot.implicitHeight, textCol.implicitHeight)
+      implicitHeight: Math.max(Theme.controlHeight, controlSlot.implicitHeight, inlineCopyHost.implicitHeight)
       height: implicitHeight
     }
   }
@@ -96,28 +79,11 @@ Item {
     spacing: 6
     visible: root.stretchControl
 
-    Column {
+    Item {
+      id: stackedCopyHost
       width: parent.width
-      spacing: 4
-
-      PrefsText {
-        width: parent.width
-        visible: root.label.length > 0
-        text: root.label
-        color: Theme.foreground
-        font.family: Theme.fontFamily
-        font.pixelSize: Theme.fontSize
-        font.bold: true
-      }
-
-      PrefsText {
-        width: parent.width
-        visible: root.description.length > 0
-        text: root.description
-        color: Theme.muted
-        font.family: Theme.fontFamily
-        font.pixelSize: Theme.captionSize
-      }
+      implicitHeight: copyCol.implicitHeight
+      height: implicitHeight
     }
 
     Item {
@@ -125,6 +91,34 @@ Item {
       width: parent.width
       implicitHeight: visible ? controlSlot.implicitHeight : 0
       height: implicitHeight
+    }
+  }
+
+  Column {
+    id: copyCol
+    parent: root.stretchControl ? stackedCopyHost : inlineCopyHost
+    width: parent.width
+    spacing: 4
+
+    PrefsText {
+      width: parent.width
+      visible: root.label.length > 0
+      text: root.label
+      color: Theme.foreground
+      font.family: Theme.fontFamily
+      font.pixelSize: Theme.fontSize
+      font.bold: true
+      horizontalAlignment: Text.AlignLeft
+    }
+
+    PrefsText {
+      width: parent.width
+      visible: root.description.length > 0
+      text: root.description
+      color: Theme.muted
+      font.family: Theme.fontFamily
+      font.pixelSize: Theme.captionSize
+      horizontalAlignment: Text.AlignLeft
     }
   }
 

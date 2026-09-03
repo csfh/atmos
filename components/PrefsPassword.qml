@@ -9,6 +9,7 @@ Item {
   property bool enabled: true
 
   signal submitted(string value)
+  signal edited(string value)
 
   implicitWidth: 200
   implicitHeight: Theme.controlHeight
@@ -23,6 +24,18 @@ Item {
   function clear() {
     field.text = ""
   }
+
+  function setText(next) {
+    field.text = String(next || "")
+  }
+
+  function applyValue() {
+    if (!field.activeFocus)
+      field.text = root.value
+  }
+
+  onValueChanged: applyValue()
+  Component.onCompleted: field.text = root.value
 
   Accessible.role: Accessible.EditableText
   Accessible.passwordEdit: true
@@ -63,13 +76,16 @@ Item {
       verticalAlignment: TextInput.AlignVCenter
       activeFocusOnTab: root.enabled
       onAccepted: root.submitted(text)
+      onTextEdited: root.edited(text)
 
       Text {
+        anchors.fill: parent
         visible: field.text.length === 0 && !field.activeFocus
         text: root.placeholder
         color: Theme.muted
         font.family: Theme.fontFamily
         font.pixelSize: Theme.fontSize
+        verticalAlignment: Text.AlignVCenter
       }
     }
   }

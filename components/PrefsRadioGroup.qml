@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import "../services"
+import "../services/RichUi.js" as RichUi
 
 Flow {
   id: root
@@ -9,6 +10,7 @@ Flow {
   property string value: ""
   property bool enabled: true
   property bool wrap: false
+  property string displayLabel: ""
 
   signal changed(string value)
 
@@ -18,22 +20,25 @@ Flow {
   opacity: enabled ? 1 : 0.45
 
   Accessible.role: Accessible.List
-  Accessible.name: currentLabel()
+  Accessible.name: displayLabel
 
-  function optionValue(item) {
-    return (item && typeof item === "object") ? String(item.value) : String(item)
-  }
+  function optionValue(item) { return RichUi.optionValue(item) }
+  function optionLabel(item) { return RichUi.optionLabel(item) }
 
-  function optionLabel(item) {
-    return (item && typeof item === "object") ? String(item.label) : String(item)
-  }
-
-  function currentLabel() {
-    for (var i = 0; i < options.length; i++) {
-      if (optionValue(options[i]) === value) return optionLabel(options[i])
+  function refreshDisplayLabel() {
+    var list = options || []
+    for (var i = 0; i < list.length; i++) {
+      if (optionValue(list[i]) === value) {
+        displayLabel = optionLabel(list[i])
+        return
+      }
     }
-    return value
+    displayLabel = value
   }
+
+  onValueChanged: refreshDisplayLabel()
+  onOptionsChanged: refreshDisplayLabel()
+  Component.onCompleted: refreshDisplayLabel()
 
   Repeater {
     model: root.options

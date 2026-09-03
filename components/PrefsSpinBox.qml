@@ -44,6 +44,13 @@ Item {
       border.width: 1
       border.color: spin.activeFocus || spin.hovered ? Theme.accent : Theme.borderColor()
       radius: Theme.radius
+
+      Behavior on color {
+        ColorAnimation { duration: 90 }
+      }
+      Behavior on border.color {
+        ColorAnimation { duration: 90 }
+      }
     }
 
     contentItem: TextInput {

@@ -186,7 +186,7 @@ PrefsPage {
   PrefsGroup {
     title: "Spacer"
     query: root.query
-    detail: "A blank gap you can put between widgets. Add inserts omarchy.spacer. Width is in pixels."
+    detail: "A blank gap you can put between widgets. Add inserts omarchy.spacer. Remove takes it off the bar. Width is in pixels."
 
     PrefsRow {
       available: !Omarchy.spacerPresent
@@ -226,6 +226,21 @@ PrefsPage {
           if (next !== Omarchy.spacerSize)
             Omarchy.setSpacerSize(next)
         }
+      }
+    }
+
+    PrefsRow {
+      available: Omarchy.spacerPresent
+      label: "Remove"
+      description: "Take the blank gap off the bar."
+      hint: "omarchy plugin disable omarchy.spacer"
+      query: root.query
+      keywords: ["gap", "space", "padding", "layout", "delete", "remove"]
+
+      PrefsButton {
+        text: "Remove"
+        enabled: !Omarchy.busy && Omarchy.spacerPresent
+        onClicked: Omarchy.removeSpacer()
       }
     }
   }

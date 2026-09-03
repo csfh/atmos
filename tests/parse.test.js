@@ -2379,3 +2379,268 @@ assertEqual(
   "hallas",
   "profileHost drops a hostname with a space",
 );
+
+const settings = load("services/Settings.js");
+
+const s_catalog = settings.settingsCatalog();
+assert(s_catalog.length > 0, "settingsCatalog returns entries");
+
+const seen = {};
+let duplicate = "";
+for (const item of s_catalog) {
+  if (seen[item.key]) duplicate = item.key;
+  seen[item.key] = true;
+}
+assertEqual(duplicate, "", "settingsCatalog has no duplicate keys");
+
+const sectionIds = {};
+for (const section of settings.settingsSections()) sectionIds[section.id] = true;
+let strayCatalogSection = "";
+for (const item of s_catalog) {
+  if (!sectionIds[item.section]) strayCatalogSection = item.section;
+}
+assertEqual(strayCatalogSection, "", "every s_catalog entry lands in a known section");
+
+const byKey = settings.catalogByKey(s_catalog);
+assertEqual(byKey.theme.tier, "look", "theme is a look setting");
+assertEqual(byKey.hostname.tier, "identity", "hostname is an identity setting");
+assertEqual(byKey.sshdEnabled.importable, false, "sshdEnabled is never importable");
+assertEqual(byKey.passwordlessSudo.importable, false, "passwordlessSudo is never importable");
+assertEqual(byKey.sudolessDocker.importable, false, "sudolessDocker is never importable");
+
+let systemImportable = "";
+for (const item of s_catalog) {
+  if (item.tier === "system" && item.importable) systemImportable = item.key;
+}
+assertEqual(systemImportable, "", "no system-tier setting is importable");
+
+let missingConsequence = "";
+for (const item of s_catalog) {
+  if (item.tier === "behavior" && !item.consequence && !item.hostBound)
+    missingConsequence = item.key;
+}
+assertEqual(missingConsequence, "", "every portable behavior setting explains what changes");
+
+const lookPreset = settings.presetKeys("look", s_catalog);
+assert(lookPreset.indexOf("theme") !== -1, "the look preset takes the theme");
+assert(lookPreset.indexOf("browser") === -1, "the look preset leaves the browser alone");
+assert(lookPreset.indexOf("hostname") === -1, "the look preset leaves the hostname alone");
+
+const portablePreset = settings.presetKeys("portable", s_catalog);
+assert(portablePreset.indexOf("browser") !== -1, "the portable preset takes the browser");
+assert(portablePreset.indexOf("hostname") === -1, "the portable preset leaves the hostname alone");
+assert(
+  portablePreset.indexOf("hyprInput.sensitivity") === -1,
+  "the portable preset drops device-tuned input",
+);
+
+const fullPreset = settings.presetKeys("full", s_catalog);
+assert(fullPreset.indexOf("hostname") !== -1, "the full preset takes the hostname");
+assert(fullPreset.indexOf("sshdEnabled") === -1, "even the full preset refuses security settings");
+
+assertEqual(
+  settings.readValue({ hyprLook: { gapsIn: 8 } }, "hyprLook.gapsIn"),
+  8,
+  "readValue walks a dotted key",
+);
+assertEqual(
+  settings.readValue({}, "hyprLook.gapsIn"),
+  undefined,
+  "readValue survives a missing branch",
+);
+
+const s_snapshot = {
+  hostname: "atlas",
+  theme: "tokyo-night",
+  themes: ["tokyo-night", "catppuccin"],
+  font: "CaskaydiaMono Nerd Font",
+  fonts: ["CaskaydiaMono Nerd Font"],
+  browser: "firefox",
+  barPosition: "top",
+  idleLock: 300,
+  stayAwake: false,
+  hyprLook: { gapsIn: 4, activeOpacity: 1 },
+  hyprInput: { naturalScroll: false, sensitivity: 0 },
+  sshdEnabled: true,
+  passwordlessSudo: true,
+  timezone: "America/New_York",
+  timezones: ["America/New_York", "Europe/Berlin"],
+};
+
+const exported = settings.exportMarkdown(s_snapshot, ["theme", "browser", "hyprLook.gapsIn"], {
+  exported: "2026-09-03T00:00:00Z",
+  hardware: "abc123",
+});
+assert(exported.indexOf("# Atmos settings") === 0, "exportMarkdown opens with a heading");
+assert(exported.indexOf("```toml atmos:meta") !== -1, "exportMarkdown writes a meta block");
+assert(exported.indexOf('theme = "tokyo-night"') !== -1, "exportMarkdown writes a selected string");
+assert(exported.indexOf("hyprLook.gapsIn = 4") !== -1, "exportMarkdown writes a dotted key");
+assert(exported.indexOf("barPosition") === -1, "exportMarkdown leaves out unselected keys");
+assert(
+  exported.indexOf("- SSH server: on") !== -1,
+  "exportMarkdown reports security state as prose",
+);
+assert(
+  exported.indexOf("sshdEnabled =") === -1,
+  "exportMarkdown never puts a security setting in a block",
+);
+
+const round = settings.parseSettingsMarkdown(exported);
+assertEqual(round.errors.length, 0, "a file Atmos wrote reads back without errors");
+assertEqual(round.meta.schema, 1, "parseSettingsMarkdown reads the schema");
+assertEqual(round.meta.hardware, "abc123", "parseSettingsMarkdown reads the hardware fingerprint");
+assertEqual(round.sections.appearance.theme, "tokyo-night", "parseSettingsMarkdown reads a value");
+assertEqual(
+  round.sections.windows["hyprLook.gapsIn"],
+  4,
+  "parseSettingsMarkdown reads a dotted key",
+);
+assertEqual(round.sections.security, undefined, "the reported security prose is not a block");
+
+const proseSafe = settings.parseSettingsMarkdown(
+  '# Notes\n\nkey = "not in a block"\n\n```toml atmos:appearance\ntheme = "catppuccin"\n```\n',
+);
+assertEqual(
+  proseSafe.sections.appearance.theme,
+  "catppuccin",
+  "parseSettingsMarkdown reads only fenced blocks",
+);
+assertEqual(Object.keys(proseSafe.sections).length, 1, "prose outside a block is ignored");
+
+const unclosed = settings.parseSettingsMarkdown('```toml atmos:appearance\ntheme = "x"\n');
+assert(unclosed.errors.length === 1, "an unclosed block is an error");
+
+const badValues = settings.parseSettingsMarkdown(
+  '```toml atmos:appearance\nnope\ntheme = \n1bad = "x"\n```\n',
+);
+assertEqual(badValues.errors.length, 3, "parseSettingsMarkdown reports each unreadable line");
+
+assertEqual(settings.parseTomlValue("true"), true, "parseTomlValue reads a boolean");
+assertEqual(settings.parseTomlValue("-12"), -12, "parseTomlValue reads a negative integer");
+assertEqual(settings.parseTomlValue("0.5"), 0.5, "parseTomlValue reads a float");
+assertEqual(
+  settings.parseTomlValue('"a \\"b\\" c"'),
+  'a "b" c',
+  "parseTomlValue unescapes a quoted string",
+);
+assertEqual(settings.parseTomlValue("[]").length, 0, "parseTomlValue reads an empty list");
+assertEqual(
+  settings.parseTomlValue('["a", "b"]')[1],
+  "b",
+  "parseTomlValue reads a list of strings",
+);
+assertEqual(settings.parseTomlValue("bare"), undefined, "parseTomlValue refuses a bare word");
+
+function planFor(body, keys, options) {
+  return settings.planImport(settings.parseSettingsMarkdown(body), s_snapshot, keys, options);
+}
+
+const plan = planFor(
+  "```toml atmos:meta\nschema = 1\n```\n" +
+    '```toml atmos:appearance\ntheme = "catppuccin"\nfont = "CaskaydiaMono Nerd Font"\n```\n' +
+    '```toml atmos:defaults\nbrowser = "brave"\n```\n',
+);
+assertEqual(plan.changes.length, 2, "planImport counts only real changes");
+assertEqual(plan.unchanged.length, 1, "planImport reports a value that already matches");
+assertEqual(plan.changes[0].key, "browser", "planImport sorts changes by key");
+assertEqual(plan.changes[0].from, "firefox", "planImport records the current value");
+assertEqual(plan.changes[0].to, "brave", "planImport records the incoming value");
+assert(plan.changes[0].consequence.length > 0, "a behavior change carries its consequence");
+assertEqual(plan.summary, "2 changes, 1 already match", "planImport summarises the plan");
+
+const singular = planFor(
+  "```toml atmos:meta\nschema = 1\n```\n" + '```toml atmos:appearance\ntheme = "catppuccin"\n```\n',
+);
+assertEqual(singular.summary, "1 change", 'planImport says "1 change" for one change');
+
+const unknownTheme = planFor('```toml atmos:appearance\ntheme = "does-not-exist"\n```\n');
+assertEqual(unknownTheme.changes.length, 0, "a theme this machine lacks is not a change");
+assertEqual(unknownTheme.blocked.length, 1, "a theme this machine lacks is blocked");
+assert(
+  unknownTheme.blocked[0].reason.indexOf("not available on this machine") !== -1,
+  "the block says the value is not available here",
+);
+
+const security = planFor(
+  "```toml atmos:security\nsshdEnabled = true\npasswordlessSudo = true\n```\n",
+);
+assertEqual(security.changes.length, 0, "a security block produces no changes");
+assertEqual(security.blocked.length, 2, "every security key is blocked");
+assert(
+  security.blocked[0].reason.indexOf("never imports security settings") !== -1,
+  "the block says security settings are never imported",
+);
+
+const wrongType = planFor('```toml atmos:idle\nidleLock = "soon"\n```\n');
+assertEqual(wrongType.blocked.length, 1, "a value of the wrong type is blocked");
+assert(
+  wrongType.blocked[0].reason.indexOf("expects integer") !== -1,
+  "the block names the expected type",
+);
+
+const unknownKey = planFor('```toml atmos:appearance\nmadeUpSetting = "x"\n```\n');
+assertEqual(unknownKey.warnings.length, 2, "an unknown key warns, alongside the missing schema");
+assert(
+  unknownKey.warnings[1].message.indexOf("does not know this setting") !== -1,
+  "the warning says the setting is unknown",
+);
+
+const wrongSection = planFor('```toml atmos:appearance\nbrowser = "brave"\n```\n');
+assertEqual(wrongSection.changes.length, 0, "a key in the wrong section is not applied");
+assert(
+  wrongSection.warnings[1].message.indexOf("belongs to defaults") !== -1,
+  "the warning names the section the key belongs to",
+);
+
+const future = planFor(
+  '```toml atmos:meta\nschema = 99\n```\n```toml atmos:appearance\ntheme = "catppuccin"\n```\n',
+);
+assertEqual(future.changes.length, 0, "a newer schema stops the plan");
+assert(
+  future.blocked[0].reason.indexOf("Update Atmos first") !== -1,
+  "a newer schema asks you to update Atmos",
+);
+
+const otherMachine = planFor(
+  '```toml atmos:meta\nschema = 1\nhardware = "aaa"\n```\n' +
+    "```toml atmos:input\nhyprInput.naturalScroll = true\nhyprInput.sensitivity = 0.4\n```\n",
+  null,
+  { hardware: "bbb" },
+);
+assertEqual(
+  otherMachine.changes.length,
+  1,
+  "a device-tuned setting is held back on other hardware",
+);
+assertEqual(
+  otherMachine.changes[0].key,
+  "hyprInput.naturalScroll",
+  "a portable input setting still applies",
+);
+assertEqual(
+  otherMachine.warnings.length,
+  2,
+  "different hardware warns once for the file and once for the setting",
+);
+
+const sameMachine = planFor(
+  '```toml atmos:meta\nschema = 1\nhardware = "aaa"\n```\n' +
+    "```toml atmos:input\nhyprInput.sensitivity = 0.4\n```\n",
+  null,
+  { hardware: "aaa" },
+);
+assertEqual(sameMachine.changes.length, 1, "the same hardware keeps device-tuned settings");
+
+const selected = planFor(
+  "```toml atmos:meta\nschema = 1\n```\n" +
+    '```toml atmos:appearance\ntheme = "catppuccin"\n```\n' +
+    '```toml atmos:defaults\nbrowser = "brave"\n```\n',
+  ["theme"],
+);
+assertEqual(selected.changes.length, 1, "planImport honours a selection");
+assertEqual(selected.changes[0].key, "theme", "the selection keeps only the chosen key");
+
+const encoded = JSON.parse(settings.planToJson(plan));
+assertEqual(encoded.schema, 1, "planToJson stamps the schema");
+assertEqual(encoded.changes.length, 2, "planToJson carries every change");
+assertEqual(encoded.changes[0].key, "browser", "planToJson keeps the plan order");

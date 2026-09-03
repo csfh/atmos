@@ -88,7 +88,6 @@ QtObject {
   readonly property string networkManagerDevicesDir: "/run/NetworkManager/devices"
   readonly property string monitorsLuaFile: Quickshell.env("HOME") + "/.config/hypr/monitors.lua"
 
-  property bool busy: false
   property string lastError: ""
   property string theme: ""
   property string background: ""
@@ -734,7 +733,6 @@ QtObject {
       jobProc.running = true
       return
     }
-    busy = true
     lastError = ""
     mutProc.command = job.argv
     mutProc.running = true
@@ -2458,7 +2456,6 @@ QtObject {
       waitForEnd: true
     }
     onExited: function(exitCode) {
-      root.busy = false
       if (exitCode !== 0) {
         var err = String(mutErr.text || "").replace(/^\s+|\s+$/g, "")
         if (root.stderrLooksLikeFailure(err))

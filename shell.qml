@@ -412,19 +412,6 @@ ShellRoot {
 
       }
 
-      Text {
-        z: 15
-        anchors.top: parent.top
-        anchors.right: parent.right
-        anchors.topMargin: Theme.space
-        anchors.rightMargin: Theme.spaceLg
-        visible: Omarchy.busy || Omarchy.jobBusy
-        text: Omarchy.jobBusy ? "Working…" : "Updating…"
-        color: Theme.muted
-        font.family: Theme.fontFamily
-        font.pixelSize: Theme.captionSize
-      }
-
       Rectangle {
         id: errorBanner
         anchors.top: header.bottom

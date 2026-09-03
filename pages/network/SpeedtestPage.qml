@@ -19,7 +19,7 @@ PrefsPage {
   function startSpeedtest() {
     if (speedProc.running) return
     if (Omarchy.netKind === "disconnected") {
-      speedError = "Nothing is online yet. Connect to a network first."
+      speedError = "No default route. Join a network on the Network page, then retry."
       return
     }
     speedError = ""
@@ -56,10 +56,58 @@ PrefsPage {
   }
 
   function phaseLabel() {
+    if (Omarchy.netKind === "disconnected")
+      return "Run stays disabled until this machine has a default route. Join a network on the Network page."
     if (speedRunning && speedPhase === "up") return "Measuring upload."
     if (speedRunning) return "Measuring download."
     if (downloadMbps.length > 0 || uploadMbps.length > 0) return "Last run on this page."
     return "Download, then upload. About five seconds each."
+  }
+
+  function rateText(raw) {
+    return RichUi.mbpsLabel(raw) || "—"
+  }
+
+  function progressDescription() {
+    if (root.speedRunning && root.speedPhase === "up")
+      return "Measuring outbound on the default route."
+    if (root.speedRunning)
+      return "Measuring inbound on the default route."
+    if (root.downloadMbps.length > 0 || root.uploadMbps.length > 0)
+      return "Last run finished. Copy a rate from Results, or Run again."
+    return "About five seconds each direction. Opening this page starts a run."
+  }
+
+  function progressValueText() {
+    if (root.speedRunning && root.speedPhase === "up")
+      return "Upload " + (RichUi.mbpsLabel(root.uploadMbps) || "…")
+    if (root.speedRunning)
+      return "Download " + (RichUi.mbpsLabel(root.downloadMbps) || "…")
+    if (root.downloadMbps.length > 0 || root.uploadMbps.length > 0)
+      return "Down " + root.rateText(root.downloadMbps) + "   Up " + root.rateText(root.uploadMbps)
+    return "Waiting"
+  }
+
+  function downloadDescription() {
+    if (root.downloadMbps.length > 0)
+      return RichUi.mbpsLabel(root.downloadMbps) + " inbound on the last sample."
+    if (root.speedRunning && root.speedPhase === "down")
+      return "Measuring inbound on the default route."
+    if (Omarchy.netKind === "disconnected")
+      return "Copy stays disabled until a run finishes. Join a network on the Network page, then Run."
+    return "No download sample yet. Run above measures inbound first."
+  }
+
+  function uploadDescription() {
+    if (root.uploadMbps.length > 0)
+      return RichUi.mbpsLabel(root.uploadMbps) + " outbound on the last sample."
+    if (root.speedRunning && root.speedPhase === "up")
+      return "Measuring outbound on the default route."
+    if (root.speedRunning && root.speedPhase === "down")
+      return "Upload starts after the download sample. Copy stays disabled until that finishes."
+    if (Omarchy.netKind === "disconnected")
+      return "Copy stays disabled until a run finishes. Join a network on the Network page, then Run."
+    return "No upload sample yet. Run above measures outbound second."
   }
 
   Component.onCompleted: startSpeedtest()
@@ -137,27 +185,31 @@ PrefsPage {
     PrefsRow {
       stretchControl: true
       label: "Progress"
-      description: root.speedPhase === "up" ? "Upload" : (root.speedPhase === "down" ? "Download" : "Idle")
+      description: root.progressDescription()
       hint: "omarchy network speedtest"
       query: root.query
-      keywords: ["progress"]
+      keywords: ["progress", "mbps"]
 
       PrefsProgress {
         width: parent.width
         value: root.speedPhase === "down" ? 40 : (root.speedPhase === "up" ? 80 : (root.downloadMbps.length ? 100 : 0))
         indeterminate: root.speedRunning
-        valueText: root.speedRunning
-          ? (root.speedPhase === "up" ? "Upload" : "Download")
-          : (root.downloadMbps.length ? "Finished" : "Waiting")
+        valueText: root.progressValueText()
       }
     }
 
     PrefsRow {
       available: root.speedError.length > 0
-      label: "Error"
+      label: "Could not run"
       description: root.speedError
       query: root.query
       keywords: ["failed"]
+
+      PrefsButton {
+        text: "Retry"
+        enabled: !root.speedRunning && Omarchy.netKind !== "disconnected"
+        onClicked: root.startSpeedtest()
+      }
     }
   }
 
@@ -168,33 +220,53 @@ PrefsPage {
 
     PrefsRow {
       label: "Download"
-      description: "How fast data came in on the last run."
+      description: root.downloadDescription()
       hint: "omarchy network speedtest down"
       query: root.query
       keywords: ["down", "mbps"]
 
-      Text {
-        text: (root.downloadMbps || "—") + " Mbps"
-        color: Theme.foreground
-        font.family: Theme.fontFamily
-        font.pixelSize: Theme.titleSize
-        font.bold: true
+      Row {
+        spacing: 8
+        Text {
+          text: root.rateText(root.downloadMbps)
+          color: root.downloadMbps.length > 0 ? Theme.foreground : Theme.muted
+          font.family: Theme.fontFamily
+          font.pixelSize: Theme.titleSize
+          font.bold: true
+          verticalAlignment: Text.AlignVCenter
+          anchors.verticalCenter: parent.verticalCenter
+        }
+        PrefsButton {
+          text: "Copy"
+          enabled: root.downloadMbps.length > 0
+          onClicked: Omarchy.copyText(RichUi.mbpsCopyText("Download", root.downloadMbps))
+        }
       }
     }
 
     PrefsRow {
       label: "Upload"
-      description: "How fast data went out on the last run."
+      description: root.uploadDescription()
       hint: "omarchy network speedtest up"
       query: root.query
       keywords: ["up", "mbps"]
 
-      Text {
-        text: (root.uploadMbps || "—") + " Mbps"
-        color: Theme.foreground
-        font.family: Theme.fontFamily
-        font.pixelSize: Theme.titleSize
-        font.bold: true
+      Row {
+        spacing: 8
+        Text {
+          text: root.rateText(root.uploadMbps)
+          color: root.uploadMbps.length > 0 ? Theme.foreground : Theme.muted
+          font.family: Theme.fontFamily
+          font.pixelSize: Theme.titleSize
+          font.bold: true
+          verticalAlignment: Text.AlignVCenter
+          anchors.verticalCenter: parent.verticalCenter
+        }
+        PrefsButton {
+          text: "Copy"
+          enabled: root.uploadMbps.length > 0
+          onClicked: Omarchy.copyText(RichUi.mbpsCopyText("Upload", root.uploadMbps))
+        }
       }
     }
   }

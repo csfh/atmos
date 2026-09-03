@@ -27,7 +27,6 @@ PrefsPage {
         stepSize: 0.02
         value: Omarchy.hyprSensitivity
         valueText: Omarchy.hyprSensitivity.toFixed(2)
-        enabled: !Omarchy.busy
         onChanged: function(value) {
           var next = Math.round(value * 100) / 100
           if (next !== Omarchy.hyprSensitivity)
@@ -50,7 +49,6 @@ PrefsPage {
           { value: "adaptive", label: "Adaptive" },
           { value: "flat", label: "Flat" }
         ]
-        enabled: !Omarchy.busy
         onChanged: function(value) {
           if (value !== Omarchy.hyprAccelProfile)
             Omarchy.setHyprAccelProfile(value)
@@ -73,7 +71,6 @@ PrefsPage {
 
       PrefsToggle {
         checked: Omarchy.hyprNaturalScroll
-        enabled: !Omarchy.busy
         onToggled: Omarchy.setHyprNaturalScroll(!Omarchy.hyprNaturalScroll)
       }
     }
@@ -93,7 +90,6 @@ PrefsPage {
         stepSize: 0.1
         value: Omarchy.hyprScrollFactor
         valueText: Omarchy.hyprScrollFactor.toFixed(1)
-        enabled: !Omarchy.busy
         onChanged: function(value) {
           var next = Math.round(value * 10) / 10
           if (next !== Omarchy.hyprScrollFactor)
@@ -111,7 +107,6 @@ PrefsPage {
 
       PrefsToggle {
         checked: Omarchy.hyprClickfinger
-        enabled: !Omarchy.busy
         onToggled: Omarchy.setHyprClickfinger(!Omarchy.hyprClickfinger)
       }
     }
@@ -125,7 +120,6 @@ PrefsPage {
 
       PrefsToggle {
         checked: Omarchy.hyprDisableWhileTyping
-        enabled: !Omarchy.busy
         onToggled: Omarchy.setHyprDisableWhileTyping(!Omarchy.hyprDisableWhileTyping)
       }
     }
@@ -139,7 +133,6 @@ PrefsPage {
 
       PrefsToggle {
         checked: Omarchy.hyprDrag3fg === 1
-        enabled: !Omarchy.busy
         onToggled: Omarchy.setHyprDrag3fg(!(Omarchy.hyprDrag3fg === 1))
       }
     }
@@ -165,7 +158,6 @@ PrefsPage {
         stepSize: 1
         value: Omarchy.hyprRepeatRate
         valueText: Omarchy.hyprRepeatRate + "/s"
-        enabled: !Omarchy.busy
         onChanged: function(value) {
           var next = Math.round(value)
           if (next !== Omarchy.hyprRepeatRate)
@@ -189,7 +181,6 @@ PrefsPage {
         stepSize: 10
         value: Omarchy.hyprRepeatDelay
         valueText: Omarchy.hyprRepeatDelay + " ms"
-        enabled: !Omarchy.busy
         onChanged: function(value) {
           var next = Math.round(value)
           if (next !== Omarchy.hyprRepeatDelay)
@@ -207,7 +198,6 @@ PrefsPage {
 
       PrefsToggle {
         checked: Omarchy.hyprNumlock
-        enabled: !Omarchy.busy
         onToggled: Omarchy.setHyprNumlock(!Omarchy.hyprNumlock)
       }
     }
@@ -223,7 +213,7 @@ PrefsPage {
       PrefsButton {
         text: "Reset"
         danger: true
-        enabled: !Omarchy.busy && Omarchy.hyprInputManaged
+        enabled: Omarchy.hyprInputManaged
         onClicked: Omarchy.resetHyprInput()
       }
     }
@@ -249,7 +239,6 @@ PrefsPage {
           { value: "2", label: "Follow, detached" },
           { value: "3", label: "Follow, loose" }
         ]
-        enabled: !Omarchy.busy
         onChanged: function(value) {
           var next = Math.round(Number(value))
           if (next !== Omarchy.hyprFollowMouse)
@@ -267,7 +256,6 @@ PrefsPage {
 
       PrefsToggle {
         checked: Omarchy.hyprKeyPressDpms
-        enabled: !Omarchy.busy
         onToggled: Omarchy.setHyprKeyPressDpms(!Omarchy.hyprKeyPressDpms)
       }
     }
@@ -281,7 +269,6 @@ PrefsPage {
 
       PrefsToggle {
         checked: Omarchy.hyprMouseMoveDpms
-        enabled: !Omarchy.busy
         onToggled: Omarchy.setHyprMouseMoveDpms(!Omarchy.hyprMouseMoveDpms)
       }
     }
@@ -303,14 +290,12 @@ PrefsPage {
           width: parent.width - layoutSetBtn.width - parent.spacing
           value: Omarchy.hyprKbLayout
           placeholder: "us,dk"
-          enabled: !Omarchy.busy
         }
 
         PrefsButton {
           id: layoutSetBtn
           text: "Set"
           primary: true
-          enabled: !Omarchy.busy
           onClicked: Omarchy.setHyprKbOverride(layoutField.currentText(), variantField.currentText(), Omarchy.hyprKbGroupToggle)
         }
       }
@@ -329,7 +314,6 @@ PrefsPage {
         width: parent.width
         value: Omarchy.hyprKbVariant
         placeholder: ",nodeadkeys"
-        enabled: !Omarchy.busy
       }
     }
 
@@ -342,7 +326,6 @@ PrefsPage {
 
       PrefsToggle {
         checked: Omarchy.hyprKbGroupToggle
-        enabled: !Omarchy.busy
         onToggled: Omarchy.setHyprKbOverride(layoutField.currentText() || Omarchy.hyprKbLayout, variantField.currentText() || Omarchy.hyprKbVariant, !Omarchy.hyprKbGroupToggle)
       }
     }
@@ -356,7 +339,6 @@ PrefsPage {
 
       PrefsToggle {
         checked: Omarchy.hyprWorkspaceGesture
-        enabled: !Omarchy.busy
         onToggled: Omarchy.setHyprWorkspaceGesture(!Omarchy.hyprWorkspaceGesture)
       }
     }

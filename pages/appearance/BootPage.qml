@@ -47,7 +47,7 @@ PrefsPage {
         implicitWidth: 280
         value: Omarchy.plymouth
         options: Omarchy.plymouthThemes
-        enabled: !Omarchy.busy && Omarchy.plymouthThemes.length > 0
+        enabled: Omarchy.plymouthThemes.length > 0
         onChanged: function(value) {
           if (value !== Omarchy.plymouth) Omarchy.setPlymouth(value)
         }
@@ -63,7 +63,7 @@ PrefsPage {
 
       PrefsButton {
         text: "Choose logo…"
-        enabled: !Omarchy.busy && !Omarchy.jobBusy
+        enabled: !Omarchy.jobBusy
         onClicked: plymouthDialog.open()
       }
     }
@@ -77,7 +77,7 @@ PrefsPage {
 
       PrefsButton {
         text: "Preview…"
-        enabled: !Omarchy.busy && !Omarchy.jobBusy
+        enabled: !Omarchy.jobBusy
         onClicked: plymouthPreviewDialog.open()
       }
     }
@@ -93,7 +93,7 @@ PrefsPage {
       PrefsButton {
         text: "Reset"
         danger: true
-        enabled: !Omarchy.busy && !Omarchy.jobBusy && Omarchy.plymouth !== "default"
+        enabled: !Omarchy.jobBusy && Omarchy.plymouth !== "default"
         onClicked: resetPlymouthConfirm.ask()
       }
     }
@@ -117,7 +117,7 @@ PrefsPage {
       PrefsButton {
         text: Omarchy.directBoot ? "Remove…" : "Set up…"
         danger: Omarchy.directBoot
-        enabled: !Omarchy.busy && !Omarchy.jobBusy && Omarchy.directBootAvailable
+        enabled: !Omarchy.jobBusy && Omarchy.directBootAvailable
         onClicked: directBootConfirm.ask()
       }
     }

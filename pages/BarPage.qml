@@ -147,7 +147,6 @@ PrefsPage {
           { value: "left", label: "Left" },
           { value: "right", label: "Right" }
         ]
-        enabled: !Omarchy.busy
         onChanged: function(value) {
           if (value !== Omarchy.barPosition) Omarchy.setBarPosition(value)
         }
@@ -163,7 +162,6 @@ PrefsPage {
 
       PrefsToggle {
         checked: Omarchy.barTransparent
-        enabled: !Omarchy.busy
         onToggled: Omarchy.setBarTransparent(!Omarchy.barTransparent)
       }
     }
@@ -177,7 +175,6 @@ PrefsPage {
 
       PrefsToggle {
         checked: Omarchy.barVisible
-        enabled: !Omarchy.busy
         onToggled: Omarchy.setBarVisible(!Omarchy.barVisible)
       }
     }
@@ -199,7 +196,6 @@ PrefsPage {
       PrefsButton {
         text: "Add"
         primary: true
-        enabled: !Omarchy.busy
         onClicked: Omarchy.addSpacer()
       }
     }
@@ -220,7 +216,7 @@ PrefsPage {
         stepSize: 1
         value: Omarchy.spacerSize
         valueText: Omarchy.spacerSize + " px"
-        enabled: !Omarchy.busy && Omarchy.spacerPresent
+        enabled: Omarchy.spacerPresent
         onChanged: function(value) {
           var next = Math.round(value)
           if (next !== Omarchy.spacerSize)
@@ -239,7 +235,7 @@ PrefsPage {
 
       PrefsButton {
         text: "Remove"
-        enabled: !Omarchy.busy && Omarchy.spacerPresent
+        enabled: Omarchy.spacerPresent
         onClicked: Omarchy.removeSpacer()
       }
     }
@@ -263,7 +259,7 @@ PrefsPage {
       PrefsButton {
         visible: Omarchy.trayHidden.length > 0
         text: "Show all"
-        enabled: !Omarchy.busy && Omarchy.trayPresent && Omarchy.trayHidden.length > 0
+        enabled: Omarchy.trayPresent && Omarchy.trayHidden.length > 0
         onClicked: Omarchy.clearTrayHidden()
       }
     }
@@ -281,7 +277,7 @@ PrefsPage {
       PrefsButton {
         visible: Omarchy.trayPinned.length > 0
         text: "Unpin all"
-        enabled: !Omarchy.busy && Omarchy.trayPresent && Omarchy.trayPinned.length > 0
+        enabled: Omarchy.trayPresent && Omarchy.trayPinned.length > 0
         onClicked: Omarchy.clearTrayPinned()
       }
     }
@@ -302,7 +298,7 @@ PrefsPage {
 
       PrefsToggle {
         checked: Omarchy.indicatorsAlwaysShow
-        enabled: !Omarchy.busy && Omarchy.indicatorsPresent
+        enabled: Omarchy.indicatorsPresent
         onToggled: Omarchy.setIndicatorsAlwaysShow(!Omarchy.indicatorsAlwaysShow)
       }
     }
@@ -339,7 +335,7 @@ PrefsPage {
 
             PrefsToggle {
               checked: root.indicatorShown(modelData.value)
-              enabled: !Omarchy.busy && Omarchy.indicatorsPresent
+              enabled: Omarchy.indicatorsPresent
               onToggled: root.toggleIndicator(modelData.value)
             }
           }
@@ -370,7 +366,7 @@ PrefsPage {
         value: Math.max(5, Math.round(Omarchy.agentsRefreshIntervalSec / 60))
         valueText: Math.max(5, Math.round(Omarchy.agentsRefreshIntervalSec / 60)) + " min"
         formatTick: function(v) { return Math.round(v) }
-        enabled: !Omarchy.busy && Omarchy.agentsPresent
+        enabled: Omarchy.agentsPresent
         onChanged: function(value) {
           var next = Math.round(value) * 60
           if (next !== Omarchy.agentsRefreshIntervalSec)
@@ -389,7 +385,7 @@ PrefsPage {
 
       PrefsToggle {
         checked: Omarchy.agentsSync
-        enabled: !Omarchy.busy && Omarchy.agentsPresent
+        enabled: Omarchy.agentsPresent
         onToggled: Omarchy.setAgentsSync(!Omarchy.agentsSync)
       }
     }
@@ -409,26 +405,26 @@ PrefsPage {
           id: agentsSyncDirField
           value: Omarchy.agentsSyncDir
           placeholder: "~/Sync/agent-usage"
-          enabled: !Omarchy.busy && Omarchy.agentsPresent
+          enabled: Omarchy.agentsPresent
           onSubmitted: function(value) { Omarchy.setAgentsSyncDir(value) }
         }
 
         PrefsButton {
           text: "Browse…"
-          enabled: !Omarchy.busy && Omarchy.agentsPresent
+          enabled: Omarchy.agentsPresent
           onClicked: syncDirDialog.open()
         }
 
         PrefsButton {
           text: "Set"
-          enabled: !Omarchy.busy && Omarchy.agentsPresent
+          enabled: Omarchy.agentsPresent
           onClicked: Omarchy.setAgentsSyncDir(agentsSyncDirField.currentText())
         }
 
         PrefsButton {
           visible: Omarchy.agentsSyncDir.length > 0
           text: "Clear"
-          enabled: !Omarchy.busy && Omarchy.agentsPresent && Omarchy.agentsSyncDir.length > 0
+          enabled: Omarchy.agentsPresent && Omarchy.agentsSyncDir.length > 0
           onClicked: Omarchy.setAgentsSyncDir("")
         }
       }
@@ -450,20 +446,20 @@ PrefsPage {
           value: Omarchy.agentsSyncFileName
           placeholder: "laptop.json"
           horizontalAlignment: TextInput.AlignHCenter
-          enabled: !Omarchy.busy && Omarchy.agentsPresent
+          enabled: Omarchy.agentsPresent
           onSubmitted: function(value) { Omarchy.setAgentsSyncFileName(value) }
         }
 
         PrefsButton {
           text: "Set"
-          enabled: !Omarchy.busy && Omarchy.agentsPresent
+          enabled: Omarchy.agentsPresent
           onClicked: Omarchy.setAgentsSyncFileName(agentsSyncFileField.currentText())
         }
 
         PrefsButton {
           visible: Omarchy.agentsSyncFileName.length > 0
           text: "Clear"
-          enabled: !Omarchy.busy && Omarchy.agentsPresent && Omarchy.agentsSyncFileName.length > 0
+          enabled: Omarchy.agentsPresent && Omarchy.agentsSyncFileName.length > 0
           onClicked: Omarchy.setAgentsSyncFileName("")
         }
       }
@@ -485,20 +481,20 @@ PrefsPage {
           value: Omarchy.agentsSyncDeviceId
           placeholder: "laptop"
           horizontalAlignment: TextInput.AlignHCenter
-          enabled: !Omarchy.busy && Omarchy.agentsPresent
+          enabled: Omarchy.agentsPresent
           onSubmitted: function(value) { Omarchy.setAgentsSyncDeviceId(value) }
         }
 
         PrefsButton {
           text: "Set"
-          enabled: !Omarchy.busy && Omarchy.agentsPresent
+          enabled: Omarchy.agentsPresent
           onClicked: Omarchy.setAgentsSyncDeviceId(agentsSyncDeviceField.currentText())
         }
 
         PrefsButton {
           visible: Omarchy.agentsSyncDeviceId.length > 0
           text: "Clear"
-          enabled: !Omarchy.busy && Omarchy.agentsPresent && Omarchy.agentsSyncDeviceId.length > 0
+          enabled: Omarchy.agentsPresent && Omarchy.agentsSyncDeviceId.length > 0
           onClicked: Omarchy.setAgentsSyncDeviceId("")
         }
       }
@@ -522,7 +518,7 @@ PrefsPage {
         implicitWidth: 260
         value: Omarchy.clockFormat
         options: root.clockFormatOptions
-        enabled: !Omarchy.busy && Omarchy.clockPresent
+        enabled: Omarchy.clockPresent
         onChanged: function(value) {
           if (value !== Omarchy.clockFormat) Omarchy.setClockFormat(value)
         }
@@ -541,7 +537,7 @@ PrefsPage {
         implicitWidth: 260
         value: Omarchy.clockFormatAlt
         options: root.clockFormatAltOptions
-        enabled: !Omarchy.busy && Omarchy.clockPresent
+        enabled: Omarchy.clockPresent
         onChanged: function(value) {
           if (value !== Omarchy.clockFormatAlt) Omarchy.setClockFormatAlt(value)
         }
@@ -559,7 +555,7 @@ PrefsPage {
       PrefsSelect {
         value: Omarchy.clockWeekStart
         options: root.weekStartOptions
-        enabled: !Omarchy.busy && Omarchy.clockPresent
+        enabled: Omarchy.clockPresent
         onChanged: function(value) {
           if (value !== Omarchy.clockWeekStart) Omarchy.setClockWeekStart(value)
         }
@@ -585,14 +581,14 @@ PrefsPage {
           from: 0
           to: 2100
           value: Omarchy.clockBirthYear
-          enabled: !Omarchy.busy && Omarchy.clockPresent
+          enabled: Omarchy.clockPresent
           onChanged: function(value) { Omarchy.setClockBirthYear(value) }
         }
 
         PrefsButton {
           visible: Omarchy.clockBirthYear > 0
           text: "Clear"
-          enabled: !Omarchy.busy && Omarchy.clockPresent && Omarchy.clockBirthYear > 0
+          enabled: Omarchy.clockPresent && Omarchy.clockBirthYear > 0
           onClicked: Omarchy.setClockBirthYear("")
         }
       }
@@ -615,14 +611,14 @@ PrefsPage {
           from: 0
           to: 150
           value: Omarchy.clockLifeExpectancy
-          enabled: !Omarchy.busy && Omarchy.clockPresent
+          enabled: Omarchy.clockPresent
           onChanged: function(value) { Omarchy.setClockLifeExpectancy(value) }
         }
 
         PrefsButton {
           visible: Omarchy.clockLifeExpectancy > 0
           text: "Clear"
-          enabled: !Omarchy.busy && Omarchy.clockPresent && Omarchy.clockLifeExpectancy > 0
+          enabled: Omarchy.clockPresent && Omarchy.clockLifeExpectancy > 0
           onClicked: Omarchy.setClockLifeExpectancy("")
         }
       }
@@ -637,10 +633,15 @@ PrefsPage {
     PrefsRow {
       available: Omarchy.plugins.length === 0
       label: "Plugins"
-      description: "No plugins were listed. The shell may still be starting."
+      description: "No plugins were listed. Refresh if the shell is still starting. The bar itself cannot be disabled here."
       hint: "omarchy plugin list"
       query: root.query
       keywords: ["plugin", "widget", "shell"]
+
+      PrefsButton {
+        text: "Refresh"
+        onClicked: Omarchy.refresh()
+      }
     }
 
     Repeater {
@@ -648,18 +649,19 @@ PrefsPage {
 
       PrefsRow {
         required property var modelData
-        available: !!(modelData && modelData.canDisable !== false)
         label: String((modelData && (modelData.name || modelData.id)) || "Plugin")
-        description: modelData && modelData.firstParty
-          ? "A first-party Omarchy plugin."
-          : "A third-party shell plugin."
+        description: modelData && modelData.canDisable === false
+          ? "Always on. This widget cannot be disabled here."
+          : (modelData && modelData.firstParty
+            ? "A first-party Omarchy plugin."
+            : "A third-party shell plugin.")
         hint: "omarchy plugin enable"
         query: root.query
         keywords: ["plugin", "widget", String((modelData && modelData.id) || "")]
 
         PrefsToggle {
           checked: !!(modelData && modelData.enabled)
-          enabled: !Omarchy.busy && modelData && modelData.canDisable !== false && modelData.id
+          enabled: modelData && modelData.canDisable !== false && modelData.id
           onToggled: {
             if (!modelData || !modelData.id) return
             Omarchy.setPluginEnabled(String(modelData.id), !modelData.enabled)

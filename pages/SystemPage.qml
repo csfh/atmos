@@ -108,7 +108,6 @@ PrefsPage {
           width: parent.width - hostnameSetBtn.width - parent.spacing
           value: Omarchy.hostname
           placeholder: "hostname"
-          enabled: !Omarchy.busy
           onSubmitted: function(value) { Omarchy.setHostname(value) }
         }
 
@@ -116,7 +115,6 @@ PrefsPage {
           id: hostnameSetBtn
           text: "Set"
           primary: true
-          enabled: !Omarchy.busy
           onClicked: Omarchy.setHostname(hostnameField.currentText())
         }
       }
@@ -139,7 +137,6 @@ PrefsPage {
           width: parent.width - fullNameSetBtn.width - parent.spacing
           value: Omarchy.fullName
           placeholder: "Your name"
-          enabled: !Omarchy.busy
           onSubmitted: function(value) { Omarchy.setFullName(value) }
         }
 
@@ -147,7 +144,6 @@ PrefsPage {
           id: fullNameSetBtn
           text: "Set"
           primary: true
-          enabled: !Omarchy.busy
           onClicked: Omarchy.setFullName(fullNameField.currentText())
         }
       }
@@ -170,7 +166,7 @@ PrefsPage {
         implicitWidth: 280
         value: Omarchy.keyboardLayout
         options: Omarchy.keyboardLayouts
-        enabled: !Omarchy.busy && Omarchy.keyboardLayouts.length > 0
+        enabled: Omarchy.keyboardLayouts.length > 0
         onChanged: function(value) {
           if (value !== Omarchy.keyboardLayout) Omarchy.setKeyboardLayout(value)
         }
@@ -194,7 +190,7 @@ PrefsPage {
         implicitWidth: 280
         value: Omarchy.locale
         options: Omarchy.locales
-        enabled: !Omarchy.busy && Omarchy.locales.length > 0
+        enabled: Omarchy.locales.length > 0
         onChanged: function(value) {
           if (value !== Omarchy.locale) Omarchy.setLocale(value)
         }
@@ -218,7 +214,7 @@ PrefsPage {
         implicitWidth: 280
         value: Omarchy.timezone
         options: Omarchy.timezones
-        enabled: !Omarchy.busy && Omarchy.timezones.length > 0
+        enabled: Omarchy.timezones.length > 0
         onChanged: function(value) {
           if (value !== Omarchy.timezone) Omarchy.setTimezone(value)
         }
@@ -237,7 +233,7 @@ PrefsPage {
 
       PrefsToggle {
         checked: Omarchy.ntp
-        enabled: !Omarchy.busy && Omarchy.ntpAvailable
+        enabled: Omarchy.ntpAvailable
         onToggled: Omarchy.setNtp(!Omarchy.ntp)
       }
     }
@@ -249,13 +245,21 @@ PrefsPage {
     detail: "Channel picks which Omarchy package stream you follow. Update runs the usual omarchy update job."
 
     PrefsRow {
-      label: "Version"
+      label: Omarchy.omarchyVersion.length ? ("Omarchy " + Omarchy.omarchyVersion) : "Omarchy"
       description: Omarchy.omarchyVersion.length
-        ? ("This machine is on Omarchy " + Omarchy.omarchyVersion + (Omarchy.omarchyChannel ? (" (" + Omarchy.omarchyChannel + ")") : "") + ".")
-        : "Omarchy version was not readable."
+        ? (Omarchy.omarchyChannel
+          ? ("Channel " + Omarchy.omarchyChannel + ". Copy the version string if you need it in a report.")
+          : "Copy the version string if you need it in a report.")
+        : "Version was not readable. Copy stays disabled until omarchy version works."
       hint: "omarchy version"
       query: root.query
       keywords: ["version", "release", "omarchy"]
+
+      PrefsButton {
+        text: "Copy"
+        enabled: Omarchy.omarchyVersion.length > 0
+        onClicked: Omarchy.copyText("Omarchy " + Omarchy.omarchyVersion + (Omarchy.omarchyChannel ? (" (" + Omarchy.omarchyChannel + ")") : ""))
+      }
     }
 
     PrefsRow {
@@ -273,7 +277,7 @@ PrefsPage {
           { value: "edge", label: "Edge" },
           { value: "dev", label: "Dev" }
         ]
-        enabled: !Omarchy.busy && !Omarchy.jobBusy && Omarchy.omarchyChannel.length > 0
+        enabled: !Omarchy.jobBusy && Omarchy.omarchyChannel.length > 0
         onChanged: function(value) {
           if (value === Omarchy.omarchyChannel) return
           root.pendingChannel = value
@@ -297,13 +301,13 @@ PrefsPage {
         spacing: 8
         PrefsButton {
           text: "Check"
-          enabled: !Omarchy.busy && !Omarchy.jobBusy
+          enabled: !Omarchy.jobBusy
           onClicked: Omarchy.checkOmarchyUpdate()
         }
         PrefsButton {
           text: "Update…"
           primary: true
-          enabled: !Omarchy.busy && !Omarchy.jobBusy
+          enabled: !Omarchy.jobBusy
           onClicked: updateConfirm.ask()
         }
       }
@@ -316,13 +320,21 @@ PrefsPage {
     detail: "Installed files live under ~/.local/share/atmos. Channel is the git branch Check and Update follow. Only alpha exists yet."
 
     PrefsRow {
-      label: "Version"
+      label: Omarchy.atmosRevision.length ? Omarchy.atmosRevision : "Atmos"
       description: Omarchy.atmosRevision.length
-        ? ("Installed revision " + Omarchy.atmosRevision + ".")
-        : (Omarchy.atmosInstalled ? "Revision file was not readable." : "Atmos is not installed in XDG data. Run install.sh.")
+        ? "Installed revision under ~/.local/share/atmos. Copy if you need it in a report."
+        : (Omarchy.atmosInstalled
+          ? "REVISION was not readable. Copy stays disabled until that file exists."
+          : "Not installed in XDG data. Copy stays disabled. Run install.sh from the Atmos source tree.")
       hint: "~/.local/share/atmos/REVISION"
       query: root.query
       keywords: ["atmos", "version", "revision", "git"]
+
+      PrefsButton {
+        text: "Copy"
+        enabled: Omarchy.atmosRevision.length > 0
+        onClicked: Omarchy.copyText(Omarchy.atmosRevision)
+      }
     }
 
     PrefsRow {
@@ -337,7 +349,7 @@ PrefsPage {
         options: [
           { value: "alpha", label: "Alpha" }
         ]
-        enabled: !Omarchy.busy && !Omarchy.jobBusy
+        enabled: !Omarchy.jobBusy
         onChanged: function(value) { if (value !== Omarchy.atmosChannel) Omarchy.setAtmosChannel(value) }
       }
     }
@@ -358,13 +370,13 @@ PrefsPage {
         spacing: 8
         PrefsButton {
           text: "Check"
-          enabled: !Omarchy.busy && !Omarchy.jobBusy
+          enabled: !Omarchy.jobBusy
           onClicked: Omarchy.checkAtmosUpdate()
         }
         PrefsButton {
           text: "Update…"
           primary: true
-          enabled: !Omarchy.busy && !Omarchy.jobBusy && Omarchy.atmosUpdateAvailable
+          enabled: !Omarchy.jobBusy && Omarchy.atmosUpdateAvailable
           onClicked: atmosUpdateConfirm.ask()
         }
       }
@@ -387,7 +399,7 @@ PrefsPage {
 
       PrefsButton {
         text: "Update…"
-        enabled: !Omarchy.busy && !Omarchy.jobBusy
+        enabled: !Omarchy.jobBusy
         onClicked: firmwareConfirm.ask()
       }
     }
@@ -402,7 +414,7 @@ PrefsPage {
       PrefsButton {
         text: "Remove…"
         danger: true
-        enabled: !Omarchy.busy && !Omarchy.jobBusy
+        enabled: !Omarchy.jobBusy
         onClicked: orphanConfirm.ask()
       }
     }
@@ -416,7 +428,7 @@ PrefsPage {
 
       PrefsButton {
         text: "Prune…"
-        enabled: !Omarchy.busy && !Omarchy.jobBusy
+        enabled: !Omarchy.jobBusy
         onClicked: pruneConfirm.ask()
       }
     }
@@ -430,7 +442,7 @@ PrefsPage {
 
       PrefsButton {
         text: "Restart"
-        enabled: !Omarchy.busy && !Omarchy.jobBusy
+        enabled: !Omarchy.jobBusy
         onClicked: Omarchy.restartShell()
       }
     }
@@ -447,7 +459,7 @@ PrefsPage {
       PrefsButton {
         text: "Restore…"
         danger: true
-        enabled: !Omarchy.busy && !Omarchy.jobBusy
+        enabled: !Omarchy.jobBusy
         onClicked: refreshHyprConfirm.ask()
       }
     }
@@ -462,7 +474,7 @@ PrefsPage {
       PrefsButton {
         text: "Restore…"
         danger: true
-        enabled: !Omarchy.busy && !Omarchy.jobBusy
+        enabled: !Omarchy.jobBusy
         onClicked: refreshShellConfirm.ask()
       }
     }
@@ -487,12 +499,10 @@ PrefsPage {
         PrefsButton {
           text: "Setup"
           primary: true
-          enabled: !Omarchy.busy
           onClicked: Omarchy.openPrinters()
         }
         PrefsButton {
           text: "CUPS"
-          enabled: !Omarchy.busy
           onClicked: Omarchy.openCupsAdmin()
         }
       }
@@ -515,7 +525,6 @@ PrefsPage {
         from: 1
         to: 20
         value: Omarchy.parallelDownloads
-        enabled: !Omarchy.busy
         onChanged: function(value) {
           if (value !== Omarchy.parallelDownloads) Omarchy.setParallelDownloads(value)
         }
@@ -541,19 +550,17 @@ PrefsPage {
         spacing: 8
         PrefsButton {
           text: "Image…"
-          enabled: !Omarchy.busy
           onClicked: Omarchy.setAboutBranding("image")
         }
         PrefsButton {
           text: "Edit"
-          enabled: !Omarchy.busy
           onClicked: Omarchy.setAboutBranding("text")
         }
         PrefsButton {
           visible: Omarchy.aboutBranded
           text: "Reset"
           danger: true
-          enabled: !Omarchy.busy && Omarchy.aboutBranded
+          enabled: Omarchy.aboutBranded
           onClicked: Omarchy.setAboutBranding("reset")
         }
       }
@@ -584,7 +591,6 @@ PrefsPage {
           width: parent.width - weatherSetBtn.width - weatherAutoBtn.width - parent.spacing * 2
           value: Omarchy.weatherAuto ? "" : Omarchy.weatherLocation
           placeholder: "City name"
-          enabled: !Omarchy.busy
           onSubmitted: function(value) { Omarchy.setWeatherLocation(value) }
         }
 
@@ -592,14 +598,13 @@ PrefsPage {
           id: weatherSetBtn
           text: "Set"
           primary: true
-          enabled: !Omarchy.busy
           onClicked: Omarchy.setWeatherLocation(weatherField.currentText())
         }
 
         PrefsButton {
           id: weatherAutoBtn
           text: "Auto"
-          enabled: !Omarchy.busy && !Omarchy.weatherAuto
+          enabled: !Omarchy.weatherAuto
           onClicked: Omarchy.clearWeatherLocation()
         }
       }
@@ -623,7 +628,6 @@ PrefsPage {
           width: parent.width - weatherCoordsSetBtn.width - parent.spacing
           value: Omarchy.weatherCoords
           placeholder: "lat,lon"
-          enabled: !Omarchy.busy
           onSubmitted: function(value) { Omarchy.setWeatherCoordinates(value) }
         }
 
@@ -631,7 +635,6 @@ PrefsPage {
           id: weatherCoordsSetBtn
           text: "Set"
           primary: true
-          enabled: !Omarchy.busy
           onClicked: Omarchy.setWeatherCoordinates(weatherCoordsField.currentText())
         }
       }
@@ -652,7 +655,7 @@ PrefsPage {
           { value: "metric", label: "Celsius" },
           { value: "imperial", label: "Fahrenheit" }
         ]
-        enabled: !Omarchy.busy && Omarchy.weatherPresent
+        enabled: Omarchy.weatherPresent
         onChanged: function(value) {
           if (value !== Omarchy.weatherUnit) Omarchy.setWeatherUnit(value)
         }
@@ -676,7 +679,7 @@ PrefsPage {
         value: Omarchy.weatherRefreshMinutes
         valueText: Omarchy.weatherRefreshMinutes + " min"
         formatTick: function(v) { return Math.round(v) }
-        enabled: !Omarchy.busy && Omarchy.weatherPresent
+        enabled: Omarchy.weatherPresent
         onChanged: function(value) {
           var next = Math.round(value)
           if (next !== Omarchy.weatherRefreshMinutes)
@@ -700,7 +703,6 @@ PrefsPage {
 
       PrefsToggle {
         checked: Omarchy.crashCapture
-        enabled: !Omarchy.busy
         onToggled: Omarchy.setCrashCapture(!Omarchy.crashCapture)
       }
     }

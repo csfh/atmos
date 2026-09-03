@@ -73,7 +73,6 @@ PrefsPage {
       PrefsSelect {
         value: Omarchy.browser
         options: Omarchy.installedOptions(root.browserOptions, Omarchy.browsers)
-        enabled: !Omarchy.busy
         onChanged: function(value) { if (value !== Omarchy.browser) Omarchy.setBrowser(value) }
       }
     }
@@ -88,7 +87,6 @@ PrefsPage {
       PrefsSelect {
         value: Omarchy.terminal
         options: Omarchy.installedOptions(root.terminalOptions, Omarchy.terminals)
-        enabled: !Omarchy.busy
         onChanged: function(value) { if (value !== Omarchy.terminal) Omarchy.setTerminal(value) }
       }
     }
@@ -112,7 +110,6 @@ PrefsPage {
           vim: Omarchy.editors.vim,
           emacs: Omarchy.editors.emacs
         })
-        enabled: !Omarchy.busy
         onChanged: function(value) {
           var current = Omarchy.editor === "zeditor" ? "zed" : Omarchy.editor
           if (value !== current) Omarchy.setEditor(value)
@@ -136,7 +133,6 @@ PrefsPage {
       PrefsSelect {
         value: Omarchy.agent
         options: root.agentOptions
-        enabled: !Omarchy.busy
         onChanged: function(value) { if (value !== Omarchy.agent) Omarchy.setAgent(value) }
       }
     }
@@ -157,7 +153,7 @@ PrefsPage {
       PrefsSelect {
         value: Omarchy.mimePdf
         options: root.mimeOptions(Omarchy.mimePdf, Omarchy.mimePdfOptions)
-        enabled: !Omarchy.busy && root.mimeOptions(Omarchy.mimePdf, Omarchy.mimePdfOptions).length > 0
+        enabled: root.mimeOptions(Omarchy.mimePdf, Omarchy.mimePdfOptions).length > 0
         onChanged: function(value) {
           if (value !== Omarchy.mimePdf) Omarchy.setMimeDefault("pdf", value)
         }
@@ -174,7 +170,7 @@ PrefsPage {
       PrefsSelect {
         value: Omarchy.mimeImage
         options: root.mimeOptions(Omarchy.mimeImage, Omarchy.mimeImageOptions)
-        enabled: !Omarchy.busy && root.mimeOptions(Omarchy.mimeImage, Omarchy.mimeImageOptions).length > 0
+        enabled: root.mimeOptions(Omarchy.mimeImage, Omarchy.mimeImageOptions).length > 0
         onChanged: function(value) {
           if (value !== Omarchy.mimeImage) Omarchy.setMimeDefault("image", value)
         }
@@ -191,7 +187,7 @@ PrefsPage {
       PrefsSelect {
         value: Omarchy.mimeVideo
         options: root.mimeOptions(Omarchy.mimeVideo, Omarchy.mimeVideoOptions)
-        enabled: !Omarchy.busy && root.mimeOptions(Omarchy.mimeVideo, Omarchy.mimeVideoOptions).length > 0
+        enabled: root.mimeOptions(Omarchy.mimeVideo, Omarchy.mimeVideoOptions).length > 0
         onChanged: function(value) {
           if (value !== Omarchy.mimeVideo) Omarchy.setMimeDefault("video", value)
         }

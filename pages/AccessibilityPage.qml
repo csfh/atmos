@@ -21,7 +21,6 @@ PrefsPage {
 
       PrefsToggle {
         checked: Omarchy.hyprAnimations
-        enabled: !Omarchy.busy
         onToggled: Omarchy.setHyprAnimations(!Omarchy.hyprAnimations)
       }
     }
@@ -48,7 +47,6 @@ PrefsPage {
           valueText: Omarchy.textSize + " px"
           showValue: false
           showTicks: false
-          enabled: !Omarchy.busy
           onChanged: function(value) {
             var next = Math.round(value)
             if (next !== Omarchy.textSize) Omarchy.setTextSize(next)
@@ -63,7 +61,6 @@ PrefsPage {
           from: 9
           to: 20
           value: Omarchy.textSize
-          enabled: !Omarchy.busy
           onChanged: function(value) {
             if (value !== Omarchy.textSize) Omarchy.setTextSize(value)
           }
@@ -86,7 +83,6 @@ PrefsPage {
 
       PrefsToggle {
         checked: Omarchy.hyprCursorHideOnKey
-        enabled: !Omarchy.busy
         onToggled: Omarchy.setHyprCursorHideOnKey(!Omarchy.hyprCursorHideOnKey)
       }
     }
@@ -106,7 +102,6 @@ PrefsPage {
         stepSize: 2
         value: Omarchy.hyprCursorSize
         valueText: Omarchy.hyprCursorSize + " px"
-        enabled: !Omarchy.busy
         onChanged: function(value) {
           var next = Math.round(value)
           if (next !== Omarchy.hyprCursorSize)
@@ -119,30 +114,22 @@ PrefsPage {
   PrefsGroup {
     title: "Touch"
     query: root.query
-    detail: "This is the same touchscreen switch as Displays. It only shows when Hyprland reports a touch device."
+    detail: "This is the same touchscreen switch as Displays. The switch stays off when Hyprland has not reported a touch device."
 
     PrefsRow {
-      available: Omarchy.touchscreenPresent
       label: "Touchscreen"
-      description: "Finger input on the display. Turning it off survives a Hyprland reload."
+      description: Omarchy.touchscreenPresent
+        ? "Finger input on the display. The switch survives a Hyprland reload."
+        : "Hyprland has not reported a touch device. The switch stays off until one is present. Displays has the same control."
       hint: "omarchy toggle touchscreen"
       query: root.query
       keywords: ["touch", "touchscreen", "tablet", "digitizer"]
 
       PrefsToggle {
-        checked: Omarchy.touchscreenEnabled
-        enabled: !Omarchy.busy && Omarchy.touchscreenPresent
+        checked: Omarchy.touchscreenPresent && Omarchy.touchscreenEnabled
+        enabled: Omarchy.touchscreenPresent
         onToggled: Omarchy.setTouchscreen(!Omarchy.touchscreenEnabled)
       }
-    }
-
-    PrefsRow {
-      available: !Omarchy.touchscreenPresent
-      sectionHelp: false
-      label: "No touchscreen"
-      description: "Hyprland has not reported a touch device on this machine."
-      query: root.query
-      keywords: ["touch", "touchscreen"]
     }
   }
 
@@ -152,27 +139,19 @@ PrefsPage {
     detail: "Herdr is a screen reader Omarchy can launch in a terminal when the package is present."
 
     PrefsRow {
-      available: Omarchy.extras && Omarchy.extras.herdr === true
       label: "Herdr"
-      description: "Open the Herdr screen reader in a terminal."
+      description: Omarchy.extras && Omarchy.extras.herdr === true
+        ? "Open the Herdr screen reader in a terminal."
+        : "Not installed. Open stays disabled until you install Herdr on Software."
       hint: "omarchy launch terminal herdr"
       query: root.query
       keywords: ["herdr", "screen reader", "a11y", "tts"]
 
       PrefsButton {
         text: "Open"
-        enabled: !Omarchy.busy && Omarchy.extras && Omarchy.extras.herdr === true
+        enabled: Omarchy.extras && Omarchy.extras.herdr === true
         onClicked: Omarchy.launchHerdr()
       }
-    }
-
-    PrefsRow {
-      available: !(Omarchy.extras && Omarchy.extras.herdr === true)
-      sectionHelp: false
-      label: "Herdr"
-      description: "Herdr is not installed, so Atmos has nothing to open."
-      query: root.query
-      keywords: ["herdr", "screen reader"]
     }
   }
 }

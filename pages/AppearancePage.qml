@@ -82,7 +82,7 @@ PrefsPage {
       id: themeUrlField
       width: parent.width
       placeholder: "https://github.com/org/omarchy-theme.git"
-      enabled: !Omarchy.busy && !Omarchy.jobBusy
+      enabled: !Omarchy.jobBusy
       onSubmitted: function(value) {
         Omarchy.installTheme(value)
         addThemeDialog.close()
@@ -101,7 +101,7 @@ PrefsPage {
       PrefsButton {
         text: "Install"
         primary: true
-        enabled: !Omarchy.busy && !Omarchy.jobBusy
+        enabled: !Omarchy.jobBusy
         onClicked: {
           Omarchy.installTheme(themeUrlField.currentText())
           addThemeDialog.close()
@@ -126,7 +126,7 @@ PrefsPage {
       PrefsSelect {
         value: Omarchy.theme
         options: Omarchy.themes
-        enabled: !Omarchy.busy && Omarchy.themes.length > 0
+        enabled: Omarchy.themes.length > 0
         onChanged: function(value) { if (value !== Omarchy.theme) Omarchy.setTheme(value) }
       }
     }
@@ -140,7 +140,7 @@ PrefsPage {
 
       PrefsButton {
         text: "Open folder"
-        enabled: !Omarchy.busy && Omarchy.theme.length > 0
+        enabled: Omarchy.theme.length > 0
         onClicked: Omarchy.openThemeFolder()
       }
     }
@@ -154,7 +154,6 @@ PrefsPage {
 
       PrefsButton {
         text: "Refresh"
-        enabled: !Omarchy.busy
         onClicked: Omarchy.refreshTheme()
       }
     }
@@ -169,10 +168,29 @@ PrefsPage {
     PrefsRow {
       available: Omarchy.extraThemes.length === 0
       label: "Installed themes"
-      description: "You haven't installed any extra themes yet. Add one from a git URL below."
+      description: "None installed yet. Add a git URL below. Update all and Remove stay disabled until a clone exists."
       hint: "omarchy theme extras"
       query: root.query
       keywords: ["git", "extra", "clone"]
+
+      Row {
+        spacing: Theme.space
+        PrefsButton {
+          text: "Add"
+          primary: true
+          enabled: !Omarchy.jobBusy
+          onClicked: addThemeDialog.open()
+        }
+        PrefsButton {
+          text: "Update all"
+          enabled: false
+        }
+        PrefsButton {
+          text: "Remove"
+          danger: true
+          enabled: false
+        }
+      }
     }
 
     PrefsRow {
@@ -191,7 +209,7 @@ PrefsPage {
           width: parent.width
           value: root.extraToRemove
           options: Omarchy.extraThemes
-          enabled: !Omarchy.busy && Omarchy.extraThemes.length > 0
+          enabled: Omarchy.extraThemes.length > 0
           onChanged: function(value) { root.extraToRemove = value }
         }
 
@@ -201,14 +219,14 @@ PrefsPage {
 
           PrefsButton {
             text: Omarchy.jobKind === "theme-update" && Omarchy.jobBusy ? "Updating…" : "Update all"
-            enabled: !Omarchy.busy && !Omarchy.jobBusy && Omarchy.extraThemes.length > 0
+            enabled: !Omarchy.jobBusy && Omarchy.extraThemes.length > 0
             onClicked: Omarchy.updateThemes()
           }
 
           PrefsButton {
             text: "Remove"
             danger: true
-            enabled: !Omarchy.busy && root.extraToRemove.length > 0
+            enabled: root.extraToRemove.length > 0
             onClicked: removeThemeConfirm.ask()
           }
         }
@@ -227,7 +245,7 @@ PrefsPage {
       PrefsButton {
         text: "Add"
         primary: true
-        enabled: !Omarchy.busy && !Omarchy.jobBusy
+        enabled: !Omarchy.jobBusy
         onClicked: addThemeDialog.open()
       }
     }
@@ -238,24 +256,34 @@ PrefsPage {
     query: root.query
     detail: "Background is the desktop picture for this theme. Boot screen is the Plymouth unlock animation and logo you see before you log in."
 
-    PrefsLink {
+    PrefsRow {
       label: "Background"
-      description: "The desktop wallpaper for this theme. Cycle images or pick a file."
+      description: Omarchy.background.length
+        ? ("Current file: " + RichUi.fileBasename(Omarchy.background) + ". Cycle images or pick a file on the next page.")
+        : "No wallpaper is set for this theme yet. Open the next page to pick a file or cycle the theme set."
       hint: "omarchy theme bg"
       query: root.query
       keywords: ["wallpaper", "image", "file", "aether", "palette", "cache"]
-      valueText: RichUi.fileBasename(Omarchy.background)
-      onClicked: root.openSubpage("background")
+
+      PrefsButton {
+        text: "Open"
+        onClicked: root.openSubpage("background")
+      }
     }
 
-    PrefsLink {
+    PrefsRow {
       label: "Boot screen"
-      description: "The unlock animation and logo you see before the desktop."
+      description: Omarchy.plymouth.length
+        ? ("Unlock theme: " + Omarchy.plymouth + ". Logo and preview are on the next page.")
+        : "The unlock animation and logo you see before the desktop."
       hint: "omarchy plymouth"
       query: root.query
       keywords: ["plymouth", "sddm", "login", "unlock", "logo", "png"]
-      valueText: Omarchy.plymouth
-      onClicked: root.openSubpage("boot")
+
+      PrefsButton {
+        text: "Open"
+        onClicked: root.openSubpage("boot")
+      }
     }
   }
 
@@ -274,7 +302,7 @@ PrefsPage {
       PrefsSelect {
         value: Omarchy.font
         options: Omarchy.fonts
-        enabled: !Omarchy.busy && Omarchy.fonts.length > 0
+        enabled: Omarchy.fonts.length > 0
         onChanged: function(value) { if (value !== Omarchy.font) Omarchy.setFont(value) }
       }
     }
@@ -301,7 +329,6 @@ PrefsPage {
           valueText: Omarchy.textSize + " px"
           showValue: false
           showTicks: false
-          enabled: !Omarchy.busy
           onChanged: function(value) {
             var next = Math.round(value)
             if (next !== Omarchy.textSize) Omarchy.setTextSize(next)
@@ -316,7 +343,6 @@ PrefsPage {
           from: 9
           to: 20
           value: Omarchy.textSize
-          enabled: !Omarchy.busy
           onChanged: function(value) {
             if (value !== Omarchy.textSize) Omarchy.setTextSize(value)
           }
@@ -334,7 +360,7 @@ PrefsPage {
 
       PrefsButton {
         text: "Reset"
-        enabled: !Omarchy.busy && Omarchy.textSize !== 12
+        enabled: Omarchy.textSize !== 12
         onClicked: Omarchy.resetTextSize()
       }
     }
@@ -356,7 +382,6 @@ PrefsPage {
 
       PrefsToggle {
         checked: Omarchy.nightlight
-        enabled: !Omarchy.busy
         onToggled: Omarchy.setNightlight(!Omarchy.nightlight)
       }
     }
@@ -384,7 +409,6 @@ PrefsPage {
         stepSize: 100
         value: Omarchy.nightlightTemperature > 0 ? Omarchy.nightlightTemperature : 4000
         valueText: (Omarchy.nightlightTemperature > 0 ? Omarchy.nightlightTemperature : 4000) + " K"
-        enabled: !Omarchy.busy
         onChanged: function(value) {
           var next = Math.round(value)
           if (next !== Omarchy.nightlightTemperature)
@@ -406,7 +430,6 @@ PrefsPage {
           width: 72
           value: root.dayDraft
           placeholder: "07:00"
-          enabled: !Omarchy.busy
           onEdited: function(value) { root.dayDraft = value }
           onSubmitted: function(value) { root.dayDraft = value }
         }
@@ -414,7 +437,6 @@ PrefsPage {
           width: 72
           value: root.nightDraft
           placeholder: "20:00"
-          enabled: !Omarchy.busy
           onEdited: function(value) { root.nightDraft = value }
           onSubmitted: function(value) { root.nightDraft = value }
         }
@@ -432,12 +454,10 @@ PrefsPage {
         spacing: 8
         PrefsToggle {
           checked: Omarchy.nightlightNightOn
-          enabled: !Omarchy.busy
           onToggled: Omarchy.setNightlightSchedule(root.dayDraft, root.nightDraft, !Omarchy.nightlightNightOn)
         }
         PrefsButton {
           text: "Apply times"
-          enabled: !Omarchy.busy
           onClicked: Omarchy.setNightlightSchedule(root.dayDraft, root.nightDraft, Omarchy.nightlightNightOn)
         }
       }

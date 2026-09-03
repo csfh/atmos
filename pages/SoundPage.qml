@@ -38,7 +38,7 @@ PrefsPage {
         stepSize: 1
         value: Omarchy.audioOutputVolume
         valueText: Omarchy.audioOutputVolume + "%"
-        enabled: !Omarchy.busy && Omarchy.audioSinks.length > 0
+        enabled: Omarchy.audioSinks.length > 0
         onChanged: function(value) {
           var next = Math.round(value)
           if (next !== Omarchy.audioOutputVolume || Omarchy.audioOutputMuted)
@@ -56,7 +56,7 @@ PrefsPage {
 
       PrefsToggle {
         checked: Omarchy.audioOutputMuted
-        enabled: !Omarchy.busy && Omarchy.audioSinks.length > 0
+        enabled: Omarchy.audioSinks.length > 0
         onToggled: Omarchy.toggleAudioOutputMute()
       }
     }
@@ -72,7 +72,7 @@ PrefsPage {
         implicitWidth: 280
         value: Omarchy.audioSink
         options: root.deviceOptions(Omarchy.audioSinks)
-        enabled: !Omarchy.busy && Omarchy.audioSinks.length > 0
+        enabled: Omarchy.audioSinks.length > 0
         onChanged: function(value) {
           if (value !== Omarchy.audioSink) Omarchy.setAudioSink(value)
         }
@@ -89,7 +89,7 @@ PrefsPage {
 
       PrefsButton {
         text: "Switch"
-        enabled: !Omarchy.busy && Omarchy.audioSinks.length > 1
+        enabled: Omarchy.audioSinks.length > 1
         onClicked: Omarchy.switchAudioOutput()
       }
     }
@@ -115,7 +115,7 @@ PrefsPage {
         stepSize: 1
         value: Omarchy.audioInputVolume
         valueText: Omarchy.audioInputVolume + "%"
-        enabled: !Omarchy.busy && Omarchy.audioSources.length > 0
+        enabled: Omarchy.audioSources.length > 0
         onChanged: function(value) {
           var next = Math.round(value)
           if (next !== Omarchy.audioInputVolume || Omarchy.audioInputMuted)
@@ -133,7 +133,7 @@ PrefsPage {
 
       PrefsToggle {
         checked: Omarchy.audioInputMuted
-        enabled: !Omarchy.busy && Omarchy.audioSources.length > 0
+        enabled: Omarchy.audioSources.length > 0
         onToggled: Omarchy.toggleAudioInputMute()
       }
     }
@@ -149,7 +149,7 @@ PrefsPage {
         implicitWidth: 280
         value: Omarchy.audioSource
         options: root.deviceOptions(Omarchy.audioSources)
-        enabled: !Omarchy.busy && Omarchy.audioSources.length > 0
+        enabled: Omarchy.audioSources.length > 0
         onChanged: function(value) {
           if (value !== Omarchy.audioSource) Omarchy.setAudioSource(value)
         }
@@ -172,7 +172,7 @@ PrefsPage {
 
       PrefsToggle {
         checked: Omarchy.audioTuningOn
-        enabled: !Omarchy.busy && Omarchy.audioTuningMatch
+        enabled: Omarchy.audioTuningMatch
         onToggled: Omarchy.setAudioTuning(!Omarchy.audioTuningOn)
       }
     }
@@ -192,7 +192,6 @@ PrefsPage {
 
       PrefsButton {
         text: "Restart"
-        enabled: !Omarchy.busy
         onClicked: Omarchy.restartAudio()
       }
     }
@@ -218,14 +217,14 @@ PrefsPage {
           visible: !Omarchy.voxtypeInstalled
           text: "Install…"
           primary: true
-          enabled: !Omarchy.busy && !Omarchy.jobBusy && !Omarchy.voxtypeInstalled
+          enabled: !Omarchy.jobBusy && !Omarchy.voxtypeInstalled
           onClicked: voxtypeInstallConfirm.ask()
         }
         PrefsButton {
           visible: Omarchy.voxtypeInstalled
           text: "Remove…"
           danger: true
-          enabled: !Omarchy.busy && !Omarchy.jobBusy && Omarchy.voxtypeInstalled
+          enabled: !Omarchy.jobBusy && Omarchy.voxtypeInstalled
           onClicked: voxtypeRemoveConfirm.ask()
         }
       }

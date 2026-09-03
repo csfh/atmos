@@ -177,19 +177,19 @@ PrefsPage {
           width: 140
           value: root.devLang
           options: Soft.devEnvs()
-          enabled: !Omarchy.busy && !Omarchy.jobBusy
+          enabled: !Omarchy.jobBusy
           onChanged: function(value) { root.devLang = value }
         }
         PrefsButton {
           text: "Install…"
           primary: true
-          enabled: !Omarchy.busy && !Omarchy.jobBusy
+          enabled: !Omarchy.jobBusy
           onClicked: root.askDev("install")
         }
         PrefsButton {
           text: "Remove…"
           danger: true
-          enabled: !Omarchy.busy && !Omarchy.jobBusy
+          enabled: !Omarchy.jobBusy
           onClicked: root.askDev("remove")
         }
       }
@@ -210,13 +210,13 @@ PrefsPage {
           width: 140
           value: root.dockerDb
           options: Soft.dockerDbs()
-          enabled: !Omarchy.busy && !Omarchy.jobBusy
+          enabled: !Omarchy.jobBusy
           onChanged: function(value) { root.dockerDb = value }
         }
         PrefsButton {
           text: "Install"
           primary: true
-          enabled: !Omarchy.busy && !Omarchy.jobBusy
+          enabled: !Omarchy.jobBusy
           onClicked: Omarchy.installDockerDb(root.dockerDb)
         }
       }
@@ -247,14 +247,14 @@ PrefsPage {
           visible: !root.installed(modelData)
           text: "Install…"
           primary: true
-          enabled: !Omarchy.busy && !Omarchy.jobBusy && !!(modelData && modelData.install)
+          enabled: !Omarchy.jobBusy && !!(modelData && modelData.install)
           onClicked: root.askInstall(modelData)
         }
         PrefsButton {
           visible: root.installed(modelData) && !!(modelData && modelData.remove)
           text: "Remove…"
           danger: true
-          enabled: !Omarchy.busy && !Omarchy.jobBusy && !!(modelData && modelData.remove)
+          enabled: !Omarchy.jobBusy && !!(modelData && modelData.remove)
           onClicked: root.askRemove(modelData)
         }
         PrefsText {

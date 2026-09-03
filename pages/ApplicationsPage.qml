@@ -137,7 +137,7 @@ PrefsPage {
       id: addNameField
       width: parent.width
       placeholder: "Name"
-      enabled: !Omarchy.busy && !Omarchy.jobBusy
+      enabled: !Omarchy.jobBusy
       onSubmitted: function() { root.submitAdd() }
     }
 
@@ -146,7 +146,7 @@ PrefsPage {
       width: parent.width
       visible: root.addKind !== "web"
       placeholder: root.addKind === "tui" ? "lazydocker" : "Command"
-      enabled: !Omarchy.busy && !Omarchy.jobBusy
+      enabled: !Omarchy.jobBusy
       onSubmitted: function() { root.submitAdd() }
     }
 
@@ -155,7 +155,7 @@ PrefsPage {
       width: parent.width
       visible: root.addKind === "web"
       placeholder: "https://example.com"
-      enabled: !Omarchy.busy && !Omarchy.jobBusy
+      enabled: !Omarchy.jobBusy
       onSubmitted: function() { root.submitAdd() }
     }
 
@@ -164,7 +164,7 @@ PrefsPage {
       width: parent.width
       value: root.addWindowStyle
       options: root.windowStyleOptions
-      enabled: !Omarchy.busy && !Omarchy.jobBusy
+      enabled: !Omarchy.jobBusy
       onChanged: function(value) { root.addWindowStyle = value }
     }
 
@@ -172,7 +172,7 @@ PrefsPage {
       id: addIconField
       width: parent.width
       placeholder: root.addKind === "web" ? "Icon URL or name (optional)" : "Icon URL or name"
-      enabled: !Omarchy.busy && !Omarchy.jobBusy
+      enabled: !Omarchy.jobBusy
       onSubmitted: function() { root.submitAdd() }
     }
 
@@ -197,7 +197,7 @@ PrefsPage {
       PrefsButton {
         text: "Add"
         primary: true
-        enabled: !Omarchy.busy && !Omarchy.jobBusy
+        enabled: !Omarchy.jobBusy
         onClicked: root.submitAdd()
       }
     }
@@ -221,7 +221,6 @@ PrefsPage {
         PrefsField {
           width: 180
           placeholder: "hyprsunset"
-          enabled: !Omarchy.busy
           onEdited: function(value) { root.autostartDraft = value }
           onSubmitted: function(value) {
             root.autostartDraft = value
@@ -231,7 +230,7 @@ PrefsPage {
         PrefsButton {
           text: "Add"
           primary: true
-          enabled: !Omarchy.busy && root.autostartDraft.length > 0
+          enabled: root.autostartDraft.length > 0
           onClicked: Omarchy.addAutostart(root.autostartDraft)
         }
       }
@@ -240,10 +239,17 @@ PrefsPage {
     PrefsRow {
       available: Omarchy.autostart.length === 0
       sectionHelp: false
-      label: "None yet"
-      description: "No o.launch_on_start lines in autostart.lua."
+      label: "Launch on start"
+      description: "No o.launch_on_start lines in autostart.lua. Type a command above, then Add."
       query: root.query
       keywords: ["autostart", "empty"]
+
+      PrefsButton {
+        text: "Add"
+        primary: true
+        enabled: root.autostartDraft.length > 0
+        onClicked: Omarchy.addAutostart(root.autostartDraft)
+      }
     }
 
     Repeater {
@@ -264,7 +270,7 @@ PrefsPage {
           visible: !!(modelData && modelData.managed)
           text: "Remove"
           danger: true
-          enabled: !Omarchy.busy && modelData && modelData.managed
+          enabled: modelData && modelData.managed
           onClicked: {
             root.pendingAutostart = modelData.command
             removeAutostartConfirm.ask()
@@ -290,7 +296,7 @@ PrefsPage {
       PrefsButton {
         text: "Add"
         primary: true
-        enabled: !Omarchy.busy && !Omarchy.jobBusy
+        enabled: !Omarchy.jobBusy
         onClicked: root.openAdd("desktop")
       }
     }
@@ -305,7 +311,7 @@ PrefsPage {
       PrefsButton {
         text: "Add"
         primary: true
-        enabled: !Omarchy.busy && !Omarchy.jobBusy
+        enabled: !Omarchy.jobBusy
         onClicked: root.openAdd("tui")
       }
     }
@@ -320,7 +326,7 @@ PrefsPage {
       PrefsButton {
         text: "Add"
         primary: true
-        enabled: !Omarchy.busy && !Omarchy.jobBusy
+        enabled: !Omarchy.jobBusy
         onClicked: root.openAdd("web")
       }
     }
@@ -335,10 +341,17 @@ PrefsPage {
     PrefsRow {
       available: Omarchy.desktopApps.length === 0
       sectionHelp: false
-      label: "None yet"
+      label: "Desktop launchers"
       description: "You have not added any extra desktop launchers on this machine."
       query: root.query
       keywords: ["empty", "desktop"]
+
+      PrefsButton {
+        text: "Add…"
+        primary: true
+        enabled: !Omarchy.jobBusy
+        onClicked: root.openAdd("desktop")
+      }
     }
 
     Repeater {
@@ -356,7 +369,7 @@ PrefsPage {
         PrefsButton {
           text: "Remove"
           danger: true
-          enabled: !Omarchy.busy && modelData && modelData.id
+          enabled: modelData && modelData.id
           onClicked: root.askRemove("desktop", modelData.id, modelData.name)
         }
       }
@@ -372,10 +385,17 @@ PrefsPage {
     PrefsRow {
       available: Omarchy.tuiApps.length === 0
       sectionHelp: false
-      label: "None yet"
+      label: "Terminal launchers"
       description: "You have not added any terminal UI launchers yet."
       query: root.query
       keywords: ["empty", "tui"]
+
+      PrefsButton {
+        text: "Add…"
+        primary: true
+        enabled: !Omarchy.jobBusy
+        onClicked: root.openAdd("tui")
+      }
     }
 
     Repeater {
@@ -393,7 +413,7 @@ PrefsPage {
         PrefsButton {
           text: "Remove"
           danger: true
-          enabled: !Omarchy.busy && modelData && modelData.name
+          enabled: modelData && modelData.name
           onClicked: root.askRemove("tui", modelData.id, modelData.name)
         }
       }
@@ -409,10 +429,17 @@ PrefsPage {
     PrefsRow {
       available: Omarchy.webApps.length === 0
       sectionHelp: false
-      label: "None yet"
+      label: "Web apps"
       description: "You have not added any web app launchers yet."
       query: root.query
       keywords: ["empty", "webapp"]
+
+      PrefsButton {
+        text: "Add…"
+        primary: true
+        enabled: !Omarchy.jobBusy
+        onClicked: root.openAdd("web")
+      }
     }
 
     Repeater {
@@ -430,7 +457,7 @@ PrefsPage {
         PrefsButton {
           text: "Remove"
           danger: true
-          enabled: !Omarchy.busy && modelData && modelData.name
+          enabled: modelData && modelData.name
           onClicked: root.askRemove("web", modelData.id, modelData.name)
         }
       }

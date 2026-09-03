@@ -1,6 +1,7 @@
 import QtQuick
 import "../components"
 import "../services"
+import "../services/RichUi.js" as RichUi
 
 PrefsPage {
   id: root
@@ -43,14 +44,49 @@ PrefsPage {
 
   function monitorSummary(monitor) {
     if (!monitor) return "No signal."
-    var size = monitor.width + "×" + monitor.height
-    var hz = monitor.refresh > 0 ? (" @ " + monitor.refresh + " Hz") : ""
+    var size = RichUi.formatMonitorMode(RichUi.currentMonitorModeValue(monitor))
+    if (!size) size = monitor.width + "×" + monitor.height
     var extra = []
     if (monitor.focused) extra.push("focused")
     if (!monitor.enabled) extra.push("disabled")
     if (monitor.mirrorOf) extra.push("mirroring " + monitor.mirrorOf)
     var tail = extra.length ? ". " + extra.join(", ") + "." : "."
-    return size + hz + tail
+    return size + tail
+  }
+
+  function resolutionDescription(monitor) {
+    var summary = root.monitorSummary(monitor)
+    var n = monitor && Array.isArray(monitor.availableModes) ? monitor.availableModes.length : 0
+    var modes = n > 1 ? (n + " modes on this output. ") : ""
+    return summary + " " + modes + "Atmos cannot change the panel mode here. Edit ~/.config/hypr/monitors.lua, then reload Hyprland."
+  }
+
+  PrefsGroup {
+    title: "Displays"
+    query: Omarchy.monitors.length === 0 ? root.query : "."
+    detail: "Hyprland did not report any outputs. Refresh after a display is connected. Modes live in ~/.config/hypr/monitors.lua."
+    hint: "hyprctl monitors all"
+
+    PrefsRow {
+      available: Omarchy.monitors.length === 0
+      label: "No outputs"
+      description: "Hyprland did not report any monitors. Refresh after a display is connected. Atmos cannot change the panel mode here — edit ~/.config/hypr/monitors.lua."
+      hint: "hyprctl monitors all"
+      query: root.query
+      keywords: ["monitor", "display", "hdmi", "dp", "edp", "resolution", "empty"]
+
+      Row {
+        spacing: 8
+        PrefsButton {
+          text: "Refresh"
+          onClicked: Omarchy.refresh()
+        }
+        PrefsButton {
+          text: "Edit"
+          onClicked: Omarchy.editMonitorsLua()
+        }
+      }
+    }
   }
 
   Repeater {
@@ -60,14 +96,33 @@ PrefsPage {
       required property var modelData
       title: root.monitorTitle(modelData)
       query: root.query
-      detail: "This output's current mode. Scale only shows when the monitor is focused. Brightness works on the built-in panel and on some external monitors."
+      detail: "This output's current mode. Scale only shows when the monitor is focused. Brightness works on the built-in panel and on some external monitors. Resolution is set in ~/.config/hypr/monitors.lua."
 
       PrefsRow {
         label: "Resolution"
-        description: root.monitorSummary(modelData)
-        hint: "hyprctl monitors"
+        description: root.resolutionDescription(modelData)
+        hint: "~/.config/hypr/monitors.lua"
+        detail: "Hyprland picks a mode from this output's EDID list. Atmos cannot change it here because there is no omarchy monitor-mode command. Edit ~/.config/hypr/monitors.lua, then reload Hyprland. Copy puts the current mode on the clipboard."
         query: root.query
         keywords: ["monitor", "display", "hdmi", "dp", "edp", "resolution", "refresh"]
+
+        Row {
+          spacing: 8
+          PrefsSelect {
+            value: RichUi.currentMonitorModeValue(modelData)
+            options: RichUi.monitorModeOptions(modelData)
+            enabled: false
+          }
+          PrefsButton {
+            text: "Copy"
+            enabled: RichUi.monitorModeCopyText(modelData).length > 0
+            onClicked: Omarchy.copyText(RichUi.monitorModeCopyText(modelData))
+          }
+          PrefsButton {
+            text: "Edit"
+            onClicked: Omarchy.editMonitorsLua()
+          }
+        }
       }
 
       PrefsRow {
@@ -82,7 +137,7 @@ PrefsPage {
         PrefsSelect {
           value: root.scaleValue(modelData)
           options: root.scaleOptions(modelData)
-          enabled: !Omarchy.busy && modelData && modelData.focused === true
+          enabled: modelData && modelData.focused === true
           onChanged: function(value) {
             if (value !== root.scaleValue(modelData)) Omarchy.setMonitorScale(value)
           }
@@ -105,7 +160,7 @@ PrefsPage {
           stepSize: 1
           value: modelData && modelData.brightness ? modelData.brightness : 1
           valueText: (modelData && modelData.brightness ? modelData.brightness : 0) + "%"
-          enabled: !Omarchy.busy && modelData && modelData.brightnessAvailable === true
+          enabled: modelData && modelData.brightnessAvailable === true
           onChanged: function(value) {
             var next = Math.round(value)
             if (!modelData || next === modelData.brightness) return
@@ -133,7 +188,7 @@ PrefsPage {
 
       PrefsToggle {
         checked: Omarchy.internalEnabled
-        enabled: !Omarchy.busy && Omarchy.internalPresent && Omarchy.externalPresent
+        enabled: Omarchy.internalPresent && Omarchy.externalPresent
         onToggled: Omarchy.setInternalDisplay(!Omarchy.internalEnabled)
       }
     }
@@ -148,7 +203,7 @@ PrefsPage {
 
       PrefsToggle {
         checked: Omarchy.mirroring
-        enabled: !Omarchy.busy && Omarchy.internalPresent && Omarchy.externalPresent
+        enabled: Omarchy.internalPresent && Omarchy.externalPresent
         onToggled: Omarchy.setInternalMirror(!Omarchy.mirroring)
       }
     }
@@ -163,7 +218,7 @@ PrefsPage {
 
       PrefsToggle {
         checked: Omarchy.touchpadEnabled
-        enabled: !Omarchy.busy && Omarchy.touchpadPresent
+        enabled: Omarchy.touchpadPresent
         onToggled: Omarchy.setTouchpad(!Omarchy.touchpadEnabled)
       }
     }
@@ -178,7 +233,7 @@ PrefsPage {
 
       PrefsToggle {
         checked: Omarchy.touchscreenEnabled
-        enabled: !Omarchy.busy && Omarchy.touchscreenPresent
+        enabled: Omarchy.touchscreenPresent
         onToggled: Omarchy.setTouchscreen(!Omarchy.touchscreenEnabled)
       }
     }
@@ -197,17 +252,17 @@ PrefsPage {
         spacing: 8
         PrefsButton {
           text: "Dim"
-          enabled: !Omarchy.busy && Omarchy.keyboardBacklightPresent
+          enabled: Omarchy.keyboardBacklightPresent
           onClicked: Omarchy.adjustKeyboardBacklight("down")
         }
         PrefsButton {
           text: "Brighter"
-          enabled: !Omarchy.busy && Omarchy.keyboardBacklightPresent
+          enabled: Omarchy.keyboardBacklightPresent
           onClicked: Omarchy.adjustKeyboardBacklight("up")
         }
         PrefsButton {
           text: "Off"
-          enabled: !Omarchy.busy && Omarchy.keyboardBacklightPresent && Omarchy.keyboardBrightness > 0
+          enabled: Omarchy.keyboardBacklightPresent && Omarchy.keyboardBrightness > 0
           onClicked: Omarchy.adjustKeyboardBacklight("off")
         }
       }

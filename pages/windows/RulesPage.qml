@@ -101,7 +101,6 @@ PrefsPage {
       PrefsButton {
         text: "Add…"
         primary: true
-        enabled: !Omarchy.busy
         onClicked: root.openAdd()
       }
     }
@@ -109,10 +108,16 @@ PrefsPage {
     PrefsRow {
       available: root.ruleRows.length === 0
       sectionHelp: false
-      label: "None yet"
+      label: "Rules"
       description: "No personal o.window lines in the Atmos block."
       query: root.query
       keywords: ["empty", "rules"]
+
+      PrefsButton {
+        text: "Add…"
+        primary: true
+        onClicked: root.openAdd()
+      }
     }
 
     Repeater {
@@ -122,16 +127,17 @@ PrefsPage {
         required property var modelData
         sectionHelp: false
         label: modelData && modelData.match ? modelData.match : "class"
-        description: RuleJs.describe(modelData) || "A window rule."
+        description: (RuleJs.describe(modelData) || "A window rule.") + (modelData && modelData.managed
+          ? ""
+          : " Remove stays off — this line is outside the Atmos block.")
         hint: "~/.config/hypr/atmos.lua"
         query: root.query
         keywords: ["window", "rule", "float"]
 
         PrefsButton {
-          visible: !!(modelData && modelData.managed)
           text: "Remove"
           danger: true
-          enabled: !Omarchy.busy && modelData && modelData.managed
+          enabled: modelData && modelData.managed
           onClicked: {
             root.pendingMatch = modelData.match
             removeConfirm.ask()
@@ -161,7 +167,6 @@ PrefsPage {
         id: matchField
         width: parent.width - focusedBtn.width - parent.spacing
         placeholder: "firefox"
-        enabled: !Omarchy.busy
         onEdited: function(value) { root.matchDraft = value }
         onSubmitted: function() { root.submitAdd() }
       }
@@ -169,7 +174,7 @@ PrefsPage {
       PrefsButton {
         id: focusedBtn
         text: "Focused"
-        enabled: !Omarchy.busy && Omarchy.focusedClass.length > 0
+        enabled: Omarchy.focusedClass.length > 0
         onClicked: root.useFocused()
       }
     }
@@ -179,7 +184,6 @@ PrefsPage {
       wrap: true
       value: root.placementDraft
       options: root.placementOptions
-      enabled: !Omarchy.busy
       onChanged: function(value) { root.placementDraft = value }
     }
 
@@ -191,7 +195,6 @@ PrefsPage {
 
       PrefsToggle {
         checked: root.centerDraft
-        enabled: !Omarchy.busy
         onToggled: root.centerDraft = !root.centerDraft
       }
     }
@@ -205,7 +208,6 @@ PrefsPage {
         to: 4000
         stepSize: 10
         value: root.widthDraft
-        enabled: !Omarchy.busy
         onChanged: function(value) { root.widthDraft = value }
       }
 
@@ -214,7 +216,6 @@ PrefsPage {
         to: 4000
         stepSize: 10
         value: root.heightDraft
-        enabled: !Omarchy.busy
         onChanged: function(value) { root.heightDraft = value }
       }
     }
@@ -223,7 +224,6 @@ PrefsPage {
       id: workspaceField
       width: parent.width
       placeholder: "Workspace (optional)"
-      enabled: !Omarchy.busy
       onEdited: function(value) { root.workspaceDraft = value }
       onSubmitted: function() { root.submitAdd() }
     }
@@ -249,7 +249,7 @@ PrefsPage {
       PrefsButton {
         text: "Add"
         primary: true
-        enabled: !Omarchy.busy && root.matchDraft.length > 0
+        enabled: root.matchDraft.length > 0
         onClicked: root.submitAdd()
       }
     }

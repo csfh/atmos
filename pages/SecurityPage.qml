@@ -105,7 +105,7 @@ PrefsPage {
     PrefsButton {
       text: "Turn on"
       primary: true
-      enabled: !Omarchy.busy && !Omarchy.jobBusy && sshKeyField.currentText().length > 20
+      enabled: !Omarchy.jobBusy && sshKeyField.currentText().length > 20
       onClicked: {
         Omarchy.setupSshd(sshKeyField.currentText())
         sshdDialog.close()
@@ -147,14 +147,14 @@ PrefsPage {
           visible: !Omarchy.fingerprintConfigured
           text: "Set up…"
           primary: true
-          enabled: !Omarchy.busy && !Omarchy.jobBusy && Omarchy.fingerprintAvailable && !Omarchy.fingerprintConfigured
+          enabled: !Omarchy.jobBusy && Omarchy.fingerprintAvailable && !Omarchy.fingerprintConfigured
           onClicked: fingerprintSetupConfirm.ask()
         }
         PrefsButton {
           visible: Omarchy.fingerprintConfigured
           text: "Remove…"
           danger: true
-          enabled: !Omarchy.busy && !Omarchy.jobBusy && Omarchy.fingerprintConfigured
+          enabled: !Omarchy.jobBusy && Omarchy.fingerprintConfigured
           onClicked: fingerprintRemoveConfirm.ask()
         }
       }
@@ -175,14 +175,14 @@ PrefsPage {
           visible: !Omarchy.fido2Configured
           text: "Set up…"
           primary: true
-          enabled: !Omarchy.busy && !Omarchy.jobBusy && !Omarchy.fido2Configured
+          enabled: !Omarchy.jobBusy && !Omarchy.fido2Configured
           onClicked: fido2SetupConfirm.ask()
         }
         PrefsButton {
           visible: Omarchy.fido2Configured
           text: "Remove…"
           danger: true
-          enabled: !Omarchy.busy && !Omarchy.jobBusy && Omarchy.fido2Configured
+          enabled: !Omarchy.jobBusy && Omarchy.fido2Configured
           onClicked: fido2RemoveConfirm.ask()
         }
       }
@@ -200,7 +200,7 @@ PrefsPage {
         ? "sshd is running. Other machines can log in with an authorized key."
         : (Omarchy.sshdEnabled
           ? "sshd is enabled but not running right now."
-          : "sshd is off. Turn it on with a public key if you want remote login.")
+          : "The OpenSSH server is stopped. Turn it on with a public key if you want remote login.")
       hint: "omarchy setup security sshd"
       query: root.query
       keywords: ["ssh", "sshd", "openssh", "remote"]
@@ -211,14 +211,14 @@ PrefsPage {
           visible: !Omarchy.sshdEnabled && !Omarchy.sshdActive
           text: "Turn on…"
           primary: true
-          enabled: !Omarchy.busy && !Omarchy.jobBusy && !Omarchy.sshdEnabled && !Omarchy.sshdActive
+          enabled: !Omarchy.jobBusy && !Omarchy.sshdEnabled && !Omarchy.sshdActive
           onClicked: sshdDialog.open()
         }
         PrefsButton {
           visible: Omarchy.sshdEnabled || Omarchy.sshdActive
           text: "Turn off…"
           danger: true
-          enabled: !Omarchy.busy && !Omarchy.jobBusy && (Omarchy.sshdEnabled || Omarchy.sshdActive)
+          enabled: !Omarchy.jobBusy && (Omarchy.sshdEnabled || Omarchy.sshdActive)
           onClicked: sshdDisableConfirm.ask()
         }
       }
@@ -245,7 +245,6 @@ PrefsPage {
         stepSize: 5
         value: root.sudoMinutes
         valueText: root.sudoMinutes + " min"
-        enabled: !Omarchy.busy
         onChanged: function(value) { root.sudoMinutes = Math.round(value) }
       }
     }
@@ -264,14 +263,14 @@ PrefsPage {
         PrefsButton {
           visible: !Omarchy.passwordlessSudo
           text: "Enable…"
-          enabled: !Omarchy.busy && !Omarchy.jobBusy && !Omarchy.passwordlessSudo
+          enabled: !Omarchy.jobBusy && !Omarchy.passwordlessSudo
           onClicked: passwordlessOnConfirm.ask()
         }
         PrefsButton {
           visible: Omarchy.passwordlessSudo
           text: "Turn off…"
           danger: true
-          enabled: !Omarchy.busy && !Omarchy.jobBusy && Omarchy.passwordlessSudo
+          enabled: !Omarchy.jobBusy && Omarchy.passwordlessSudo
           onClicked: passwordlessOffConfirm.ask()
         }
       }
@@ -291,14 +290,14 @@ PrefsPage {
         PrefsButton {
           visible: !Omarchy.sudolessDocker
           text: "Set up…"
-          enabled: !Omarchy.busy && !Omarchy.jobBusy && !Omarchy.sudolessDocker
+          enabled: !Omarchy.jobBusy && !Omarchy.sudolessDocker
           onClicked: dockerOnConfirm.ask()
         }
         PrefsButton {
           visible: Omarchy.sudolessDocker
           text: "Remove…"
           danger: true
-          enabled: !Omarchy.busy && !Omarchy.jobBusy && Omarchy.sudolessDocker
+          enabled: !Omarchy.jobBusy && Omarchy.sudolessDocker
           onClicked: dockerOffConfirm.ask()
         }
       }

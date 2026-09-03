@@ -22,11 +22,32 @@ PrefsPage {
     detail: "These pictures belong to the current theme. Next walks the set. Choose an image if you want a file from disk. Extra files in the theme folder join the cycle."
 
     PrefsRow {
-      label: "Current wallpaper"
-      description: Omarchy.background.length ? Omarchy.background : "No wallpaper is set for this theme yet."
+      label: Omarchy.background.length ? RichUi.fileBasename(Omarchy.background) : "Current wallpaper"
+      description: Omarchy.background.length
+        ? Omarchy.background
+        : "No wallpaper is set for this theme yet. Choose a file below, or Next if the theme ships images."
       hint: "omarchy theme bg current"
       query: root.query
       keywords: ["wallpaper", "image", "path"]
+
+      Row {
+        spacing: 8
+
+        Image {
+          visible: Omarchy.background.length > 0
+          width: 72
+          height: 48
+          fillMode: Image.PreserveAspectCrop
+          asynchronous: true
+          source: Omarchy.background.length ? ("file://" + encodeURI(Omarchy.background)) : ""
+        }
+
+        PrefsButton {
+          text: "Copy path"
+          enabled: Omarchy.background.length > 0
+          onClicked: Omarchy.copyText(Omarchy.background)
+        }
+      }
     }
 
     PrefsRow {
@@ -38,7 +59,6 @@ PrefsPage {
 
       PrefsButton {
         text: "Next"
-        enabled: !Omarchy.busy
         onClicked: Omarchy.nextBackground()
       }
     }
@@ -52,7 +72,6 @@ PrefsPage {
 
       PrefsButton {
         text: "Choose file…"
-        enabled: !Omarchy.busy
         onClicked: wallpaperDialog.open()
       }
     }
@@ -66,7 +85,6 @@ PrefsPage {
 
       PrefsButton {
         text: "Open folder"
-        enabled: !Omarchy.busy
         onClicked: Omarchy.openBackgroundFolder()
       }
     }
@@ -80,7 +98,6 @@ PrefsPage {
 
       PrefsButton {
         text: "Cache"
-        enabled: !Omarchy.busy
         onClicked: Omarchy.cacheBackgrounds()
       }
     }
@@ -95,7 +112,6 @@ PrefsPage {
 
       PrefsButton {
         text: "Open Aether"
-        enabled: !Omarchy.busy
         onClicked: Omarchy.openAether()
       }
     }

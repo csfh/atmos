@@ -55,6 +55,10 @@ PrefsPage {
     return "."
   }
 
+  function copyField(text) {
+    Omarchy.copyText(String(text || ""))
+  }
+
   PrefsGroup {
     title: "Machine"
     query: root.objectQuery(root.hw.machine, ["vendor", "name", "family", "chassis", "version", "serial", "sku"])
@@ -67,6 +71,12 @@ PrefsPage {
       hint: "/sys/class/dmi/id"
       query: root.query
       keywords: ["machine", "system", "product", "chassis", "laptop", "desktop", "dmi", "smbios"]
+
+      PrefsButton {
+        text: "Copy"
+        enabled: root.hasText(HardwareJs.machineSummary(root.hw.machine), root.hw.machine.name)
+        onClicked: root.copyField(HardwareJs.machineSummary(root.hw.machine) || root.hw.machine.name)
+      }
     }
 
     PrefsRow {
@@ -78,6 +88,12 @@ PrefsPage {
       hint: "/sys/class/dmi/id/product_serial"
       query: root.query
       keywords: ["serial", "sku", "service tag"]
+
+      PrefsButton {
+        text: root.hasText(root.hw.machine.serial) ? "Copy serial" : "Copy SKU"
+        enabled: root.hasText(root.hw.machine.serial, root.hw.machine.sku)
+        onClicked: root.copyField(root.hw.machine.serial || root.hw.machine.sku)
+      }
     }
 
     PrefsRow {
@@ -89,7 +105,6 @@ PrefsPage {
 
       PrefsButton {
         text: "Refresh"
-        enabled: !Omarchy.busy
         onClicked: Omarchy.refresh()
       }
     }
@@ -107,6 +122,12 @@ PrefsPage {
       hint: "/sys/class/dmi/id/board_name"
       query: root.query
       keywords: ["motherboard", "mainboard", "board", "baseboard"]
+
+      PrefsButton {
+        text: "Copy"
+        enabled: root.hasText(HardwareJs.boardSummary(root.hw.board))
+        onClicked: root.copyField(HardwareJs.boardSummary(root.hw.board))
+      }
     }
   }
 
@@ -122,6 +143,12 @@ PrefsPage {
       hint: "lspci"
       query: root.query
       keywords: ["chipset", "northbridge", "southbridge", "host bridge", "isa", "lpc", "pch", "pci"]
+
+      PrefsButton {
+        text: "Copy"
+        enabled: root.hasText(HardwareJs.chipsetSummary(root.hw.chipset))
+        onClicked: root.copyField(HardwareJs.chipsetSummary(root.hw.chipset))
+      }
     }
   }
 
@@ -133,21 +160,32 @@ PrefsPage {
     PrefsRow {
       available: root.hasText(root.hw.bios.vendor, root.hw.bios.version, root.hw.bios.date) || root.hw.bios.uefi
       label: "BIOS"
-      description: HardwareJs.biosSummary(root.hw.bios) || (root.hw.bios.uefi ? "UEFI is present." : "")
+      description: HardwareJs.biosSummary(root.hw.bios) || (root.hw.bios.uefi ? "UEFI firmware." : "")
       hint: "/sys/class/dmi/id/bios_version"
       query: root.query
       keywords: ["bios", "uefi", "firmware", "efi"]
+
+      PrefsButton {
+        text: "Copy"
+        enabled: root.hasText(HardwareJs.biosSummary(root.hw.bios), root.hw.bios.version)
+        onClicked: root.copyField(HardwareJs.biosSummary(root.hw.bios) || root.hw.bios.version)
+      }
     }
 
     PrefsRow {
       available: root.hw.secureBoot.available
       label: "Secure Boot"
       description: root.hw.secureBoot.enabled
-        ? "Secure Boot is on."
-        : "UEFI is present. Secure Boot is off."
+        ? "The firmware is verifying boot loaders. Change this in the UEFI setup (firmware menu), not here."
+        : "The firmware is not verifying boot loaders. Change this in the UEFI setup (firmware menu), not here."
       hint: "/sys/firmware/efi"
       query: root.query
       keywords: ["secure boot", "efi", "mok"]
+
+      PrefsToggle {
+        checked: root.hw.secureBoot.enabled
+        enabled: false
+      }
     }
 
     PrefsRow {
@@ -157,6 +195,12 @@ PrefsPage {
       hint: "/sys/class/tpm"
       query: root.query
       keywords: ["tpm", "trusted platform"]
+
+      PrefsButton {
+        text: "Copy"
+        enabled: root.hasText(HardwareJs.tpmSummary(root.hw.tpm))
+        onClicked: root.copyField(HardwareJs.tpmSummary(root.hw.tpm))
+      }
     }
   }
 
@@ -172,6 +216,12 @@ PrefsPage {
       hint: "lscpu"
       query: root.query
       keywords: ["cpu", "processor", "core", "thread", "avx", "intel", "amd", "arm"]
+
+      PrefsButton {
+        text: "Copy"
+        enabled: root.hasText(root.hw.cpu.model)
+        onClicked: root.copyField(root.hw.cpu.model)
+      }
     }
   }
 
@@ -199,11 +249,19 @@ PrefsPage {
 
     PrefsRow {
       available: root.hw.memory.swapTotal > 0
+      stretchControl: true
       label: "Swap"
-      description: RichUi.formatBytes(root.hw.memory.swapUsed) + " of " + RichUi.formatBytes(root.hw.memory.swapTotal) + " in use."
+      description: ""
       hint: "/proc/meminfo"
       query: root.query
       keywords: ["swap", "zram"]
+
+      PrefsUsageBar {
+        width: parent.width
+        used: root.hw.memory.swapUsed
+        size: root.hw.memory.swapTotal
+        avail: Math.max(0, root.hw.memory.swapTotal - root.hw.memory.swapUsed)
+      }
     }
 
     Repeater {
@@ -217,6 +275,12 @@ PrefsPage {
         hint: "dmidecode -t memory"
         query: root.query
         keywords: ["dimm", "sodimm", "ddr4", "ddr5", "module", "bank"]
+
+        PrefsButton {
+          text: "Copy"
+          enabled: !!(modelData && HardwareJs.moduleSummary(modelData))
+          onClicked: root.copyField(HardwareJs.moduleSummary(modelData))
+        }
       }
     }
   }
@@ -236,12 +300,18 @@ PrefsPage {
         hint: "lspci"
         query: root.query
         keywords: ["gpu", "graphics", "vga", "nvidia", "amd", "intel", "drm"]
+
+        PrefsButton {
+          text: "Copy"
+          enabled: !!(modelData && (modelData.name || HardwareJs.gpuSummary(modelData)))
+          onClicked: root.copyField(HardwareJs.gpuSummary(modelData) || (modelData && modelData.name) || "")
+        }
       }
     }
 
     PrefsRow {
       available: Omarchy.hwNvidia || Omarchy.hwVulkan
-      label: "Active"
+      label: "Active stack"
       description: Omarchy.hwNvidia
         ? (Omarchy.hwNvidiaGsp
           ? "NVIDIA, with GSP firmware (Turing or newer)."
@@ -252,13 +322,20 @@ PrefsPage {
       hint: Omarchy.hwNvidia ? "omarchy hw nvidia" : "omarchy hw vulkan"
       query: root.query
       keywords: ["vulkan", "nvidia", "gsp", "turing", "cuda", "api"]
+
+      PrefsButton {
+        text: "Copy"
+        onClicked: root.copyField(Omarchy.hwNvidia
+          ? (Omarchy.hwNvidiaGsp ? "NVIDIA GSP" : (Omarchy.hwNvidiaWithoutGsp ? "NVIDIA without GSP" : "NVIDIA"))
+          : "Vulkan")
+      }
     }
 
     PrefsRow {
       available: Omarchy.hybridGpuAvailable
       label: "Hybrid GPU"
       description: Omarchy.hybridGpuMode === "Integrated"
-        ? "Only the integrated GPU is on. Switch to hybrid if you want the dedicated GPU."
+        ? "Using the integrated GPU only. Switch to hybrid if you want the dedicated GPU."
         : (Omarchy.hybridGpuMode === "Hybrid"
           ? "Hybrid mode. The dedicated GPU can wake for a game or CUDA."
           : "This machine can switch between integrated-only and hybrid.")
@@ -268,7 +345,7 @@ PrefsPage {
 
       PrefsButton {
         text: "Switch…"
-        enabled: !Omarchy.busy && !Omarchy.jobBusy && Omarchy.hybridGpuAvailable
+        enabled: !Omarchy.jobBusy && Omarchy.hybridGpuAvailable
         onClicked: hybridGpuConfirm.ask()
       }
     }
@@ -289,6 +366,12 @@ PrefsPage {
         hint: "lspci"
         query: root.query
         keywords: ["npu", "xdna", "neural", "ai", "tpu", "accelerator"]
+
+        PrefsButton {
+          text: "Copy"
+          enabled: !!(modelData && (modelData.name || HardwareJs.npuSummary(modelData)))
+          onClicked: root.copyField(HardwareJs.npuSummary(modelData) || (modelData && modelData.name) || "")
+        }
       }
     }
   }
@@ -308,6 +391,12 @@ PrefsPage {
         hint: "/sys/class/net"
         query: root.query
         keywords: ["nic", "ethernet", "wifi", "wlan", "adapter", "mac"]
+
+        PrefsButton {
+          text: modelData && modelData.mac ? "Copy MAC" : "Copy"
+          enabled: !!(modelData && (modelData.mac || modelData.iface || modelData.name))
+          onClicked: root.copyField((modelData && (modelData.mac || modelData.iface || modelData.name)) || "")
+        }
       }
     }
   }
@@ -323,10 +412,16 @@ PrefsPage {
       PrefsRow {
         required property var modelData
         label: (modelData && modelData.name) || "Audio"
-        description: modelData && modelData.driver ? ("ALSA " + modelData.driver + ".") : "ALSA card."
+        description: modelData && modelData.driver ? ("ALSA " + modelData.driver + ". Volume and sinks are on Sound.") : "ALSA card. Volume and sinks are on Sound."
         hint: "/proc/asound/cards"
         query: root.query
         keywords: ["audio", "sound", "alsa", "card"]
+
+        PrefsButton {
+          text: "Copy"
+          enabled: !!(modelData && modelData.name)
+          onClicked: root.copyField((modelData && modelData.name) || "")
+        }
       }
     }
   }
@@ -349,6 +444,12 @@ PrefsPage {
         hint: "/sys/bus/usb/devices"
         query: root.query
         keywords: ["usb", "hub", "keyboard", "mouse", "storage"]
+
+        PrefsButton {
+          text: "Copy"
+          enabled: !!(modelData && modelData.name)
+          onClicked: root.copyField((modelData && modelData.name) || "")
+        }
       }
     }
   }
@@ -363,11 +464,43 @@ PrefsPage {
 
       PrefsRow {
         required property var modelData
+        stretchControl: true
         label: (modelData && modelData.name) || "Battery"
-        description: HardwareJs.batterySummary(modelData)
+        description: {
+          var s = HardwareJs.batterySummary(modelData)
+          return s ? (s + " Charge profiles stay on Power.") : "Charge profiles stay on Power."
+        }
         hint: "/sys/class/power_supply"
         query: root.query
         keywords: ["battery", "charge", "capacity"]
+
+        Column {
+          width: parent.width
+          spacing: 8
+
+          PrefsProgress {
+            width: parent.width
+            visible: !!(modelData && modelData.capacity)
+            from: 0
+            to: 100
+            value: modelData && modelData.capacity ? modelData.capacity : 0
+            valueText: (modelData && modelData.capacity ? modelData.capacity : 0) + "%"
+          }
+
+          Row {
+            spacing: 8
+            PrefsButton {
+              text: "Show"
+              enabled: Omarchy.batteryPresent
+              onClicked: Omarchy.showBatteryNotification()
+            }
+            PrefsButton {
+              text: "Copy"
+              enabled: !!HardwareJs.batterySummary(modelData)
+              onClicked: root.copyField(HardwareJs.batterySummary(modelData))
+            }
+          }
+        }
       }
     }
   }
@@ -387,6 +520,12 @@ PrefsPage {
         hint: "/sys/class/thermal"
         query: root.query
         keywords: ["thermal", "temperature", "sensor", "heat"]
+
+        PrefsButton {
+          text: "Copy"
+          enabled: !!HardwareJs.thermalSummary(modelData)
+          onClicked: root.copyField(HardwareJs.thermalSummary(modelData))
+        }
       }
     }
   }
@@ -403,6 +542,12 @@ PrefsPage {
       hint: "lscpu"
       query: root.query
       keywords: ["kvm", "qemu", "hypervisor", "vm", "virtual", "guest"]
+
+      PrefsButton {
+        text: "Copy"
+        enabled: root.hasText(HardwareJs.virtSummary(root.hw.virtualization))
+        onClicked: root.copyField(HardwareJs.virtSummary(root.hw.virtualization))
+      }
     }
   }
 }

@@ -272,6 +272,12 @@ PrefsPage {
         hint: "omarchy drive info"
         query: root.query
         keywords: ["nvme", "ssd", "sata", "lsblk", "model"]
+
+        PrefsButton {
+          text: "Copy"
+          enabled: !!(modelData && modelData.info)
+          onClicked: Omarchy.copyText(String(modelData.info || ""))
+        }
       }
 
       Repeater {
@@ -324,7 +330,6 @@ PrefsPage {
             spacing: 8
             PrefsButton {
               text: root.diskRunning && root.diskTarget === root.speedtestDir(modelData) ? "Cancel" : "Run"
-              enabled: !Omarchy.busy
               onClicked: {
                 var dir = root.speedtestDir(modelData)
                 if (root.diskRunning && root.diskTarget === dir) root.stopDiskSpeedtest()
@@ -397,7 +402,7 @@ PrefsPage {
 
         PrefsButton {
           text: "Change…"
-          enabled: !Omarchy.busy && !Omarchy.jobBusy
+          enabled: !Omarchy.jobBusy
           onClicked: {
             root.pendingLuksDevice = String(modelData || "")
             luksDialog.open()
@@ -420,6 +425,12 @@ PrefsPage {
       hint: "omarchy snapshot"
       query: root.query
       keywords: ["btrfs", "limine", "restore", "rollback"]
+
+      PrefsButton {
+        text: "Copy"
+        enabled: root.snapperSummary().length > 0
+        onClicked: Omarchy.copyText(root.snapperSummary())
+      }
     }
 
     PrefsRow {
@@ -435,7 +446,7 @@ PrefsPage {
       PrefsButton {
         text: "Create…"
         primary: true
-        enabled: !Omarchy.busy && !Omarchy.jobBusy && Omarchy.snapperPresent
+        enabled: !Omarchy.jobBusy && Omarchy.snapperPresent
         onClicked: createConfirm.ask()
       }
     }
@@ -456,7 +467,7 @@ PrefsPage {
         PrefsButton {
           text: "Roll back…"
           danger: true
-          enabled: !Omarchy.busy && !Omarchy.jobBusy && modelData && modelData.id
+          enabled: !Omarchy.jobBusy && modelData && modelData.id
           onClicked: {
             root.pendingRollbackConfig = String(modelData.config || "root")
             root.pendingRollbackId = modelData.id
@@ -474,49 +485,30 @@ PrefsPage {
 
     PrefsRow {
       label: "Hibernation"
-      description: Omarchy.hibernationConfigured
-        ? "Hibernation is set up. Remove deletes the swap file and the boot resume settings."
-        : (Omarchy.hibernationSupported
-          ? "This machine can hibernate. Setup writes a swap file and the boot resume settings."
-          : "Hibernation is not available on this machine.")
+      description: (Omarchy.jobKind === "hibernation-setup" || Omarchy.jobKind === "hibernation-remove") && Omarchy.jobBusy
+        ? (Omarchy.jobKind === "hibernation-remove" ? "Removing hibernation…" : "Setting up hibernation…")
+        : (Omarchy.hibernationConfigured
+          ? "Set up. Remove deletes the swap file and the boot resume settings."
+          : (Omarchy.hibernationSupported
+            ? "This machine can hibernate. Setup writes a swap file and the boot resume settings."
+            : "Not available on this machine. Setup stays disabled."))
       hint: "omarchy hibernation available"
       query: root.query
       keywords: ["sleep", "swap", "resume"]
-    }
-
-    PrefsRow {
-      available: Omarchy.hibernationSupported && !Omarchy.hibernationConfigured
-      label: "Set up hibernation"
-      description: Omarchy.jobKind === "hibernation-setup" && Omarchy.jobBusy
-        ? "Setting up hibernation…"
-        : "Create the swap file and boot resume settings. You will be asked first."
-      hint: "omarchy hibernation setup --force"
-      query: root.query
-      keywords: ["enable"]
 
       PrefsButton {
-        text: "Setup…"
-        primary: true
-        enabled: !Omarchy.busy && !Omarchy.jobBusy && Omarchy.hibernationSupported && !Omarchy.hibernationConfigured
-        onClicked: hibernateSetupConfirm.ask()
+        text: Omarchy.hibernationConfigured ? "Remove…" : "Setup…"
+        primary: !Omarchy.hibernationConfigured && Omarchy.hibernationSupported
+        danger: Omarchy.hibernationConfigured
+        enabled: !Omarchy.jobBusy && (Omarchy.hibernationConfigured || Omarchy.hibernationSupported)
+        onClicked: {
+          if (Omarchy.hibernationConfigured) hibernateRemoveConfirm.ask()
+          else hibernateSetupConfirm.ask()
+        }
       }
     }
 
-    PrefsRow {
-      available: Omarchy.hibernationConfigured
-      label: "Remove hibernation"
-      description: "Remove the hibernation swap file and the boot resume settings."
-      hint: "omarchy hibernation remove"
-      query: root.query
-      keywords: ["disable"]
 
-      PrefsButton {
-        text: "Remove…"
-        danger: true
-        enabled: !Omarchy.busy && !Omarchy.jobBusy && Omarchy.hibernationConfigured
-        onClicked: hibernateRemoveConfirm.ask()
-      }
-    }
   }
 
   PrefsGroup {
@@ -540,7 +532,7 @@ PrefsPage {
         stepSize: 1
         value: Omarchy.snapperNumberLimit
         valueText: String(Omarchy.snapperNumberLimit)
-        enabled: !Omarchy.busy && Omarchy.snapperPresent
+        enabled: Omarchy.snapperPresent
         onChanged: function(value) {
           var next = Math.round(value)
           if (next !== Omarchy.snapperNumberLimit)
@@ -559,7 +551,7 @@ PrefsPage {
 
       PrefsToggle {
         checked: Omarchy.snapperTimeline
-        enabled: !Omarchy.busy && Omarchy.snapperPresent
+        enabled: Omarchy.snapperPresent
         onToggled: Omarchy.setSnapperTimeline(!Omarchy.snapperTimeline)
       }
     }
@@ -573,7 +565,6 @@ PrefsPage {
 
       PrefsToggle {
         checked: Omarchy.fstrimEnabled
-        enabled: !Omarchy.busy
         onToggled: Omarchy.setFstrim(!Omarchy.fstrimEnabled)
       }
     }
@@ -582,7 +573,7 @@ PrefsPage {
   PrefsGroup {
     title: "Swap"
     query: Omarchy.swapDevices.length > 0 ? root.query : "."
-    detail: "Swap devices this machine is using, including zram if it is on."
+    detail: "Swap devices this machine is using, including zram when the kernel has it loaded."
 
     Repeater {
       model: Omarchy.swapDevices
@@ -596,6 +587,12 @@ PrefsPage {
         hint: "lsblk"
         query: root.query
         keywords: ["zram", "swap"]
+
+        PrefsButton {
+          text: "Copy"
+          enabled: !!(modelData && (modelData.path || modelData.name || modelData.label))
+          onClicked: Omarchy.copyText(String((modelData && (modelData.path || modelData.name || modelData.label)) || ""))
+        }
       }
     }
   }

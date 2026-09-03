@@ -1,6 +1,7 @@
 import QtQuick
 import "../components"
 import "../services"
+import "../services/RichUi.js" as RichUi
 
 PrefsPage {
   id: root
@@ -24,7 +25,6 @@ PrefsPage {
 
       PrefsToggle {
         checked: Omarchy.doNotDisturb
-        enabled: !Omarchy.busy
         onToggled: Omarchy.setDoNotDisturb(!Omarchy.doNotDisturb)
       }
     }
@@ -44,7 +44,6 @@ PrefsPage {
 
       PrefsButton {
         text: "Send test"
-        enabled: !Omarchy.busy
         onClicked: Omarchy.sendTestNotification()
       }
     }
@@ -58,7 +57,6 @@ PrefsPage {
 
       PrefsButton {
         text: "Show time"
-        enabled: !Omarchy.busy
         onClicked: Omarchy.sendTimeNotification()
       }
     }
@@ -73,7 +71,7 @@ PrefsPage {
 
       PrefsButton {
         text: "Show battery"
-        enabled: !Omarchy.busy && Omarchy.batteryPresent
+        enabled: Omarchy.batteryPresent
         onClicked: Omarchy.showBatteryNotification()
       }
     }
@@ -88,7 +86,7 @@ PrefsPage {
 
       PrefsButton {
         text: "Show weather"
-        enabled: !Omarchy.busy && Omarchy.weatherPresent
+        enabled: Omarchy.weatherPresent
         onClicked: Omarchy.sendWeatherNotification()
       }
     }
@@ -113,13 +111,11 @@ PrefsPage {
           from: 1
           to: 1440
           value: root.reminderMinutes
-          enabled: !Omarchy.busy
           onChanged: function(value) { root.reminderMinutes = value }
         }
         PrefsField {
           width: 160
           placeholder: "Message"
-          enabled: !Omarchy.busy
           onEdited: function(value) { root.reminderMessage = value }
           onSubmitted: function(value) {
             root.reminderMessage = value
@@ -129,7 +125,6 @@ PrefsPage {
         PrefsButton {
           text: "Set"
           primary: true
-          enabled: !Omarchy.busy
           onClicked: Omarchy.setReminder(String(root.reminderMinutes), root.reminderMessage)
         }
       }
@@ -149,13 +144,13 @@ PrefsPage {
         spacing: 8
         PrefsButton {
           text: "Show"
-          enabled: !Omarchy.busy && Omarchy.reminderActive
+          enabled: Omarchy.reminderActive
           onClicked: Omarchy.showReminders()
         }
         PrefsButton {
           text: "Clear"
           danger: true
-          enabled: !Omarchy.busy && Omarchy.reminderActive
+          enabled: Omarchy.reminderActive
           onClicked: Omarchy.clearReminders()
         }
       }
@@ -164,10 +159,16 @@ PrefsPage {
     PrefsRow {
       available: !Omarchy.reminderActive
       sectionHelp: false
-      label: "None waiting"
-      description: "Set a reminder above if you want a toast later."
+      label: "Reminders"
+      description: "None waiting. Set minutes and a message above, then Set."
       query: root.query
       keywords: ["reminder", "empty"]
+
+      PrefsButton {
+        text: "Set"
+        primary: true
+        onClicked: Omarchy.setReminder(String(root.reminderMinutes), root.reminderMessage)
+      }
     }
 
     Repeater {
@@ -178,11 +179,24 @@ PrefsPage {
         sectionHelp: false
         label: modelData && modelData.label ? modelData.label : "Reminder"
         description: modelData && modelData.remaining
-          ? ("Fires in " + modelData.remaining + (modelData.atTime ? " (" + modelData.atTime + ")" : "") + ".")
-          : "Waiting."
+          ? ("Fires in " + modelData.remaining + (modelData.atTime ? " (" + modelData.atTime + ")" : "") + ". Clear all is above — Omarchy cannot drop a single timer.")
+          : "Waiting. Clear all is above — Omarchy cannot drop a single timer."
         hint: "omarchy reminder show --json"
         query: root.query
         keywords: ["reminder", "timer"]
+
+        Row {
+          spacing: 8
+          PrefsButton {
+            text: "Copy"
+            enabled: RichUi.reminderCopyText(modelData).length > 0
+            onClicked: Omarchy.copyText(RichUi.reminderCopyText(modelData))
+          }
+          PrefsButton {
+            text: "Show"
+            onClicked: Omarchy.showReminders()
+          }
+        }
       }
     }
   }

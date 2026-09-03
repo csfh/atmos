@@ -2,6 +2,7 @@ import QtQuick
 import "../../components"
 import "../../services"
 import "../../services/Bindings.js" as BindJs
+import "../../services/RichUi.js" as RichUi
 
 PrefsPage {
   id: root
@@ -47,13 +48,14 @@ PrefsPage {
     return BindJs.catalogConflict(Omarchy.keybindings, root.keysDraft)
   }
 
-  function openAdd() {
-    root.keysDraft = ""
+  function openAdd(keys) {
+    var chord = BindJs.sanitizeKeys(keys || "")
+    root.keysDraft = chord
     root.labelDraft = ""
     root.commandDraft = ""
     root.unbindOnly = false
     root.addError = ""
-    keysField.setText("")
+    keysField.setText(chord)
     labelField.setText("")
     commandField.setText("")
     addDialog.open()
@@ -107,7 +109,6 @@ PrefsPage {
       PrefsButton {
         text: "Add…"
         primary: true
-        enabled: !Omarchy.busy
         onClicked: root.openAdd()
       }
     }
@@ -115,10 +116,16 @@ PrefsPage {
     PrefsRow {
       available: root.overrideRows.length === 0
       sectionHelp: false
-      label: "None yet"
+      label: "Overrides"
       description: "No personal o.bind or hl.unbind lines in bindings.lua."
       query: root.query
       keywords: ["empty", "bindings"]
+
+      PrefsButton {
+        text: "Add…"
+        primary: true
+        onClicked: root.openAdd()
+      }
     }
 
     Repeater {
@@ -134,10 +141,9 @@ PrefsPage {
         keywords: ["bind", "unbind", "override"]
 
         PrefsButton {
-          visible: !!(modelData && modelData.managed)
           text: "Remove"
           danger: true
-          enabled: !Omarchy.busy && modelData && modelData.managed
+          enabled: modelData && modelData.managed
           onClicked: {
             root.pendingKeys = modelData.keys
             root.pendingLabel = modelData.label || modelData.keys
@@ -183,6 +189,20 @@ PrefsPage {
         hint: "omarchy menu keybindings --print"
         query: root.query
         keywords: ["keybinding", "hotkey", "shortcut"]
+
+        Row {
+          spacing: 8
+          PrefsButton {
+            text: "Copy"
+            enabled: !!(modelData && modelData.keys)
+            onClicked: Omarchy.copyText(RichUi.bindingCopyText(modelData))
+          }
+          PrefsButton {
+            text: "Override…"
+            enabled: !!(modelData && modelData.keys)
+            onClicked: root.openAdd(modelData.keys)
+          }
+        }
       }
     }
   }
@@ -205,7 +225,6 @@ PrefsPage {
       id: keysField
       width: parent.width
       placeholder: "SUPER + F"
-      enabled: !Omarchy.busy
       onEdited: function(value) { root.keysDraft = value }
       onSubmitted: function() { root.submitAdd() }
     }
@@ -214,7 +233,6 @@ PrefsPage {
       id: labelField
       width: parent.width
       placeholder: "Name (optional)"
-      enabled: !Omarchy.busy
       onEdited: function(value) { root.labelDraft = value }
       onSubmitted: function() { root.submitAdd() }
     }
@@ -224,7 +242,6 @@ PrefsPage {
       width: parent.width
       visible: !root.unbindOnly
       placeholder: "nautilus"
-      enabled: !Omarchy.busy
       onEdited: function(value) { root.commandDraft = value }
       onSubmitted: function() { root.submitAdd() }
     }
@@ -237,7 +254,6 @@ PrefsPage {
 
       PrefsToggle {
         checked: root.unbindOnly
-        enabled: !Omarchy.busy
         onToggled: root.unbindOnly = !root.unbindOnly
       }
     }
@@ -263,7 +279,7 @@ PrefsPage {
       PrefsButton {
         text: "Add"
         primary: true
-        enabled: !Omarchy.busy && root.keysDraft.length > 0 && (root.unbindOnly || root.commandDraft.length > 0)
+        enabled: root.keysDraft.length > 0 && (root.unbindOnly || root.commandDraft.length > 0)
         onClicked: root.submitAdd()
       }
     }

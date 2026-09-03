@@ -27,9 +27,12 @@ PrefsPage {
     for (var i = 0; i < list.length; i++) {
       if (list[i] && list[i].managed === true) n++
     }
-    if (n === 1) return "One override"
-    if (n > 1) return n + " overrides"
-    return Omarchy.keybindings.length ? (Omarchy.keybindings.length + " bound") : ""
+    if (n === 1) return "One Atmos override in bindings.lua. Open to add or unbind."
+    if (n > 1) return n + " Atmos overrides in bindings.lua. Open to add or unbind."
+    var total = Omarchy.keybindings.length
+    if (total === 1) return "One chord Hyprland is running. Open to add an override."
+    if (total > 1) return total + " chords Hyprland is running. Open to add an override."
+    return "No chords listed yet. Open to add one."
   }
 
   function ruleCountText() {
@@ -38,9 +41,9 @@ PrefsPage {
     for (var i = 0; i < list.length; i++) {
       if (list[i] && list[i].managed === true) n++
     }
-    if (n === 1) return "One rule"
-    if (n > 1) return n + " rules"
-    return ""
+    if (n === 1) return "One Atmos rule. Open to float, tile, or pin a class."
+    if (n > 1) return n + " Atmos rules. Open to float, tile, or pin a class."
+    return "No Atmos rules yet. Open to float, tile, or pin a class."
   }
 
   Component { id: bindingsPage; Win.BindingsPage {} }
@@ -51,24 +54,32 @@ PrefsPage {
     query: root.query
     detail: "Keybindings lists what Hyprland is running and lets you add a personal override. Window rules float, tile, or pin a class without rewriting hyprland.lua."
 
-    PrefsLink {
+    PrefsRow {
       label: "Keybindings"
-      description: "See every chord, then add or unbind one in bindings.lua."
+      description: root.overrideCountText()
       hint: "~/.config/hypr/bindings.lua"
       query: root.query
       keywords: ["keybinding", "hotkey", "shortcut", "bind", "unbind", "chord"]
-      valueText: root.overrideCountText()
-      onClicked: root.openSubpage("bindings")
+
+      PrefsButton {
+        text: "Open"
+        enabled: true
+        onClicked: root.openSubpage("bindings")
+      }
     }
 
-    PrefsLink {
+    PrefsRow {
       label: "Window rules"
-      description: "Float, tile, center, or size a window class."
+      description: root.ruleCountText()
       hint: "~/.config/hypr/atmos.lua"
       query: root.query
       keywords: ["window", "rule", "float", "tile", "class", "regex"]
-      valueText: root.ruleCountText()
-      onClicked: root.openSubpage("rules")
+
+      PrefsButton {
+        text: "Open"
+        enabled: true
+        onClicked: root.openSubpage("rules")
+      }
     }
   }
 
@@ -92,7 +103,7 @@ PrefsPage {
         stepSize: 1
         value: Omarchy.hyprGapsIn
         valueText: Omarchy.hyprGapsIn + " px"
-        enabled: !Omarchy.busy && !Omarchy.hyprNoGaps
+        enabled: !Omarchy.hyprNoGaps
         onChanged: function(value) {
           var next = Math.round(value)
           if (next !== Omarchy.hyprGapsIn)
@@ -116,7 +127,7 @@ PrefsPage {
         stepSize: 1
         value: Omarchy.hyprGapsOut
         valueText: Omarchy.hyprGapsOut + " px"
-        enabled: !Omarchy.busy && !Omarchy.hyprNoGaps
+        enabled: !Omarchy.hyprNoGaps
         onChanged: function(value) {
           var next = Math.round(value)
           if (next !== Omarchy.hyprGapsOut)
@@ -140,7 +151,7 @@ PrefsPage {
         stepSize: 1
         value: Omarchy.hyprBorderSize
         valueText: Omarchy.hyprBorderSize + " px"
-        enabled: !Omarchy.busy && !Omarchy.hyprNoGaps
+        enabled: !Omarchy.hyprNoGaps
         onChanged: function(value) {
           var next = Math.round(value)
           if (next !== Omarchy.hyprBorderSize)
@@ -164,7 +175,7 @@ PrefsPage {
         stepSize: 1
         value: Omarchy.hyprRounding
         valueText: Omarchy.hyprRounding + " px"
-        enabled: !Omarchy.busy && !Omarchy.hyprNoGaps
+        enabled: !Omarchy.hyprNoGaps
         onChanged: function(value) {
           var next = Math.round(value)
           if (next !== Omarchy.hyprRounding)
@@ -182,7 +193,6 @@ PrefsPage {
 
       PrefsToggle {
         checked: Omarchy.hyprBlur
-        enabled: !Omarchy.busy
         onToggled: Omarchy.setHyprBlur(!Omarchy.hyprBlur)
       }
     }
@@ -196,7 +206,6 @@ PrefsPage {
 
       PrefsToggle {
         checked: Omarchy.hyprShadow
-        enabled: !Omarchy.busy
         onToggled: Omarchy.setHyprShadow(!Omarchy.hyprShadow)
       }
     }
@@ -214,7 +223,6 @@ PrefsPage {
           { value: "dwindle", label: "Dwindle" },
           { value: "scrolling", label: "Scrolling" }
         ]
-        enabled: !Omarchy.busy
         onChanged: function(value) {
           if (value !== Omarchy.hyprLayout) Omarchy.setHyprLayout(value)
         }
@@ -238,7 +246,7 @@ PrefsPage {
         value: Omarchy.hyprColumnWidth
         valueText: Math.round(Omarchy.hyprColumnWidth * 100) + "%"
         formatTick: function(v) { return Math.round(v * 100) + "%" }
-        enabled: !Omarchy.busy && Omarchy.hyprLayout === "scrolling"
+        enabled: Omarchy.hyprLayout === "scrolling"
         onChanged: function(value) {
           var next = Math.round(value * 100) / 100
           if (next !== Omarchy.hyprColumnWidth)
@@ -258,7 +266,7 @@ PrefsPage {
       PrefsButton {
         text: "Reset"
         danger: true
-        enabled: !Omarchy.busy && Omarchy.hyprLookManaged
+        enabled: Omarchy.hyprLookManaged
         onClicked: Omarchy.resetHyprLook()
       }
     }
@@ -271,14 +279,13 @@ PrefsPage {
 
     PrefsRow {
       label: "Tight windows"
-      description: "Drop gaps, borders, and rounding. The sliders above wait until this is off."
+      description: "Drop gaps, borders, and rounding. The sliders above stay disabled while this is on."
       hint: "omarchy hyprland toggle window-no-gaps"
       query: root.query
       keywords: ["gaps", "borderless", "tight", "no gaps"]
 
       PrefsToggle {
         checked: Omarchy.hyprNoGaps
-        enabled: !Omarchy.busy
         onToggled: Omarchy.setHyprNoGaps(!Omarchy.hyprNoGaps)
       }
     }
@@ -292,7 +299,6 @@ PrefsPage {
 
       PrefsToggle {
         checked: Omarchy.hyprSquareAspect
-        enabled: !Omarchy.busy
         onToggled: Omarchy.setHyprSquareAspect(!Omarchy.hyprSquareAspect)
       }
     }
@@ -308,7 +314,6 @@ PrefsPage {
 
       PrefsButton {
         text: "Toggle"
-        enabled: !Omarchy.busy
         onClicked: Omarchy.toggleWorkspaceLayout()
       }
     }
@@ -324,12 +329,10 @@ PrefsPage {
         spacing: 8
         PrefsButton {
           text: "Transparency"
-          enabled: !Omarchy.busy
           onClicked: Omarchy.toggleWindowTransparency()
         }
         PrefsButton {
           text: "Tiled full"
-          enabled: !Omarchy.busy
           onClicked: Omarchy.toggleTiledFullscreen()
         }
       }
@@ -350,7 +353,6 @@ PrefsPage {
 
       PrefsToggle {
         checked: Omarchy.hyprDimInactive
-        enabled: !Omarchy.busy
         onToggled: Omarchy.setHyprDimInactive(!Omarchy.hyprDimInactive)
       }
     }
@@ -372,7 +374,7 @@ PrefsPage {
         value: Omarchy.hyprDimStrength
         valueText: Math.round(Omarchy.hyprDimStrength * 100) + "%"
         formatTick: function(v) { return Math.round(v * 100) + "%" }
-        enabled: !Omarchy.busy && Omarchy.hyprDimInactive
+        enabled: Omarchy.hyprDimInactive
         onChanged: function(value) {
           var next = Math.round(value * 100) / 100
           if (next !== Omarchy.hyprDimStrength)
@@ -390,7 +392,6 @@ PrefsPage {
 
       PrefsToggle {
         checked: Omarchy.hyprAnimations
-        enabled: !Omarchy.busy
         onToggled: Omarchy.setHyprAnimations(!Omarchy.hyprAnimations)
       }
     }
@@ -404,7 +405,6 @@ PrefsPage {
 
       PrefsToggle {
         checked: Omarchy.hyprCursorHideOnKey
-        enabled: !Omarchy.busy
         onToggled: Omarchy.setHyprCursorHideOnKey(!Omarchy.hyprCursorHideOnKey)
       }
     }
@@ -418,7 +418,6 @@ PrefsPage {
 
       PrefsToggle {
         checked: Omarchy.hyprCursorWarp
-        enabled: !Omarchy.busy
         onToggled: Omarchy.setHyprCursorWarp(!Omarchy.hyprCursorWarp)
       }
     }
@@ -432,7 +431,6 @@ PrefsPage {
 
       PrefsToggle {
         checked: Omarchy.hyprResizeOnBorder
-        enabled: !Omarchy.busy
         onToggled: Omarchy.setHyprResizeOnBorder(!Omarchy.hyprResizeOnBorder)
       }
     }
@@ -446,7 +444,6 @@ PrefsPage {
 
       PrefsToggle {
         checked: Omarchy.hyprAllowTearing
-        enabled: !Omarchy.busy
         onToggled: Omarchy.setHyprAllowTearing(!Omarchy.hyprAllowTearing)
       }
     }
@@ -466,7 +463,6 @@ PrefsPage {
         stepSize: 2
         value: Omarchy.hyprCursorSize
         valueText: Omarchy.hyprCursorSize + " px"
-        enabled: !Omarchy.busy
         onChanged: function(value) {
           var next = Math.round(value)
           if (next !== Omarchy.hyprCursorSize)
@@ -491,7 +487,6 @@ PrefsPage {
         value: Omarchy.hyprActiveOpacity
         valueText: Math.round(Omarchy.hyprActiveOpacity * 100) + "%"
         formatTick: function(v) { return Math.round(v * 100) + "%" }
-        enabled: !Omarchy.busy
         onChanged: function(value) {
           var next = Math.round(value * 100) / 100
           if (next !== Omarchy.hyprActiveOpacity)
@@ -509,7 +504,6 @@ PrefsPage {
 
       PrefsToggle {
         checked: Omarchy.hyprPreserveSplit
-        enabled: !Omarchy.busy
         onToggled: Omarchy.setHyprPreserveSplit(!Omarchy.hyprPreserveSplit)
       }
     }
@@ -523,7 +517,6 @@ PrefsPage {
 
       PrefsToggle {
         checked: Omarchy.hyprFocusOnActivate
-        enabled: !Omarchy.busy
         onToggled: Omarchy.setHyprFocusOnActivate(!Omarchy.hyprFocusOnActivate)
       }
     }

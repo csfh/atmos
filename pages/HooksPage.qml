@@ -147,7 +147,6 @@ PrefsPage {
       PrefsButton {
         text: "Add…"
         primary: true
-        enabled: !Omarchy.busy
         onClicked: root.openAdd(root.installType)
       }
     }
@@ -176,17 +175,14 @@ PrefsPage {
           spacing: 8
           PrefsButton {
             text: "Add…"
-            enabled: !Omarchy.busy
             onClicked: root.openAdd(hookId)
           }
           PrefsButton {
             text: "Run now"
-            enabled: !Omarchy.busy
             onClicked: Omarchy.runHook(hookId, root.runArg(hookId))
           }
           PrefsButton {
             text: "Folder"
-            enabled: !Omarchy.busy
             onClicked: Omarchy.openHookFolder(hookId)
           }
         }
@@ -195,10 +191,16 @@ PrefsPage {
       PrefsRow {
         available: root.itemsFor(hookId).length === 0
         sectionHelp: false
-        label: "None yet"
+        label: "Scripts"
         description: "No scripts in ~/.config/omarchy/hooks/" + hookId + ".d/."
         query: root.query
         keywords: ["hook", "empty", hookId]
+
+        PrefsButton {
+          text: "Add…"
+          primary: true
+          onClicked: root.openAdd(hookId)
+        }
       }
 
       Repeater {
@@ -220,25 +222,25 @@ PrefsPage {
               visible: !!(modelData && modelData.sample)
               text: "Enable"
               primary: true
-              enabled: !Omarchy.busy && modelData && modelData.path
+              enabled: modelData && modelData.path
               onClicked: Omarchy.setHookSample(modelData.path, true)
             }
             PrefsButton {
               visible: !!(modelData && !modelData.sample && !modelData.flat)
               text: "Disable"
-              enabled: !Omarchy.busy && modelData && modelData.path
+              enabled: modelData && modelData.path
               onClicked: Omarchy.setHookSample(modelData.path, false)
             }
             PrefsButton {
               text: "Edit"
-              enabled: !Omarchy.busy && modelData && modelData.path
+              enabled: modelData && modelData.path
               onClicked: Omarchy.editHook(modelData.path)
             }
             PrefsButton {
               visible: !!(modelData && !modelData.sample)
               text: "Remove"
               danger: true
-              enabled: !Omarchy.busy && modelData && modelData.path
+              enabled: modelData && modelData.path
               onClicked: root.askRemove(modelData)
             }
           }
@@ -263,7 +265,6 @@ PrefsPage {
       width: parent.width
       value: root.installType
       options: root.typeOptions
-      enabled: !Omarchy.busy
       onChanged: function(value) { root.installType = value }
     }
 
@@ -272,14 +273,12 @@ PrefsPage {
       wrap: true
       value: root.installMode
       options: root.modeOptions
-      enabled: !Omarchy.busy
       onChanged: function(value) { root.installMode = value }
     }
 
     PrefsButton {
       visible: root.installMode === "file"
       text: root.installFile ? ("File: " + RichUi.fileBasename(root.installFile)) : "Choose file…"
-      enabled: !Omarchy.busy
       onClicked: hookFileDialog.open()
     }
 
@@ -288,7 +287,6 @@ PrefsPage {
       width: parent.width
       visible: root.installMode === "command"
       placeholder: "notify.sh"
-      enabled: !Omarchy.busy
       onEdited: function(value) { root.nameDraft = value }
       onSubmitted: function() { root.submitAdd() }
     }
@@ -298,7 +296,6 @@ PrefsPage {
       width: parent.width
       visible: root.installMode === "command"
       placeholder: 'omarchy-notification-send -u low "Theme" "$1"'
-      enabled: !Omarchy.busy
       onEdited: function(value) { root.commandDraft = value }
       onSubmitted: function() { root.submitAdd() }
     }
@@ -332,7 +329,7 @@ PrefsPage {
       PrefsButton {
         text: "Install"
         primary: true
-        enabled: !Omarchy.busy && (
+        enabled: (
           (root.installMode === "file" && root.installFile.length > 0) ||
           (root.installMode === "command" && root.nameDraft.length > 0 && root.commandDraft.length > 0)
         )

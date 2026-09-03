@@ -11,12 +11,12 @@ PrefsPage {
   PrefsGroup {
     title: "Timings"
     query: root.query
-    detail: "Screensaver and lock are separate timers in ~/.config/omarchy/shell.json. Zero means that step is off."
+    detail: "Screensaver and lock are separate timers in ~/.config/omarchy/shell.json. Zero on a slider skips that step."
 
     PrefsRow {
       stretchControl: true
       label: "Screensaver"
-      description: "How long you can sit still before the screensaver starts. Zero turns that step off."
+      description: "How long you can sit still before the screensaver starts. Zero skips the screensaver."
       hint: "~/.config/omarchy/shell.json · idle.screensaver"
       query: root.query
       keywords: ["idle", "timeout", "sleep"]
@@ -29,7 +29,6 @@ PrefsPage {
         value: Omarchy.idleScreensaver
         valueText: ThemeJs.formatSeconds(Omarchy.idleScreensaver)
         formatTick: function(v) { return ThemeJs.formatSeconds(v) }
-        enabled: !Omarchy.busy
         onChanged: function(value) {
           var next = Math.round(value)
           if (next !== Omarchy.idleScreensaver)
@@ -41,7 +40,7 @@ PrefsPage {
     PrefsRow {
       stretchControl: true
       label: "Lock"
-      description: "How long you can sit still before the session locks. Zero turns that step off."
+      description: "How long you can sit still before the session locks. Zero skips the lock."
       hint: "~/.config/omarchy/shell.json · idle.lock"
       query: root.query
       keywords: ["screen lock", "security"]
@@ -54,7 +53,6 @@ PrefsPage {
         value: Omarchy.idleLock
         valueText: ThemeJs.formatSeconds(Omarchy.idleLock)
         formatTick: function(v) { return ThemeJs.formatSeconds(v) }
-        enabled: !Omarchy.busy
         onChanged: function(value) {
           var next = Math.round(value)
           if (next !== Omarchy.idleLock)
@@ -67,18 +65,17 @@ PrefsPage {
   PrefsGroup {
     title: "Behavior"
     query: root.query
-    detail: "Stay awake skips the screensaver and lock timers. Allow screensaver and Allow suspend hide those actions when they are off."
+    detail: "Stay awake skips the screensaver and lock timers. Allow screensaver and Allow suspend hide those actions when they are disabled."
 
     PrefsRow {
       label: "Stay awake"
-      description: "Keep the screen on and unlocked while this is on. Handy for a long compile or a movie."
+      description: "Keep the screen awake and unlocked while Stay awake is enabled. Handy for a long compile or a movie."
       hint: "omarchy toggle idle"
       query: root.query
       keywords: ["caffeine", "inhibit", "awake", "sleep"]
 
       PrefsToggle {
         checked: Omarchy.stayAwake
-        enabled: !Omarchy.busy
         onToggled: Omarchy.setStayAwake(!Omarchy.stayAwake)
       }
     }
@@ -92,7 +89,6 @@ PrefsPage {
 
       PrefsToggle {
         checked: Omarchy.screensaverEnabled
-        enabled: !Omarchy.busy
         onToggled: Omarchy.setScreensaverEnabled(!Omarchy.screensaverEnabled)
       }
     }
@@ -106,7 +102,6 @@ PrefsPage {
 
       PrefsToggle {
         checked: Omarchy.suspendEnabled
-        enabled: !Omarchy.busy
         onToggled: Omarchy.setSuspendEnabled(!Omarchy.suspendEnabled)
       }
     }
@@ -130,19 +125,17 @@ PrefsPage {
         spacing: 8
         PrefsButton {
           text: "Image…"
-          enabled: !Omarchy.busy
           onClicked: Omarchy.setScreensaverBranding("image")
         }
         PrefsButton {
           text: "Edit"
-          enabled: !Omarchy.busy
           onClicked: Omarchy.setScreensaverBranding("text")
         }
         PrefsButton {
           visible: Omarchy.screensaverBranded
           text: "Reset"
           danger: true
-          enabled: !Omarchy.busy && Omarchy.screensaverBranded
+          enabled: Omarchy.screensaverBranded
           onClicked: Omarchy.setScreensaverBranding("reset")
         }
       }
@@ -157,10 +150,15 @@ PrefsPage {
     PrefsRow {
       available: Omarchy.isLaptop
       label: "Lid close"
-      description: "Closing the lid locks the session when no external monitor is connected. A docked lid stays unlocked on the other screen."
+      description: "Handled by logind (omarchy-system-lid-close), not a switch here. Closing the lid locks when undocked. A docked lid stays unlocked on the other screen."
       hint: "omarchy-system-lid-close"
       query: root.query
       keywords: ["lid", "clamshell", "lock", "close"]
+
+      PrefsToggle {
+        checked: true
+        enabled: false
+      }
     }
   }
 }

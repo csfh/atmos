@@ -8,7 +8,7 @@ import "network" as Net
 PrefsPage {
   id: root
   title: "Network"
-  description: "What you are connected to, plus DNS. Wi-Fi and Bluetooth open their own pages. There is a speed test as well."
+  description: "What you are connected to, plus DNS. Radios sit on this page. Networks, pairing, and a speed test open their own pages."
 
   property var stack: null
   property var navigator: null
@@ -47,36 +47,47 @@ PrefsPage {
     Omarchy.setCustomDns(parsed.servers.join(" "))
   }
 
-  function connectionSummary() {
+  function linkLabel() {
+    if (Omarchy.netKind === "ethernet") return "Ethernet"
+    if (Omarchy.netKind === "wifi") return Omarchy.netSsid.length ? Omarchy.netSsid : "Wi-Fi"
+    return "Offline"
+  }
+
+  function linkDescription() {
     if (Omarchy.netKind === "ethernet") {
-      var wired = "Ethernet"
-      if (Omarchy.netIface) wired += " on " + Omarchy.netIface
-      if (Omarchy.netIp) wired += ". " + Omarchy.netIp
-      if (Omarchy.netSpeed) wired += ". " + Omarchy.netSpeed + " Mb/s"
-      return wired + "."
+      var wired = ["Wired default route"]
+      if (Omarchy.netIface) wired.push(Omarchy.netIface)
+      if (Omarchy.netSpeed) wired.push(Omarchy.netSpeed + " Mb/s")
+      return wired.join(" · ") + "."
     }
     if (Omarchy.netKind === "wifi") {
-      var wifi = Omarchy.netSsid.length ? Omarchy.netSsid : "Wi-Fi"
-      if (Omarchy.netSignal) wifi += ". Signal " + Omarchy.netSignal + "%"
-      if (Omarchy.netIp) wifi += ". " + Omarchy.netIp
-      return wifi + "."
+      var wifi = ["Wi-Fi default route"]
+      if (Omarchy.netIface) wifi.push(Omarchy.netIface)
+      if (Omarchy.netSignal) wifi.push(Omarchy.netSignal + "% signal")
+      return wifi.join(" · ") + "."
     }
-    return "Nothing is online on the default route."
+    return "No default route. Refresh after you plug in a cable or join Wi-Fi."
   }
 
-  function wifiSummary() {
-    if (!Omarchy.wifiRadio) return "Radio is off."
+  function wifiHubDescription() {
+    if (!Omarchy.wifiHw)
+      return "NetworkManager does not see a Wi-Fi adapter. The switch stays off until the kernel exposes one (driver or rfkill)."
+    if (!Omarchy.wifiRadio)
+      return "The radio is stopped. Turn it on to scan. Nearby and saved networks, band, and a QR code are on the next page."
     if (Omarchy.netKind === "wifi" && Omarchy.netSsid.length)
-      return "Connected to " + Omarchy.netSsid + "."
-    return "On. Open Wi-Fi to pick a network."
+      return "Connected to " + Omarchy.netSsid + ". Open networks to switch, forget, or share a QR code."
+    return "Scanning. Open networks to pick an access point."
   }
 
-  function bluetoothSummary() {
-    if (!Omarchy.bluetooth) return "Radio is off."
+  function bluetoothHubDescription() {
+    if (!Omarchy.bluetooth)
+      return "The adapter is powered down. Turn it on to pair a headset or mouse. Pairing and a scan are on the next page."
     var n = Omarchy.bluetoothDevices.length
-    if (n === 1) return "On. One paired device."
-    if (n > 1) return "On. " + n + " paired devices."
-    return "On. Open Bluetooth to pair a device."
+    if (n === 1)
+      return "One paired device. Open devices to connect, forget, or scan."
+    if (n > 1)
+      return n + " paired devices. Open devices to connect, forget, or scan."
+    return "No paired devices yet. Open devices to scan for a headset or mouse."
   }
 
   PrefsGroup {
@@ -86,49 +97,93 @@ PrefsPage {
     hint: "omarchy network status"
 
     PrefsRow {
-      label: "Status"
-      description: root.connectionSummary()
+      label: root.linkLabel()
+      description: root.linkDescription()
       hint: "omarchy network status"
       query: root.query
-      keywords: ["ethernet", "wifi", "online", "offline", "ip", "iface"]
+      keywords: ["ethernet", "wifi", "online", "offline", "ip", "iface", "status"]
+
+      PrefsButton {
+        text: "Refresh"
+        onClicked: Omarchy.refresh()
+      }
     }
 
+    PrefsRow {
+      available: Omarchy.netIp.length > 0
+      label: "Address"
+      description: Omarchy.netIp
+      hint: "omarchy network status"
+      query: root.query
+      keywords: ["ip", "ipv4", "address", "copy"]
+
+      PrefsButton {
+        text: "Copy"
+        enabled: Omarchy.netIp.length > 0
+        onClicked: Omarchy.copyText(Omarchy.netIp)
+      }
+    }
   }
 
   PrefsGroup {
     title: "Connectivity"
     query: root.query
-    detail: "These open their own pages. Adapter power and pairing live there too."
+    detail: "Radios sit here. Nearby networks, pairing, and the speed test open their own pages."
     hint: "omarchy network"
 
-    PrefsLink {
-      available: Omarchy.wifiHw
+    PrefsRow {
       label: "Wi-Fi"
-      description: "Nearby and saved networks, band, and a QR code you can share."
+      description: root.wifiHubDescription()
       hint: "nmcli radio wifi"
       query: root.query
       keywords: ["wlan", "ssid", "scan", "join", "psk", "qr", "rfkill"]
-      valueText: root.wifiSummary()
-      onClicked: root.openSubpage("wifi")
+
+      Row {
+        spacing: 8
+        PrefsToggle {
+          checked: Omarchy.wifiHw && Omarchy.wifiRadio
+          enabled: Omarchy.wifiHw
+          onToggled: Omarchy.setWifiRadio(!Omarchy.wifiRadio)
+        }
+        PrefsButton {
+          text: "Networks"
+          enabled: Omarchy.wifiHw
+          onClicked: root.openSubpage("wifi")
+        }
+      }
     }
 
-    PrefsLink {
+    PrefsRow {
       label: "Bluetooth"
-      description: "Paired devices, a scan for new ones, and the adapter power switch."
+      description: root.bluetoothHubDescription()
       hint: "omarchy bluetooth power"
       query: root.query
       keywords: ["bt", "pair", "headset", "scan", "forget", "radio"]
-      valueText: root.bluetoothSummary()
-      onClicked: root.openSubpage("bluetooth")
+
+      Row {
+        spacing: 8
+        PrefsToggle {
+          checked: Omarchy.bluetooth
+          onToggled: Omarchy.setBluetooth(!Omarchy.bluetooth)
+        }
+        PrefsButton {
+          text: "Devices"
+          onClicked: root.openSubpage("bluetooth")
+        }
+      }
     }
 
-    PrefsLink {
+    PrefsRow {
       label: "Speed test"
       description: "A short download, then an upload, on whatever you are connected to now."
       hint: "omarchy network speedtest"
       query: root.query
       keywords: ["bandwidth", "ping", "speedtest"]
-      onClicked: root.openSubpage("speedtest")
+
+      PrefsButton {
+        text: "Open"
+        onClicked: root.openSubpage("speedtest")
+      }
     }
   }
 
@@ -149,7 +204,7 @@ PrefsPage {
       PrefsSelect {
         value: Omarchy.dns
         options: root.dnsOptions
-        enabled: !Omarchy.busy && !Omarchy.jobBusy && Omarchy.dns.length > 0
+        enabled: !Omarchy.jobBusy && Omarchy.dns.length > 0
         onChanged: function(value) {
           if (value === "Custom" || value === Omarchy.dns) return
           Omarchy.setDns(value)
@@ -175,7 +230,7 @@ PrefsPage {
           width: parent.width - dnsSetBtn.width - parent.spacing
           placeholder: "1.1.1.1 8.8.8.8"
           horizontalAlignment: TextInput.AlignHCenter
-          enabled: !Omarchy.busy && !Omarchy.jobBusy
+          enabled: !Omarchy.jobBusy
           invalid: root.dnsError.length > 0
           onEdited: function(value) {
             var status = RichUi.dnsInputStatus(value)
@@ -189,7 +244,7 @@ PrefsPage {
           id: dnsSetBtn
           text: "Set"
           primary: true
-          enabled: !Omarchy.busy && !Omarchy.jobBusy && root.dnsReady
+          enabled: !Omarchy.jobBusy && root.dnsReady
           onClicked: root.applyCustomDns(dnsField.currentText())
         }
       }
@@ -218,14 +273,14 @@ PrefsPage {
           visible: !Omarchy.tailscaleInstalled
           text: "Install…"
           primary: true
-          enabled: !Omarchy.busy && !Omarchy.jobBusy && !Omarchy.tailscaleInstalled
+          enabled: !Omarchy.jobBusy && !Omarchy.tailscaleInstalled
           onClicked: tailscaleInstallConfirm.ask()
         }
         PrefsButton {
           visible: Omarchy.tailscaleInstalled
           text: "Remove…"
           danger: true
-          enabled: !Omarchy.busy && !Omarchy.jobBusy && Omarchy.tailscaleInstalled
+          enabled: !Omarchy.jobBusy && Omarchy.tailscaleInstalled
           onClicked: tailscaleRemoveConfirm.ask()
         }
       }
@@ -241,7 +296,7 @@ PrefsPage {
 
       PrefsButton {
         text: "Share clipboard"
-        enabled: !Omarchy.busy && Omarchy.extras && Omarchy.extras.localsend === true
+        enabled: Omarchy.extras && Omarchy.extras.localsend === true
         onClicked: Omarchy.shareClipboard()
       }
     }
@@ -256,7 +311,7 @@ PrefsPage {
 
       PrefsButton {
         text: "Share file…"
-        enabled: !Omarchy.busy && Omarchy.extras && Omarchy.extras.localsend === true
+        enabled: Omarchy.extras && Omarchy.extras.localsend === true
         onClicked: {
           root.shareFileMode = true
           shareFileDialog.open()
@@ -274,7 +329,7 @@ PrefsPage {
 
       PrefsButton {
         text: "Share folder…"
-        enabled: !Omarchy.busy && Omarchy.extras && Omarchy.extras.localsend === true
+        enabled: Omarchy.extras && Omarchy.extras.localsend === true
         onClicked: shareFolderDialog.open()
       }
     }
@@ -292,13 +347,13 @@ PrefsPage {
         PrefsField {
           width: 140
           placeholder: "machine"
-          enabled: !Omarchy.busy && Omarchy.tailscaleInstalled
+          enabled: Omarchy.tailscaleInstalled
           onEdited: function(value) { root.tailscaleMachine = value }
           onSubmitted: function(value) { root.tailscaleMachine = value }
         }
         PrefsButton {
           text: "Send file…"
-          enabled: !Omarchy.busy && Omarchy.tailscaleInstalled && root.tailscaleMachine.length > 0
+          enabled: Omarchy.tailscaleInstalled && root.tailscaleMachine.length > 0
           onClicked: {
             root.shareFileMode = false
             shareFileDialog.open()
@@ -317,7 +372,7 @@ PrefsPage {
 
       PrefsButton {
         text: "Receive once"
-        enabled: !Omarchy.busy && Omarchy.tailscaleInstalled
+        enabled: Omarchy.tailscaleInstalled
         onClicked: Omarchy.tailscaleReceive()
       }
     }

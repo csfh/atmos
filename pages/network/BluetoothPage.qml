@@ -62,14 +62,15 @@ PrefsPage {
 
     PrefsRow {
       label: "Bluetooth radio"
-      description: Omarchy.bluetooth ? "On. Paired devices show up below." : "Off. Turn it on to connect a headset or mouse."
+      description: Omarchy.bluetooth
+        ? "Paired devices show up below. Scan further down for something new."
+        : "The adapter is powered down. Turn it on to pair a headset or mouse."
       hint: "omarchy bluetooth power"
       query: root.query
       keywords: ["bt", "radio", "wireless"]
 
       PrefsToggle {
         checked: Omarchy.bluetooth
-        enabled: !Omarchy.busy
         onToggled: Omarchy.setBluetooth(!Omarchy.bluetooth)
       }
     }
@@ -83,7 +84,6 @@ PrefsPage {
 
       PrefsButton {
         text: "Restart"
-        enabled: !Omarchy.busy
         onClicked: Omarchy.restartBluetooth()
       }
     }
@@ -98,10 +98,18 @@ PrefsPage {
     PrefsRow {
       available: Omarchy.bluetoothDevices.length === 0
       sectionHelp: false
-      label: "None yet"
-      description: "Nothing is paired yet. Turn on Scan below to find a device."
+      label: "Paired devices"
+      description: Omarchy.bluetooth
+        ? "Nothing is paired yet. Scan nearby for a headset or mouse."
+        : "Turn the radio on above, then scan for a nearby device."
       query: root.query
       keywords: ["empty"]
+
+      PrefsButton {
+        text: "Scan"
+        enabled: Omarchy.bluetooth
+        onClicked: root.scanningBt = true
+      }
     }
 
     Repeater {
@@ -122,7 +130,7 @@ PrefsPage {
           PrefsButton {
             text: modelData && modelData.connected ? "Disconnect" : "Connect"
             primary: !(modelData && modelData.connected)
-            enabled: !Omarchy.busy && Omarchy.bluetooth && modelData && modelData.address
+            enabled: Omarchy.bluetooth && modelData && modelData.address
             onClicked: {
               if (modelData.connected) Omarchy.disconnectBluetoothDevice(modelData.address)
               else Omarchy.connectBluetoothDevice(modelData.address)
@@ -131,7 +139,7 @@ PrefsPage {
           PrefsButton {
             text: "Forget"
             danger: true
-            enabled: !Omarchy.busy && modelData && modelData.address
+            enabled: modelData && modelData.address
             onClicked: {
               forgetBtConfirm.payload = modelData.address
               forgetBtConfirm.ask()
@@ -149,13 +157,15 @@ PrefsPage {
 
     PrefsRow {
       label: "Scan"
-      description: root.scanningBt ? "Looking for unpaired devices nearby." : "Look for unpaired devices nearby."
+      description: !Omarchy.bluetooth
+        ? "Turn the radio on above. The switch stays off until the adapter is powered."
+        : (root.scanningBt ? "Looking for unpaired devices nearby." : "Look for unpaired devices nearby.")
       hint: "bluetoothctl scan"
       query: root.query
       keywords: ["discover", "pair", "headset"]
 
       PrefsToggle {
-        checked: root.scanningBt
+        checked: Omarchy.bluetooth && root.scanningBt
         enabled: Omarchy.bluetooth
         onToggled: root.scanningBt = !root.scanningBt
       }
@@ -177,7 +187,7 @@ PrefsPage {
         PrefsButton {
           text: "Pair"
           primary: true
-          enabled: !Omarchy.busy && modelData && modelData.address
+          enabled: modelData && modelData.address
           onClicked: Omarchy.pairBluetoothDevice(modelData.address)
         }
       }

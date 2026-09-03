@@ -42,7 +42,7 @@ PrefsPage {
       PrefsSelect {
         value: Omarchy.powerProfile
         options: root.profileOptions
-        enabled: !Omarchy.busy && root.profileOptions.length > 0
+        enabled: root.profileOptions.length > 0
         onChanged: function(value) {
           if (value !== Omarchy.powerProfile) Omarchy.setPowerProfile(value)
         }
@@ -60,7 +60,7 @@ PrefsPage {
       PrefsSelect {
         value: Omarchy.powerProfileAc
         options: root.profileOptions
-        enabled: !Omarchy.busy && root.profileOptions.length > 0
+        enabled: root.profileOptions.length > 0
         onChanged: function(value) {
           if (value !== Omarchy.powerProfileAc) Omarchy.setPowerProfileAc(value)
         }
@@ -78,7 +78,7 @@ PrefsPage {
       PrefsSelect {
         value: Omarchy.powerProfileBattery
         options: root.profileOptions
-        enabled: !Omarchy.busy && root.profileOptions.length > 0
+        enabled: root.profileOptions.length > 0
         onChanged: function(value) {
           if (value !== Omarchy.powerProfileBattery) Omarchy.setPowerProfileBattery(value)
         }
@@ -102,7 +102,7 @@ PrefsPage {
 
       PrefsButton {
         text: "Show"
-        enabled: !Omarchy.busy && Omarchy.batteryPresent
+        enabled: Omarchy.batteryPresent
         onClicked: Omarchy.showBatteryNotification()
       }
     }
@@ -117,7 +117,7 @@ PrefsPage {
 
       PrefsToggle {
         checked: Omarchy.powerShowPercentage
-        enabled: !Omarchy.busy && Omarchy.powerPresent && Omarchy.isLaptop
+        enabled: Omarchy.powerPresent && Omarchy.isLaptop
         onToggled: Omarchy.setPowerShowPercentage(!Omarchy.powerShowPercentage)
       }
     }

@@ -48,7 +48,6 @@ PrefsPage {
       PrefsSelect {
         value: root.shotMode
         options: root.screenshotModes
-        enabled: !Omarchy.busy
         onChanged: function(value) { root.shotMode = value }
       }
     }
@@ -63,7 +62,6 @@ PrefsPage {
       PrefsSelect {
         value: root.shotDest
         options: root.screenshotDests
-        enabled: !Omarchy.busy
         onChanged: function(value) { root.shotDest = value }
       }
     }
@@ -78,7 +76,6 @@ PrefsPage {
       PrefsButton {
         text: "Capture"
         primary: true
-        enabled: !Omarchy.busy
         onClicked: Omarchy.captureScreenshot(root.shotMode, root.shotDest)
       }
     }
@@ -99,7 +96,7 @@ PrefsPage {
 
       PrefsToggle {
         checked: root.recDesktopAudio
-        enabled: !Omarchy.busy && !Omarchy.recordingActive
+        enabled: !Omarchy.recordingActive
         onToggled: root.recDesktopAudio = !root.recDesktopAudio
       }
     }
@@ -113,7 +110,7 @@ PrefsPage {
 
       PrefsToggle {
         checked: root.recMic
-        enabled: !Omarchy.busy && !Omarchy.recordingActive
+        enabled: !Omarchy.recordingActive
         onToggled: root.recMic = !root.recMic
       }
     }
@@ -127,7 +124,7 @@ PrefsPage {
 
       PrefsToggle {
         checked: root.recWebcam
-        enabled: !Omarchy.busy && !Omarchy.recordingActive
+        enabled: !Omarchy.recordingActive
         onToggled: root.recWebcam = !root.recWebcam
       }
     }
@@ -143,7 +140,7 @@ PrefsPage {
       PrefsSelect {
         value: root.recWebcamSize
         options: root.webcamSizes
-        enabled: !Omarchy.busy && !Omarchy.recordingActive
+        enabled: !Omarchy.recordingActive
         onChanged: function(value) { root.recWebcamSize = value }
       }
     }
@@ -157,7 +154,7 @@ PrefsPage {
 
       PrefsToggle {
         checked: root.recFullscreen
-        enabled: !Omarchy.busy && !Omarchy.recordingActive
+        enabled: !Omarchy.recordingActive
         onToggled: root.recFullscreen = !root.recFullscreen
       }
     }
@@ -177,14 +174,14 @@ PrefsPage {
           visible: !Omarchy.recordingActive
           text: "Start"
           primary: true
-          enabled: !Omarchy.busy && !Omarchy.recordingActive
+          enabled: !Omarchy.recordingActive
           onClicked: Omarchy.startScreenrecording(root.recDesktopAudio, root.recMic, root.recWebcam, root.recWebcamSize, root.recFullscreen)
         }
         PrefsButton {
           visible: Omarchy.recordingActive
           text: "Stop"
           danger: true
-          enabled: !Omarchy.busy && Omarchy.recordingActive
+          enabled: Omarchy.recordingActive
           onClicked: Omarchy.stopScreenrecording()
         }
       }
@@ -202,17 +199,17 @@ PrefsPage {
         spacing: 8
         PrefsButton {
           text: "Smaller"
-          enabled: !Omarchy.busy && Omarchy.webcamOverlay
+          enabled: Omarchy.webcamOverlay
           onClicked: Omarchy.resizeWebcam("smaller")
         }
         PrefsButton {
           text: "Larger"
-          enabled: !Omarchy.busy && Omarchy.webcamOverlay
+          enabled: Omarchy.webcamOverlay
           onClicked: Omarchy.resizeWebcam("larger")
         }
         PrefsButton {
           text: "Reset"
-          enabled: !Omarchy.busy && Omarchy.webcamOverlay
+          enabled: Omarchy.webcamOverlay
           onClicked: Omarchy.resizeWebcam("reset")
         }
       }
@@ -233,7 +230,6 @@ PrefsPage {
 
       PrefsButton {
         text: "Read text"
-        enabled: !Omarchy.busy
         onClicked: Omarchy.captureText()
       }
     }
@@ -247,7 +243,6 @@ PrefsPage {
 
       PrefsButton {
         text: "Read QR"
-        enabled: !Omarchy.busy
         onClicked: Omarchy.captureQr()
       }
     }
@@ -256,22 +251,54 @@ PrefsPage {
   PrefsGroup {
     title: "Save locations"
     query: root.query
-    detail: "Omarchy uses the XDG Pictures and Videos folders. These rows are a readout."
+    detail: "Omarchy uses the XDG Pictures and Videos folders. Open the folder or copy the path. These are not changed here."
 
     PrefsRow {
       label: "Screenshots"
-      description: Omarchy.picturesDir.length ? Omarchy.picturesDir : "Pictures is not set yet."
+      description: Omarchy.picturesDir.length
+        ? Omarchy.picturesDir
+        : "XDG Pictures is not set. Open and Copy stay disabled until that folder exists."
       hint: "XDG_PICTURES_DIR"
       query: root.query
       keywords: ["pictures", "folder", "screenshot", "path"]
+
+      Row {
+        spacing: 8
+        PrefsButton {
+          text: "Open"
+          enabled: Omarchy.picturesDir.length > 0
+          onClicked: Omarchy.openUserDir(Omarchy.picturesDir)
+        }
+        PrefsButton {
+          text: "Copy"
+          enabled: Omarchy.picturesDir.length > 0
+          onClicked: Omarchy.copyText(Omarchy.picturesDir)
+        }
+      }
     }
 
     PrefsRow {
       label: "Recordings"
-      description: Omarchy.videosDir.length ? Omarchy.videosDir : "Videos is not set yet."
+      description: Omarchy.videosDir.length
+        ? Omarchy.videosDir
+        : "XDG Videos is not set. Open and Copy stay disabled until that folder exists."
       hint: "XDG_VIDEOS_DIR"
       query: root.query
       keywords: ["videos", "folder", "recording", "path"]
+
+      Row {
+        spacing: 8
+        PrefsButton {
+          text: "Open"
+          enabled: Omarchy.videosDir.length > 0
+          onClicked: Omarchy.openUserDir(Omarchy.videosDir)
+        }
+        PrefsButton {
+          text: "Copy"
+          enabled: Omarchy.videosDir.length > 0
+          onClicked: Omarchy.copyText(Omarchy.videosDir)
+        }
+      }
     }
   }
 }

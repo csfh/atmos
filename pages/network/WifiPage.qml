@@ -211,20 +211,21 @@ PrefsPage {
     hint: "nmcli radio wifi"
 
     PrefsRow {
-      available: Omarchy.wifiHw
       label: "Wi-Fi radio"
-      description: Omarchy.wifiRadio
-        ? (Omarchy.netKind === "wifi" && Omarchy.netSsid.length
-          ? "On. Connected to " + Omarchy.netSsid + "."
-          : "On. Scanning for networks below.")
-        : "Off. Turn it on to see nearby networks."
+      description: !Omarchy.wifiHw
+        ? "NetworkManager does not see a Wi-Fi adapter. The switch stays off until the kernel exposes one (driver or rfkill)."
+        : (Omarchy.wifiRadio
+          ? (Omarchy.netKind === "wifi" && Omarchy.netSsid.length
+            ? "Connected to " + Omarchy.netSsid + ". Nearby networks stay below."
+            : "Scanning for access points below.")
+          : "The radio is stopped. Turn it on to scan nearby networks.")
       hint: "nmcli radio wifi"
       query: root.query
       keywords: ["wlan", "rfkill", "airplane", "radio"]
 
       PrefsToggle {
-        checked: Omarchy.wifiRadio
-        enabled: !Omarchy.busy && Omarchy.wifiHw
+        checked: Omarchy.wifiHw && Omarchy.wifiRadio
+        enabled: Omarchy.wifiHw
         onToggled: Omarchy.setWifiRadio(!Omarchy.wifiRadio)
       }
     }
@@ -240,9 +241,22 @@ PrefsPage {
       available: root.wifiRows.length === 0
       sectionHelp: false
       label: "Nearby networks"
-      description: Omarchy.wifiRadio ? "Looking for access points nearby." : "Turn the radio on above to scan."
+      description: !Omarchy.wifiHw
+        ? "No adapter. Refresh stays disabled until NetworkManager sees Wi-Fi hardware."
+        : (Omarchy.wifiRadio
+          ? "Looking for access points nearby."
+          : "Turn the radio on above, then refresh to scan.")
       query: root.query
       keywords: ["scan", "ssid"]
+
+      PrefsButton {
+        text: "Refresh"
+        enabled: Omarchy.wifiHw && Omarchy.wifiRadio
+        onClicked: {
+          Omarchy.refresh()
+          root.rebuildWifi()
+        }
+      }
     }
 
     Repeater {
@@ -274,7 +288,7 @@ PrefsPage {
             PrefsButton {
               text: modelData && modelData.connected ? "Disconnect" : (root.actionSsid === modelData.ssid ? "Joining…" : "Join")
               primary: !(modelData && modelData.connected)
-              enabled: !Omarchy.busy && root.actionKind === "" && modelData
+              enabled: root.actionKind === "" && modelData
               onClicked: {
                 if (modelData.connected) {
                   var net = root.networkForSsid(modelData.ssid)
@@ -288,7 +302,7 @@ PrefsPage {
               visible: !!(modelData && modelData.known && !modelData.connected)
               text: "Forget"
               danger: true
-              enabled: !Omarchy.busy && modelData
+              enabled: modelData
               onClicked: {
                 forgetWifiConfirm.payload = modelData.ssid
                 forgetWifiConfirm.ask()
@@ -329,10 +343,16 @@ PrefsPage {
     PrefsRow {
       available: root.wifiError.length > 0
       sectionHelp: false
-      label: "Error"
+      label: "Could not join"
       description: root.wifiError
       query: root.query
       keywords: ["failed"]
+
+      PrefsButton {
+        text: "Dismiss"
+        enabled: root.wifiError.length > 0
+        onClicked: root.wifiError = ""
+      }
     }
   }
 
@@ -354,7 +374,7 @@ PrefsPage {
       PrefsSelect {
         value: Omarchy.wifiBandSelected
         options: root.bandOptions
-        enabled: !Omarchy.busy && Omarchy.wifiConnected && root.bandOptions.length > 0
+        enabled: Omarchy.wifiConnected && root.bandOptions.length > 0
         onChanged: function(value) {
           if (value !== Omarchy.wifiBandSelected) Omarchy.setWifiBand(value)
         }
@@ -383,7 +403,7 @@ PrefsPage {
           }
           PrefsButton {
             text: "Copy password"
-            enabled: !Omarchy.busy && Omarchy.wifiIface.length > 0
+            enabled: Omarchy.wifiIface.length > 0
             onClicked: Omarchy.copyWifiPassword()
           }
         }
@@ -428,7 +448,7 @@ PrefsPage {
 
       PrefsButton {
         text: "Restart"
-        enabled: !Omarchy.busy && Omarchy.wifiHw
+        enabled: Omarchy.wifiHw
         onClicked: Omarchy.restartWifi()
       }
     }

@@ -131,6 +131,37 @@ assert(!shell.rowMatches('network', ['Theme', 'font']), 'query rejects unrelated
 assert(shell.haystackMatches('FONT', shell.joinSearchHaystack(['Theme', 'omarchy font set'])), 'haystackMatches reuses a lowered haystack')
 assert(!shell.haystackMatches('network', shell.joinSearchHaystack(['Theme', 'font'])), 'haystackMatches rejects unrelated rows')
 
+const search = require('../services/SearchIndex.js')
+assert(typeof search.setSetting === 'undefined', 'search index has no setSetting write path')
+assert(typeof search.writePrefs === 'undefined', 'search index has no writePrefs path')
+assert(typeof search.savePrefs === 'undefined', 'search index has no savePrefs path')
+
+const catalog = [
+  { id: 'appearance/font', hub: 'appearance', hubTitle: 'Appearance', label: 'Font', description: 'The monospace face', hint: 'omarchy font set', keywords: ['theme', 'typeface'] },
+  { id: 'network/wifi', hub: 'network', hubTitle: 'Network', label: 'Wi-Fi', description: 'Wireless radio', hint: 'nmcli', keywords: ['ssid'] }
+]
+const index = search.openIndex()
+search.ingestRows(index, catalog)
+const emptyHits = search.queryRows(index, '')
+assert(emptyHits.length === 2, 'empty query matches every indexed row')
+const fontHits = search.queryRows(index, 'font')
+assert(fontHits.some(function(row) { return row.id === 'appearance/font' }), 'font matches the theme/font row')
+assert(!fontHits.some(function(row) { return row.id === 'network/wifi' }), 'font does not match an unrelated network row')
+const fontUpperHits = search.queryRows(index, 'FONT')
+assert(fontUpperHits.some(function(row) { return row.id === 'appearance/font' }), 'FONT matches the same lowered haystack')
+assertEqual(fontUpperHits.length, fontHits.length, 'FONT and font return the same hit count')
+const networkHits = search.queryRows(index, 'network')
+assert(!networkHits.some(function(row) { return row.id === 'appearance/font' }), 'network does not match a theme/font row')
+
+search.ingestSnapshot(index, { theme: 'omarchy', barPosition: 'top', nested: { lock: 300 } })
+assertEqual(search.getState(index, 'theme'), 'omarchy', 'derived state loads theme from snapshot JSON')
+assertEqual(search.getState(index, 'barPosition'), 'top', 'derived state loads barPosition from snapshot JSON')
+assertEqual(search.getState(index, 'nested.lock'), '300', 'derived state flattens nested snapshot fields')
+assertEqual(search.getState(index, 'missing'), null, 'derived state misses unknown keys')
+
+const qmlCatalog = search.catalogFromQmlDir(path.join(__dirname, '..', 'pages'))
+assert(qmlCatalog.some(function(row) { return row.label === 'Font' && row.hub === 'appearance' }), 'qml catalog indexes the Font row')
+
 const ui = load('services/RichUi.js')
 const qr = ui.parseQrOutput('meta\twlan0\tWPA\tCafe\n0110\n1001\n')
 assert(qr.ok === true, 'parseQrOutput accepts a meta header and matrix')

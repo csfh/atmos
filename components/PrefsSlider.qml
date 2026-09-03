@@ -20,6 +20,8 @@ Item {
 
   readonly property real _step: stepSize > 0 ? stepSize : 1
   property var ticks: []
+  property bool _holding: false
+  property real _heldValue: 0
 
   function rebuildTicks() {
     var n = 0
@@ -51,6 +53,12 @@ Item {
   onToChanged: rebuildTicks()
   onStepSizeChanged: rebuildTicks()
   Component.onCompleted: rebuildTicks()
+
+  onValueChanged: {
+    if (!_holding) return
+    if (snapValue(value) === snapValue(_heldValue))
+      _holding = false
+  }
 
   readonly property int valueLineHeight: showValue ? Theme.captionSize : 0
   readonly property int trackBoxHeight: 22
@@ -97,7 +105,9 @@ Item {
     Text {
       visible: root.showValue
       height: visible ? implicitHeight : 0
-      text: slider.pressed ? root.formatValue(slider.value) : (root.valueText.length > 0 ? root.valueText : root.formatValue(root.value))
+      text: slider.pressed || root._holding
+        ? root.formatValue(slider.value)
+        : (root.valueText.length > 0 ? root.valueText : root.formatValue(root.value))
       color: Theme.foreground
       font.family: Theme.fontFamily
       font.pixelSize: Theme.captionSize
@@ -120,7 +130,17 @@ Item {
         value: root.value
         enabled: root.enabled
         onMoved: root.moved(root.snapValue(value))
-        onPressedChanged: if (!pressed) root.changed(root.snapValue(value))
+        onPressedChanged: {
+          if (pressed) {
+            root._holding = false
+            return
+          }
+          var v = root.snapValue(value)
+          root.changed(v)
+          if (root.snapValue(root.value) === v) return
+          root._heldValue = v
+          root._holding = true
+        }
 
         background: Item {
           x: slider.leftPadding
@@ -194,6 +214,6 @@ Item {
     target: slider
     property: "value"
     value: root.value
-    when: !slider.pressed
+    when: !slider.pressed && !root._holding
   }
 }

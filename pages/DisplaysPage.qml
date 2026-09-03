@@ -90,10 +90,11 @@ PrefsPage {
   }
 
   Repeater {
-    model: Omarchy.monitors
+    model: Omarchy.monitors.length
 
     PrefsGroup {
-      required property var modelData
+      required property int index
+      readonly property var modelData: Omarchy.monitors[index] || ({})
       title: root.monitorTitle(modelData)
       query: root.query
       detail: "This output's current mode. Scale only shows when the monitor is focused. Brightness works on the built-in panel and on some external monitors. Resolution is set in ~/.config/hypr/monitors.lua."

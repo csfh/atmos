@@ -723,23 +723,6 @@ assertEqual(
   "formatSliderCaption prefers an explicit tick string",
 );
 
-const live = ui.sliderLiveState(100);
-const firstLive = ui.sliderLivePush(live, 1000, 10);
-assertEqual(firstLive.emit, 10, "first slider move emits immediately");
-assertEqual(firstLive.delayMs, 0, "first slider move does not schedule a wait");
-const withinLive = ui.sliderLivePush(live, 1040, 20);
-assertEqual(withinLive.emit, undefined, "slider live skips a move inside 100ms");
-assertEqual(withinLive.delayMs, 60, "slider live waits the remaining 100ms window");
-const laterLive = ui.sliderLivePush(live, 1060, 40);
-assertEqual(laterLive.emit, undefined, "slider live keeps coalescing inside the window");
-assertEqual(laterLive.delayMs, 40, "slider live keeps the original window");
-const trailingLive = ui.sliderLiveTake(live, 1100);
-assertEqual(trailingLive.emit, 40, "slider live trailing emit is the latest value");
-const sameFlush = ui.sliderLiveFlush(live, 1110, 40);
-assertEqual(sameFlush.emit, undefined, "slider live flush skips the last sent value");
-const releaseFlush = ui.sliderLiveFlush(live, 1110, 55);
-assertEqual(releaseFlush.emit, 55, "slider live flush emits the release value");
-
 const dns = ui.parseDnsServers("1.1.1.1 8.8.8.8");
 assert(dns.ok === true, "parseDnsServers accepts IPv4");
 assertEqual(dns.servers.length, 2, "parseDnsServers token count");

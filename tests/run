@@ -290,13 +290,27 @@ if [[ -x scripts/set-hypr-input.sh ]] && command -v python3 >/dev/null 2>&1; the
   input_home=$(mktemp -d)
   cat >"$input_home/input.lua" <<'LUA'
 -- user note
+-- omarchy-prefs:input begin
+hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })
+-- omarchy-prefs:input end
 LUA
   ATMOS_INPUT_FILE="$input_home/input.lua" ATMOS_SKIP_HYPR=1 \
-    bash scripts/set-hypr-input.sh '{"sensitivity":-0.5,"accelProfile":"flat","naturalScroll":true}'
+    bash scripts/set-hypr-input.sh '{"sensitivity":-0.5,"accelProfile":"flat","naturalScroll":true,"workspaceGesture":true}'
   grep -q -- '-- user note' "$input_home/input.lua"
   grep -q 'sensitivity = -0.5' "$input_home/input.lua"
   grep -q 'accel_profile = "flat"' "$input_home/input.lua"
   grep -q 'natural_scroll = true' "$input_home/input.lua"
+  if grep -q -- '-- omarchy-prefs:input begin' "$input_home/input.lua"; then
+    echo "not ok - set-hypr-input.sh left an omarchy-prefs input block"
+    rm -rf "$input_home"
+    exit 1
+  fi
+  gesture_count=$(grep -c 'hl.gesture' "$input_home/input.lua" || true)
+  if [[ $gesture_count -ne 1 ]]; then
+    echo "not ok - set-hypr-input.sh left $gesture_count workspace gestures"
+    rm -rf "$input_home"
+    exit 1
+  fi
   if ATMOS_INPUT_FILE="$input_home/input.lua" ATMOS_SKIP_HYPR=1 \
     bash scripts/set-hypr-input.sh --bad >/dev/null 2>&1; then
     echo "not ok - set-hypr-input.sh accepted a bad flag"
@@ -304,7 +318,7 @@ LUA
     exit 1
   fi
   rm -rf "$input_home"
-  echo "ok - set-hypr-input.sh writes an input sentinel and rejects a flag"
+  echo "ok - set-hypr-input.sh writes an input sentinel, strips leftover prefs, and rejects a flag"
 else
   echo "ok - skipping set-hypr-input.sh"
 fi
@@ -538,6 +552,36 @@ if [[ -x scripts/update-atmos.sh ]]; then
   echo "ok - update-atmos.sh rejects a bad action"
 else
   echo "ok - skipping update-atmos.sh"
+fi
+
+if [[ -f scripts/atmos-xdg.sh ]] && command -v python3 >/dev/null 2>&1; then
+  menu_home=$(mktemp -d)
+  mkdir -p "$menu_home/.config/omarchy/extensions"
+  cat >"$menu_home/.config/omarchy/extensions/omarchy-menu.jsonc" <<'JSON'
+{
+  "setup.preferences": {
+    "label": "Atmos",
+    "action": "atmos"
+  },
+  "keep.me": {
+    "label": "Stay",
+    "action": "true"
+  }
+}
+JSON
+  # shellcheck source=../scripts/atmos-xdg.sh
+  . "$ROOT/scripts/atmos-xdg.sh"
+  HOME="$menu_home" atmos_strip_omarchy_menu
+  if grep -q '"setup.preferences"' "$menu_home/.config/omarchy/extensions/omarchy-menu.jsonc"; then
+    echo "not ok - atmos_strip_omarchy_menu left an Atmos menu entry"
+    rm -rf "$menu_home"
+    exit 1
+  fi
+  grep -q '"keep.me"' "$menu_home/.config/omarchy/extensions/omarchy-menu.jsonc"
+  rm -rf "$menu_home"
+  echo "ok - atmos_strip_omarchy_menu drops Atmos menu entries"
+else
+  echo "ok - skipping atmos_strip_omarchy_menu"
 fi
 
 if [[ -x scripts/set-atmos-channel.sh ]]; then

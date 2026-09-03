@@ -5,6 +5,10 @@ var LOOK_BEGIN = "-- atmos:look begin"
 var LOOK_END = "-- atmos:look end"
 var INPUT_BEGIN = "-- atmos:input begin"
 var INPUT_END = "-- atmos:input end"
+var LEGACY_LOOK_BEGIN = "-- omarchy-prefs:look begin"
+var LEGACY_LOOK_END = "-- omarchy-prefs:look end"
+var LEGACY_INPUT_BEGIN = "-- omarchy-prefs:input begin"
+var LEGACY_INPUT_END = "-- omarchy-prefs:input end"
 
 function defaultLook() {
   return {
@@ -305,19 +309,19 @@ function replaceSentinel(text, begin, end, block) {
 }
 
 function applyLookFile(text, raw) {
-  return replaceSentinel(text, LOOK_BEGIN, LOOK_END, serializeLook(raw))
+  return replaceSentinel(stripSentinel(text, LEGACY_LOOK_BEGIN, LEGACY_LOOK_END), LOOK_BEGIN, LOOK_END, serializeLook(raw))
 }
 
 function applyInputFile(text, raw) {
-  return replaceSentinel(text, INPUT_BEGIN, INPUT_END, serializeInput(raw))
+  return replaceSentinel(stripSentinel(text, LEGACY_INPUT_BEGIN, LEGACY_INPUT_END), INPUT_BEGIN, INPUT_END, serializeInput(raw))
 }
 
 function resetLookFile(text) {
-  return stripSentinel(text, LOOK_BEGIN, LOOK_END)
+  return stripSentinel(stripSentinel(text, LEGACY_LOOK_BEGIN, LEGACY_LOOK_END), LOOK_BEGIN, LOOK_END)
 }
 
 function resetInputFile(text) {
-  return stripSentinel(text, INPUT_BEGIN, INPUT_END)
+  return stripSentinel(stripSentinel(text, LEGACY_INPUT_BEGIN, LEGACY_INPUT_END), INPUT_BEGIN, INPUT_END)
 }
 
 function parseCssFirst(css) {

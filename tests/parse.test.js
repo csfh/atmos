@@ -678,6 +678,20 @@ assert(inputApplied.indexOf('accel_profile = "adaptive"') !== -1, 'applyInputFil
 const inputReset = hypr.resetInputFile(inputApplied)
 assert(inputReset.indexOf('-- atmos:input begin') === -1, 'resetInputFile strips the input block')
 assert(inputReset.indexOf('-- keep input comments') !== -1, 'resetInputFile keeps user comments')
+const leftoverInput = [
+  '-- keep input comments',
+  '-- omarchy-prefs:input begin',
+  'hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })',
+  '-- omarchy-prefs:input end',
+  '-- atmos:input begin',
+  'hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })',
+  '-- atmos:input end',
+  ''
+].join('\n')
+const inputMigrated = hypr.applyInputFile(leftoverInput, { workspaceGesture: true })
+assert(inputMigrated.indexOf('-- omarchy-prefs:input begin') === -1, 'applyInputFile strips a leftover omarchy-prefs input block')
+assertEqual((inputMigrated.match(/hl\.gesture\(/g) || []).length, 1, 'applyInputFile leaves one workspace gesture')
+assert(hypr.resetLookFile('-- omarchy-prefs:look begin\nhl.config({})\n-- omarchy-prefs:look end\n').indexOf('omarchy-prefs') === -1, 'resetLookFile strips a leftover omarchy-prefs look block')
 
 const sunset = load('services/HyprSunset.js')
 assertEqual(sunset.parseTime('7:00'), '07:00', 'parseTime pads an hour')

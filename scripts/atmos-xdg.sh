@@ -90,12 +90,44 @@ atmos_sync_cache() {
   git -C "$cache" checkout -B "$channel" "FETCH_HEAD"
 }
 
+atmos_strip_omarchy_menu() {
+  local dest=${1:-$HOME/.config/omarchy/extensions/omarchy-menu.jsonc}
+  [[ -f $dest ]] || return 0
+  python3 - "$dest" <<'PY'
+import json, pathlib, re, sys
+
+def load(path):
+    text = pathlib.Path(path).read_text()
+    text = re.sub(r"/\*.*?\*/", "", text, flags=re.S)
+    text = re.sub(r"//.*?$", "", text, flags=re.M)
+    return json.loads(text)
+
+path = pathlib.Path(sys.argv[1])
+try:
+    dest = load(path)
+except Exception:
+    sys.exit(0)
+if not isinstance(dest, dict):
+    sys.exit(0)
+
+def is_atmos(entry):
+    if not isinstance(entry, dict):
+        return False
+    action = str(entry.get("action") or "").strip()
+    return action == "atmos" or action.startswith("atmos ")
+
+kept = {key: value for key, value in dest.items() if not is_atmos(value)}
+if kept == dest:
+    sys.exit(0)
+path.write_text("{}\n" if not kept else json.dumps(kept, indent=2) + "\n")
+PY
+}
+
 atmos_link_xdg() {
   local dest=$1
   local bin
   bin=$(atmos_bin_home)
-  mkdir -p "$bin" "$HOME/.local/share/applications" \
-    "$HOME/.config/omarchy/extensions" "$HOME/.config/hypr"
+  mkdir -p "$bin" "$HOME/.local/share/applications" "$HOME/.config/hypr"
   cat >"$bin/atmos" <<EOF
 #!/bin/bash
 exec "$dest/bin/atmos" "\$@"
@@ -106,23 +138,7 @@ EOF
     cp "$dest/packaging/hypr-atmos.lua" "$HOME/.config/hypr/atmos.lua"
   fi
   python3 "$dest/scripts/hypr-sentinel.py" require apply "$HOME/.config/hypr/hyprland.lua"
-  python3 - "$dest/packaging/omarchy-menu.jsonc" "$HOME/.config/omarchy/extensions/omarchy-menu.jsonc" <<'PY'
-import json, pathlib, re, sys
-
-def load(path):
-    text = pathlib.Path(path).read_text()
-    text = re.sub(r"/\*.*?\*/", "", text, flags=re.S)
-    text = re.sub(r"//.*?$", "", text, flags=re.M)
-    return json.loads(text)
-
-src_path, dest_path = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2])
-src = load(src_path)
-dest = load(dest_path) if dest_path.exists() else {}
-if not isinstance(dest, dict):
-    dest = {}
-dest.update(src)
-dest_path.write_text(json.dumps(dest, indent=2) + "\n")
-PY
+  atmos_strip_omarchy_menu
   if command -v hyprctl >/dev/null 2>&1; then
     hyprctl reload >/dev/null || true
   fi

@@ -12,6 +12,10 @@ LOOK_BEGIN = "-- atmos:look begin"
 LOOK_END = "-- atmos:look end"
 INPUT_BEGIN = "-- atmos:input begin"
 INPUT_END = "-- atmos:input end"
+LEGACY_LOOK_BEGIN = "-- omarchy-prefs:look begin"
+LEGACY_LOOK_END = "-- omarchy-prefs:look end"
+LEGACY_INPUT_BEGIN = "-- omarchy-prefs:input begin"
+LEGACY_INPUT_END = "-- omarchy-prefs:input end"
 AUTOSTART_BEGIN = "-- atmos:autostart begin"
 AUTOSTART_END = "-- atmos:autostart end"
 BINDINGS_BEGIN = "-- atmos:bindings begin"
@@ -747,6 +751,7 @@ def apply(kind: str, path: Path, payload: dict | None, reset: bool) -> str:
     if kind == "windows" and not text.strip():
         text = PREFS_WINDOW_SEED + "\n"
     if kind == "look":
+        text = strip_sentinel(text, LEGACY_LOOK_BEGIN, LEGACY_LOOK_END)
         begin, end, serialize = LOOK_BEGIN, LOOK_END, serialize_look
     elif kind == "autostart":
         begin, end, serialize = AUTOSTART_BEGIN, AUTOSTART_END, serialize_autostart
@@ -755,6 +760,7 @@ def apply(kind: str, path: Path, payload: dict | None, reset: bool) -> str:
     elif kind == "windows":
         begin, end, serialize = WINDOWS_BEGIN, WINDOWS_END, serialize_windows
     else:
+        text = strip_sentinel(text, LEGACY_INPUT_BEGIN, LEGACY_INPUT_END)
         begin, end, serialize = INPUT_BEGIN, INPUT_END, serialize_input
     if reset:
         return strip_sentinel(text, begin, end)

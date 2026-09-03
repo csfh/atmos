@@ -246,6 +246,37 @@ assertEqual(
   "X",
   "second ingest adds hardware without a write-prefs path",
 );
+assertEqual(
+  search.indexPath({ ATMOS_SEARCH_INDEX: "/tmp/atmos-search.sqlite" }),
+  "/tmp/atmos-search.sqlite",
+  "indexPath honors ATMOS_SEARCH_INDEX",
+);
+assertEqual(
+  search.indexPath({ XDG_CACHE_HOME: "/tmp/xdg-cache", HOME: "/tmp/home" }),
+  "/tmp/xdg-cache/atmos/search.sqlite",
+  "indexPath uses XDG_CACHE_HOME when ATMOS_SEARCH_INDEX is unset",
+);
+assertEqual(
+  search.indexPath({ HOME: "/tmp/home" }),
+  "/tmp/home/.cache/atmos/search.sqlite",
+  "indexPath falls back to HOME/.cache/atmos/search.sqlite",
+);
+
+const cacheDir = fs.mkdtempSync(path.join(require("os").tmpdir(), "atmos-search-"));
+const cacheFile = path.join(cacheDir, "nested", "search.sqlite");
+const onDisk = search.openIndex(cacheFile);
+search.ingestRows(onDisk, catalog);
+onDisk.close();
+assert(fs.existsSync(cacheFile), "openIndex creates the sqlite file and parent dirs");
+const reopened = search.openIndex(cacheFile);
+assert(
+  search.queryRows(reopened, "font").some(function (row) {
+    return row.id === "appearance/font";
+  }),
+  "reopened sqlite file still matches font",
+);
+reopened.close();
+fs.rmSync(cacheDir, { recursive: true, force: true });
 
 const snapshot = load("services/Snapshot.js");
 const snapMerged = snapshot.mergeSnapshot(

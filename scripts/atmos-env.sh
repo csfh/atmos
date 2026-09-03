@@ -9,6 +9,7 @@
 : "${ATMOS_HYPRLAND_FILE:=$HOME/.config/hypr/hyprland.lua}"
 : "${ATMOS_HYPRSUNSET_FILE:=$HOME/.config/hypr/hyprsunset.conf}"
 : "${ATMOS_WINDOWS_FILE:=$HOME/.config/hypr/atmos.lua}"
+: "${ATMOS_SEARCH_INDEX:=${XDG_CACHE_HOME:-$HOME/.cache}/atmos/search.sqlite}"
 ATMOS_HYPR_JSON=""
 
 atmos_hypr_apply() {

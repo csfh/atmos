@@ -23,6 +23,8 @@ node tests/parse.test.js
 
 catalog=$(mktemp)
 snapshot=$(mktemp)
+search_cache=$(mktemp -d)
+export ATMOS_SEARCH_INDEX="$search_cache/search.sqlite"
 cat >"$catalog" <<'JSON'
 [
   {"id":"appearance/font","hub":"appearance","label":"Font","description":"The monospace face","hint":"omarchy font set","keywords":["theme"]},
@@ -51,12 +53,22 @@ if (hits.some((row) => row.id === "appearance/font")) process.exit(1)
 '
 if [[ $theme_state != '"omarchy"' ]]; then
   echo "not ok - SearchIndex.js state theme"
+  rm -rf "$search_cache"
   rm -f "$catalog" "$snapshot"
   exit 1
 fi
+if [[ ! -f $ATMOS_SEARCH_INDEX ]]; then
+  echo "not ok - SearchIndex.js did not write $ATMOS_SEARCH_INDEX"
+  rm -rf "$search_cache"
+  rm -f "$catalog" "$snapshot"
+  exit 1
+fi
+rm -rf "$search_cache"
 rm -f "$catalog" "$snapshot"
+unset ATMOS_SEARCH_INDEX
 echo "ok - SearchIndex.js query hits font and misses network"
 echo "ok - SearchIndex.js state reads snapshot-derived theme"
+echo "ok - SearchIndex.js writes the sqlite cache file"
 
 if command -v jq >/dev/null 2>&1; then
   paired_list=$'Device AA:BB:CC:DD:EE:FF Headphones\nDevice 11:22:33:44:55:66 Keyboard'
@@ -639,12 +651,18 @@ LUA
 require("hypr.autostart")
 require("default.hypr.toggles")
 LUA
+  mkdir -p "$reset_home/cache"
+  : >"$reset_home/cache/search.sqlite"
+  : >"$reset_home/cache/search.sqlite-wal"
+  : >"$reset_home/cache/search.sqlite-shm"
+  : >"$reset_home/cache/search.sqlite-journal"
   ATMOS_LOOK_FILE="$reset_home/looknfeel.lua" \
     ATMOS_INPUT_FILE="$reset_home/input.lua" \
     ATMOS_AUTOSTART_FILE="$reset_home/autostart.lua" \
     ATMOS_BINDINGS_FILE="$reset_home/bindings.lua" \
     ATMOS_WINDOWS_FILE="$reset_home/atmos.lua" \
     ATMOS_HYPRLAND_FILE="$reset_home/hyprland.lua" \
+    ATMOS_SEARCH_INDEX="$reset_home/cache/search.sqlite" \
     ATMOS_SKIP_HYPR=1 \
     bash scripts/reset-atmos.sh
   grep -q -- '-- keep this comment' "$reset_home/looknfeel.lua"
@@ -678,8 +696,13 @@ LUA
     exit 1
   fi
   grep -q 'require("hypr.atmos")' "$reset_home/hyprland.lua"
+  if [[ -e $reset_home/cache/search.sqlite || -e $reset_home/cache/search.sqlite-wal || -e $reset_home/cache/search.sqlite-shm || -e $reset_home/cache/search.sqlite-journal ]]; then
+    echo "not ok - reset-atmos.sh left the search index"
+    rm -rf "$reset_home"
+    exit 1
+  fi
   rm -rf "$reset_home"
-  echo "ok - reset-atmos.sh strips sentinels and keeps the Atmos window seed"
+  echo "ok - reset-atmos.sh strips sentinels, drops the search index, and keeps the Atmos window seed"
 else
   echo "ok - skipping reset-atmos.sh"
 fi

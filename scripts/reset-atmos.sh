@@ -1,5 +1,6 @@
 #!/bin/bash
-# Strip Atmos-managed Hyprland sentinels. Keep the Atmos window seed and require.
+# Strip Atmos-managed Hyprland sentinels and drop the search index cache.
+# Keep the Atmos window seed and require.
 set -euo pipefail
 
 ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
@@ -9,6 +10,13 @@ source "$ROOT/atmos-env.sh"
 if [[ $# -ne 0 ]]; then
   echo "Usage: reset-atmos.sh" >&2
   exit 2
+fi
+
+if [[ $ATMOS_SEARCH_INDEX != :memory: ]]; then
+  rm -f -- "$ATMOS_SEARCH_INDEX" \
+    "${ATMOS_SEARCH_INDEX}-wal" \
+    "${ATMOS_SEARCH_INDEX}-shm" \
+    "${ATMOS_SEARCH_INDEX}-journal"
 fi
 
 python3 "$ROOT/hypr-sentinel.py" look reset "$ATMOS_LOOK_FILE"

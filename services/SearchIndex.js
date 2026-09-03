@@ -1,6 +1,7 @@
 "use strict";
 
 const fs = require("fs");
+const os = require("os");
 const path = require("path");
 const vm = require("vm");
 const { DatabaseSync } = require("node:sqlite");
@@ -183,8 +184,17 @@ function hubRows() {
   });
 }
 
+function indexPath(env) {
+  const e = env || process.env;
+  if (e.ATMOS_SEARCH_INDEX) return e.ATMOS_SEARCH_INDEX;
+  const cacheHome = e.XDG_CACHE_HOME || path.join(e.HOME || os.homedir(), ".cache");
+  return path.join(cacheHome, "atmos", "search.sqlite");
+}
+
 function openIndex(file) {
-  const db = new DatabaseSync(file || ":memory:");
+  const dest = file || ":memory:";
+  if (dest !== ":memory:") fs.mkdirSync(path.dirname(dest), { recursive: true });
+  const db = new DatabaseSync(dest);
   db.exec(`
     CREATE TABLE IF NOT EXISTS rows (
       id TEXT PRIMARY KEY,
@@ -497,20 +507,25 @@ function main(argv) {
     process.stderr.write("       SearchIndex.js state <key> --snapshot file\n");
     return 2;
   }
-  const db = openIndex();
-  if (args.rows) ingestRows(db, readJsonFile(args.rows));
-  else ingestRows(db, defaultCatalog(args.root));
-  if (args.snapshot) ingestSnapshot(db, readJsonFile(args.snapshot));
-  if (args.cmd === "query") {
-    process.stdout.write(JSON.stringify(queryRows(db, args.query)) + "\n");
+  const db = openIndex(indexPath());
+  try {
+    if (args.rows) ingestRows(db, readJsonFile(args.rows));
+    else ingestRows(db, defaultCatalog(args.root));
+    if (args.snapshot) ingestSnapshot(db, readJsonFile(args.snapshot));
+    if (args.cmd === "query") {
+      process.stdout.write(JSON.stringify(queryRows(db, args.query)) + "\n");
+      return 0;
+    }
+    process.stdout.write(JSON.stringify(getState(db, args.key)) + "\n");
     return 0;
+  } finally {
+    db.close();
   }
-  process.stdout.write(JSON.stringify(getState(db, args.key)) + "\n");
-  return 0;
 }
 
 module.exports = {
   HUBS,
+  indexPath,
   openIndex,
   ingestRows,
   ingestSnapshot,

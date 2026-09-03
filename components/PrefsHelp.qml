@@ -31,17 +31,13 @@ Item {
   Text {
     anchors.centerIn: parent
     text: Theme.iconInfo
-    color: Theme.muted
+    color: helpMouse.containsMouse || root.activeFocus ? Theme.foreground : Theme.muted
     font.family: Theme.fontFamily
     font.pixelSize: Theme.captionSize + 2
-  }
 
-  Rectangle {
-    anchors.fill: parent
-    radius: width / 2
-    color: "transparent"
-    border.width: 1
-    border.color: helpMouse.containsMouse || root.activeFocus ? Theme.accent : Theme.borderColor()
+    Behavior on color {
+      ColorAnimation { duration: 90 }
+    }
   }
 
   MouseArea {

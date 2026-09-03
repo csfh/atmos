@@ -37,6 +37,7 @@ QtObject {
   readonly property string setHyprBindingsScript: shellDir + "/scripts/set-hypr-bindings.sh"
   readonly property string setHyprWindowsScript: shellDir + "/scripts/set-hypr-windows.sh"
   readonly property string refreshHyprlandScript: shellDir + "/scripts/refresh-hyprland.sh"
+  readonly property string resetAtmosScript: shellDir + "/scripts/reset-atmos.sh"
   readonly property string setHyprsunsetScript: shellDir + "/scripts/set-hyprsunset.sh"
   readonly property string setNightlightTempScript: shellDir + "/scripts/set-nightlight-temp.sh"
   readonly property string updateAtmosScript: shellDir + "/scripts/update-atmos.sh"
@@ -3144,6 +3145,10 @@ QtObject {
 
   function refreshShell() {
     runJob(["omarchy", "refresh", "shell"], "", "refresh-shell")
+  }
+
+  function resetAtmos() {
+    runJob(["bash", resetAtmosScript], "", "reset-atmos")
   }
 
   function setPlymouth(name) {

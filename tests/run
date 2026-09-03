@@ -599,6 +599,91 @@ else
   echo "ok - skipping set-hypr-windows.sh"
 fi
 
+if [[ -x scripts/reset-atmos.sh ]] && command -v python3 >/dev/null 2>&1; then
+  if bash scripts/reset-atmos.sh --bad >/dev/null 2>&1; then
+    echo "not ok - reset-atmos.sh accepted a flag"
+    exit 1
+  fi
+  reset_home=$(mktemp -d)
+  cat >"$reset_home/looknfeel.lua" <<'LUA'
+-- keep this comment
+-- atmos:look begin
+hl.config({ general = { gaps_in = 8 } })
+-- atmos:look end
+LUA
+  cat >"$reset_home/input.lua" <<'LUA'
+-- user note
+-- atmos:input begin
+hl.config({ input = { sensitivity = -0.5 } })
+-- atmos:input end
+LUA
+  cat >"$reset_home/autostart.lua" <<'LUA'
+o.launch_on_start("waybar")
+-- atmos:autostart begin
+o.launch_on_start("hyprsunset")
+-- atmos:autostart end
+LUA
+  cat >"$reset_home/bindings.lua" <<'LUA'
+o.bind("SUPER + D", "Desks", "true")
+-- atmos:bindings begin
+o.bind("SUPER + F", "Files", "nautilus")
+-- atmos:bindings end
+LUA
+  cat >"$reset_home/atmos.lua" <<'LUA'
+o.window("dev.csfh.atmos", { float = true })
+-- atmos:windows begin
+o.window("^Emulator$", { float = true })
+-- atmos:windows end
+LUA
+  cat >"$reset_home/hyprland.lua" <<'LUA'
+require("hypr.autostart")
+require("default.hypr.toggles")
+LUA
+  ATMOS_LOOK_FILE="$reset_home/looknfeel.lua" \
+    ATMOS_INPUT_FILE="$reset_home/input.lua" \
+    ATMOS_AUTOSTART_FILE="$reset_home/autostart.lua" \
+    ATMOS_BINDINGS_FILE="$reset_home/bindings.lua" \
+    ATMOS_WINDOWS_FILE="$reset_home/atmos.lua" \
+    ATMOS_HYPRLAND_FILE="$reset_home/hyprland.lua" \
+    ATMOS_SKIP_HYPR=1 \
+    bash scripts/reset-atmos.sh
+  grep -q -- '-- keep this comment' "$reset_home/looknfeel.lua"
+  if grep -q -- '-- atmos:look begin' "$reset_home/looknfeel.lua"; then
+    echo "not ok - reset-atmos.sh left the look sentinel"
+    rm -rf "$reset_home"
+    exit 1
+  fi
+  grep -q -- '-- user note' "$reset_home/input.lua"
+  if grep -q -- '-- atmos:input begin' "$reset_home/input.lua"; then
+    echo "not ok - reset-atmos.sh left the input sentinel"
+    rm -rf "$reset_home"
+    exit 1
+  fi
+  grep -q 'o.launch_on_start("waybar")' "$reset_home/autostart.lua"
+  if grep -q -- '-- atmos:autostart begin' "$reset_home/autostart.lua"; then
+    echo "not ok - reset-atmos.sh left the autostart sentinel"
+    rm -rf "$reset_home"
+    exit 1
+  fi
+  grep -q 'o.bind("SUPER + D"' "$reset_home/bindings.lua"
+  if grep -q -- '-- atmos:bindings begin' "$reset_home/bindings.lua"; then
+    echo "not ok - reset-atmos.sh left the bindings sentinel"
+    rm -rf "$reset_home"
+    exit 1
+  fi
+  grep -q 'o.window("dev.csfh.atmos", { float = true })' "$reset_home/atmos.lua"
+  if grep -q -- '-- atmos:windows begin' "$reset_home/atmos.lua"; then
+    echo "not ok - reset-atmos.sh left the windows sentinel"
+    rm -rf "$reset_home"
+    exit 1
+  fi
+  grep -q 'require("hypr.atmos")' "$reset_home/hyprland.lua"
+  rm -rf "$reset_home"
+  echo "ok - reset-atmos.sh strips sentinels and keeps the Atmos window seed"
+else
+  echo "ok - skipping reset-atmos.sh"
+fi
+
 if [[ -x scripts/list-hooks.py ]] && command -v python3 >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
   hooks_home=$(mktemp -d)
   mkdir -p "$hooks_home/.config/omarchy/hooks/theme-set.d"

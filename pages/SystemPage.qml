@@ -73,6 +73,14 @@ PrefsPage {
     onConfirmed: Omarchy.refreshShell()
   }
 
+  PrefsConfirm {
+    id: resetAtmosConfirm
+    title: "Reset Atmos"
+    message: "Remove Atmos-managed Hyprland overrides (look, input, autostart, bindings, extra window rules). The Atmos window still floats. Theme, wallpaper, and shell.json stay as they are."
+    confirmText: "Reset"
+    onConfirmed: Omarchy.resetAtmos()
+  }
+
   property string pendingChannel: ""
 
   Component.onCompleted: {
@@ -84,6 +92,7 @@ PrefsPage {
     pruneConfirm.parent = root.prefsOverlay
     refreshHyprConfirm.parent = root.prefsOverlay
     refreshShellConfirm.parent = root.prefsOverlay
+    resetAtmosConfirm.parent = root.prefsOverlay
   }
 
   PrefsGroup {
@@ -379,6 +388,23 @@ PrefsPage {
           enabled: !Omarchy.jobBusy && Omarchy.atmosUpdateAvailable
           onClicked: atmosUpdateConfirm.ask()
         }
+      }
+    }
+
+    PrefsRow {
+      label: "Reset"
+      description: Omarchy.jobKind === "reset-atmos" && Omarchy.jobBusy
+        ? "Clearing Atmos Hyprland overrides…"
+        : "Strip look, input, autostart, bindings, and extra window rules Atmos wrote. This window still floats."
+      hint: "scripts/reset-atmos.sh"
+      query: root.query
+      keywords: ["reset", "clear", "sentinel", "overrides", "atmos"]
+
+      PrefsButton {
+        text: "Reset…"
+        danger: true
+        enabled: !Omarchy.jobBusy
+        onClicked: resetAtmosConfirm.ask()
       }
     }
   }

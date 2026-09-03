@@ -131,14 +131,13 @@ Item {
         }
       }
 
-      Text {
+      PrefsIcon {
         id: chevron
         anchors.right: parent.right
         anchors.verticalCenter: parent.verticalCenter
-        text: Theme.iconChevronRight
+        name: Theme.iconChevronRight
+        size: Theme.titleSize
         color: root.highlight ? Theme.foreground : Theme.muted
-        font.family: Theme.fontFamily
-        font.pixelSize: Theme.titleSize
         scale: root.highlight ? 1.08 : 1
 
         Behavior on color {

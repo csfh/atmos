@@ -55,7 +55,7 @@ atmos_stage() {
   [[ -d $src && -x $src/bin/atmos && -f $src/shell.qml ]] || return 1
   mkdir -p "$dest"
   local item
-  for item in bin components pages services scripts packaging shell.qml; do
+  for item in bin components pages services scripts packaging icons shell.qml; do
     rm -rf "$dest/$item"
     cp -a "$src/$item" "$dest/$item"
   done

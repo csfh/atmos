@@ -28,12 +28,11 @@ Item {
   Keys.onReturnPressed: popup.open()
   Keys.onSpacePressed: popup.open()
 
-  Text {
+  PrefsIcon {
     anchors.centerIn: parent
-    text: Theme.iconInfo
+    name: Theme.iconInfo
+    size: 16
     color: helpMouse.containsMouse || root.activeFocus ? Theme.foreground : Theme.muted
-    font.family: Theme.fontFamily
-    font.pixelSize: Theme.captionSize + 2
 
     Behavior on color {
       ColorAnimation { duration: 90 }

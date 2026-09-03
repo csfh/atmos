@@ -19,6 +19,14 @@ if [[ ! -x .githooks/pre-commit ]]; then
 fi
 echo "ok - .githooks/pre-commit is executable"
 
+for remix in information-line arrow-left-s-line arrow-right-s-line; do
+  if [[ ! -f icons/$remix.svg ]] || ! grep -q 'viewBox="0 0 24 24"' "icons/$remix.svg"; then
+    echo "not ok - remix icon $remix"
+    exit 1
+  fi
+done
+echo "ok - remix line icons are present"
+
 node tests/parse.test.js
 
 catalog=$(mktemp)

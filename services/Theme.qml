@@ -23,10 +23,10 @@ QtObject {
 
   readonly property int fontSize: Math.max(9, Math.round(ThemeJs.numberToken(root.shellValues, "font.base-size", 12)))
   readonly property string fontFamily: "monospace"
-  // Nerd Font glyphs. `fontFamily` is the omarchy-font-set monospace alias.
-  readonly property string iconChevronLeft: "󰅁"
-  readonly property string iconChevronRight: "󰅂"
-  readonly property string iconInfo: "󰋽"
+  // Remix Icon names under icons/<name>.svg.
+  readonly property string iconChevronLeft: "arrow-left-s-line"
+  readonly property string iconChevronRight: "arrow-right-s-line"
+  readonly property string iconInfo: "information-line"
   readonly property int radius: 0
   readonly property real normalFill: ThemeJs.numberToken(root.shellValues, "controls.normal-fill-alpha", 0.04)
   readonly property real hoverFill: ThemeJs.numberToken(root.shellValues, "controls.hover-cursor-fill-alpha", 0.08)

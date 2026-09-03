@@ -41,4 +41,6 @@ npm install
 
 MIT. See [LICENSE](LICENSE). Copyright (c) 2026 Christoffer Hallas.
 
+UI glyphs in `icons/` are from [Remix Icon](https://remixicon.com), Remix Icon License v1.0. See [icons/NOTICE](icons/NOTICE).
+
 If you send a pull request or other contribution, you agree to the [CLA](CLA.md).

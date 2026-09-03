@@ -374,14 +374,13 @@ ShellRoot {
           Accessible.ignored: !header.canGoBack
           Accessible.onPressAction: pageStack.pop()
 
-          Text {
+          PrefsIcon {
             id: backIcon
             anchors.centerIn: parent
             anchors.horizontalCenterOffset: header.canGoBack ? 0 : -6
-            text: Theme.iconChevronLeft
+            name: Theme.iconChevronLeft
+            size: Theme.titleSize
             color: backMouse.containsMouse && header.canGoBack ? Theme.foreground : Theme.accent
-            font.family: Theme.fontFamily
-            font.pixelSize: Theme.titleSize
             opacity: header.canGoBack ? 1 : 0
             scale: backMouse.containsMouse && header.canGoBack ? 1.08 : 1
 

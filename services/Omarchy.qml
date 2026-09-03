@@ -4,6 +4,8 @@ import Quickshell
 import Quickshell.Io
 import "AtmosUpdate.js" as AtmosUpdate
 import "Hardware.js" as HardwareJs
+import "Hooks.js" as HooksJs
+import "RichUi.js" as RichUi
 import "Snapshot.js" as SnapshotJs
 import "WorkQueue.js" as WorkQueue
 
@@ -206,6 +208,10 @@ QtObject {
   property string jobKind: ""
   property string jobLog: ""
   property string jobStdin: ""
+  property var wifiQrRows: []
+  property int wifiQrSize: 0
+  property string wifiQrSsid: ""
+  property string wifiQrError: ""
   property string plymouth: ""
   property var plymouthThemes: []
   property bool hasAether: false
@@ -772,6 +778,37 @@ QtObject {
     if ("hyprNoGaps" in parsed) hyprNoGaps = parsed.hyprNoGaps === true
     if ("hyprSquareAspect" in parsed) hyprSquareAspect = parsed.hyprSquareAspect === true
     if ("hyprWorkspaceGesture" in parsed) hyprWorkspaceGesture = parsed.hyprWorkspaceGesture === true
+    if ("plugins" in parsed) plugins = adoptArray(plugins, parsed.plugins)
+    if ("desktopApps" in parsed) desktopApps = adoptArray(desktopApps, parsed.desktopApps)
+    if ("tuiApps" in parsed) tuiApps = adoptArray(tuiApps, parsed.tuiApps)
+    if ("webApps" in parsed) webApps = adoptArray(webApps, parsed.webApps)
+    if ("hyprWorkspaceLayout" in parsed) {
+      hyprWorkspaceLayout = String(parsed.hyprWorkspaceLayout || "dwindle")
+      if (hyprWorkspaceLayout !== "scrolling") hyprWorkspaceLayout = "dwindle"
+    }
+    if ("bluetoothDevices" in parsed) bluetoothDevices = adoptArray(bluetoothDevices, parsed.bluetoothDevices)
+    if ("wifiConnections" in parsed) wifiConnections = adoptArray(wifiConnections, parsed.wifiConnections)
+    if ("wifiConnected" in parsed) wifiConnected = parsed.wifiConnected === true
+    if ("netKind" in parsed) {
+      netKind = String(parsed.netKind || "disconnected")
+      if (netKind !== "ethernet" && netKind !== "wifi") netKind = "disconnected"
+    }
+    if ("netSsid" in parsed) netSsid = String(parsed.netSsid || "")
+    if ("hooks" in parsed) hooks = adoptArray(hooks, parsed.hooks)
+    if ("reminderCount" in parsed) {
+      reminderCount = Math.round(Number(parsed.reminderCount)) || 0
+      if (reminderCount < 0) reminderCount = 0
+    }
+    if ("reminderActive" in parsed) reminderActive = parsed.reminderActive === true
+    if ("reminders" in parsed) reminders = adoptArray(reminders, parsed.reminders)
+    if ("recordingActive" in parsed) recordingActive = parsed.recordingActive === true
+    if ("webcamOverlay" in parsed) webcamOverlay = parsed.webcamOverlay === true
+    if ("autostart" in parsed) autostart = adoptArray(autostart, parsed.autostart)
+    if ("autostartManaged" in parsed) autostartManaged = parsed.autostartManaged === true
+    if ("bindings" in parsed) bindings = adoptArray(bindings, parsed.bindings)
+    if ("bindingsManaged" in parsed) bindingsManaged = parsed.bindingsManaged === true
+    if ("windowRules" in parsed) windowRules = adoptArray(windowRules, parsed.windowRules)
+    if ("windowRulesManaged" in parsed) windowRulesManaged = parsed.windowRulesManaged === true
     if ("atmosChannel" in parsed) {
       atmosChannel = AtmosUpdate.parseChannel(parsed.atmosChannel)
       if (!atmosChannel) atmosChannel = "alpha"
@@ -882,6 +919,12 @@ QtObject {
       jobKind = String(job.jobKind || "")
       jobStdin = String(job.stdin || "")
       jobBusy = true
+      if (jobKind === "wifi-qr") {
+        wifiQrError = ""
+        wifiQrRows = []
+        wifiQrSize = 0
+        wifiQrSsid = ""
+      }
       jobProc.stdinEnabled = jobStdin.length > 0
       jobProc.command = job.argv
       jobProc.running = true
@@ -988,6 +1031,12 @@ QtObject {
     hyprKbLayout = String(input.kbLayout || "")
     hyprKbVariant = String(input.kbVariant || "")
     hyprKbOptions = String(input.kbOptions || "")
+    if (Object.prototype.hasOwnProperty.call(input, "kbGroupToggle"))
+      hyprKbGroupToggle = input.kbGroupToggle === true
+    else
+      hyprKbGroupToggle = String(input.kbOptions || "").indexOf("grp:alts_toggle") !== -1
+    if (Object.prototype.hasOwnProperty.call(input, "workspaceGesture"))
+      hyprWorkspaceGesture = input.workspaceGesture === true
   }
 
   function lookState(patch) {
@@ -1084,13 +1133,17 @@ QtObject {
     runJob(cmd, "", kind)
   }
 
-  function runJob(argv, stdinText, kind) {
+  function runJob(argv, stdinText, kind, opts) {
     if (!(argv instanceof Array) || argv.length === 0) return
+    opts = opts || {}
+    kind = String(kind || "")
     WorkQueue.enqueueWrite(ioQueue, {
       kind: "job",
       argv: argv,
       stdin: String(stdinText || ""),
-      jobKind: String(kind || "")
+      jobKind: kind,
+      key: opts.key ? String(opts.key) : kind,
+      refresh: opts.refresh === "none" ? "none" : "all"
     })
     kickIo()
   }
@@ -1129,7 +1182,10 @@ QtObject {
     })
   }
   function openThemeSwitcher() {
-    runCommand(["bash", "-c", "theme=$(omarchy theme switcher || true); [[ -n $theme ]] && omarchy theme set \"$theme\""])
+    runCommand(["bash", "-c", "theme=$(omarchy theme switcher || true); [[ -n $theme ]] && omarchy theme set \"$theme\""], {
+      key: "theme",
+      refresh: "all"
+    })
   }
   function refreshTheme() { runCommand(["omarchy", "theme", "refresh"]) }
   function openThemeFolder() {
@@ -1147,7 +1203,11 @@ QtObject {
   function removeTheme(name) {
     name = String(name || "").replace(/^\s+|\s+$/g, "")
     if (!name || name.indexOf("/") !== -1 || name.indexOf(".") === 0) return
-    runCommand(["omarchy", "theme", "remove", name])
+    runCommand(["omarchy", "theme", "remove", name], {
+      key: "theme-remove:" + name,
+      apply: { extraThemes: SnapshotJs.patchRemoveMatching(extraThemes, "", name) },
+      refresh: name === theme ? "all" : "none"
+    })
   }
   function setBackgroundPath(path) {
     path = String(path || "")
@@ -1158,10 +1218,23 @@ QtObject {
       refresh: "none"
     })
   }
-  function nextBackground() { runCommand(["omarchy", "theme", "bg", "next"]) }
-  function openBackgroundSwitcher() { runCommand(["omarchy", "theme", "bg-switcher"]) }
+  function nextBackground() {
+    runCommand(["omarchy", "theme", "bg", "next"], {
+      key: "background",
+      refresh: "all"
+    })
+  }
+  function openBackgroundSwitcher() {
+    runCommand(["omarchy", "theme", "bg-switcher"], {
+      key: "background",
+      refresh: "all"
+    })
+  }
   function setBackgroundFromFile() {
-    runCommand(["bash", "-c", "path=$(omarchy file select --title \"Set background\" --extensions \"jpg jpeg png gif webp bmp\" || true); [[ -n $path ]] && omarchy theme bg set \"$path\""])
+    runCommand(["bash", "-c", "path=$(omarchy file select --title \"Set background\" --extensions \"jpg jpeg png gif webp bmp\" || true); [[ -n $path ]] && omarchy theme bg set \"$path\""], {
+      key: "background",
+      refresh: "all"
+    })
   }
   function openBackgroundFolder() { runCommand(["omarchy", "theme", "bg", "install"]) }
   function cacheBackgrounds() { runCommand(["omarchy", "theme", "bg", "cache"]) }
@@ -1193,7 +1266,21 @@ QtObject {
   function setMonitorScale(scale) {
     scale = String(scale || "")
     if (!scale) return
-    runCommand(["omarchy", "hyprland", "monitor", "scaling", scale])
+    var n = Number(scale)
+    if (!isFinite(n) || n <= 0) return
+    var list = monitors instanceof Array ? monitors : []
+    var i
+    for (i = 0; i < list.length; i++) {
+      if (list[i] && list[i].focused === true) {
+        if (Number(list[i].scale) === n) return
+        break
+      }
+    }
+    runCommand(["omarchy", "hyprland", "monitor", "scaling", scale], {
+      key: "monitorScale",
+      apply: { monitors: SnapshotJs.patchFocusedMonitorScale(monitors, n) },
+      refresh: "none"
+    })
   }
   function setDisplayBrightness(name, percent) {
     name = String(name || "")
@@ -1243,7 +1330,20 @@ QtObject {
   }
   function adjustKeyboardBacklight(direction) {
     if (direction !== "up" && direction !== "down" && direction !== "off" && direction !== "restore") return
-    runCommand(["omarchy", "brightness", "keyboard", "--no-osd", direction])
+    if (direction === "restore") {
+      runCommand(["omarchy", "brightness", "keyboard", "--no-osd", "restore"], {
+        key: "keyboardBrightness",
+        refresh: "all"
+      })
+      return
+    }
+    var next = SnapshotJs.patchKeyboardBrightness(keyboardBrightness, direction)
+    if (next === keyboardBrightness) return
+    runCommand(["omarchy", "brightness", "keyboard", "--no-osd", direction], {
+      key: "keyboardBrightness",
+      apply: { keyboardBrightness: next },
+      refresh: "none"
+    })
   }
   function setBarPosition(position) {
     if (!position || position === barPosition) return
@@ -1272,15 +1372,21 @@ QtObject {
   }
   function setClockFormat(fmt) {
     if (!fmt || fmt === clockFormat) return
-    clockFormat = fmt
     var key = (barPosition === "left" || barPosition === "right") ? "verticalFormat" : "format"
-    runCommand(["omarchy", "bar", "set", "omarchy.clock", key, fmt])
+    runCommand(["omarchy", "bar", "set", "omarchy.clock", key, fmt], {
+      key: "clockFormat",
+      apply: { clockFormat: fmt },
+      refresh: "none"
+    })
   }
   function setClockFormatAlt(fmt) {
     if (!fmt || fmt === clockFormatAlt) return
-    clockFormatAlt = fmt
     var key = (barPosition === "left" || barPosition === "right") ? "verticalFormatAlt" : "formatAlt"
-    runCommand(["omarchy", "bar", "set", "omarchy.clock", key, fmt])
+    runCommand(["omarchy", "bar", "set", "omarchy.clock", key, fmt], {
+      key: "clockFormatAlt",
+      apply: { clockFormatAlt: fmt },
+      refresh: "none"
+    })
   }
   function setClockWeekStart(day) {
     day = String(day || "").toLowerCase()
@@ -1468,17 +1574,41 @@ QtObject {
     id = String(id || "")
     name = String(name || id)
     if (!id) return
-    runCommand(["omarchy", "remove", "launcher", "entry", id, name])
+    runCommand(["omarchy", "remove", "launcher", "entry", id, name], {
+      key: "desktop-remove:" + id,
+      apply: { desktopApps: SnapshotJs.patchRemoveMatching(desktopApps, "id", id) },
+      refresh: "none"
+    })
   }
   function removeTui(name) {
     name = String(name || "")
     if (!name) return
-    runCommand(["omarchy", "tui", "remove", name])
+    runCommand(["omarchy", "tui", "remove", name], {
+      key: "tui-remove:" + name,
+      apply: {
+        tuiApps: SnapshotJs.patchRemoveMatching(
+          SnapshotJs.patchRemoveMatching(tuiApps, "id", name),
+          "name",
+          name
+        )
+      },
+      refresh: "none"
+    })
   }
   function removeWebApp(name) {
     name = String(name || "")
     if (!name) return
-    runCommand(["omarchy", "webapp", "remove", name])
+    runCommand(["omarchy", "webapp", "remove", name], {
+      key: "webapp-remove:" + name,
+      apply: {
+        webApps: SnapshotJs.patchRemoveMatching(
+          SnapshotJs.patchRemoveMatching(webApps, "id", name),
+          "name",
+          name
+        )
+      },
+      refresh: "none"
+    })
   }
   function normalizedStringIds(list) {
     var next = []
@@ -1604,12 +1734,36 @@ QtObject {
 
   function setScreensaverBranding(action) {
     if (action !== "image" && action !== "text" && action !== "reset") return
-    runCommand(["omarchy", "branding", "screensaver", action])
+    if (action === "reset") {
+      if (!screensaverBranded) return
+      runCommand(["omarchy", "branding", "screensaver", "reset"], {
+        key: "screensaverBranding",
+        apply: { screensaverBranded: false },
+        refresh: "none"
+      })
+      return
+    }
+    runCommand(["omarchy", "branding", "screensaver", action], {
+      key: "screensaverBranding",
+      refresh: "all"
+    })
   }
 
   function setAboutBranding(action) {
     if (action !== "image" && action !== "text" && action !== "reset") return
-    runCommand(["omarchy", "branding", "about", action])
+    if (action === "reset") {
+      if (!aboutBranded) return
+      runCommand(["omarchy", "branding", "about", "reset"], {
+        key: "aboutBranding",
+        apply: { aboutBranded: false },
+        refresh: "none"
+      })
+      return
+    }
+    runCommand(["omarchy", "branding", "about", action], {
+      key: "aboutBranding",
+      refresh: "all"
+    })
   }
 
   function setTimezone(name) {
@@ -1800,7 +1954,12 @@ QtObject {
     })
   }
   function toggleWorkspaceLayout() {
-    runCommand(["omarchy", "hyprland", "workspace", "layout", "toggle"])
+    var next = hyprWorkspaceLayout === "scrolling" ? "dwindle" : "scrolling"
+    runCommand(["omarchy", "hyprland", "workspace", "layout", "toggle"], {
+      key: "hyprWorkspaceLayout",
+      apply: { hyprWorkspaceLayout: next },
+      refresh: "none"
+    })
   }
   function toggleWindowTransparency() {
     runCommand(["omarchy", "hyprland", "window", "transparency", "toggle"])
@@ -2000,8 +2159,19 @@ QtObject {
   function setPluginEnabled(id, on) {
     id = String(id || "")
     if (!/^[A-Za-z0-9._-]+$/.test(id)) return
-    if (on) runCommand(["omarchy", "plugin", "enable", id])
-    else runCommand(["omarchy", "plugin", "disable", id])
+    var list = plugins instanceof Array ? plugins : []
+    var i
+    for (i = 0; i < list.length; i++) {
+      if (list[i] && String(list[i].id) === id) {
+        if ((list[i].enabled === true) === (on === true)) return
+        break
+      }
+    }
+    runCommand(["omarchy", "plugin", on ? "enable" : "disable", id], {
+      key: "plugin:" + id,
+      apply: { plugins: SnapshotJs.patchPluginEnabled(plugins, id, on === true) },
+      refresh: "none"
+    })
   }
   function setSnapperNumberLimit(n) {
     n = Math.round(Number(n))
@@ -2070,6 +2240,33 @@ QtObject {
     if (!wifiIface || !/^[a-zA-Z0-9._-]+$/.test(wifiIface)) return
     runCommand(["bash", "-c", "omarchy network password \"$1\" | wl-copy -n", "wifi-password", wifiIface])
   }
+  function fetchWifiQr() {
+    var argv = ["omarchy", "network", "qr", "--meta"]
+    if (wifiIface && /^[a-zA-Z0-9._-]+$/.test(wifiIface)) argv.push(wifiIface)
+    runJob(argv, "", "wifi-qr", { refresh: "none" })
+  }
+  function applyWifiQr(exitCode, out, err) {
+    lastError = ""
+    if (exitCode !== 0) {
+      wifiQrError = String(err || "Could not build a QR code").replace(/^\s+|\s+$/g, "")
+      wifiQrRows = []
+      wifiQrSize = 0
+      wifiQrSsid = ""
+      return
+    }
+    var parsed = RichUi.parseQrOutput(out)
+    if (!parsed.ok) {
+      wifiQrError = parsed.error
+      wifiQrRows = []
+      wifiQrSize = 0
+      wifiQrSsid = ""
+      return
+    }
+    wifiQrError = ""
+    wifiQrSsid = String(parsed.ssid || "")
+    wifiQrRows = parsed.rows
+    wifiQrSize = parsed.size
+  }
   function copyText(text) {
     text = String(text || "")
     if (!text || text.length > 1024) return
@@ -2084,20 +2281,124 @@ QtObject {
       refresh: "none"
     })
   }
+  function connectEnterpriseWifi(ssid, identity, password) {
+    ssid = String(ssid || "")
+    identity = String(identity || "")
+    password = String(password || "")
+    if (!ssid || !identity || !password) return
+    if (ssid.length > 64 || identity.length > 256 || password.length > 256) return
+    if (/[\r\n\0]/.test(ssid) || /[\r\n\0]/.test(identity) || /[\r\n\0]/.test(password)) return
+    runJob(["bash", enterpriseWifiScript, ssid, identity], password + "\n", "wifi-enterprise")
+  }
+  function wifiUuidForSsid(ssid) {
+    ssid = String(ssid || "")
+    var list = wifiConnections instanceof Array ? wifiConnections : []
+    var i
+    for (i = 0; i < list.length; i++) {
+      if (list[i] && String(list[i].name || "") === ssid)
+        return String(list[i].uuid || "")
+    }
+    return ""
+  }
+  function joinWifi(ssid, password) {
+    ssid = String(ssid || "")
+    password = String(password || "")
+    if (!ssid || ssid.length > 64 || ssid.charAt(0) === "-") return
+    if (/[\r\n\0]/.test(ssid) || /[\r\n\0]/.test(password)) return
+    if (password.length > 256) return
+    var uuid = wifiUuidForSsid(ssid)
+    if (uuid && !password) {
+      activateWifiConnection(uuid)
+      return
+    }
+    runJob(["bash", setWifiConnectionScript, "join", ssid], password.length ? password + "\n" : "", "wifi-join")
+  }
   function activateWifiConnection(uuid) {
     uuid = String(uuid || "")
     if (!/^[0-9a-fA-F-]{36}$/.test(uuid)) return
-    runCommand(["bash", setWifiConnectionScript, "up", uuid])
+    var list = wifiConnections instanceof Array ? wifiConnections : []
+    var name = ""
+    var i
+    for (i = 0; i < list.length; i++) {
+      if (list[i] && String(list[i].uuid || "") === uuid) {
+        name = String(list[i].name || "")
+        break
+      }
+    }
+    runCommand(["bash", setWifiConnectionScript, "up", uuid], {
+      key: "wifi:" + uuid,
+      apply: {
+        wifiConnections: SnapshotJs.patchWifiActive(wifiConnections, uuid, true),
+        wifiConnected: true,
+        netKind: "wifi",
+        netSsid: name
+      },
+      refresh: "none"
+    })
   }
   function deactivateWifiConnection(uuid) {
     uuid = String(uuid || "")
     if (!/^[0-9a-fA-F-]{36}$/.test(uuid)) return
-    runCommand(["bash", setWifiConnectionScript, "down", uuid])
+    runCommand(["bash", setWifiConnectionScript, "down", uuid], {
+      key: "wifi:" + uuid,
+      apply: {
+        wifiConnections: SnapshotJs.patchWifiActive(wifiConnections, uuid, false),
+        wifiConnected: false,
+        netKind: "disconnected",
+        netSsid: ""
+      },
+      refresh: "none"
+    })
   }
   function forgetWifiConnection(uuid) {
     uuid = String(uuid || "")
     if (!/^[0-9a-fA-F-]{36}$/.test(uuid)) return
-    runCommand(["bash", setWifiConnectionScript, "delete", uuid])
+    var list = wifiConnections instanceof Array ? wifiConnections : []
+    var active = false
+    var i
+    for (i = 0; i < list.length; i++) {
+      if (list[i] && String(list[i].uuid || "") === uuid && list[i].active === true) {
+        active = true
+        break
+      }
+    }
+    var forgetApply = { wifiConnections: SnapshotJs.patchRemoveMatching(wifiConnections, "uuid", uuid) }
+    if (active) {
+      forgetApply.wifiConnected = false
+      forgetApply.netKind = "disconnected"
+      forgetApply.netSsid = ""
+    }
+    runCommand(["bash", setWifiConnectionScript, "delete", uuid], {
+      key: "wifi:" + uuid,
+      apply: forgetApply,
+      refresh: "none"
+    })
+  }
+  function deactivateWifiSsid(ssid) {
+    ssid = String(ssid || "")
+    if (!ssid || ssid.length > 64 || /[\r\n\0]/.test(ssid)) return
+    var uuid = wifiUuidForSsid(ssid)
+    if (uuid) {
+      deactivateWifiConnection(uuid)
+      return
+    }
+    runCommand(["bash", setWifiConnectionScript, "down-ssid", ssid], {
+      key: "wifi:" + ssid,
+      refresh: "all"
+    })
+  }
+  function forgetWifiSsid(ssid) {
+    ssid = String(ssid || "")
+    if (!ssid || ssid.length > 64 || /[\r\n\0]/.test(ssid)) return
+    var uuid = wifiUuidForSsid(ssid)
+    if (uuid) {
+      forgetWifiConnection(uuid)
+      return
+    }
+    runCommand(["bash", setWifiConnectionScript, "delete-ssid", ssid], {
+      key: "wifi:" + ssid,
+      refresh: "all"
+    })
   }
   function restartWifi() {
     runCommand(["omarchy", "restart", "wifi"])
@@ -2108,22 +2409,37 @@ QtObject {
   function pairBluetoothDevice(address) {
     address = String(address || "")
     if (!/^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/.test(address)) return
-    runCommand(["omarchy", "bluetooth", "device", "pair", address])
+    runCommand(["omarchy", "bluetooth", "device", "pair", address], {
+      key: "bluetooth:" + address,
+      refresh: "all"
+    })
   }
   function connectBluetoothDevice(address) {
     address = String(address || "")
     if (!/^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/.test(address)) return
-    runCommand(["omarchy", "bluetooth", "device", "connect", address])
+    runCommand(["omarchy", "bluetooth", "device", "connect", address], {
+      key: "bluetooth:" + address,
+      apply: { bluetoothDevices: SnapshotJs.patchRowField(bluetoothDevices, "address", address, "connected", true) },
+      refresh: "none"
+    })
   }
   function disconnectBluetoothDevice(address) {
     address = String(address || "")
     if (!/^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/.test(address)) return
-    runCommand(["omarchy", "bluetooth", "device", "disconnect", address])
+    runCommand(["omarchy", "bluetooth", "device", "disconnect", address], {
+      key: "bluetooth:" + address,
+      apply: { bluetoothDevices: SnapshotJs.patchRowField(bluetoothDevices, "address", address, "connected", false) },
+      refresh: "none"
+    })
   }
   function forgetBluetoothDevice(address) {
     address = String(address || "")
     if (!/^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/.test(address)) return
-    runCommand(["omarchy", "bluetooth", "device", "forget", address])
+    runCommand(["omarchy", "bluetooth", "device", "forget", address], {
+      key: "bluetooth:" + address,
+      apply: { bluetoothDevices: SnapshotJs.patchRemoveMatching(bluetoothDevices, "address", address) },
+      refresh: "none"
+    })
   }
   function setAudioOutputVolume(percent) {
     percent = Math.round(Number(percent))
@@ -2190,7 +2506,10 @@ QtObject {
     }
   }
   function switchAudioOutput() {
-    runCommand(["omarchy", "audio", "output", "switch"])
+    runCommand(["omarchy", "audio", "output", "switch"], {
+      key: "audioSink",
+      refresh: "all"
+    })
   }
   function setAudioTuning(on) {
     if (on === audioTuningOn) return
@@ -2363,15 +2682,27 @@ QtObject {
     minutes = String(minutes || "").replace(/^\s+|\s+$/g, "")
     if (!/^[1-9][0-9]*$/.test(minutes)) return
     message = String(message || "").replace(/^\s+|\s+$/g, "")
-    if (message.length > 0)
-      runCommand(["omarchy", "reminder", minutes, message])
-    else
-      runCommand(["omarchy", "reminder", minutes])
+    var argv = ["omarchy", "reminder", minutes]
+    if (message.length > 0) argv.push(message)
+    var mins = parseInt(minutes, 10)
+    runCommand(argv, {
+      key: "reminder",
+      apply: {
+        reminderActive: true,
+        reminderCount: reminderCount + 1,
+        reminders: SnapshotJs.patchAppendReminder(reminders, mins, message)
+      },
+      refresh: "none"
+    })
   }
 
   function clearReminders() {
     if (!reminderActive) return
-    runCommand(["omarchy", "reminder", "clear"])
+    runCommand(["omarchy", "reminder", "clear"], {
+      key: "reminder",
+      apply: { reminderActive: false, reminderCount: 0, reminders: [] },
+      refresh: "none"
+    })
   }
 
   function showReminders() {
@@ -2404,10 +2735,18 @@ QtObject {
     var size = String(webcamSize || "medium")
     if (size !== "small" && size !== "medium" && size !== "large") size = "medium"
     if (webcam) argv.push("--webcam-size=" + size)
-    runCommand(argv)
+    runCommand(argv, {
+      key: "recordingActive",
+      apply: { recordingActive: true, webcamOverlay: webcam === true },
+      refresh: "none"
+    })
   }
   function stopScreenrecording() {
-    runCommand(["omarchy", "capture", "screenrecording", "--stop-recording"])
+    runCommand(["omarchy", "capture", "screenrecording", "--stop-recording"], {
+      key: "recordingActive",
+      apply: { recordingActive: false },
+      refresh: "none"
+    })
   }
   function captureText() {
     runCommand(["omarchy", "capture", "text"])
@@ -2477,21 +2816,55 @@ QtObject {
     return /^[a-z0-9][a-z0-9-]*$/.test(name)
   }
 
+  function hookDest(type, name) {
+    type = String(type || "")
+    name = String(name || "")
+    if (!isHookId(type) || !name || name.indexOf("/") !== -1 || name.indexOf("..") !== -1) return ""
+    return Quickshell.env("HOME") + "/.config/omarchy/hooks/" + type + ".d/" + name
+  }
+
   function installHook(type, path) {
     type = String(type || "")
     path = String(path || "")
     if (!isHookId(type) || path.charAt(0) !== "/" || path.indexOf("..") !== -1) return
-    runCommand(["omarchy", "hook", "install", type, path])
+    var base = path.split("/").pop()
+    var dest = hookDest(type, base)
+    if (!dest) return
+    runCommand(["omarchy", "hook", "install", type, path], {
+      key: "hook:" + dest,
+      apply: {
+        hooks: SnapshotJs.patchAppendHook(hooks, {
+          type: type,
+          name: base,
+          path: dest,
+          sample: base.length >= 7 && base.substring(base.length - 7) === ".sample",
+          flat: false
+        })
+      },
+      refresh: "none"
+    })
   }
 
   function createHook(type, name, command) {
     type = String(type || "")
-    name = String(name || "").replace(/^\s+|\s+$/g, "")
-    command = String(command || "").replace(/^\s+|\s+$/g, "")
+    name = HooksJs.sanitizeName(name)
+    command = HooksJs.sanitizeLine(command)
     if (!isHookId(type) || !name || !command) return
-    if (name.indexOf("/") !== -1 || name.indexOf("..") !== -1) return
-    if (command.indexOf("\n") !== -1 || command.length > 512) return
-    runCommand(["bash", createHookScript, type, name, command])
+    var dest = hookDest(type, name)
+    if (!dest) return
+    runCommand(["bash", createHookScript, type, name, command], {
+      key: "hook:" + dest,
+      apply: {
+        hooks: SnapshotJs.patchAppendHook(hooks, {
+          type: type,
+          name: name,
+          path: dest,
+          sample: false,
+          flat: false
+        })
+      },
+      refresh: "none"
+    })
   }
 
   function removeHook(path) {
@@ -2500,14 +2873,22 @@ QtObject {
     if (path.indexOf(root) !== 0) return
     if (path.indexOf("..") !== -1) return
     if (path.length >= 7 && path.substring(path.length - 7) === ".sample") return
-    runCommand(["rm", "-f", path])
+    runCommand(["rm", "-f", path], {
+      key: "hook:" + path,
+      apply: { hooks: SnapshotJs.patchRemoveMatching(hooks, "path", path) },
+      refresh: "none"
+    })
   }
 
   function setHookSample(path, enabled) {
     path = String(path || "")
     var root = Quickshell.env("HOME") + "/.config/omarchy/hooks/"
     if (path.indexOf(root) !== 0 || path.indexOf("..") !== -1) return
-    runCommand(["bash", setHookSampleScript, enabled ? "enable" : "disable", path])
+    runCommand(["bash", setHookSampleScript, enabled ? "enable" : "disable", path], {
+      key: "hook:" + path,
+      apply: { hooks: SnapshotJs.patchHookSample(hooks, path, enabled === true) },
+      refresh: "none"
+    })
   }
 
   function runHook(name, arg) {
@@ -2575,8 +2956,11 @@ QtObject {
   function writeAutostart(commands) {
     runCommand(["bash", setHyprAutostartScript, JSON.stringify({ commands: commands })], {
       key: "autostart",
-      apply: { autostartManaged: true },
-      refresh: "all"
+      apply: {
+        autostart: SnapshotJs.patchReplaceManaged(autostart, commands),
+        autostartManaged: true
+      },
+      refresh: "none"
     })
   }
   function addAutostart(command) {
@@ -2626,8 +3010,11 @@ QtObject {
 
   function writeBindings(items) {
     runCommand(["bash", setHyprBindingsScript, JSON.stringify({ items: items })], {
-      key: "bindingsManaged",
-      apply: { bindingsManaged: true },
+      key: "bindings",
+      apply: {
+        bindings: SnapshotJs.patchReplaceManaged(bindings, items),
+        bindingsManaged: true
+      },
       refresh: "none"
     })
   }
@@ -2680,8 +3067,11 @@ QtObject {
 
   function writeWindowRules(items) {
     runCommand(["bash", setHyprWindowsScript, JSON.stringify({ items: items })], {
-      key: "windowRulesManaged",
-      apply: { windowRulesManaged: true },
+      key: "windowRules",
+      apply: {
+        windowRules: SnapshotJs.patchReplaceManaged(windowRules, items),
+        windowRulesManaged: true
+      },
       refresh: "none"
     })
   }
@@ -2893,6 +3283,7 @@ QtObject {
       }
     }
     onExited: function(exitCode) {
+      var job = root.ioJob
       root.jobBusy = false
       var out = String(jobOut.text || "").replace(/^\s+|\s+$/g, "")
       var err = String(jobErr.text || "").replace(/^\s+|\s+$/g, "")
@@ -2917,6 +3308,12 @@ QtObject {
         root.ioFinished()
         return
       }
+      if (root.jobKind === "wifi-qr") {
+        root.applyWifiQr(exitCode, out, err)
+        root.jobKind = ""
+        root.ioFinished()
+        return
+      }
       if (exitCode !== 0) {
         if (root.stderrLooksLikeFailure(err))
           root.lastError = err || "Command failed"
@@ -2924,7 +3321,8 @@ QtObject {
           root.lastError = ""
       } else {
         root.lastError = ""
-        WorkQueue.enqueueRead(root.ioQueue, "all")
+        if (!job || job.refresh !== "none")
+          WorkQueue.enqueueRead(root.ioQueue, "all")
       }
       root.jobKind = ""
       root.ioFinished()

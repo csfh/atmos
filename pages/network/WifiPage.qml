@@ -1,5 +1,4 @@
 import QtQuick
-import Quickshell.Io
 import Quickshell.Networking
 import "../../components"
 import "../../services"
@@ -32,11 +31,13 @@ PrefsPage {
   property string actionSsid: ""
   property string actionKind: ""
   property string wifiError: ""
-  property var qrRows: []
-  property int qrSize: 0
-  property string qrSsid: ""
-  property string qrError: ""
-  property bool qrLoading: false
+  readonly property var qrRows: Omarchy.wifiQrRows
+  readonly property int qrSize: Omarchy.wifiQrSize
+  readonly property string qrSsid: Omarchy.wifiQrSsid
+  readonly property string qrError: Omarchy.wifiQrError
+  readonly property bool qrLoading: Omarchy.jobKind === "wifi-qr" && Omarchy.jobBusy
+  property bool enterpriseBusy: Omarchy.jobKind === "wifi-enterprise"
+  property bool wifiJoinBusy: Omarchy.jobKind === "wifi-join" || Omarchy.jobKind === "wifi-enterprise"
 
   function wifiDevice() {
     var list = Networking.devices ? Networking.devices.values : []
@@ -65,15 +66,6 @@ PrefsPage {
     wifiRows = RichUi.sortWifiRows(rows)
   }
 
-  function networkForSsid(ssid) {
-    var device = wifiDevice()
-    var objects = device && device.networks ? device.networks.values : []
-    for (var i = 0; i < objects.length; i++) {
-      if (objects[i] && objects[i].name === ssid) return objects[i]
-    }
-    return null
-  }
-
   function setScanner(on) {
     var next = on ? wifiDevice() : null
     if (scannerDevice && scannerDevice !== next)
@@ -94,45 +86,34 @@ PrefsPage {
       passwordSsid = row.ssid
       return
     }
-    var net = networkForSsid(row.ssid)
-    if (!net) return
     actionSsid = row.ssid
     actionKind = "connect"
     wifiError = ""
-    net.connect()
+    Omarchy.joinWifi(row.ssid, "")
   }
 
   function submitWifiSecrets(row, secret, identity) {
     if (!row) return
     secret = String(secret || "")
     if (!secret) return
-    var net = networkForSsid(row.ssid)
-    actionSsid = row.ssid
-    actionKind = "connect"
     wifiError = ""
     if (RichUi.isEnterprise(row.securityKind)) {
       identity = String(identity || "")
       if (!identity) return
-      enterpriseProc.secret = secret
-      enterpriseProc.command = ["bash", Omarchy.enterpriseWifiScript, row.ssid, identity]
-      enterpriseProc.running = true
+      actionSsid = row.ssid
+      actionKind = "enterprise"
+      Omarchy.connectEnterpriseWifi(row.ssid, identity, secret)
+      passwordSsid = ""
       return
     }
-    if (net) net.connectWithPsk(secret)
+    actionSsid = row.ssid
+    actionKind = "connect"
+    Omarchy.joinWifi(row.ssid, secret)
     passwordSsid = ""
   }
 
   function startQr() {
-    qrLoading = true
-    qrError = ""
-    qrRows = []
-    qrSize = 0
-    qrSsid = ""
-    if (Omarchy.wifiIface)
-      qrProc.command = ["omarchy", "network", "qr", "--meta", Omarchy.wifiIface]
-    else
-      qrProc.command = ["omarchy", "network", "qr", "--meta"]
-    qrProc.running = true
+    Omarchy.fetchWifiQr()
   }
 
   Component.onCompleted: {
@@ -148,47 +129,39 @@ PrefsPage {
     onTriggered: root.rebuildWifi()
   }
 
-  Process {
-    id: qrProc
-    stdout: StdioCollector {
-      id: qrOut
-      waitForEnd: true
-    }
-    stderr: StdioCollector {
-      id: qrErr
-      waitForEnd: true
-    }
-    onExited: function(code) {
-      root.qrLoading = false
-      if (code !== 0) {
-        root.qrError = String(qrErr.text || "Could not build a QR code").replace(/^\s+|\s+$/g, "")
-        return
-      }
-      var parsed = RichUi.parseQrOutput(qrOut.text)
-      if (!parsed.ok) {
-        root.qrError = parsed.error
-        return
-      }
-      root.qrSsid = parsed.ssid
-      root.qrRows = parsed.rows
-      root.qrSize = parsed.size
-    }
+  onEnterpriseBusyChanged: {
+    if (enterpriseBusy) return
+    if (root.actionKind !== "enterprise") return
+    if (Omarchy.lastError) root.wifiError = "Enterprise join failed"
+    root.actionKind = ""
+    root.actionSsid = ""
+    root.passwordSsid = ""
   }
 
-  Process {
-    id: enterpriseProc
-    property string secret: ""
-    stdinEnabled: true
-    onStarted: {
-      write(secret + "\n")
-      secret = ""
+  onWifiJoinBusyChanged: {
+    if (wifiJoinBusy) return
+    if (root.actionKind !== "connect" && root.actionKind !== "enterprise") return
+    if (Omarchy.lastError) root.wifiError = root.actionKind === "enterprise" ? "Enterprise join failed" : "Could not join"
+    root.actionKind = ""
+    root.actionSsid = ""
+    root.passwordSsid = ""
+  }
+
+  Connections {
+    target: Omarchy
+    function onNetSsidChanged() {
+      if (root.actionKind === "connect" && Omarchy.netSsid === root.actionSsid) {
+        root.actionKind = ""
+        root.actionSsid = ""
+      }
     }
-    onExited: function(code) {
+    function onLastErrorChanged() {
+      if (!root.actionKind || !Omarchy.lastError) return
+      if (root.actionKind !== "connect" && root.actionKind !== "enterprise") return
+      root.wifiError = root.actionKind === "enterprise" ? "Enterprise join failed" : "Could not join"
       root.actionKind = ""
       root.actionSsid = ""
       root.passwordSsid = ""
-      if (code !== 0) root.wifiError = "Enterprise join failed"
-      Omarchy.refresh()
     }
   }
 
@@ -197,10 +170,7 @@ PrefsPage {
     title: "Forget network"
     message: "Forget this saved Wi-Fi network? You will need the password again the next time you join."
     confirmText: "Forget"
-    onConfirmed: {
-      var net = root.networkForSsid(forgetWifiConfirm.payload)
-      if (net) net.forget()
-    }
+    onConfirmed: Omarchy.forgetWifiSsid(forgetWifiConfirm.payload)
     property string payload: ""
   }
 
@@ -288,14 +258,10 @@ PrefsPage {
             PrefsButton {
               text: modelData && modelData.connected ? "Disconnect" : (root.actionSsid === modelData.ssid ? "Joining…" : "Join")
               primary: !(modelData && modelData.connected)
-              enabled: root.actionKind === "" && modelData
+              enabled: root.actionKind === "" && !root.wifiJoinBusy && modelData
               onClicked: {
-                if (modelData.connected) {
-                  var net = root.networkForSsid(modelData.ssid)
-                  if (net) net.disconnect()
-                } else {
-                  root.connectWifi(modelData)
-                }
+                if (modelData.connected) Omarchy.deactivateWifiSsid(modelData.ssid)
+                else root.connectWifi(modelData)
               }
             }
             PrefsButton {

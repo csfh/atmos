@@ -8,7 +8,7 @@ action=${1:-}
 target=${2:-}
 
 usage() {
-  echo "Usage: set-wifi-connection.sh radio <on|off> | up <uuid> | down <uuid> | delete <uuid>" >&2
+  echo "Usage: set-wifi-connection.sh radio <on|off> | up <uuid> | down <uuid> | delete <uuid> | join <ssid> | down-ssid <ssid> | delete-ssid <ssid>" >&2
   exit 1
 }
 
@@ -33,6 +33,24 @@ case "$action" in
   delete)
     uuid_ok "$target" || usage
     nmcli connection delete uuid "$target"
+    ;;
+  join)
+    [[ -n $target && $target != -* ]] || usage
+    pw=""
+    IFS= read -r pw || true
+    if [[ -n $pw ]]; then
+      nmcli --wait 15 device wifi connect "$target" password "$pw"
+    else
+      nmcli --wait 15 device wifi connect "$target"
+    fi
+    ;;
+  down-ssid)
+    [[ -n $target && $target != -* ]] || usage
+    nmcli connection down id "$target"
+    ;;
+  delete-ssid)
+    [[ -n $target && $target != -* ]] || usage
+    nmcli connection delete id "$target"
     ;;
   *)
     usage

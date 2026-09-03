@@ -74,15 +74,18 @@ Item {
     return listOpts.length > 0 ? 0 : -1
   }
 
-  function pickCurrent() {
-    if (list.currentIndex < 0 || list.currentIndex >= (shownOptions || []).length) return
-    var next = optionValue(shownOptions[list.currentIndex])
+  function pickValue(next) {
     _heldValue = next
     _holding = true
     changed(next)
     if (value === next) _holding = false
     refreshDisplayLabel()
     popup.close()
+  }
+
+  function pickCurrent() {
+    if (list.currentIndex < 0 || list.currentIndex >= (shownOptions || []).length) return
+    pickValue(optionValue(shownOptions[list.currentIndex]))
   }
 
   Rectangle {
@@ -218,7 +221,7 @@ Item {
           required property int index
           width: list.width
           height: Theme.rowHeight - 10
-          color: optionMouse.containsMouse || index === list.currentIndex || root.optionValue(modelData) === root.value
+          color: optionMouse.containsMouse || index === list.currentIndex || root.optionValue(modelData) === root.shownValue
             ? Theme.fill(Theme.selectedFill)
             : "transparent"
 
@@ -239,10 +242,7 @@ Item {
             anchors.fill: parent
             hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
-            onClicked: {
-              root.changed(root.optionValue(modelData))
-              popup.close()
-            }
+            onClicked: root.pickValue(root.optionValue(modelData))
           }
         }
 

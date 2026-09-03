@@ -3,8 +3,19 @@
 
 set -euo pipefail
 
-ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+SCRIPT=$(readlink -f -- "${BASH_SOURCE[0]}")
+ROOT=$(cd -- "$(dirname -- "$SCRIPT")/.." && pwd)
 PAGE=${1:-}
+
+if [[ ${ATMOS_PRINT_ROOT:-0} == 1 ]]; then
+  printf '%s\n' "$ROOT"
+  exit 0
+fi
+
+if [[ ! -f $ROOT/shell.qml ]]; then
+  echo "atmos: missing $ROOT/shell.qml" >&2
+  exit 1
+fi
 
 if ! command -v quickshell >/dev/null 2>&1; then
   echo "atmos: quickshell is not installed" >&2

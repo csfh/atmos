@@ -123,17 +123,49 @@ path.write_text("{}\n" if not kept else json.dumps(kept, indent=2) + "\n")
 PY
 }
 
-atmos_link_xdg() {
+atmos_write_desktop() {
+  local dest=$1
+  local out=${2:-${XDG_DATA_HOME:-$HOME/.local/share}/applications/atmos.desktop}
+  local src=$dest/packaging/atmos.desktop
+  local exe=$dest/bin/atmos
+  [[ -f $src && -x $exe ]] || return 1
+  mkdir -p "$(dirname -- "$out")"
+  python3 - "$src" "$out" "$exe" <<'PY'
+from pathlib import Path
+import sys
+
+src, dest, exe = Path(sys.argv[1]), Path(sys.argv[2]), sys.argv[3]
+text = src.read_text()
+if "Exec=atmos\n" not in text:
+    raise SystemExit("atmos.desktop missing Exec=atmos")
+text = text.replace("Exec=atmos\n", f"Exec={exe}\n", 1)
+text = text.replace("TryExec=atmos\n", f"TryExec={exe}\n", 1)
+dest.write_text(text)
+PY
+}
+
+atmos_write_bin_wrapper() {
   local dest=$1
   local bin
   bin=$(atmos_bin_home)
-  mkdir -p "$bin" "$HOME/.local/share/applications" "$HOME/.config/hypr"
+  mkdir -p "$bin"
+  # A leftover symlink here would make `cat >` overwrite dest/bin/atmos.
+  rm -f "$bin/atmos"
   cat >"$bin/atmos" <<EOF
 #!/bin/bash
 exec "$dest/bin/atmos" "\$@"
 EOF
   chmod +x "$bin/atmos"
-  cp "$dest/packaging/atmos.desktop" "$HOME/.local/share/applications/atmos.desktop"
+}
+
+atmos_link_xdg() {
+  local dest=$1
+  mkdir -p "$HOME/.local/share/applications" "$HOME/.config/hypr"
+  atmos_write_bin_wrapper "$dest"
+  atmos_write_desktop "$dest"
+  if command -v update-desktop-database >/dev/null 2>&1; then
+    update-desktop-database "${XDG_DATA_HOME:-$HOME/.local/share}/applications" >/dev/null 2>&1 || true
+  fi
   if [[ ! -f $HOME/.config/hypr/atmos.lua ]]; then
     cp "$dest/packaging/hypr-atmos.lua" "$HOME/.config/hypr/atmos.lua"
   fi

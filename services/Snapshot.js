@@ -18,6 +18,23 @@ function mergeSnapshot(current, patch) {
   return out;
 }
 
+function patchMonitorBrightness(monitors, name, percent) {
+  var list = Array.isArray(monitors) ? monitors.slice() : [];
+  var i;
+  for (i = 0; i < list.length; i++) {
+    if (!list[i] || list[i].name !== name) continue;
+    var row = {};
+    var key;
+    for (key in list[i]) {
+      if (Object.prototype.hasOwnProperty.call(list[i], key)) row[key] = list[i][key];
+    }
+    row.brightness = percent;
+    list[i] = row;
+    break;
+  }
+  return list;
+}
+
 function parseSnapshot(raw) {
   var text = String(raw || "").replace(/^\s+|\s+$/g, "");
   if (!text) return null;
@@ -33,6 +50,7 @@ if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     mergeSnapshot: mergeSnapshot,
     parseSnapshot: parseSnapshot,
+    patchMonitorBrightness: patchMonitorBrightness,
     isPlainObject: isPlainObject,
   };
 }

@@ -299,6 +299,52 @@ assert(
   "all does not drop a waiting look",
 );
 
+const brightIo = queue.createWorkQueue();
+queue.enqueueWrite(brightIo, {
+  kind: "mut",
+  key: "brightness:DP-1",
+  argv: ["omarchy", "brightness", "40%"],
+});
+queue.enqueueWrite(brightIo, {
+  kind: "mut",
+  key: "brightness:DP-1",
+  argv: ["omarchy", "brightness", "80%"],
+});
+queue.enqueueWrite(brightIo, {
+  kind: "mut",
+  key: "brightness:HDMI-A-1",
+  argv: ["omarchy", "brightness", "10%"],
+});
+assertEqual(brightIo.writes.length, 2, "same-key brightness writes coalesce");
+assertEqual(brightIo.writes[0].argv[2], "80%", "coalesced write keeps the last percent");
+assertEqual(brightIo.writes[1].key, "brightness:HDMI-A-1", "different monitor keys stay separate");
+
+const staleIo = queue.createWorkQueue();
+queue.enqueueRead(staleIo, "all");
+const staleRead = queue.takeNext(staleIo);
+assert(staleRead && staleRead.kind === "read", "stale-read test starts a snapshot job");
+queue.enqueueWrite(staleIo, { kind: "mut", key: "brightness:DP-1", argv: ["x"] });
+assert(
+  !queue.shouldApplyRead(staleRead, staleIo),
+  "snapshot started before a later write is not applied",
+);
+queue.release(staleIo);
+const lateWrite = queue.takeNext(staleIo);
+assertEqual(lateWrite.key, "brightness:DP-1", "write runs after the discarded snapshot");
+queue.release(staleIo);
+assert(queue.isIdle(staleIo), "queue is idle after discarding a stale read and running the write");
+
+const patched = snapshot.patchMonitorBrightness(
+  [
+    { name: "DP-1", brightness: 40 },
+    { name: "HDMI-A-1", brightness: 10 },
+  ],
+  "DP-1",
+  80,
+);
+assertEqual(patched[0].brightness, 80, "patchMonitorBrightness updates the named monitor");
+assertEqual(patched[1].brightness, 10, "patchMonitorBrightness leaves other monitors");
+
 const qmlCatalog = search.catalogFromQmlDir(path.join(__dirname, "..", "pages"));
 assert(
   qmlCatalog.some(function (row) {

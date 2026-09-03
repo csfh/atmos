@@ -680,6 +680,12 @@ QtObject {
       if (!/^[0-2]?\d:[0-5]\d$/.test(nightlightNight)) nightlightNight = "20:00"
     }
     if ("nightlightNightOn" in parsed) nightlightNightOn = parsed.nightlightNightOn === true
+    if ("monitors" in parsed) monitors = adoptArray(monitors, parsed.monitors)
+    if ("keyboardBrightness" in parsed) {
+      keyboardBrightness = Math.round(Number(parsed.keyboardBrightness)) || 0
+      if (keyboardBrightness < 0) keyboardBrightness = 0
+      if (keyboardBrightness > 100) keyboardBrightness = 100
+    }
   }
 
   function refresh() {
@@ -742,10 +748,22 @@ QtObject {
     enqueueRead("all")
   }
 
-  function runCommand(argv) {
+  function runCommand(argv, opts) {
     if (!(argv instanceof Array) || argv.length === 0) return
-    WorkQueue.enqueueWrite(ioQueue, { kind: "mut", argv: argv })
+    opts = opts || {}
+    WorkQueue.enqueueWrite(ioQueue, {
+      kind: "mut",
+      argv: argv,
+      key: opts.key ? String(opts.key) : "",
+      apply: opts.apply && typeof opts.apply === "object" ? opts.apply : null,
+      refresh: opts.refresh === "none" ? "none" : "all"
+    })
     kickIo()
+  }
+
+  function applyWritePatch(job) {
+    if (!job || !job.apply) return
+    applySnapshot(JSON.stringify(job.apply))
   }
 
   function applyHyprLook(raw) {
@@ -988,17 +1006,14 @@ QtObject {
     percent = Math.round(Number(percent))
     if (!/^[A-Za-z0-9._-]+$/.test(name)) return
     if (!isFinite(percent) || percent < 0 || percent > 100) return
-    var list = monitors instanceof Array ? monitors.slice() : []
-    for (var i = 0; i < list.length; i++) {
-      if (!list[i] || list[i].name !== name) continue
-      var row = {}
-      for (var k in list[i]) row[k] = list[i][k]
-      row.brightness = percent
-      list[i] = row
-      monitors = list
-      break
-    }
-    runCommand(["omarchy", "brightness", "display", "--no-osd", "--monitor", name, percent + "%"])
+    runCommand(
+      ["omarchy", "brightness", "display", "--no-osd", "--monitor", name, percent + "%"],
+      {
+        key: "brightness:" + name,
+        apply: { monitors: SnapshotJs.patchMonitorBrightness(monitors, name, percent) },
+        refresh: "none"
+      }
+    )
   }
   function setInternalDisplay(on) {
     if (on === internalEnabled) return
@@ -2437,9 +2452,11 @@ QtObject {
       waitForEnd: true
     }
     onExited: function(exitCode) {
+      var job = root.ioJob
       if (exitCode === 0) {
         root.lastError = ""
-        root.applySnapshot(snapOut.text)
+        if (WorkQueue.shouldApplyRead(job, root.ioQueue))
+          root.applySnapshot(snapOut.text)
       } else {
         root.lastError = String(snapErr.text || "omarchy snapshot failed").replace(/^\s+|\s+$/g, "")
       }
@@ -2456,14 +2473,18 @@ QtObject {
       waitForEnd: true
     }
     onExited: function(exitCode) {
+      var job = root.ioJob
       if (exitCode !== 0) {
         var err = String(mutErr.text || "").replace(/^\s+|\s+$/g, "")
         if (root.stderrLooksLikeFailure(err))
           root.lastError = err || "Command failed"
         else
           root.lastError = ""
+      } else {
+        root.applyWritePatch(job)
+        if (job && job.refresh !== "none")
+          WorkQueue.enqueueRead(root.ioQueue, "all")
       }
-      WorkQueue.enqueueRead(root.ioQueue, "all")
       root.ioFinished()
     }
   }

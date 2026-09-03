@@ -15,6 +15,7 @@ Item {
   property bool showValue: true
   property bool showTicks: true
   property bool live: false
+  property int liveInterval: 100
   property var formatTick: null
 
   signal moved(real value)
@@ -24,6 +25,7 @@ Item {
   property var ticks: []
   property bool _holding: false
   property real _heldValue: 0
+  property var liveState: RichUi.sliderLiveState(liveInterval)
 
   function rebuildTicks() {
     var n = 0
@@ -99,6 +101,15 @@ Item {
     )
   }
 
+  function applyLiveWrite(result) {
+    if (result.emit !== undefined)
+      root.changed(result.emit)
+    if (result.delayMs > 0 && !liveTimer.running) {
+      liveTimer.interval = Math.max(1, Math.round(result.delayMs))
+      liveTimer.start()
+    }
+  }
+
   function xForValue(v) {
     var span = to - from
     var t = span === 0 ? 0 : (v - from) / span
@@ -141,7 +152,7 @@ Item {
         onMoved: {
           var v = root.snapValue(value)
           root.moved(v)
-          if (root.live) root.changed(v)
+          if (root.live) root.applyLiveWrite(RichUi.sliderLivePush(root.liveState, Date.now(), v))
         }
         onPressedChanged: {
           if (pressed) {
@@ -149,7 +160,11 @@ Item {
             return
           }
           var v = root.snapValue(value)
-          root.changed(v)
+          liveTimer.stop()
+          if (root.live)
+            root.applyLiveWrite(RichUi.sliderLiveFlush(root.liveState, Date.now(), v))
+          else
+            root.changed(v)
           if (root.snapValue(root.value) === v) return
           root._heldValue = v
           root._holding = true
@@ -228,5 +243,11 @@ Item {
     property: "value"
     value: root.value
     when: !slider.pressed && !root._holding
+  }
+
+  Timer {
+    id: liveTimer
+    repeat: false
+    onTriggered: root.applyLiveWrite(RichUi.sliderLiveTake(root.liveState, Date.now()))
   }
 }

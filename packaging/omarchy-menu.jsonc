@@ -41,6 +41,14 @@
     "keywords": "settings prefs disks drive snapshot luks",
     "description": "Drive space, encryption, snapshots, and hibernation"
   },
+  "setup.hardware": {
+    "icon": "",
+    "label": "Hardware",
+    "action": "atmos hardware",
+    "when": "command -v atmos",
+    "keywords": "settings prefs hardware cpu memory chipset motherboard bios gpu",
+    "description": "Processor, memory, chipset, firmware, and the other units in this machine"
+  },
   "style.sound.preferences": {
     "icon": "",
     "label": "Atmos",

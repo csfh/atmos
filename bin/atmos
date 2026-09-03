@@ -12,8 +12,8 @@ if ! command -v quickshell >/dev/null 2>&1; then
 fi
 
 HUB=${PAGE%%/*}
-if [[ -n $PAGE && $HUB != appearance && $HUB != display && $HUB != windows && $HUB != input && $HUB != accessibility && $HUB != sound && $HUB != capture && $HUB != disks && $HUB != bar && $HUB != notifications && $HUB != defaults && $HUB != applications && $HUB != software && $HUB != network && $HUB != power && $HUB != idle && $HUB != security && $HUB != hooks && $HUB != system ]]; then
-  echo "Usage: atmos [appearance|display|windows|input|accessibility|sound|capture|disks|bar|notifications|defaults|applications|software|network|power|idle|security|hooks|system][/theme|background|boot|speedtest|wifi|bluetooth|bindings|rules]" >&2
+if [[ -n $PAGE && $HUB != appearance && $HUB != display && $HUB != windows && $HUB != input && $HUB != accessibility && $HUB != sound && $HUB != capture && $HUB != disks && $HUB != hardware && $HUB != bar && $HUB != notifications && $HUB != defaults && $HUB != applications && $HUB != software && $HUB != network && $HUB != power && $HUB != idle && $HUB != security && $HUB != hooks && $HUB != system ]]; then
+  echo "Usage: atmos [appearance|display|windows|input|accessibility|sound|capture|disks|hardware|bar|notifications|defaults|applications|software|network|power|idle|security|hooks|system][/theme|background|boot|speedtest|wifi|bluetooth|bindings|rules]" >&2
   exit 1
 fi
 

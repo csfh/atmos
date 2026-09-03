@@ -283,6 +283,15 @@ fi
 [[ -n $swap_devices_json ]] || swap_devices_json='[]'
 [[ -n $snapshots_json ]] || snapshots_json='[]'
 
+hardware_json='{}'
+if present python3 && [[ -x $SNAP_DIR/hw-inventory.py ]]; then
+  hw_inv=$(python3 "$SNAP_DIR/hw-inventory.py" 2>/dev/null || true)
+  if [[ -n $hw_inv ]]; then
+    hardware_json=$(jq -c '.' <<<"$hw_inv" 2>/dev/null || echo '{}')
+  fi
+fi
+[[ -n $hardware_json ]] || hardware_json='{}'
+
 desktop_apps_json='[]'
 tui_apps_json='[]'
 web_apps_json='[]'
@@ -1341,6 +1350,7 @@ jq -n \
   --argjson audioTuningMatch "$audio_tuning_match" \
   --argjson audioTuningOn "$audio_tuning_on" \
   --argjson disks "$disks_json" \
+  --argjson hardware "$hardware_json" \
   --argjson luksDevices "$luks_devices_json" \
   --argjson swapDevices "$swap_devices_json" \
   --argjson snapperPresent "$snapper_present" \
@@ -1552,6 +1562,7 @@ jq -n \
     audioTuningMatch: $audioTuningMatch,
     audioTuningOn: $audioTuningOn,
     disks: $disks,
+    hardware: $hardware,
     luksDevices: $luksDevices,
     swapDevices: $swapDevices,
     snapperPresent: $snapperPresent,

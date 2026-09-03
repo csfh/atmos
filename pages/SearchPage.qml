@@ -21,6 +21,7 @@ Item {
     || pageHits(soundLoader)
     || pageHits(captureLoader)
     || pageHits(disksLoader)
+    || pageHits(hardwareLoader)
     || pageHits(barLoader)
     || pageHits(notificationsLoader)
     || pageHits(defaultsLoader)
@@ -127,6 +128,12 @@ Item {
         id: disksLoader
         width: parent.width
         source: "DisksPage.qml"
+        onLoaded: root.bindPage(item, false)
+      }
+      Loader {
+        id: hardwareLoader
+        width: parent.width
+        source: "HardwarePage.qml"
         onLoaded: root.bindPage(item, false)
       }
       Loader {

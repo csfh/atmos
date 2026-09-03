@@ -517,3 +517,88 @@ assert(required.indexOf('require("hypr.atmos")\nrequire("default.hypr.toggles")'
 assertEqual(rules.ensureRequire(''), '', 'ensureRequire leaves an empty hyprland.lua alone')
 assertEqual(rules.describe({ placement: 'float', center: true }).indexOf('float') !== -1, true, 'describe names float')
 
+const hw = load('services/Hardware.js')
+const mem = hw.parseMeminfo(`MemTotal:       16398384 kB
+MemAvailable:   15443444 kB
+MemFree:         5808696 kB
+SwapTotal:       2097152 kB
+SwapFree:        1048576 kB
+`)
+assertEqual(mem.total, 16398384 * 1024, 'parseMeminfo reads MemTotal')
+assert(mem.used > 0, 'parseMeminfo computes used from available')
+assertEqual(mem.swapUsed, (2097152 - 1048576) * 1024, 'parseMeminfo computes swap used')
+
+const cpuinfo = hw.parseCpuinfo(`processor	: 0
+vendor_id	: GenuineIntel
+model name	: Intel(R) Xeon(R) Processor
+cpu cores	: 4
+physical id	: 0
+cpu MHz		: 2400.000
+flags		: fpu vmx avx2 hypervisor
+
+processor	: 1
+vendor_id	: GenuineIntel
+model name	: Intel(R) Xeon(R) Processor
+cpu cores	: 4
+physical id	: 0
+`)
+assertEqual(cpuinfo.model, 'Intel(R) Xeon(R) Processor', 'parseCpuinfo reads the model')
+assertEqual(cpuinfo.cores, 4, 'parseCpuinfo uses cpu cores per socket')
+assertEqual(cpuinfo.threads, 2, 'parseCpuinfo counts processors as threads')
+assert(cpuinfo.flags.indexOf('vmx') !== -1, 'parseCpuinfo reads flags')
+
+const lscpu = hw.parseLscpu(`Architecture:                            x86_64
+Model name:                              Intel(R) Xeon(R) Processor
+Vendor ID:                               GenuineIntel
+CPU(s):                                  4
+Socket(s):                               1
+Core(s) per socket:                      4
+CPU max MHz:                             3600.000
+L3 cache:                                16 MiB
+Hypervisor vendor:                       KVM
+Virtualization:                          VT-x
+Flags:                                   vmx avx2
+`)
+assertEqual(lscpu.arch, 'x86_64', 'parseLscpu reads architecture')
+assertEqual(lscpu.cores, 4, 'parseLscpu multiplies cores per socket')
+assertEqual(lscpu.hypervisor, 'KVM', 'parseLscpu reads the hypervisor')
+assert(lscpu.caches.indexOf('L3') !== -1, 'parseLscpu reads caches')
+
+const pci = hw.parseLspci(`00:00.0 "Host bridge [0600]" "Intel Corporation [8086]" "4th Gen Core Processor DRAM Controller [0c00]"
+00:02.0 "VGA compatible controller [0300]" "Intel Corporation [8086]" "Xeon E3-1200 v3/4th Gen Core Processor Integrated Graphics [0412]"
+00:1f.0 "ISA bridge [0601]" "Intel Corporation [8086]" "C220 Series Chipset Family LPC Controller [8c54]"
+`)
+assertEqual(pci.length, 3, 'parseLspci reads mm-style rows')
+const chip = hw.pickChipset(pci)
+assertEqual(chip.name, '4th Gen Core Processor DRAM Controller', 'pickChipset prefers the host bridge')
+assertEqual(chip.southbridge, 'C220 Series Chipset Family LPC Controller', 'pickChipset keeps the LPC bridge')
+assertEqual(chip.pciId, '8086:0c00', 'pickChipset reads the PCI id')
+assertEqual(hw.pickGpus(pci).length, 1, 'pickGpus finds the VGA device')
+assertEqual(hw.pickGpus(pci)[0].name.indexOf('Integrated Graphics') !== -1, true, 'pickGpus keeps the GPU name')
+
+assertEqual(hw.decodeMemorySize(0, 0), 0, 'decodeMemorySize treats an empty slot as zero')
+assertEqual(hw.decodeMemorySize(0xFFFF, 0), 0, 'decodeMemorySize treats unknown as zero')
+assertEqual(hw.decodeMemorySize(8192, 0), 8192 * 1024 * 1024, 'decodeMemorySize reads megabytes')
+assertEqual(hw.decodeMemorySize(0x8000 | 16, 0), 16 * 1024, 'decodeMemorySize reads the kilobyte bit')
+assertEqual(hw.decodeMemorySize(0x7FFF, 32768), 32768 * 1024 * 1024, 'decodeMemorySize uses extended size')
+assertEqual(hw.memoryTypeName(26), 'DDR4', 'memoryTypeName maps DDR4')
+assertEqual(hw.memoryTypeName(34), 'DDR5', 'memoryTypeName maps DDR5')
+assertEqual(hw.chassisTypeName(9), 'Laptop', 'chassisTypeName maps laptop')
+assertEqual(hw.chassisTypeName('Notebook'), 'Notebook', 'chassisTypeName keeps a name')
+
+const normalized = hw.normalize({
+  machine: { vendor: 'Framework', name: 'Laptop 13', chassis: 9 },
+  chipset: { vendor: 'Intel', name: 'Raptor Lake-P', pciId: '8086:a706', role: 'Host bridge' },
+  cpu: { model: 'Intel Core Ultra 7', cores: 16, threads: 22, flags: ['vmx', 'avx2'] },
+  memory: { total: 32 * 1024 * 1024 * 1024, used: 8 * 1024 * 1024 * 1024, available: 24 * 1024 * 1024 * 1024, modules: [{ locator: 'DIMM0', size: 16 * 1024 * 1024 * 1024, type: 'DDR5', speed: 5600 }] },
+  gpus: [{ name: 'Arc Graphics', vendor: 'Intel' }]
+})
+assertEqual(normalized.machine.chassis, 'Laptop', 'normalize maps a chassis code')
+assert(normalized.chipset.name.indexOf('Raptor') !== -1, 'normalize keeps the chipset')
+assert(hw.cpuSummary(normalized.cpu).indexOf('16 cores') !== -1, 'cpuSummary names cores')
+assert(hw.chipsetSummary(normalized.chipset).indexOf('Raptor') !== -1, 'chipsetSummary names the chipset')
+assertEqual(hw.formatModuleSize(16 * 1024 * 1024 * 1024), '16 GB', 'formatModuleSize uses whole gigabytes')
+assert(hw.moduleSummary(normalized.memory.modules[0]).indexOf('DDR5') !== -1, 'moduleSummary names the type')
+assertEqual(hw.cleanText('To Be Filled By O.E.M.'), '', 'cleanText drops OEM filler')
+assertEqual(hw.cleanText('Not Specified'), '', 'cleanText drops Not Specified')
+

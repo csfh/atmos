@@ -2,6 +2,7 @@ pragma Singleton
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import "Hardware.js" as HardwareJs
 
 QtObject {
   id: root
@@ -157,6 +158,7 @@ QtObject {
   property string audioSink: ""
   property string audioSource: ""
   property var disks: []
+  property var hardware: ({})
   property var luksDevices: []
   property var swapDevices: []
   property bool snapperPresent: false
@@ -418,6 +420,7 @@ QtObject {
     audioTuningMatch = data.audioTuningMatch === true
     audioTuningOn = data.audioTuningOn === true
     disks = adoptArray(disks, data.disks)
+    hardware = HardwareJs.normalize(data.hardware)
     luksDevices = adoptArray(luksDevices, data.luksDevices)
     swapDevices = adoptArray(swapDevices, data.swapDevices)
     snapperPresent = data.snapperPresent === true

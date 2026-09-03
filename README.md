@@ -13,10 +13,11 @@ A second launch focuses the window that is already open. Pass a page if you want
 ```bash
 ./bin/atmos appearance
 ./bin/atmos windows/bindings
+./bin/atmos hardware
 ./bin/atmos network/wifi
 ```
 
-Hubs include appearance, displays, windows, input, accessibility, sound, capture, disks, bar, notifications, defaults, applications, software, network, power, idle, security, hooks, and system.
+Hubs include appearance, displays, windows, input, accessibility, sound, capture, disks, hardware, bar, notifications, defaults, applications, software, network, power, idle, security, hooks, and system.
 
 ## Install
 

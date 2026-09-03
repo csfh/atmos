@@ -22,6 +22,7 @@ ShellRoot {
     { id: "sound", title: "Sound", keywords: "audio volume mute speaker headphone sink source microphone mic input output pipewire pactl wpctl tuning dsp restart voxtype dictation speech" },
     { id: "capture", title: "Capture", keywords: "screenshot record recording screen video ocr qr webcam grim slurp pictures videos" },
     { id: "disks", title: "Disks", keywords: "drive nvme ssd lsblk luks encryption snapper snapshot btrfs hibernation zram swap speedtest df usage trim fstrim timeline retention" },
+    { id: "hardware", title: "Hardware", keywords: "cpu processor memory ram dimm ddr chipset northbridge southbridge motherboard board bios uefi firmware tpm secure boot gpu graphics nic ethernet usb battery thermal sensor kvm hypervisor virtual machine dmi smbios lscpu lspci" },
     { id: "bar", title: "Bar", keywords: "position transparent menu bar top bottom left right show hide visible clock format time alternate date week start calendar sunday monday birth year age life expectancy indicators always show status icons dictation recording reminder night light dnd stay awake agents usage refresh sync snapshot file hostname device id spacer gap padding tray hidden icons unhide pin unpin plugin widget" },
     { id: "notifications", title: "Notifications", keywords: "do not disturb dnd silent mute quiet toast reminder timer notify later test time battery weather" },
     { id: "defaults", title: "Defaults", keywords: "browser terminal editor agent chrome firefox nvim pdf mime image video" },
@@ -128,6 +129,7 @@ ShellRoot {
   Component { id: soundPage; SoundPage { query: root.query } }
   Component { id: capturePage; CapturePage { query: root.query } }
   Component { id: disksPage; DisksPage { query: root.query } }
+  Component { id: hardwarePage; HardwarePage { query: root.query } }
   Component { id: barPage; BarPage { query: root.query } }
   Component { id: notificationsPage; NotificationsPage { query: root.query } }
   Component { id: defaultsPage; DefaultsPage { query: root.query } }
@@ -150,6 +152,7 @@ ShellRoot {
     sound: soundPage,
     capture: capturePage,
     disks: disksPage,
+    hardware: hardwarePage,
     bar: barPage,
     notifications: notificationsPage,
     defaults: defaultsPage,

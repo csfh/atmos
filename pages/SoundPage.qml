@@ -36,6 +36,7 @@ PrefsPage {
         from: 0
         to: 100
         stepSize: 1
+        live: true
         value: Omarchy.audioOutputVolume
         valueText: Omarchy.audioOutputVolume + "%"
         enabled: Omarchy.audioSinks.length > 0
@@ -113,6 +114,7 @@ PrefsPage {
         from: 0
         to: 100
         stepSize: 1
+        live: true
         value: Omarchy.audioInputVolume
         valueText: Omarchy.audioInputVolume + "%"
         enabled: Omarchy.audioSources.length > 0

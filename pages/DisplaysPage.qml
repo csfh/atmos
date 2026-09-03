@@ -158,6 +158,7 @@ PrefsPage {
           from: 1
           to: 100
           stepSize: 1
+          live: true
           value: modelData && modelData.brightness ? modelData.brightness : 1
           valueText: (modelData && modelData.brightness ? modelData.brightness : 0) + "%"
           enabled: modelData && modelData.brightnessAvailable === true

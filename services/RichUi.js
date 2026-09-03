@@ -674,6 +674,55 @@ function parseKeyboardLayoutId(raw) {
   return isKeyboardLayoutId(text) ? text : "";
 }
 
+function sliderValueUnit(valueText) {
+  var s = String(valueText || "");
+  var m = s.match(/^-?\d+(?:\.\d+)?(.*)$/);
+  return m ? m[1] : "";
+}
+
+function formatSliderNumber(v) {
+  var n = Number(v);
+  if (!isFinite(n)) n = 0;
+  if (Math.abs(n - Math.round(n)) < 0.001) return String(Math.round(n));
+  return String(Math.round(n * 100) / 100);
+}
+
+function formatSliderCaption(v, valueText, tickText) {
+  if (tickText) return String(tickText);
+  return formatSliderNumber(v) + sliderValueUnit(valueText);
+}
+
+function sliderLiveState(intervalMs) {
+  var n = Number(intervalMs);
+  return {
+    intervalMs: isFinite(n) && n > 0 ? n : 100,
+    lastEmitMs: 0,
+    pending: undefined,
+    lastSent: undefined,
+  };
+}
+
+function sliderLiveTake(state, now) {
+  var value = state.pending;
+  state.pending = undefined;
+  if (value === undefined || value === state.lastSent) return { emit: undefined, delayMs: 0 };
+  state.lastSent = value;
+  state.lastEmitMs = now;
+  return { emit: value, delayMs: 0 };
+}
+
+function sliderLivePush(state, now, value) {
+  state.pending = value;
+  var wait = state.intervalMs - (now - state.lastEmitMs);
+  if (wait <= 0) return sliderLiveTake(state, now);
+  return { emit: undefined, delayMs: wait };
+}
+
+function sliderLiveFlush(state, now, value) {
+  state.pending = value;
+  return sliderLiveTake(state, now);
+}
+
 function parseXkbLayoutList(text) {
   var lines = String(text || "").split("\n");
   var inLayout = false;

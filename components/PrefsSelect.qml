@@ -10,6 +10,10 @@ Item {
   property var options: []
   property bool enabled: true
   property bool searchable: false
+  property bool _holding: false
+  property string _heldValue: ""
+
+  readonly property string shownValue: _holding ? _heldValue : value
 
   readonly property bool useSearch: searchable || (options && options.length >= 8)
 
@@ -35,19 +39,22 @@ Item {
   function refreshDisplayLabel() {
     var list = options || []
     for (var i = 0; i < list.length; i++) {
-      if (optionValue(list[i]) === value) {
+      if (optionValue(list[i]) === shownValue) {
         displayLabel = optionLabel(list[i])
         return
       }
     }
-    displayLabel = value
+    displayLabel = shownValue
   }
 
   function refreshShownOptions() {
     shownOptions = RichUi.filterOptions(options, useSearch ? filter : "")
   }
 
-  onValueChanged: refreshDisplayLabel()
+  onValueChanged: {
+    if (_holding && value === _heldValue) _holding = false
+    refreshDisplayLabel()
+  }
   onOptionsChanged: {
     refreshDisplayLabel()
     refreshShownOptions()
@@ -62,14 +69,19 @@ Item {
   function currentIndexOfValue() {
     var listOpts = shownOptions || []
     for (var i = 0; i < listOpts.length; i++) {
-      if (optionValue(listOpts[i]) === value) return i
+      if (optionValue(listOpts[i]) === shownValue) return i
     }
     return listOpts.length > 0 ? 0 : -1
   }
 
   function pickCurrent() {
     if (list.currentIndex < 0 || list.currentIndex >= (shownOptions || []).length) return
-    changed(optionValue(shownOptions[list.currentIndex]))
+    var next = optionValue(shownOptions[list.currentIndex])
+    _heldValue = next
+    _holding = true
+    changed(next)
+    if (value === next) _holding = false
+    refreshDisplayLabel()
     popup.close()
   }
 

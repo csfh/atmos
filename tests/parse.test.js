@@ -318,6 +318,20 @@ queue.enqueueWrite(brightIo, {
 assertEqual(brightIo.writes.length, 2, "same-key brightness writes coalesce");
 assertEqual(brightIo.writes[0].argv[2], "80%", "coalesced write keeps the last percent");
 assertEqual(brightIo.writes[1].key, "brightness:HDMI-A-1", "different monitor keys stay separate");
+queue.enqueueWrite(brightIo, {
+  kind: "mut",
+  key: "theme",
+  argv: ["omarchy", "theme", "set", "omarchy"],
+  apply: { theme: "omarchy" },
+});
+queue.enqueueWrite(brightIo, {
+  kind: "mut",
+  key: "theme",
+  argv: ["omarchy", "theme", "set", "tokyo"],
+  apply: { theme: "tokyo" },
+});
+assertEqual(brightIo.writes.length, 3, "theme writes coalesce separately from brightness");
+assertEqual(brightIo.writes[2].apply.theme, "tokyo", "coalesced theme write keeps the last name");
 
 const staleIo = queue.createWorkQueue();
 queue.enqueueRead(staleIo, "all");

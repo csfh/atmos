@@ -10,6 +10,8 @@ Item {
   property int to: 100
   property int stepSize: 1
   property bool enabled: true
+  property bool _holding: false
+  property int _heldValue: 0
 
   signal changed(int value)
 
@@ -37,7 +39,12 @@ Item {
     rightPadding: up.indicator ? up.indicator.width : 22
     topPadding: 0
     bottomPadding: 0
-    onValueModified: root.changed(value)
+    onValueModified: {
+      root._heldValue = value
+      root._holding = true
+      root.changed(value)
+      if (root.value === value) root._holding = false
+    }
 
     background: Rectangle {
       color: spin.activeFocus || spin.hovered ? Theme.fill(Theme.hoverFill) : Theme.fill(Theme.normalFill)
@@ -95,10 +102,15 @@ Item {
     }
   }
 
+  onValueChanged: {
+    if (_holding && value === _heldValue)
+      _holding = false
+  }
+
   Binding {
     target: spin
     property: "value"
     value: root.value
-    when: !spin.activeFocus
+    when: !spin.activeFocus && !_holding
   }
 }

@@ -6,6 +6,10 @@ Item {
 
   property bool checked: false
   property bool enabled: true
+  property bool _holding: false
+  property bool _heldChecked: false
+
+  readonly property bool shownChecked: _holding ? _heldChecked : checked
 
   signal toggled()
 
@@ -18,11 +22,11 @@ Item {
 
   Accessible.role: Accessible.CheckBox
   Accessible.checkable: true
-  Accessible.checked: checked
-  Accessible.onPressAction: if (enabled) root.toggled()
+  Accessible.checked: shownChecked
+  Accessible.onPressAction: if (enabled) root.emitToggle()
 
-  Keys.onReturnPressed: if (enabled) root.toggled()
-  Keys.onSpacePressed: if (enabled) root.toggled()
+  Keys.onReturnPressed: if (enabled) root.emitToggle()
+  Keys.onSpacePressed: if (enabled) root.emitToggle()
 
   HoverHandler {
     id: toggleHover
@@ -34,9 +38,9 @@ Item {
   Rectangle {
     anchors.fill: parent
     radius: height / 2
-    color: root.checked ? Theme.accentFill(root.highlight ? 1 : 0.85) : Theme.fill(root.highlight ? Theme.hoverFill : 0.12)
+    color: root.shownChecked ? Theme.accentFill(root.highlight ? 1 : 0.85) : Theme.fill(root.highlight ? Theme.hoverFill : 0.12)
     border.width: 1
-    border.color: root.checked || root.highlight ? Theme.accent : Theme.borderColor()
+    border.color: root.shownChecked || root.highlight ? Theme.accent : Theme.borderColor()
 
     Behavior on color {
       ColorAnimation { duration: 90 }
@@ -50,7 +54,7 @@ Item {
       height: 16
       radius: 8
       anchors.verticalCenter: parent.verticalCenter
-      x: root.checked ? parent.width - width - 4 : 4
+      x: root.shownChecked ? parent.width - width - 4 : 4
       color: Theme.foreground
 
       Behavior on x { NumberAnimation { duration: 120 } }
@@ -62,6 +66,19 @@ Item {
     enabled: root.enabled
     hoverEnabled: true
     cursorShape: Qt.PointingHandCursor
-    onClicked: root.toggled()
+    onClicked: root.emitToggle()
+  }
+
+  function emitToggle() {
+    var next = !root.shownChecked
+    root._heldChecked = next
+    root._holding = true
+    root.toggled()
+    if (root.checked === next) root._holding = false
+  }
+
+  onCheckedChanged: {
+    if (_holding && checked === _heldChecked)
+      _holding = false
   }
 }

@@ -30,11 +30,10 @@ Item {
 
   Text {
     anchors.centerIn: parent
-    text: "?"
+    text: Theme.iconInfo
     color: Theme.muted
     font.family: Theme.fontFamily
-    font.pixelSize: Theme.captionSize
-    font.bold: true
+    font.pixelSize: Theme.captionSize + 2
   }
 
   Rectangle {

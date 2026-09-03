@@ -234,6 +234,71 @@ assertEqual(
 );
 assertEqual(search.getState(index, "missing"), null, "derived state misses unknown keys");
 
+search.ingestSnapshot(index, { theme: "tokyo" });
+search.ingestSnapshot(index, { hardware: { cpu: { model: "X" } } });
+assertEqual(
+  search.getState(index, "theme"),
+  "tokyo",
+  "second ingest keeps theme from the first patch",
+);
+assertEqual(
+  search.getState(index, "hardware.cpu.model"),
+  "X",
+  "second ingest adds hardware without a write-prefs path",
+);
+
+const snapshot = load("services/Snapshot.js");
+const snapMerged = snapshot.mergeSnapshot(
+  { theme: "omarchy", hardware: { cpu: { model: "X" } } },
+  { theme: "tokyo" },
+);
+assertEqual(snapMerged.theme, "tokyo", "mergeSnapshot updates theme from a partial patch");
+assertEqual(
+  snapMerged.hardware.cpu.model,
+  "X",
+  "mergeSnapshot keeps hardware when the patch omits it",
+);
+assertEqual(
+  snapshot.mergeSnapshot({ theme: "omarchy" }, { stayAwake: false }).stayAwake,
+  false,
+  "mergeSnapshot keeps false",
+);
+assertEqual(snapshot.parseSnapshot("{"), null, "parseSnapshot rejects junk");
+
+const queue = load("services/WorkQueue.js");
+assertEqual(queue.snapshotGroupForHub("appearance"), "look", "appearance hub reads look first");
+assertEqual(queue.snapshotGroupForHub("hardware"), "all", "other hubs read the full snapshot");
+const io = queue.createWorkQueue();
+queue.enqueueRead(io, "look");
+queue.enqueueWrite(io, { kind: "mut", argv: ["true"] });
+queue.enqueueRead(io, "rest");
+const drained = [];
+while (true) {
+  const job = queue.takeNext(io);
+  if (!job) break;
+  drained.push(job);
+  queue.release(io);
+}
+assertEqual(drained[0].kind, "mut", "write jobs run before waiting reads");
+assertEqual(drained[1].group, "look", "queued look runs before rest");
+assertEqual(drained[2].group, "rest", "rest stays last when look was already queued");
+assert(queue.isIdle(io), "worker is idle when both queues are empty");
+queue.enqueueRead(io, "look");
+queue.enqueueRead(io, "look");
+assertEqual(io.reads.length, 1, "duplicate look reads coalesce");
+queue.enqueueRead(io, "all");
+assertEqual(
+  io.reads[io.reads.length - 1].group,
+  "all",
+  "all keeps a pending look then replaces rest",
+);
+assert(
+  io.reads.some(function (job) {
+    return job.group === "look";
+  }),
+  "all does not drop a waiting look",
+);
+
 const qmlCatalog = search.catalogFromQmlDir(path.join(__dirname, "..", "pages"));
 assert(
   qmlCatalog.some(function (row) {

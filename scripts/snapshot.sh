@@ -20,6 +20,147 @@ omarchy_out() {
   omarchy "$@" 2>/dev/null || true
 }
 
+GROUP=${1:-all}
+case $GROUP in
+  look | rest | all) ;;
+  *)
+    echo "snapshot.sh: group must be look, rest, or all" >&2
+    exit 2
+    ;;
+esac
+
+emit_look_snapshot() {
+  local theme background font text_size
+  local stay_awake nightlight_json nightlight nightlight_temp
+  local screensaver_branded about_branded
+  local themes_json extra_themes_json fonts_json
+  local plymouth plymouth_themes_json
+  local nightlight_day nightlight_night nightlight_night_on
+  local hyprsunset_file hyprsunset_parsed parsed_day parsed_night parsed_night_on parsed_temp
+  local brand_file default_brand about_file default_about
+  theme=$(omarchy_out theme current)
+  theme=${theme%$'\n'}
+  background=$(omarchy_out theme bg current)
+  background=${background%$'\n'}
+  font=$(omarchy_out font current)
+  font=${font%$'\n'}
+  text_size=$(omarchy display text size 2>/dev/null | awk '/text size:/{print $3; exit}')
+  [[ $text_size =~ ^[0-9]+$ ]] || text_size=12
+  stay_awake=$(omarchy_out toggle idle status | jq -r '.enabled // false' 2>/dev/null || true)
+  [[ $stay_awake == true ]] || stay_awake=false
+  nightlight_json=$(omarchy_out toggle nightlight --status)
+  nightlight=$(jq -r '.enabled // false' <<<"$nightlight_json" 2>/dev/null || true)
+  [[ $nightlight == true ]] || nightlight=false
+  nightlight_temp=$(jq -r '.temperature // empty' <<<"$nightlight_json" 2>/dev/null || true)
+  [[ $nightlight_temp =~ ^[0-9]+$ ]] || nightlight_temp=0
+  screensaver_branded=false
+  brand_file="$HOME/.config/omarchy/branding/screensaver.txt"
+  default_brand="$OMARCHY_PATH/logo.txt"
+  if [[ -f $brand_file ]]; then
+    if [[ -f $default_brand ]] && cmp -s "$brand_file" "$default_brand"; then
+      screensaver_branded=false
+    else
+      screensaver_branded=true
+    fi
+  fi
+  about_branded=false
+  about_file="$HOME/.config/omarchy/branding/about.txt"
+  default_about="$OMARCHY_PATH/icon.txt"
+  if [[ -f $about_file ]]; then
+    if [[ -f $default_about ]] && cmp -s "$about_file" "$default_about"; then
+      about_branded=false
+    else
+      about_branded=true
+    fi
+  fi
+  themes_json=$(omarchy_out theme list | lines_json)
+  extra_themes_json=$(omarchy_out theme extras | awk -F/ 'NF { print $NF }' | lines_json)
+  fonts_json=$(omarchy_out font list | lines_json)
+  plymouth=$(omarchy_out plymouth current)
+  plymouth=${plymouth%$'\n'}
+  plymouth_themes_json=$(omarchy_out plymouth list | lines_json)
+  hyprsunset_file=${ATMOS_HYPRSUNSET_FILE:-"$HOME/.config/hypr/hyprsunset.conf"}
+  nightlight_day=07:00
+  nightlight_night=20:00
+  nightlight_night_on=false
+  if [[ -f $hyprsunset_file ]]; then
+    hyprsunset_parsed=$(python3 - "$hyprsunset_file" <<'PY' 2>/dev/null || true
+import re, sys
+from pathlib import Path
+text = Path(sys.argv[1]).read_text()
+day = ""
+night = ""
+night_on = False
+temp = 0
+blocks = re.split(r"profile\s*\{", text)
+for block in blocks[1:]:
+    body = block.split("}", 1)[0]
+    time_m = re.search(r'time\s*=\s*"?([0-2]?\d:[0-5]\d)"?', body)
+    if not time_m:
+        continue
+    time = time_m.group(1)
+    if re.search(r"\bidentity\s*=\s*true\b", body):
+        day = time
+        continue
+    temp_m = re.search(r"temperature\s*=\s*([0-9]+)", body)
+    if temp_m:
+        night = time
+        night_on = True
+        temp = int(temp_m.group(1))
+print(f"{day}\t{night}\t{str(night_on).lower()}\t{temp}")
+PY
+    )
+    if [[ -n ${hyprsunset_parsed:-} ]]; then
+      IFS=$'\t' read -r parsed_day parsed_night parsed_night_on parsed_temp <<<"$hyprsunset_parsed"
+      [[ $parsed_day =~ ^[0-2]?\d:[0-5]\d$ ]] && nightlight_day=$parsed_day
+      [[ $parsed_night =~ ^[0-2]?\d:[0-5]\d$ ]] && nightlight_night=$parsed_night
+      [[ $parsed_night_on == true ]] && nightlight_night_on=true
+    fi
+  fi
+  jq -n \
+    --arg theme "$theme" \
+    --arg background "$background" \
+    --arg font "$font" \
+    --argjson textSize "$text_size" \
+    --argjson themes "$themes_json" \
+    --argjson extraThemes "$extra_themes_json" \
+    --argjson fonts "$fonts_json" \
+    --argjson stayAwake "$stay_awake" \
+    --argjson nightlight "$nightlight" \
+    --argjson nightlightTemperature "$nightlight_temp" \
+    --argjson screensaverBranded "$screensaver_branded" \
+    --argjson aboutBranded "$about_branded" \
+    --arg plymouth "$plymouth" \
+    --argjson plymouthThemes "$plymouth_themes_json" \
+    --arg nightlightDay "$nightlight_day" \
+    --arg nightlightNight "$nightlight_night" \
+    --argjson nightlightNightOn "$nightlight_night_on" \
+    '{
+      theme: $theme,
+      background: $background,
+      font: $font,
+      textSize: $textSize,
+      themes: $themes,
+      extraThemes: $extraThemes,
+      fonts: $fonts,
+      stayAwake: $stayAwake,
+      nightlight: $nightlight,
+      nightlightTemperature: $nightlightTemperature,
+      screensaverBranded: $screensaverBranded,
+      aboutBranded: $aboutBranded,
+      plymouth: $plymouth,
+      plymouthThemes: $plymouthThemes,
+      nightlightDay: $nightlightDay,
+      nightlightNight: $nightlightNight,
+      nightlightNightOn: $nightlightNightOn
+    }'
+}
+
+if [[ $GROUP == look ]]; then
+  emit_look_snapshot
+  exit 0
+fi
+
 theme=$(omarchy_out theme current)
 theme=${theme%$'\n'}
 background=$(omarchy_out theme bg current)
@@ -585,6 +726,10 @@ if present hyprctl && present jq; then
       x: ((.x // 0) | floor),
       y: ((.y // 0) | floor),
       mirrorOf: (if (.mirrorOf // "none") == "none" then "" else (.mirrorOf | tostring) end),
+      availableModes: (
+        (.availableModes // [])
+        | if type == "array" then .[:80] | map(tostring) else [] end
+      ),
       brightness: 0,
       brightnessAvailable: false
     }]

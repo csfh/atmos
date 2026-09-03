@@ -4,6 +4,8 @@ import Quickshell
 import Quickshell.Io
 import "AtmosUpdate.js" as AtmosUpdate
 import "Hardware.js" as HardwareJs
+import "Snapshot.js" as SnapshotJs
+import "WorkQueue.js" as WorkQueue
 
 QtObject {
   id: root
@@ -339,8 +341,9 @@ QtObject {
   property bool nightlightNightOn: false
   property var tailscalePeers: []
 
-  property var pending: []
-  property bool snapshotQueued: false
+  property var ioQueue: WorkQueue.createWorkQueue()
+  property var snapshotData: ({})
+  property var ioJob: null
   property bool snapshotReady: false
 
   function sanitizeDmi(raw) {
@@ -363,11 +366,15 @@ QtObject {
   }
 
   function applySnapshot(raw) {
-    var data
-    try {
-      data = JSON.parse(String(raw || "{}"))
-    } catch (e) {
+    var parsed = SnapshotJs.parseSnapshot(raw)
+    if (!parsed) {
       lastError = "Could not parse Omarchy snapshot"
+      return
+    }
+    var data = SnapshotJs.mergeSnapshot(snapshotData, parsed)
+    snapshotData = data
+    if (!("barPosition" in parsed) && !("hardware" in parsed) && !("disks" in parsed)) {
+      root.applyLookPatch(parsed)
       return
     }
     theme = String(data.theme || "")
@@ -645,6 +652,37 @@ QtObject {
     hyprKbGroupToggle = opts.indexOf("grp:alts_toggle") !== -1
   }
 
+  function applyLookPatch(parsed) {
+    if ("theme" in parsed) theme = String(parsed.theme || "")
+    if ("background" in parsed) background = String(parsed.background || "")
+    if ("font" in parsed) font = String(parsed.font || "")
+    if ("textSize" in parsed) {
+      textSize = Number(parsed.textSize) || 12
+    }
+    if ("themes" in parsed) themes = adoptArray(themes, parsed.themes)
+    if ("extraThemes" in parsed) extraThemes = adoptArray(extraThemes, parsed.extraThemes)
+    if ("fonts" in parsed) fonts = adoptArray(fonts, parsed.fonts)
+    if ("stayAwake" in parsed) stayAwake = parsed.stayAwake === true
+    if ("nightlight" in parsed) nightlight = parsed.nightlight === true
+    if ("nightlightTemperature" in parsed) {
+      nightlightTemperature = Math.round(Number(parsed.nightlightTemperature)) || 0
+      if (nightlightTemperature < 0) nightlightTemperature = 0
+    }
+    if ("screensaverBranded" in parsed) screensaverBranded = parsed.screensaverBranded === true
+    if ("aboutBranded" in parsed) aboutBranded = parsed.aboutBranded === true
+    if ("plymouth" in parsed) plymouth = String(parsed.plymouth || "")
+    if ("plymouthThemes" in parsed) plymouthThemes = adoptArray(plymouthThemes, parsed.plymouthThemes)
+    if ("nightlightDay" in parsed) {
+      nightlightDay = String(parsed.nightlightDay || "07:00")
+      if (!/^[0-2]?\d:[0-5]\d$/.test(nightlightDay)) nightlightDay = "07:00"
+    }
+    if ("nightlightNight" in parsed) {
+      nightlightNight = String(parsed.nightlightNight || "20:00")
+      if (!/^[0-2]?\d:[0-5]\d$/.test(nightlightNight)) nightlightNight = "20:00"
+    }
+    if ("nightlightNightOn" in parsed) nightlightNightOn = parsed.nightlightNightOn === true
+  }
+
   function refresh() {
     scheduleRefresh()
   }
@@ -653,23 +691,63 @@ QtObject {
     refreshTimer.restart()
   }
 
+  function enqueueRead(group) {
+    WorkQueue.enqueueRead(ioQueue, group || "all")
+    kickIo()
+  }
+
+  function startSession(hub) {
+    var first = WorkQueue.snapshotGroupForHub(hub)
+    WorkQueue.enqueueRead(ioQueue, first)
+    if (first === "look") WorkQueue.enqueueRead(ioQueue, "all")
+    kickIo()
+  }
+
+  function kickIo() {
+    if (ioQueue.running) return
+    var job = WorkQueue.takeNext(ioQueue)
+    if (!job) return
+    ioJob = job
+    startIoJob(job)
+  }
+
+  function ioFinished() {
+    ioJob = null
+    WorkQueue.release(ioQueue)
+    kickIo()
+  }
+
+  function startIoJob(job) {
+    if (job.kind === "read") {
+      snapshotProc.command = ["bash", root.snapshotScript, job.group || "all"]
+      snapshotProc.running = true
+      return
+    }
+    if (job.kind === "job") {
+      lastError = ""
+      jobLog = ""
+      jobKind = String(job.jobKind || "")
+      jobStdin = String(job.stdin || "")
+      jobBusy = true
+      jobProc.stdinEnabled = jobStdin.length > 0
+      jobProc.command = job.argv
+      jobProc.running = true
+      return
+    }
+    busy = true
+    lastError = ""
+    mutProc.command = job.argv
+    mutProc.running = true
+  }
+
   function startSnapshot() {
-    if (mutProc.running || pending.length > 0) {
-      snapshotQueued = true
-      return
-    }
-    if (snapshotProc.running) {
-      snapshotQueued = true
-      return
-    }
-    if (!snapshotReady) busy = true
-    snapshotProc.running = true
+    enqueueRead("all")
   }
 
   function runCommand(argv) {
     if (!(argv instanceof Array) || argv.length === 0) return
-    pending = pending.concat([argv])
-    pump()
+    WorkQueue.enqueueWrite(ioQueue, { kind: "mut", argv: argv })
+    kickIo()
   }
 
   function applyHyprLook(raw) {
@@ -813,18 +891,13 @@ QtObject {
 
   function runJob(argv, stdinText, kind) {
     if (!(argv instanceof Array) || argv.length === 0) return
-    if (jobProc.running) {
-      lastError = "A long task is already running"
-      return
-    }
-    lastError = ""
-    jobLog = ""
-    jobKind = String(kind || "")
-    jobStdin = String(stdinText || "")
-    jobBusy = true
-    jobProc.stdinEnabled = jobStdin.length > 0
-    jobProc.command = argv
-    jobProc.running = true
+    WorkQueue.enqueueWrite(ioQueue, {
+      kind: "job",
+      argv: argv,
+      stdin: String(stdinText || ""),
+      jobKind: String(kind || "")
+    })
+    kickIo()
   }
 
   function cancelJob() {
@@ -848,18 +921,7 @@ QtObject {
   }
 
   function pump() {
-    if (mutProc.running) return
-    if (pending.length === 0) {
-      scheduleRefresh()
-      return
-    }
-    var next = pending[0]
-    var rest = []
-    for (var i = 1; i < pending.length; i++) rest.push(pending[i])
-    pending = rest
-    lastError = ""
-    mutProc.command = next
-    mutProc.running = true
+    kickIo()
   }
 
   function setTheme(name) {
@@ -1677,6 +1739,12 @@ QtObject {
     if (!wifiIface || !/^[a-zA-Z0-9._-]+$/.test(wifiIface)) return
     runCommand(["bash", "-c", "omarchy network password \"$1\" | wl-copy -n", "wifi-password", wifiIface])
   }
+  function copyText(text) {
+    text = String(text || "")
+    if (!text || text.length > 1024) return
+    if (/[\r\n\0]/.test(text)) return
+    runCommand(["bash", "-c", "printf '%s' \"$1\" | wl-copy -n", "copy-text", text])
+  }
   function setWifiRadio(on) {
     if (on === wifiRadio) return
     wifiRadio = on
@@ -1785,6 +1853,13 @@ QtObject {
   function validMountPath(dir) {
     dir = String(dir || "")
     return dir.charAt(0) === "/" && dir.indexOf("..") === -1 && /^\/[A-Za-z0-9._/-]*$/.test(dir)
+  }
+  function openUserDir(dir) {
+    dir = String(dir || "")
+    if (!dir || dir.length > 1024) return
+    if (dir.charAt(0) !== "/" || dir.indexOf("..") !== -1) return
+    if (/[\r\n\0]/.test(dir)) return
+    launchDetached(["xdg-open", dir])
   }
   function changeDrivePassword(device, currentPass, newPass) {
     device = String(device || "")
@@ -2072,6 +2147,13 @@ QtObject {
     launchDetached(["xdg-open", path])
   }
 
+  function editMonitorsLua() {
+    var path = String(monitorsLuaFile || "")
+    var root = Quickshell.env("HOME") + "/.config/hypr/"
+    if (path.indexOf(root) !== 0 || path.indexOf("..") !== -1) return
+    launchDetached(["xdg-open", path])
+  }
+
   function launchHerdr() {
     if (!(extras && extras.herdr === true)) return
     runCommand(["omarchy", "launch", "terminal", "herdr"])
@@ -2311,7 +2393,7 @@ QtObject {
     return out
   }
 
-  Component.onCompleted: refresh()
+  Component.onCompleted: startSession(Quickshell.env("ATMOS_PAGE") || "appearance")
 
   readonly property var watchPaths: [
     userShellJson, defaultShellJson, weatherJson, notificationsJson,
@@ -2343,7 +2425,7 @@ QtObject {
   property Timer refreshTimer: Timer {
     interval: 180
     repeat: false
-    onTriggered: root.startSnapshot()
+    onTriggered: root.enqueueRead("all")
   }
 
   property Process snapshotProc: Process {
@@ -2364,11 +2446,7 @@ QtObject {
         root.lastError = String(snapErr.text || "omarchy snapshot failed").replace(/^\s+|\s+$/g, "")
       }
       root.snapshotReady = true
-      root.busy = false
-      if (root.snapshotQueued) {
-        root.snapshotQueued = false
-        root.startSnapshot()
-      }
+      root.ioFinished()
     }
   }
 
@@ -2380,21 +2458,16 @@ QtObject {
       waitForEnd: true
     }
     onExited: function(exitCode) {
+      root.busy = false
       if (exitCode !== 0) {
         var err = String(mutErr.text || "").replace(/^\s+|\s+$/g, "")
         if (root.stderrLooksLikeFailure(err))
           root.lastError = err || "Command failed"
         else
           root.lastError = ""
-        root.pending = []
-        root.scheduleRefresh()
-        return
       }
-      if (root.pending.length === 0) {
-        root.scheduleRefresh()
-      } else {
-        root.pump()
-      }
+      WorkQueue.enqueueRead(root.ioQueue, "all")
+      root.ioFinished()
     }
   }
 
@@ -2423,7 +2496,8 @@ QtObject {
       if (root.jobKind === "update-check") {
         root.lastError = ""
         root.jobKind = ""
-        root.scheduleRefresh()
+        WorkQueue.enqueueRead(root.ioQueue, "all")
+        root.ioFinished()
         return
       }
       if (root.jobKind === "atmos-update-check" || root.jobKind === "atmos-update") {
@@ -2435,7 +2509,8 @@ QtObject {
         if (parsed.channel) root.atmosChannel = parsed.channel
         root.lastError = (exitCode !== 0 && parsed.status !== "behind") ? (parsed.summary || err || "Atmos update failed") : ""
         root.jobKind = ""
-        if (applied) root.scheduleRefresh()
+        if (applied) WorkQueue.enqueueRead(root.ioQueue, "all")
+        root.ioFinished()
         return
       }
       if (exitCode !== 0) {
@@ -2445,9 +2520,10 @@ QtObject {
           root.lastError = ""
       } else {
         root.lastError = ""
-        root.scheduleRefresh()
+        WorkQueue.enqueueRead(root.ioQueue, "all")
       }
       root.jobKind = ""
+      root.ioFinished()
     }
   }
 }

@@ -204,6 +204,77 @@ PrefsPage {
   }
 
   PrefsGroup {
+    title: "Advanced"
+    query: root.query
+    detail: "Autostart writes a managed block at the end of ~/.config/hypr/autostart.lua. Lines you typed yourself stay. Remove only deletes a line Atmos added."
+    hint: "~/.config/hypr/autostart.lua"
+
+    PrefsRow {
+      label: "Add a command"
+      description: "A program name or command Omarchy should launch on start. Same form as o.launch_on_start."
+      hint: "~/.config/hypr/autostart.lua"
+      query: root.query
+      keywords: ["autostart", "startup", "launch", "hypr"]
+
+      Row {
+        spacing: 8
+        PrefsField {
+          width: 180
+          placeholder: "hyprsunset"
+          enabled: !Omarchy.busy
+          onEdited: function(value) { root.autostartDraft = value }
+          onSubmitted: function(value) {
+            root.autostartDraft = value
+            Omarchy.addAutostart(value)
+          }
+        }
+        PrefsButton {
+          text: "Add"
+          primary: true
+          enabled: !Omarchy.busy && root.autostartDraft.length > 0
+          onClicked: Omarchy.addAutostart(root.autostartDraft)
+        }
+      }
+    }
+
+    PrefsRow {
+      available: Omarchy.autostart.length === 0
+      sectionHelp: false
+      label: "None yet"
+      description: "No o.launch_on_start lines in autostart.lua."
+      query: root.query
+      keywords: ["autostart", "empty"]
+    }
+
+    Repeater {
+      model: Omarchy.autostart
+
+      PrefsRow {
+        required property var modelData
+        sectionHelp: false
+        label: modelData && modelData.command ? modelData.command : "command"
+        description: modelData && modelData.managed
+          ? "Atmos wrote this line."
+          : "This line is outside the Atmos block, so Remove stays off."
+        hint: "~/.config/hypr/autostart.lua"
+        query: root.query
+        keywords: ["autostart", "startup"]
+
+        PrefsButton {
+          visible: !!(modelData && modelData.managed)
+          text: "Remove"
+          danger: true
+          enabled: !Omarchy.busy && modelData && modelData.managed
+          onClicked: {
+            root.pendingAutostart = modelData.command
+            removeAutostartConfirm.ask()
+          }
+        }
+      }
+    }
+  }
+
+  PrefsGroup {
     title: "Add"
     query: root.query
     detail: "Desktop writes a .desktop file for a command. Terminal uses omarchy tui install. Web uses omarchy webapp install and can fetch the site icon."
@@ -361,77 +432,6 @@ PrefsPage {
           danger: true
           enabled: !Omarchy.busy && modelData && modelData.name
           onClicked: root.askRemove("web", modelData.id, modelData.name)
-        }
-      }
-    }
-  }
-
-  PrefsGroup {
-    title: "Advanced"
-    query: root.query
-    detail: "Autostart writes a managed block at the end of ~/.config/hypr/autostart.lua. Lines you typed yourself stay. Remove only deletes a line Atmos added."
-    hint: "~/.config/hypr/autostart.lua"
-
-    PrefsRow {
-      label: "Add a command"
-      description: "A program name or command Omarchy should launch on start. Same form as o.launch_on_start."
-      hint: "~/.config/hypr/autostart.lua"
-      query: root.query
-      keywords: ["autostart", "startup", "launch", "hypr"]
-
-      Row {
-        spacing: 8
-        PrefsField {
-          width: 180
-          placeholder: "hyprsunset"
-          enabled: !Omarchy.busy
-          onEdited: function(value) { root.autostartDraft = value }
-          onSubmitted: function(value) {
-            root.autostartDraft = value
-            Omarchy.addAutostart(value)
-          }
-        }
-        PrefsButton {
-          text: "Add"
-          primary: true
-          enabled: !Omarchy.busy && root.autostartDraft.length > 0
-          onClicked: Omarchy.addAutostart(root.autostartDraft)
-        }
-      }
-    }
-
-    PrefsRow {
-      available: Omarchy.autostart.length === 0
-      sectionHelp: false
-      label: "None yet"
-      description: "No o.launch_on_start lines in autostart.lua."
-      query: root.query
-      keywords: ["autostart", "empty"]
-    }
-
-    Repeater {
-      model: Omarchy.autostart
-
-      PrefsRow {
-        required property var modelData
-        sectionHelp: false
-        label: modelData && modelData.command ? modelData.command : "command"
-        description: modelData && modelData.managed
-          ? "Atmos wrote this line."
-          : "This line is outside the Atmos block, so Remove stays off."
-        hint: "~/.config/hypr/autostart.lua"
-        query: root.query
-        keywords: ["autostart", "startup"]
-
-        PrefsButton {
-          visible: !!(modelData && modelData.managed)
-          text: "Remove"
-          danger: true
-          enabled: !Omarchy.busy && modelData && modelData.managed
-          onClicked: {
-            root.pendingAutostart = modelData.command
-            removeAutostartConfirm.ask()
-          }
         }
       }
     }

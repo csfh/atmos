@@ -18,6 +18,7 @@ PrefsPage {
   property string diskWrite: ""
   property string diskError: ""
   property string diskTarget: ""
+  property var diskResults: ({})
   property string pendingRollbackConfig: ""
   property int pendingRollbackId: 0
   property string pendingLuksDevice: ""
@@ -37,6 +38,26 @@ PrefsPage {
       return t
     }
     return ""
+  }
+
+  function diskResult(dir) {
+    return (dir && root.diskResults[dir]) || null
+  }
+
+  function setDiskResult(dir, patch) {
+    if (!dir) return
+    var copy = {}
+    var keys = Object.keys(root.diskResults)
+    for (var i = 0; i < keys.length; i++)
+      copy[keys[i]] = root.diskResults[keys[i]]
+    var cur = copy[dir] || { name: "", read: "", write: "", error: "" }
+    copy[dir] = {
+      name: patch.name !== undefined ? patch.name : cur.name,
+      read: patch.read !== undefined ? patch.read : cur.read,
+      write: patch.write !== undefined ? patch.write : cur.write,
+      error: patch.error !== undefined ? patch.error : cur.error
+    }
+    root.diskResults = copy
   }
 
   function snapperSummary() {
@@ -71,6 +92,8 @@ PrefsPage {
     diskRunning = true
     diskExpectedStop = false
     diskTarget = dir || ""
+    if (diskTarget)
+      setDiskResult(diskTarget, { name: "", read: "", write: "", error: "" })
     if (dir && Omarchy.validMountPath(dir))
       diskProc.command = ["omarchy", "disk", "speedtest", dir]
     else
@@ -95,13 +118,17 @@ PrefsPage {
       onRead: function(line) {
         var parsed = RichUi.parseDiskSpeedLine(line)
         if (!parsed) return
-        if (parsed.kind === "disk") root.diskName = String(parsed.value)
-        else if (parsed.kind === "read") {
+        if (parsed.kind === "disk") {
+          root.diskName = String(parsed.value)
+          root.setDiskResult(root.diskTarget, { name: root.diskName })
+        } else if (parsed.kind === "read") {
           root.diskPhase = "read"
           root.diskRead = String(parsed.value)
+          root.setDiskResult(root.diskTarget, { read: root.diskRead })
         } else if (parsed.kind === "write") {
           root.diskPhase = "write"
           root.diskWrite = String(parsed.value)
+          root.setDiskResult(root.diskTarget, { write: root.diskWrite })
         }
       }
     }
@@ -118,8 +145,12 @@ PrefsPage {
       }
       root.diskRunning = false
       root.diskPhase = ""
-      if (code !== 0)
+      if (code !== 0) {
         root.diskError = String(diskErr.text || "Disk speed test failed").replace(/^\s+|\s+$/g, "")
+        root.setDiskResult(root.diskTarget, { error: root.diskError })
+      } else {
+        root.setDiskResult(root.diskTarget, { error: "" })
+      }
     }
   }
 
@@ -268,9 +299,20 @@ PrefsPage {
       PrefsRow {
         stretchControl: true
         label: "Speed test"
-        description: root.diskRunning && root.diskTarget === root.speedtestDir(modelData)
-          ? (root.diskName ? ("Testing " + root.diskName + ".") : "Reading, then writing, for about eight seconds each.")
-          : "Read for about eight seconds, then write for about eight, on this disk."
+        description: {
+          var dir = root.speedtestDir(modelData)
+          var active = root.diskRunning && root.diskTarget === dir
+          if (active)
+            return root.diskName ? ("Testing " + root.diskName + ".") : "Reading, then writing, for about eight seconds each."
+          var last = root.diskResult(dir)
+          if (last && (last.read || last.write)) {
+            var bits = []
+            if (last.name) bits.push(last.name)
+            bits.push("last run")
+            return bits.join(" · ") + "."
+          }
+          return "Read for about eight seconds, then write for about eight, on this disk."
+        }
         hint: "omarchy disk speedtest"
         query: root.query
         keywords: ["benchmark", "mbps", "performance"]
@@ -296,9 +338,37 @@ PrefsPage {
             indeterminate: true
             valueText: "Read " + (root.diskRead || "—") + " MB/s   Write " + (root.diskWrite || "—") + " MB/s"
           }
+          PrefsText {
+            width: parent.width
+            visible: {
+              var dir = root.speedtestDir(modelData)
+              if (root.diskRunning && root.diskTarget === dir) return false
+              var last = root.diskResult(dir)
+              return !!(last && (last.read || last.write))
+            }
+            text: {
+              var last = root.diskResult(root.speedtestDir(modelData))
+              if (!last) return ""
+              return "Read " + (last.read || "—") + " MB/s   Write " + (last.write || "—") + " MB/s"
+            }
+            wrapMode: Text.NoWrap
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.captionSize
+            color: Theme.foreground
+          }
           Text {
-            visible: root.diskError.length > 0 && root.diskTarget === root.speedtestDir(modelData)
-            text: root.diskError
+            visible: {
+              var dir = root.speedtestDir(modelData)
+              var last = root.diskResult(dir)
+              var err = (root.diskRunning && root.diskTarget === dir) ? root.diskError : (last ? last.error : "")
+              return String(err || "").length > 0
+            }
+            text: {
+              var dir = root.speedtestDir(modelData)
+              var last = root.diskResult(dir)
+              if (root.diskTarget === dir && root.diskError.length) return root.diskError
+              return last && last.error ? last.error : ""
+            }
             color: Theme.urgent
             font.family: Theme.fontFamily
             font.pixelSize: Theme.captionSize

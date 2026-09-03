@@ -283,6 +283,15 @@ fi
 [[ -n $swap_devices_json ]] || swap_devices_json='[]'
 [[ -n $snapshots_json ]] || snapshots_json='[]'
 
+hardware_json='{}'
+if present python3 && [[ -x $SNAP_DIR/hw-inventory.py ]]; then
+  hw_inv=$(python3 "$SNAP_DIR/hw-inventory.py" 2>/dev/null || true)
+  if [[ -n $hw_inv ]]; then
+    hardware_json=$(jq -c '.' <<<"$hw_inv" 2>/dev/null || echo '{}')
+  fi
+fi
+[[ -n $hardware_json ]] || hardware_json='{}'
+
 desktop_apps_json='[]'
 tui_apps_json='[]'
 web_apps_json='[]'
@@ -983,6 +992,21 @@ elif [[ -n ${update_out:-} ]]; then
 fi
 [[ -n $update_summary ]] || update_summary="Omarchy is up to date"
 
+# shellcheck source=atmos-xdg.sh
+. "$SNAP_DIR/atmos-xdg.sh"
+atmos_revision=""
+atmos_channel=$(atmos_channel)
+atmos_installed=false
+atmos_data=$(atmos_data_home)
+if [[ -x $atmos_data/bin/atmos ]]; then
+  atmos_installed=true
+fi
+if [[ -r $atmos_data/REVISION ]]; then
+  atmos_revision=$(<"$atmos_data/REVISION")
+  atmos_revision=${atmos_revision%%$'\n'*}
+  [[ $atmos_revision =~ ^[0-9a-f]{4,40}$ ]] || atmos_revision=""
+fi
+
 voxtype_installed=false
 present voxtype && voxtype_installed=true
 
@@ -999,6 +1023,99 @@ if present supergfxctl; then
     *) hybrid_gpu_mode="" ;;
   esac
 fi
+
+hw_flag() {
+  if omarchy hw "$@" >/dev/null 2>&1; then
+    echo true
+  else
+    echo false
+  fi
+}
+
+hw_nvidia=$(hw_flag nvidia)
+hw_nvidia_gsp=$(hw_flag nvidia gsp)
+hw_nvidia_without_gsp=$(hw_flag nvidia without gsp)
+hw_vulkan=$(hw_flag vulkan)
+hw_intel=$(hw_flag intel)
+hw_intel_ptl=$(hw_flag intel ptl)
+hw_webcam=$(hw_flag webcam)
+hw_framework16=$(hw_flag framework16)
+hw_asus_rog=$(hw_flag asus rog)
+hw_surface=$(hw_flag surface)
+
+dmi_field() {
+  local path=$1
+  local v=""
+  if [[ -r $path ]]; then
+    v=$(< "$path")
+    v=${v%%$'\n'*}
+    v=${v//$'\r'/}
+  fi
+  printf '%s' "$v"
+}
+
+dmi_vendor=$(dmi_field /sys/class/dmi/id/sys_vendor)
+dmi_product=$(dmi_field /sys/class/dmi/id/product_name)
+dmi_family=$(dmi_field /sys/class/dmi/id/product_family)
+
+cpu_stat=""
+memory_stat=""
+if stats_out=$(omarchy system stats 2>/dev/null); then
+  while IFS= read -r line || [[ -n $line ]]; do
+    case $line in
+      cpu*) cpu_stat=${line#cpu} ;;
+      memory*) memory_stat=${line#memory} ;;
+    esac
+  done <<<"$stats_out"
+fi
+
+cpu_identity=""
+if [[ -r /proc/cpuinfo ]]; then
+  cpu_identity=$(awk -F: '
+    BEGIN { IGNORECASE=1 }
+    $1 ~ /^model name[ \t]*$/ {
+      sub(/^[ \t]+/, "", $2)
+      sub(/[ \t]+$/, "", $2)
+      print $2
+      exit
+    }
+  ' /proc/cpuinfo)
+  if [[ -z $cpu_identity ]]; then
+    cpu_identity=$(awk -F: '
+      BEGIN { IGNORECASE=1 }
+      $1 ~ /^(Hardware|cpu model)[ \t]*$/ {
+        sub(/^[ \t]+/, "", $2)
+        sub(/[ \t]+$/, "", $2)
+        print $2
+        exit
+      }
+    ' /proc/cpuinfo)
+  fi
+fi
+
+pci_identity() {
+  local kind=$1
+  present lspci || return 0
+  lspci -nn 2>/dev/null | awk -v kind="$kind" '
+    BEGIN { IGNORECASE=1 }
+    {
+      gpu = (index($0, "VGA compatible controller") || index($0, "3D controller") || index($0, "Display controller"))
+      npu = (index($0, "Neural Processing") || index($0, "NPU") || index($0, "XDNA") || index($0, "TPU") || index($0, "Habana") || index($0, "Hailo") || index($0, "Coral") || index($0, "AI accelerator"))
+      if (kind == "gpu" && !gpu) next
+      if (kind == "npu" && !npu) next
+      idx = index($0, ": ")
+      if (idx == 0) next
+      $0 = substr($0, idx + 2)
+      sub(/ \[[0-9a-fA-F]{4}:[0-9a-fA-F]{4}\].*/, "")
+      sub(/ \(rev [^)]+\)$/, "")
+      gsub(/^[ \t]+|[ \t]+$/, "")
+      if (length($0) > 0) { print; exit }
+    }
+  '
+}
+
+gpu_identity=$(pci_identity gpu || true)
+npu_identity=$(pci_identity npu || true)
 
 tailscale_installed=false
 tailscale_running=false
@@ -1341,6 +1458,7 @@ jq -n \
   --argjson audioTuningMatch "$audio_tuning_match" \
   --argjson audioTuningOn "$audio_tuning_on" \
   --argjson disks "$disks_json" \
+  --argjson hardware "$hardware_json" \
   --argjson luksDevices "$luks_devices_json" \
   --argjson swapDevices "$swap_devices_json" \
   --argjson snapperPresent "$snapper_present" \
@@ -1429,9 +1547,30 @@ jq -n \
   --arg omarchyChannel "$omarchy_channel" \
   --argjson updateAvailable "$update_available" \
   --arg updateSummary "$update_summary" \
+  --arg atmosRevision "$atmos_revision" \
+  --arg atmosChannel "$atmos_channel" \
+  --argjson atmosInstalled "$atmos_installed" \
   --argjson voxtypeInstalled "$voxtype_installed" \
   --argjson hybridGpuAvailable "$hybrid_gpu_available" \
   --arg hybridGpuMode "$hybrid_gpu_mode" \
+  --argjson hwNvidia "$hw_nvidia" \
+  --argjson hwNvidiaGsp "$hw_nvidia_gsp" \
+  --argjson hwNvidiaWithoutGsp "$hw_nvidia_without_gsp" \
+  --argjson hwVulkan "$hw_vulkan" \
+  --argjson hwIntel "$hw_intel" \
+  --argjson hwIntelPtl "$hw_intel_ptl" \
+  --argjson hwWebcam "$hw_webcam" \
+  --argjson hwFramework16 "$hw_framework16" \
+  --argjson hwAsusRog "$hw_asus_rog" \
+  --argjson hwSurface "$hw_surface" \
+  --arg dmiVendor "$dmi_vendor" \
+  --arg dmiProduct "$dmi_product" \
+  --arg dmiFamily "$dmi_family" \
+  --arg cpuStat "$cpu_stat" \
+  --arg memoryStat "$memory_stat" \
+  --arg cpuIdentity "$cpu_identity" \
+  --arg gpuIdentity "$gpu_identity" \
+  --arg npuIdentity "$npu_identity" \
   --argjson tailscaleInstalled "$tailscale_installed" \
   --argjson tailscaleRunning "$tailscale_running" \
   --argjson plugins "$plugins_json" \
@@ -1552,6 +1691,7 @@ jq -n \
     audioTuningMatch: $audioTuningMatch,
     audioTuningOn: $audioTuningOn,
     disks: $disks,
+    hardware: $hardware,
     luksDevices: $luksDevices,
     swapDevices: $swapDevices,
     snapperPresent: $snapperPresent,
@@ -1642,9 +1782,30 @@ jq -n \
     omarchyChannel: $omarchyChannel,
     updateAvailable: $updateAvailable,
     updateSummary: $updateSummary,
+    atmosRevision: $atmosRevision,
+    atmosChannel: $atmosChannel,
+    atmosInstalled: $atmosInstalled,
     voxtypeInstalled: $voxtypeInstalled,
     hybridGpuAvailable: $hybridGpuAvailable,
     hybridGpuMode: $hybridGpuMode,
+    hwNvidia: $hwNvidia,
+    hwNvidiaGsp: $hwNvidiaGsp,
+    hwNvidiaWithoutGsp: $hwNvidiaWithoutGsp,
+    hwVulkan: $hwVulkan,
+    hwIntel: $hwIntel,
+    hwIntelPtl: $hwIntelPtl,
+    hwWebcam: $hwWebcam,
+    hwFramework16: $hwFramework16,
+    hwAsusRog: $hwAsusRog,
+    hwSurface: $hwSurface,
+    dmiVendor: $dmiVendor,
+    dmiProduct: $dmiProduct,
+    dmiFamily: $dmiFamily,
+    cpuStat: $cpuStat,
+    memoryStat: $memoryStat,
+    cpuIdentity: $cpuIdentity,
+    gpuIdentity: $gpuIdentity,
+    npuIdentity: $npuIdentity,
     tailscaleInstalled: $tailscaleInstalled,
     tailscaleRunning: $tailscaleRunning,
     plugins: $plugins,

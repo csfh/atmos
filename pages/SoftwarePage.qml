@@ -170,7 +170,8 @@ PrefsPage {
       query: root.query
       keywords: ["dev", "mise", "ruby", "node", "python", "rust"]
 
-      Row {
+      Flow {
+        width: parent.width
         spacing: 8
         PrefsSelect {
           width: 140
@@ -202,7 +203,8 @@ PrefsPage {
       query: root.query
       keywords: ["docker", "postgres", "mysql", "redis", "mongo"]
 
-      Row {
+      Flow {
+        width: parent.width
         spacing: 8
         PrefsSelect {
           width: 140
@@ -245,14 +247,14 @@ PrefsPage {
           visible: !root.installed(modelData)
           text: "Install…"
           primary: true
-          enabled: !Omarchy.busy && !Omarchy.jobBusy && modelData && modelData.install
+          enabled: !Omarchy.busy && !Omarchy.jobBusy && !!(modelData && modelData.install)
           onClicked: root.askInstall(modelData)
         }
         PrefsButton {
           visible: root.installed(modelData) && !!(modelData && modelData.remove)
           text: "Remove…"
           danger: true
-          enabled: !Omarchy.busy && !Omarchy.jobBusy && modelData && modelData.remove
+          enabled: !Omarchy.busy && !Omarchy.jobBusy && !!(modelData && modelData.remove)
           onClicked: root.askRemove(modelData)
         }
         PrefsText {

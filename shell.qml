@@ -15,7 +15,8 @@ ShellRoot {
 
   readonly property var pages: [
     { id: "appearance", title: "Appearance", keywords: "theme background wallpaper font text size reset default scale aether palette night light nightlight warmth temperature kelvin schedule hyprsunset plymouth boot screen unlock sddm login refresh reapply templates switcher preview thumbnail picker install git extra clone update pull remove uninstall delete custom folder file image path directory cache logo png render" },
-    { id: "display", title: "Displays", keywords: "monitor scale hidpi brightness backlight ddc keyboard laptop lid internal mirror clone edp hdmi dp resolution refresh touchpad trackpad pointer mouse input touch touchscreen tablet digitizer gpu hybrid nvidia supergfx" },
+    { id: "display", title: "Displays", keywords: "monitor scale hidpi brightness backlight ddc keyboard laptop lid internal mirror clone edp hdmi dp resolution refresh touchpad trackpad pointer mouse input touch touchscreen tablet digitizer" },
+    { id: "hardware", title: "Hardware", keywords: "gpu graphics nvidia vulkan hybrid supergfx igpu cuda radeon cpu processor intel amd memory ram dimm ddr chipset motherboard bios uefi firmware tpm npu xdna neural tpu ai accelerator dmi chassis laptop desktop framework usb nic thermal battery" },
     { id: "windows", title: "Windows", keywords: "gaps border rounding blur shadow tiling dwindle scrolling niri column opacity transparency fullscreen tight square aspect dim animations cursor tearing looknfeel preserve split focus activate keybinding hotkey shortcut bind unbind chord window rule float tile class" },
     { id: "input", title: "Input", keywords: "mouse pointer sensitivity acceleration natural scroll touchpad clickfinger repeat delay numlock follow dpms gesture swipe layout xkb" },
     { id: "accessibility", title: "Accessibility", keywords: "a11y motion animations reduce text size font cursor pointer hide typing touchscreen herdr screen reader" },
@@ -32,7 +33,7 @@ ShellRoot {
     { id: "idle", title: "Idle and lock", keywords: "screensaver lock timeout idle security stay awake caffeine allow disable suspend sleep branding logo ascii lid clamshell" },
     { id: "security", title: "Security", keywords: "fingerprint fido2 yubikey ssh sshd sudo passwordless docker pam u2f" },
     { id: "hooks", title: "Hooks", keywords: "hook script theme-set font-set post-boot post-update pacman battery-low" },
-    { id: "system", title: "System", keywords: "crash capture diagnostics coredump weather location city forecast coordinates latitude longitude gps units celsius fahrenheit metric imperial refresh interval about logo branding fastfetch timezone tz utc region city date time zoneinfo timedatectl hostname computer machine device name hostnamectl keyboard layout keymap xkb qwerty language input localectl ntp timesync synchronize automatic clock network time locale lang utf-8 i18n translation pacman parallel downloads packages mirrors aur full name user gecos account chfn update channel firmware orphan prune version printer cups print restore hyprland shell restart" }
+    { id: "system", title: "System", keywords: "crash capture diagnostics coredump weather location city forecast coordinates latitude longitude gps units celsius fahrenheit metric imperial refresh interval about logo branding fastfetch timezone tz utc region city date time zoneinfo timedatectl hostname computer machine device name hostnamectl keyboard layout keymap xkb qwerty language input localectl ntp timesync synchronize automatic clock network time locale lang utf-8 i18n translation pacman parallel downloads packages mirrors aur full name user gecos account chfn update channel firmware orphan prune version printer cups print restore hyprland shell restart atmos git pull" }
   ]
 
   function pageMatches(page, q) {
@@ -122,6 +123,7 @@ ShellRoot {
 
   Component { id: appearancePage; AppearancePage { query: root.query; stack: pageStack } }
   Component { id: displayPage; DisplaysPage { query: root.query } }
+  Component { id: hardwarePage; HardwarePage { query: root.query } }
   Component { id: windowsPage; WindowsPage { query: root.query; stack: pageStack } }
   Component { id: inputPage; InputPage { query: root.query } }
   Component { id: accessibilityPage; AccessibilityPage { query: root.query } }
@@ -144,6 +146,7 @@ ShellRoot {
   readonly property var pageById: ({
     appearance: appearancePage,
     display: displayPage,
+    hardware: hardwarePage,
     windows: windowsPage,
     input: inputPage,
     accessibility: accessibilityPage,

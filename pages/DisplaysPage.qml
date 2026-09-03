@@ -5,21 +5,7 @@ import "../services"
 PrefsPage {
   id: root
   title: "Displays"
-  description: "Each monitor keeps its own resolution. Scale and brightness apply to the one you are looking at. On a laptop you also get the built-in panel and its input devices."
-
-  PrefsConfirm {
-    id: hybridGpuConfirm
-    title: "Switch GPU mode"
-    message: Omarchy.hybridGpuMode === "Integrated"
-      ? "Turn the dedicated GPU on (hybrid) and reboot."
-      : "Use only the integrated GPU and reboot."
-    confirmText: "Switch and reboot"
-    onConfirmed: Omarchy.toggleHybridGpu()
-  }
-
-  Component.onCompleted: {
-    hybridGpuConfirm.parent = root.prefsOverlay
-  }
+  description: "Each monitor keeps its own resolution. Scale and brightness apply to the one you are looking at. On a laptop you also get the built-in panel and its input devices. GPU switching is on Hardware."
 
   readonly property var scalePresets: [
     { value: "1", label: "100%" },
@@ -224,31 +210,6 @@ PrefsPage {
           enabled: !Omarchy.busy && Omarchy.keyboardBacklightPresent && Omarchy.keyboardBrightness > 0
           onClicked: Omarchy.adjustKeyboardBacklight("off")
         }
-      }
-    }
-  }
-
-  PrefsGroup {
-    title: "Advanced"
-    query: Omarchy.hybridGpuAvailable ? root.query : "."
-    detail: "Hybrid GPU is for machines with both an integrated and a dedicated GPU. Switching reboots."
-
-    PrefsRow {
-      available: Omarchy.hybridGpuAvailable
-      label: "Hybrid GPU"
-      description: Omarchy.hybridGpuMode === "Integrated"
-        ? "Only the integrated GPU is on. Switch to hybrid if you want the dedicated GPU."
-        : (Omarchy.hybridGpuMode === "Hybrid"
-          ? "Hybrid mode. The dedicated GPU can wake for a game or CUDA."
-          : "This machine can switch between integrated-only and hybrid.")
-      hint: "omarchy toggle hybrid gpu"
-      query: root.query
-      keywords: ["gpu", "hybrid", "nvidia", "supergfx", "igpu"]
-
-      PrefsButton {
-        text: "Switch…"
-        enabled: !Omarchy.busy && !Omarchy.jobBusy && Omarchy.hybridGpuAvailable
-        onClicked: hybridGpuConfirm.ask()
       }
     }
   }

@@ -1,9 +1,7 @@
 #!/bin/bash
-# Install Atmos for the current user on Omarchy.
-set -euo pipefail
+# Install Atmos into XDG dirs for the current user.
 
-REPO=${ATMOS_REPO:-https://github.com/csfh/atmos.git}
-DEST=${ATMOS_HOME:-$HOME/.local/share/atmos}
+set -euo pipefail
 
 need() {
   command -v "$1" >/dev/null 2>&1 || {
@@ -16,57 +14,40 @@ need git
 need python3
 need quickshell
 
-# BASH_SOURCE is /dev/fd/N when piped from curl — no local bin/atmos, so clone.
 here=""
 src=${BASH_SOURCE[0]:-$0}
 if [[ $src != /dev/fd/* && $src != /proc/self/fd/* ]]; then
   here=$(cd -- "$(dirname -- "$src")" 2>/dev/null && pwd) || here=""
 fi
 
-if [[ -n $here && -x $here/bin/atmos ]]; then
-  ROOT=$here
+if [[ -n $here && -x $here/bin/atmos && -f $here/scripts/atmos-xdg.sh ]]; then
+  # shellcheck source=scripts/atmos-xdg.sh
+  . "$here/scripts/atmos-xdg.sh"
+  SOURCE=$here
 else
-  if [[ -d $DEST/.git ]]; then
-    git -C "$DEST" pull --ff-only
+  cache=${XDG_CACHE_HOME:-$HOME/.cache}/atmos/src
+  repo=${ATMOS_REPO:-https://github.com/csfh/atmos.git}
+  mkdir -p "$(dirname "$cache")"
+  if [[ ! -d $cache/.git ]]; then
+    git clone --depth 1 --branch alpha "$repo" "$cache"
   else
-    mkdir -p "$(dirname "$DEST")"
-    git clone --depth 1 "$REPO" "$DEST"
+    git -C "$cache" remote set-url origin "$repo"
+    git -C "$cache" fetch --depth 1 origin alpha
+    git -C "$cache" checkout -B alpha FETCH_HEAD
   fi
-  ROOT=$DEST
+  # shellcheck source=scripts/atmos-xdg.sh
+  . "$cache/scripts/atmos-xdg.sh"
+  SOURCE=$cache
 fi
 
-mkdir -p "$HOME/.local/bin" "$HOME/.local/share/applications" \
-  "$HOME/.config/omarchy/extensions" "$HOME/.config/hypr"
-
-ln -sfn "$ROOT/bin/atmos" "$HOME/.local/bin/atmos"
-cp "$ROOT/packaging/atmos.desktop" "$HOME/.local/share/applications/atmos.desktop"
-
-if [[ ! -f $HOME/.config/hypr/atmos.lua ]]; then
-  cp "$ROOT/packaging/hypr-atmos.lua" "$HOME/.config/hypr/atmos.lua"
+DEST=$(atmos_data_home)
+atmos_stage "$SOURCE" "$DEST"
+atmos_write_channel alpha
+sha=""
+if git -C "$SOURCE" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  sha=$(git -C "$SOURCE" rev-parse HEAD)
 fi
-
-python3 "$ROOT/scripts/hypr-sentinel.py" require apply "$HOME/.config/hypr/hyprland.lua"
-
-python3 - "$ROOT/packaging/omarchy-menu.jsonc" "$HOME/.config/omarchy/extensions/omarchy-menu.jsonc" <<'PY'
-import json, pathlib, re, sys
-
-def load(path):
-    text = pathlib.Path(path).read_text()
-    text = re.sub(r"/\*.*?\*/", "", text, flags=re.S)
-    text = re.sub(r"//.*?$", "", text, flags=re.M)
-    return json.loads(text)
-
-src_path, dest_path = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2])
-src = load(src_path)
-dest = load(dest_path) if dest_path.exists() else {}
-if not isinstance(dest, dict):
-    dest = {}
-dest.update(src)
-dest_path.write_text(json.dumps(dest, indent=2) + "\n")
-PY
-
-if command -v hyprctl >/dev/null 2>&1; then
-  hyprctl reload >/dev/null || true
-fi
+atmos_write_revision "$DEST" "$sha"
+atmos_link_xdg "$DEST"
 
 echo "Atmos is installed. Run: atmos"

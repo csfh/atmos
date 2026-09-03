@@ -57,6 +57,14 @@
     "keywords": "settings prefs display monitor scale brightness",
     "description": "Scale, brightness, and laptop input"
   },
+  "setup.hardware.preferences": {
+    "icon": "󰢮",
+    "label": "Atmos",
+    "action": "atmos hardware",
+    "when": "command -v atmos",
+    "keywords": "settings prefs hardware gpu cpu npu machine nvidia vulkan xdna",
+    "description": "GPU, CPU, NPU, and chassis Omarchy can see"
+  },
   "style.bar.position.preferences": {
     "icon": "",
     "label": "Atmos",

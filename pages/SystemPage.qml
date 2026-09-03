@@ -18,6 +18,14 @@ PrefsPage {
   }
 
   PrefsConfirm {
+    id: atmosUpdateConfirm
+    title: "Update Atmos"
+    message: "Fetch the alpha branch and replace the installed Atmos files under ~/.local/share/atmos. If the window does not reload, quit Atmos and open it again."
+    confirmText: "Update"
+    onConfirmed: Omarchy.runAtmosUpdate()
+  }
+
+  PrefsConfirm {
     id: updateConfirm
     title: "Update Omarchy"
     message: "Download and install Omarchy and system package updates. This can take a while and may ask for a password."
@@ -69,6 +77,7 @@ PrefsPage {
 
   Component.onCompleted: {
     channelConfirm.parent = root.prefsOverlay
+    atmosUpdateConfirm.parent = root.prefsOverlay
     updateConfirm.parent = root.prefsOverlay
     firmwareConfirm.parent = root.prefsOverlay
     orphanConfirm.parent = root.prefsOverlay
@@ -296,6 +305,67 @@ PrefsPage {
           primary: true
           enabled: !Omarchy.busy && !Omarchy.jobBusy
           onClicked: updateConfirm.ask()
+        }
+      }
+    }
+  }
+
+  PrefsGroup {
+    title: "Atmos"
+    query: root.query
+    detail: "Installed files live under ~/.local/share/atmos. Channel is the git branch Check and Update follow. Only alpha exists yet."
+
+    PrefsRow {
+      label: "Version"
+      description: Omarchy.atmosRevision.length
+        ? ("Installed revision " + Omarchy.atmosRevision + ".")
+        : (Omarchy.atmosInstalled ? "Revision file was not readable." : "Atmos is not installed in XDG data. Run install.sh.")
+      hint: "~/.local/share/atmos/REVISION"
+      query: root.query
+      keywords: ["atmos", "version", "revision", "git"]
+    }
+
+    PrefsRow {
+      label: "Channel"
+      description: "Alpha tracks the alpha branch. Other channels are not available yet."
+      hint: "~/.config/atmos/channel"
+      query: root.query
+      keywords: ["atmos", "channel", "alpha", "branch"]
+
+      PrefsSelect {
+        value: Omarchy.atmosChannel
+        options: [
+          { value: "alpha", label: "Alpha" }
+        ]
+        enabled: !Omarchy.busy && !Omarchy.jobBusy
+        onChanged: function(value) { if (value !== Omarchy.atmosChannel) Omarchy.setAtmosChannel(value) }
+      }
+    }
+
+    PrefsRow {
+      label: "Updates"
+      description: Omarchy.jobKind === "atmos-update" && Omarchy.jobBusy
+        ? "Updating…"
+        : (Omarchy.jobKind === "atmos-update-check" && Omarchy.jobBusy
+          ? "Checking…"
+          : (Omarchy.atmosUpdateSummary
+            || (Omarchy.atmosUpdateAvailable ? "A newer Atmos is on alpha." : "Check the alpha branch for a newer copy.")))
+      hint: "scripts/update-atmos.sh"
+      query: root.query
+      keywords: ["atmos", "update", "upgrade", "git", "pull", "alpha"]
+
+      Row {
+        spacing: 8
+        PrefsButton {
+          text: "Check"
+          enabled: !Omarchy.busy && !Omarchy.jobBusy
+          onClicked: Omarchy.checkAtmosUpdate()
+        }
+        PrefsButton {
+          text: "Update…"
+          primary: true
+          enabled: !Omarchy.busy && !Omarchy.jobBusy && Omarchy.atmosUpdateAvailable
+          onClicked: atmosUpdateConfirm.ask()
         }
       }
     }

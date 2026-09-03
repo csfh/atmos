@@ -16,15 +16,15 @@ A second launch focuses the window that is already open. Pass a page if you want
 ./bin/atmos network/wifi
 ```
 
-Hubs include appearance, displays, windows, input, accessibility, sound, capture, disks, bar, notifications, defaults, applications, software, network, power, idle, security, hooks, and system.
+Hubs include appearance, displays, hardware, windows, input, accessibility, sound, capture, disks, bar, notifications, defaults, applications, software, network, power, idle, security, hooks, and system.
 
 ## Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/csfh/atmos/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/csfh/atmos/alpha/install.sh | bash
 ```
 
-Then run `atmos`. From a clone, `./install.sh` does the same thing.
+That copies the launcher into `~/.local/bin`, the QML app into `~/.local/share/atmos`, and the desktop/menu/Hypr drop-in into the usual XDG config dirs. From a clone, `./install.sh` does the same thing. System → Atmos follows the **alpha** git branch for Check and Update.
 
 ## Tests
 

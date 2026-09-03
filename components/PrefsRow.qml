@@ -30,9 +30,16 @@ Item {
 
   readonly property bool matches: ShellConfigJs.haystackMatches(query, searchHaystack)
 
-  readonly property int controlCol: {
+  readonly property int maxControlCol: {
     var avail = parent ? parent.width : Theme.controlColumnWidth
-    return Math.min(Theme.controlColumnWidth, Math.max(140, avail - 200))
+    return Math.max(140, avail - 160 - Theme.spaceMd)
+  }
+
+  readonly property int controlCol: {
+    var wanted = Theme.controlColumnWidth
+    var natural = controlSlot.implicitWidth
+    if (natural > wanted) wanted = natural
+    return Math.min(wanted, maxControlCol)
   }
 
   visible: available && matches

@@ -15,6 +15,7 @@ Item {
 
   readonly property bool hasHits: pageHits(appearanceLoader)
     || pageHits(displayLoader)
+    || pageHits(hardwareLoader)
     || pageHits(windowsLoader)
     || pageHits(inputLoader)
     || pageHits(accessibilityLoader)
@@ -91,6 +92,12 @@ Item {
         id: displayLoader
         width: parent.width
         source: "DisplaysPage.qml"
+        onLoaded: root.bindPage(item, false)
+      }
+      Loader {
+        id: hardwareLoader
+        width: parent.width
+        source: "HardwarePage.qml"
         onLoaded: root.bindPage(item, false)
       }
       Loader {

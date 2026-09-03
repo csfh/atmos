@@ -2,6 +2,8 @@ pragma Singleton
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import "AtmosUpdate.js" as AtmosUpdate
+import "Hardware.js" as HardwareJs
 
 QtObject {
   id: root
@@ -33,6 +35,8 @@ QtObject {
   readonly property string refreshHyprlandScript: shellDir + "/scripts/refresh-hyprland.sh"
   readonly property string setHyprsunsetScript: shellDir + "/scripts/set-hyprsunset.sh"
   readonly property string setNightlightTempScript: shellDir + "/scripts/set-nightlight-temp.sh"
+  readonly property string updateAtmosScript: shellDir + "/scripts/update-atmos.sh"
+  readonly property string setAtmosChannelScript: shellDir + "/scripts/set-atmos-channel.sh"
   readonly property string setSnapperPolicyScript: shellDir + "/scripts/set-snapper-policy.sh"
   readonly property string setFstrimScript: shellDir + "/scripts/set-fstrim.sh"
   readonly property string setMimeDefaultScript: shellDir + "/scripts/set-mime-default.sh"
@@ -157,6 +161,7 @@ QtObject {
   property string audioSink: ""
   property string audioSource: ""
   property var disks: []
+  property var hardware: ({})
   property var luksDevices: []
   property var swapDevices: []
   property bool snapperPresent: false
@@ -271,9 +276,32 @@ QtObject {
   property string omarchyChannel: ""
   property bool updateAvailable: false
   property string updateSummary: ""
+  property string atmosRevision: ""
+  property string atmosChannel: "alpha"
+  property bool atmosInstalled: false
+  property bool atmosUpdateAvailable: false
+  property string atmosUpdateSummary: ""
   property bool voxtypeInstalled: false
   property bool hybridGpuAvailable: false
   property string hybridGpuMode: ""
+  property bool hwNvidia: false
+  property bool hwNvidiaGsp: false
+  property bool hwNvidiaWithoutGsp: false
+  property bool hwVulkan: false
+  property bool hwIntel: false
+  property bool hwIntelPtl: false
+  property bool hwWebcam: false
+  property bool hwFramework16: false
+  property bool hwAsusRog: false
+  property bool hwSurface: false
+  property string dmiVendor: ""
+  property string dmiProduct: ""
+  property string dmiFamily: ""
+  property string cpuStat: ""
+  property string memoryStat: ""
+  property string cpuIdentity: ""
+  property string gpuIdentity: ""
+  property string npuIdentity: ""
   property bool tailscaleInstalled: false
   property bool tailscaleRunning: false
   property var plugins: []
@@ -314,6 +342,19 @@ QtObject {
   property var pending: []
   property bool snapshotQueued: false
   property bool snapshotReady: false
+
+  function sanitizeDmi(raw) {
+    var source = String(raw || "")
+    if (source.indexOf("\n") !== -1 || source.indexOf("\r") !== -1) return ""
+    var s = source.replace(/\s+/g, " ").replace(/^\s+|\s+$/g, "")
+    if (!s || s.length > 160) return ""
+    if (s.indexOf("..") !== -1) return ""
+    if (s.charAt(0) === "-" || s.charAt(0) === "/") return ""
+    var lower = s.toLowerCase()
+    if (lower === "none" || lower === "default string" || lower === "unknown" || lower.indexOf("to be filled") !== -1)
+      return ""
+    return s
+  }
 
   function adoptArray(cur, next) {
     if (!(next instanceof Array)) next = []
@@ -418,6 +459,7 @@ QtObject {
     audioTuningMatch = data.audioTuningMatch === true
     audioTuningOn = data.audioTuningOn === true
     disks = adoptArray(disks, data.disks)
+    hardware = HardwareJs.normalize(data.hardware)
     luksDevices = adoptArray(luksDevices, data.luksDevices)
     swapDevices = adoptArray(swapDevices, data.swapDevices)
     snapperPresent = data.snapperPresent === true
@@ -529,10 +571,33 @@ QtObject {
       omarchyChannel = ""
     updateAvailable = data.updateAvailable === true
     updateSummary = String(data.updateSummary || "")
+    atmosRevision = String(data.atmosRevision || "")
+    if (!/^[0-9a-f]{4,40}$/.test(atmosRevision)) atmosRevision = ""
+    atmosChannel = AtmosUpdate.parseChannel(data.atmosChannel)
+    if (!atmosChannel) atmosChannel = "alpha"
+    atmosInstalled = data.atmosInstalled === true
     voxtypeInstalled = data.voxtypeInstalled === true
     hybridGpuAvailable = data.hybridGpuAvailable === true
     hybridGpuMode = String(data.hybridGpuMode || "")
     if (hybridGpuMode !== "Integrated" && hybridGpuMode !== "Hybrid") hybridGpuMode = ""
+    hwNvidia = data.hwNvidia === true
+    hwNvidiaGsp = data.hwNvidiaGsp === true
+    hwNvidiaWithoutGsp = data.hwNvidiaWithoutGsp === true
+    hwVulkan = data.hwVulkan === true
+    hwIntel = data.hwIntel === true
+    hwIntelPtl = data.hwIntelPtl === true
+    hwWebcam = data.hwWebcam === true
+    hwFramework16 = data.hwFramework16 === true
+    hwAsusRog = data.hwAsusRog === true
+    hwSurface = data.hwSurface === true
+    dmiVendor = root.sanitizeDmi(data.dmiVendor)
+    dmiProduct = root.sanitizeDmi(data.dmiProduct)
+    dmiFamily = root.sanitizeDmi(data.dmiFamily)
+    cpuStat = String(data.cpuStat || "").replace(/^\s+|\s+$/g, "")
+    memoryStat = String(data.memoryStat || "").replace(/^\s+|\s+$/g, "")
+    cpuIdentity = root.sanitizeDmi(data.cpuIdentity)
+    gpuIdentity = root.sanitizeDmi(data.gpuIdentity)
+    npuIdentity = root.sanitizeDmi(data.npuIdentity)
     tailscaleInstalled = data.tailscaleInstalled === true
     tailscaleRunning = data.tailscaleRunning === true
     plugins = adoptArray(plugins, data.plugins)
@@ -809,7 +874,7 @@ QtObject {
   function refreshTheme() { runCommand(["omarchy", "theme", "refresh"]) }
   function openThemeFolder() {
     if (!theme) return
-    runCommand(["bash", "-c", "dir=$(omarchy theme dir \"$1\") && [[ -d $dir ]] && nautilus \"$dir\"", "theme-dir", theme])
+    runCommand(["bash", "-c", "dir=$(omarchy theme dir \"$1\") && [[ -d \"$dir\" ]] && xdg-open \"$dir\" >/dev/null 2>&1 &", "theme-dir", theme])
   }
   function installTheme(url) {
     url = String(url || "").replace(/^\s+|\s+$/g, "")
@@ -1518,6 +1583,18 @@ QtObject {
   }
   function checkOmarchyUpdate() {
     runJob(["omarchy", "update", "available"], "", "update-check")
+  }
+  function setAtmosChannel(name) {
+    if (AtmosUpdate.parseChannel(name) !== "alpha") return
+    if (name === atmosChannel) return
+    atmosChannel = "alpha"
+    runCommand(["bash", setAtmosChannelScript, "alpha"])
+  }
+  function checkAtmosUpdate() {
+    runJob(["bash", updateAtmosScript, "check"], "", "atmos-update-check")
+  }
+  function runAtmosUpdate() {
+    runJob(["bash", updateAtmosScript, "apply"], "", "atmos-update")
   }
   function updateFirmware() {
     runGumJob(["omarchy", "update", "firmware"], "update-firmware")
@@ -2347,6 +2424,18 @@ QtObject {
         root.lastError = ""
         root.jobKind = ""
         root.scheduleRefresh()
+        return
+      }
+      if (root.jobKind === "atmos-update-check" || root.jobKind === "atmos-update") {
+        var parsed = AtmosUpdate.parseCheckOutput(out + "\n" + err)
+        var applied = root.jobKind === "atmos-update" && exitCode === 0
+        root.atmosUpdateAvailable = parsed.status === "behind"
+        root.atmosUpdateSummary = parsed.summary
+        if (parsed.short) root.atmosRevision = parsed.short
+        if (parsed.channel) root.atmosChannel = parsed.channel
+        root.lastError = (exitCode !== 0 && parsed.status !== "behind") ? (parsed.summary || err || "Atmos update failed") : ""
+        root.jobKind = ""
+        if (applied) root.scheduleRefresh()
         return
       }
       if (exitCode !== 0) {

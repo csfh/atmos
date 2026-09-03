@@ -6,7 +6,8 @@
     "fmt": "oxfmt services tests",
     "fmt:check": "oxfmt --check services tests",
     "lint": "oxlint services tests",
-    "lint:fix": "oxlint --fix services tests"
+    "lint:fix": "oxlint --fix services tests",
+    "prepare": "git rev-parse --git-dir >/dev/null 2>&1 && git config core.hooksPath .githooks || true"
   },
   "devDependencies": {
     "oxfmt": "^0.66.0",

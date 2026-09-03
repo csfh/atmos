@@ -35,6 +35,8 @@ npm install
 
 `./tests/run` lints and checks formatting with [oxlint](https://oxc.rs/docs/guide/usage/linter) and [oxfmt](https://oxc.rs/docs/guide/usage/formatter), then runs the parser tests. `npm run lint` and `npm run fmt` run those tools on their own.
 
+`npm install` points Git at `.githooks/`, so commits run oxlint and `oxfmt --check` first. `git commit --no-verify` skips that. From a clone that already has `node_modules`, run `scripts/install-git-hooks.sh`.
+
 ## License
 
 MIT. See [LICENSE](LICENSE). Copyright (c) 2026 Christoffer Hallas.

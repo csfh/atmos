@@ -191,7 +191,10 @@ function settingsCatalog() {
       consequence: "Turning network time off lets the clock drift until you set it by hand.",
       needsRoot: true,
     }),
-    entry("fullName", "system", "Full name", "identity", { type: "string" }),
+    entry("fullName", "system", "Full name", "identity", {
+      type: "string",
+      needsRoot: true,
+    }),
     entry("parallelDownloads", "system", "Parallel downloads", "identity", {
       type: "integer",
       consequence: "Edits /etc/pacman.conf. Only affects how fast updates fetch.",
@@ -269,6 +272,7 @@ function settingsCatalog() {
       type: "string",
       options: "plymouthThemes",
       consequence: "Changes the splash shown while the machine starts.",
+      needsRoot: true,
     }),
     // screensaverBranded and aboutBranded are reported by the snapshot as
     // booleans, but the writer takes image, text, or reset. There is no
@@ -296,6 +300,7 @@ function settingsCatalog() {
     // settings people actually mean when they say they want to hand someone
     // their desktop.
     listEntry("bindings", "Keybindings", {
+      extraConfirm: true,
       consequence:
         "Your Super-key shortcuts are replaced. Imported bindings become the block Atmos manages in bindings.lua; bindings you wrote by hand stay where they are.",
     }),
@@ -314,6 +319,7 @@ function settingsCatalog() {
       consequence: "Replaces which tray icons stay visible.",
     }),
     listEntry("autostart", "Startup programs", {
+      extraConfirm: true,
       consequence:
         "The programs Hyprland launches at login are replaced. A program you do not have installed fails quietly at the next login.",
     }),
@@ -344,9 +350,10 @@ function entry(key, section, label, tier, opts) {
     type: String(o.type || "string"),
     options: String(o.options || ""),
     hostBound: o.hostBound === true,
-    // Written by a script that raises privileges with pkexec, so applying it
-    // pops a password dialog.
+    // Written by a script that raises privileges (as-root.sh or sudo), so
+    // applying it goes through Atmos sudo mode.
     needsRoot: o.needsRoot === true,
+    extraConfirm: o.extraConfirm === true,
     consequence: String(o.consequence || ""),
     importable: tier !== "system",
   };
@@ -365,6 +372,7 @@ function listEntry(key, label, opts) {
     type: "list",
     consequence: o.consequence,
     hostBound: o.hostBound === true,
+    extraConfirm: o.extraConfirm === true,
   });
 }
 
@@ -952,8 +960,8 @@ function planImport(doc, snapshot, keys, options) {
   return result(changes, unchanged, warnings, blocked);
 }
 
-// How many of these will stop and ask for a password. Each writer raises
-// privileges on its own, so they ask one at a time rather than once.
+// How many of these raise privileges. enqueueIo asks for sudo mode once,
+// then the rest of the import runs without asking again.
 function passwordCount(plan) {
   var list = (plan && plan.changes) || [];
   var byKey = catalogByKey();
@@ -978,7 +986,90 @@ function applyForecast(plan) {
         " root. Atmos asks for sudo mode once and the rest run without asking again.",
     );
   }
+  if (hasCommandImport(plan)) {
+    lines.push(
+      "This file replaces keybindings or startup programs. Read every command above before you apply.",
+    );
+  }
   return lines.join("\n");
+}
+
+function hasCommandImport(plan) {
+  return commandImportLines(plan).length > 0;
+}
+
+function commandImportLines(plan) {
+  var list = (plan && plan.changes) || [];
+  var byKey = catalogByKey();
+  var out = [];
+  var seen = {};
+  var i;
+  var j;
+  for (i = 0; i < list.length; i++) {
+    var change = list[i];
+    var item = byKey[change.key];
+    if (!item || !item.extraConfirm) continue;
+    var rows = Array.isArray(change.to) ? change.to : [];
+    for (j = 0; j < rows.length; j++) {
+      var row = rows[j];
+      var cmd = "";
+      if (typeof row === "string") cmd = row;
+      else if (row && typeof row === "object") cmd = String(row.command || "");
+      cmd = cmd.replace(/^\s+|\s+$/g, "");
+      if (!cmd || seen[cmd]) continue;
+      seen[cmd] = true;
+      out.push(cmd);
+    }
+  }
+  return out;
+}
+
+function applyConfirmMessage(plan) {
+  var forecast = applyForecast(plan);
+  if (!forecast) return "";
+  return (
+    forecast + "\n\nAtmos writes a way back first, and Put it back restores every one of them."
+  );
+}
+
+function commandConfirmMessage(plan) {
+  var commands = commandImportLines(plan);
+  var lines = ["These commands will be installed as shortcuts or startup programs:"];
+  var i;
+  for (i = 0; i < commands.length; i++) lines.push("• " + commands[i]);
+  lines.push("");
+  lines.push(
+    "A shared file can put a download on Super+Return or run it at login. Only apply if you trust every line.",
+  );
+  return lines.join("\n");
+}
+
+function parseApplyResult(text) {
+  var lines = String(text || "").split("\n");
+  var i;
+  for (i = lines.length - 1; i >= 0; i--) {
+    var line = lines[i].replace(/^\s+|\s+$/g, "");
+    if (!line || line.charAt(0) !== "{") continue;
+    try {
+      var obj = JSON.parse(line);
+      if (obj && typeof obj === "object" && !Array.isArray(obj)) return obj;
+    } catch (e) {}
+  }
+  return { backup: "", results: [] };
+}
+
+function appliedCountFromResult(result) {
+  var rows = (result && result.results) || [];
+  var n = 0;
+  var i;
+  for (i = 0; i < rows.length; i++) {
+    if (rows[i] && rows[i].status === "applied") n++;
+  }
+  return n;
+}
+
+function backupDirFromResult(result) {
+  return result && result.backup ? String(result.backup) : "";
 }
 
 function result(changes, unchanged, warnings, blocked) {
@@ -1139,10 +1230,92 @@ function changeLines(plan) {
   for (var i = 0; i < list.length; i++) {
     var change = list[i];
     var line = "• " + change.label + ": " + shownValue(change.from) + " → " + shownValue(change.to);
+    if (Array.isArray(change.from) || Array.isArray(change.to)) {
+      var diffs = listDiffLines(change.from, change.to, change.key);
+      if (diffs.length > 0) line += "\n" + diffs.join("\n");
+    }
     if (change.consequence) line += "\n    " + change.consequence;
     out.push(line);
   }
   return out.join("\n");
+}
+
+function listRowId(row, key) {
+  if (row === null || row === undefined) return "";
+  if (typeof row !== "object") return "\0" + String(row);
+  if (key === "bindings")
+    return "k:" + String(row.keys || "") + "\0u:" + (row.unbind === true ? "1" : "0");
+  if (key === "autostart") return "c:" + String(row.command || "");
+  if (key === "windowRules")
+    return (
+      "m:" +
+      String(row.match || "") +
+      "\0p:" +
+      String(row.placement || "") +
+      "\0w:" +
+      String(row.workspace || "")
+    );
+  if (row.command) return "c:" + String(row.command);
+  if (row.keys) return "k:" + String(row.keys);
+  return JSON.stringify(row);
+}
+
+function shownListRow(row, key) {
+  if (row === null || row === undefined) return "(empty)";
+  if (typeof row !== "object") return String(row);
+  if (key === "bindings" || row.keys) {
+    var keys = String(row.keys || "?");
+    if (row.unbind) return keys + " unbound";
+    var cmd = String(row.command || "(no command)");
+    var label = String(row.label || "");
+    return label ? keys + " → " + cmd + "  (" + label + ")" : keys + " → " + cmd;
+  }
+  if (key === "autostart" || row.command) return String(row.command || "(no command)");
+  if (key === "windowRules" || row.match) {
+    var bits = [String(row.match || "?")];
+    if (row.placement) bits.push(String(row.placement));
+    if (row.workspace) bits.push("workspace " + row.workspace);
+    if (row.width && row.height) bits.push(row.width + "×" + row.height);
+    return bits.join(", ");
+  }
+  return JSON.stringify(row);
+}
+
+function normalizeListRow(row) {
+  if (!row || typeof row !== "object") return row;
+  var copy = {};
+  for (var k in row) {
+    if (!Object.prototype.hasOwnProperty.call(row, k)) continue;
+    if (k === "managed") continue;
+    copy[k] = row[k];
+  }
+  return copy;
+}
+
+function listDiffLines(from, to, key) {
+  var before = Array.isArray(from) ? from : [];
+  var after = Array.isArray(to) ? to : [];
+  var oldMap = {};
+  var newMap = {};
+  var i;
+  for (i = 0; i < before.length; i++) oldMap[listRowId(before[i], key)] = before[i];
+  for (i = 0; i < after.length; i++) newMap[listRowId(after[i], key)] = after[i];
+  var lines = [];
+  for (i = 0; i < after.length; i++) {
+    var id = listRowId(after[i], key);
+    if (!Object.prototype.hasOwnProperty.call(oldMap, id)) {
+      lines.push("    + " + shownListRow(after[i], key));
+    } else if (
+      JSON.stringify(normalizeListRow(oldMap[id])) !== JSON.stringify(normalizeListRow(after[i]))
+    ) {
+      lines.push("    ~ " + shownListRow(after[i], key));
+    }
+  }
+  for (i = 0; i < before.length; i++) {
+    if (!Object.prototype.hasOwnProperty.call(newMap, listRowId(before[i], key)))
+      lines.push("    - " + shownListRow(before[i], key));
+  }
+  return lines;
 }
 
 function warningLines(plan) {

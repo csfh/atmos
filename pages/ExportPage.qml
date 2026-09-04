@@ -34,17 +34,21 @@ PrefsPage {
   // Set once an import has run, so the way back is offered where you are
   // looking rather than buried in a row further down.
   property int appliedCount: 0
-  // True while Atmos is raising privileges for us, so the apply can resume
-  // itself the moment sudo mode is granted.
-  property bool waitingForSudo: false
-  // Progress, streamed from the executor as each change is reached.
+  // Bound to the backup path the apply JSON just returned, not the newest
+  // directory on disk.
+  property string lastBackupDir: ""
+  property bool lastUndoNeedsRoot: false
+  property bool pendingApply: false
+  property bool undoing: false
+  // Progress, streamed from runJob as each change is reached.
   property int stepNow: 0
   property int stepTotal: 0
   property string stepKey: ""
 
+  readonly property bool applyingJob: Omarchy.jobKind === "settings-import" || Omarchy.jobKind === "settings-undo"
   // Derived rather than assigned, so it cannot be left stuck on by a path
   // that forgot to clear it.
-  readonly property bool working: writeProc.running || readProc.running || applyProc.running
+  readonly property bool working: writeProc.running || readProc.running || root.applyingJob || root.pendingApply
 
   readonly property var sectionList: SettingsJs.selectableSections()
 
@@ -169,43 +173,79 @@ PrefsPage {
     readProc.running = true
   }
 
-  // Atmos already raises privileges once for a stretch of work. Using that
-  // means an import asks at most once instead of once per root writer.
+  // One queued job. enqueueIo prompts for sudo when the plan needs root,
+  // then apply-settings.sh --progress names each change on stdout.
   function doApply() {
     if (!root.planHasChanges) return
-    if (SettingsJs.passwordCount(root.plan) > 0 && !Omarchy.passwordlessSudo) {
-      root.waitingForSudo = true
-      root.importStatus = "Waiting for sudo mode…"
-      Omarchy.enablePasswordlessSudo(Omarchy.sudoMinutes)
-      return
-    }
-    root.runApply()
-  }
-
-  function runApply() {
-    if (!root.planHasChanges) return
+    root.pendingApply = true
+    root.undoing = false
     root.importStatus = ""
-    applyProc.pending = root.plan.changes.length
-    applyProc.undoing = false
     root.stepNow = 0
     root.stepTotal = root.plan.changes.length
     root.stepKey = ""
-    applyProc.text = SettingsJs.planToJson(root.plan)
-    applyProc.command = ["bash", root.applyScript, "--progress"]
-    applyProc.running = true
+    root.lastUndoNeedsRoot = SettingsJs.passwordCount(root.plan) > 0
+    Omarchy.runJob(["bash", root.applyScript, "--progress"], SettingsJs.planToJson(root.plan), "settings-import", {
+      sudo: root.lastUndoNeedsRoot,
+      onStdoutLine: root.onApplyStdout,
+      onFinished: root.onApplyFinished
+    })
   }
 
   function doUndo() {
+    if (root.lastBackupDir.length === 0) return
+    root.pendingApply = true
+    root.undoing = true
     root.importStatus = ""
-    applyProc.undoing = true
-    applyProc.text = ""
+    root.stepNow = 0
+    root.stepTotal = root.appliedCount
+    root.stepKey = ""
     // --no-backup, or undoing would leave a way back of its own and a
     // second undo would put the import straight back.
-    applyProc.command = ["sh", "-c",
-      "d=$(ls -1d \"$HOME\"/.local/state/atmos/imports/*/ 2>/dev/null | tail -1); " +
-      "[ -n \"$d\" ] || { echo 'There is no import to undo.' >&2; exit 1; }; " +
-      "bash \"$1\" --no-backup --plan \"$d/undo.json\"", "sh", root.applyScript]
-    applyProc.running = true
+    Omarchy.runJob(["bash", root.applyScript, "--no-backup", "--plan", root.lastBackupDir + "/undo.json"], "", "settings-undo", {
+      sudo: root.lastUndoNeedsRoot,
+      onStdoutLine: root.onApplyStdout,
+      onFinished: root.onApplyFinished
+    })
+  }
+
+  function onApplyStdout(line) {
+    var parts = String(line).split("\t")
+    if (parts[0] !== "progress") return
+    root.stepNow = Number(parts[1]) || 0
+    root.stepTotal = Number(parts[2]) || root.stepTotal
+    root.stepKey = String(parts[3] || "")
+  }
+
+  function onApplyFinished(exitCode, out, err) {
+    root.pendingApply = false
+    root.stepNow = 0
+    root.stepKey = ""
+    var result = SettingsJs.parseApplyResult(out)
+    var applied = SettingsJs.appliedCountFromResult(result)
+    var backup = SettingsJs.backupDirFromResult(result)
+    var reason = String(err || "").replace(/^\s+|\s+$/g, "")
+    if (root.undoing) {
+      root.undoing = false
+      if (exitCode === 0) {
+        root.appliedCount = 0
+        root.lastBackupDir = ""
+        root.importStatus = "Put back."
+      } else {
+        root.importStatus = reason.length > 0 ? reason : "Could not put everything back."
+      }
+      return
+    }
+    root.plan = null
+    if (backup.length > 0) root.lastBackupDir = backup
+    root.appliedCount = applied
+    if (exitCode === 0) {
+      root.importStatus = "Applied " + applied + ". Try it, and put it back below if you do not like it."
+    } else if (applied > 0) {
+      root.importStatus = (reason.length > 0 ? reason : "Some changes did not apply.") +
+        " Put it back restores what did."
+    } else {
+      root.importStatus = reason.length > 0 ? reason : "Some changes did not apply."
+    }
   }
 
   // ---- processes ---------------------------------------------------------
@@ -263,49 +303,6 @@ PrefsPage {
       root.importStatus = root.plan.changes.length === 0
         ? "Nothing to change. " + root.plan.summary
         : ""
-    }
-  }
-
-  Process {
-    id: applyProc
-    property string text: ""
-    command: ["true"]
-    stdinEnabled: true
-    stderr: StdioCollector { id: applyErr; waitForEnd: true }
-    // Line by line rather than collected at the end, so the page can say
-    // what is happening while it happens.
-    stdout: SplitParser {
-      onRead: function(line) {
-        var parts = String(line).split("\t")
-        if (parts[0] !== "progress") return
-        root.stepNow = Number(parts[1]) || 0
-        root.stepTotal = Number(parts[2]) || root.stepTotal
-        root.stepKey = String(parts[3] || "")
-      }
-    }
-    onStarted: {
-      if (text.length > 0) write(text)
-      stdinEnabled = false
-    }
-    property int pending: 0
-    property bool undoing: false
-    onExited: function(exitCode) {
-      var err = String(applyErr.text || "").replace(/^\s+|\s+$/g, "")
-      root.stepNow = 0
-      root.stepKey = ""
-      if (applyProc.undoing) {
-        root.appliedCount = 0
-        root.importStatus = exitCode === 0
-          ? "Put back."
-          : (err.length > 0 ? err : "Could not put everything back.")
-      } else {
-        root.plan = null
-        root.appliedCount = exitCode === 0 ? applyProc.pending : 0
-        root.importStatus = exitCode === 0
-          ? "Applied " + applyProc.pending + ". Try it, and put it back below if you do not like it."
-          : (err.length > 0 ? err : "Some changes did not apply.")
-      }
-      Omarchy.scheduleRefresh()
     }
   }
 
@@ -525,9 +522,9 @@ PrefsPage {
       label: "Applying"
       description: root.stepKey.length > 0
         ? root.stepKey + "  (" + root.stepNow + " of " + root.stepTotal + ")"
-        : "Working…"
+        : (Omarchy.sudoPromptOpen ? "Waiting for sudo mode…" : "Working…")
       query: root.query
-      available: applyProc.running
+      available: root.applyingJob || root.pendingApply
       stretchControl: true
       keywords: ["progress", "applying"]
 
@@ -547,12 +544,13 @@ PrefsPage {
         ? "Restores the " + root.appliedCount + " values that import replaced. Try the machine first."
         : "Restores the values the last import replaced."
       query: root.query
+      available: root.lastBackupDir.length > 0
       keywords: ["undo", "revert", "restore", "back", "put back"]
 
       PrefsButton {
         text: "Put it back"
         primary: root.appliedCount > 0
-        enabled: !root.working
+        enabled: !root.working && root.lastBackupDir.length > 0
         onClicked: undoConfirm.ask()
       }
     }
@@ -580,11 +578,19 @@ PrefsPage {
   PrefsConfirm {
     id: applyConfirm
     title: "Apply these settings?"
-    message: root.plan
-      ? SettingsJs.applyForecast(root.plan) +
-        "\n\nAtmos writes a way back first, and Put it back restores every one of them."
-      : ""
+    message: root.plan ? SettingsJs.applyConfirmMessage(root.plan) : ""
     confirmText: "Apply"
+    onConfirmed: {
+      if (SettingsJs.hasCommandImport(root.plan)) commandConfirm.ask()
+      else root.doApply()
+    }
+  }
+
+  PrefsConfirm {
+    id: commandConfirm
+    title: "These commands will run"
+    message: root.plan ? SettingsJs.commandConfirmMessage(root.plan) : ""
+    confirmText: "Apply commands"
     onConfirmed: root.doApply()
   }
 
@@ -599,17 +605,13 @@ PrefsPage {
   Connections {
     target: Omarchy
 
-    function onPasswordlessSudoChanged() {
-      if (!root.waitingForSudo || !Omarchy.passwordlessSudo) return
-      root.waitingForSudo = false
-      root.runApply()
-    }
-
     // The prompt closing with no sudo mode means it was refused, and an
     // import that needs root would only fail partway through.
     function onSudoPromptOpenChanged() {
-      if (!root.waitingForSudo || Omarchy.sudoPromptOpen || Omarchy.passwordlessSudo) return
-      root.waitingForSudo = false
+      if (!root.pendingApply || Omarchy.sudoPromptOpen || Omarchy.passwordlessSudo) return
+      if (root.applyingJob || Omarchy.sudoEnabling || Omarchy.jobBusy) return
+      root.pendingApply = false
+      root.undoing = false
       root.importStatus = "Nothing applied: these changes need sudo mode."
     }
   }
@@ -620,6 +622,7 @@ PrefsPage {
     // machine's hostname once Omarchy has read it.
     root.exportPath = root.home + "/" + root.suggestedName()
     applyConfirm.parent = root.prefsOverlay
+    commandConfirm.parent = root.prefsOverlay
     undoConfirm.parent = root.prefsOverlay
   }
 }

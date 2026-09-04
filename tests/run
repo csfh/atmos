@@ -1093,6 +1093,32 @@ else
 fi
 
 if [[ -x scripts/apply-settings.sh ]] && command -v jq >/dev/null 2>&1; then
+  toggle_dir=$(mktemp -d)
+  printf '{"hyprNoGaps":false,"hyprSquareAspect":true}' >"$toggle_dir/snapshot.json"
+  cat >"$toggle_dir/plan.json" <<'JSON'
+{
+  "schema": 1,
+  "changes": [
+    { "key": "hyprNoGaps", "value": true, "from": false },
+    { "key": "hyprSquareAspect", "value": false, "from": true }
+  ]
+}
+JSON
+  out=$(bash scripts/apply-settings.sh --dry-run --snapshot "$toggle_dir/snapshot.json" --plan "$toggle_dir/plan.json")
+  grep -q 'window-no-gaps on' <<<"$out"
+  grep -q 'single-window-aspect-ratio off' <<<"$out"
+  if grep -qE 'window-no-gaps"$|window-no-gaps[[:space:]]*$' <<<"$out"; then
+    echo "not ok - apply-settings.sh queued hyprNoGaps without on/off"
+    rm -rf "$toggle_dir"
+    exit 1
+  fi
+  rm -rf "$toggle_dir"
+  echo "ok - apply-settings.sh sets hyprNoGaps and hyprSquareAspect on or off"
+else
+  echo "ok - skipping apply-settings.sh toggle args"
+fi
+
+if [[ -x scripts/apply-settings.sh ]] && command -v jq >/dev/null 2>&1; then
   list_dir=$(mktemp -d)
   printf '{"bindings":[],"autostart":[],"windowRules":[]}' >"$list_dir/snapshot.json"
   cat >"$list_dir/plan.json" <<'JSON'

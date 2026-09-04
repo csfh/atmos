@@ -183,8 +183,8 @@ while IFS= read -r key; do
     hyprInput.*)
       seen_group hyprInput || queue_stdin "$key" hyprInput "$(merged_group hyprInput)" bash "$ROOT/set-hypr-input.sh"
       ;;
-    hyprNoGaps) queue "$key" "" omarchy hyprland toggle window-no-gaps ;;
-    hyprSquareAspect) queue "$key" "" omarchy hyprland toggle single-window-aspect-ratio ;;
+    hyprNoGaps) queue "$key" "" omarchy hyprland toggle window-no-gaps "$([[ $value == true ]] && echo on || echo off)" ;;
+    hyprSquareAspect) queue "$key" "" omarchy hyprland toggle single-window-aspect-ratio "$([[ $value == true ]] && echo on || echo off)" ;;
 
     barPosition) queue "$key" "" omarchy bar position "$value" ;;
     barTransparent) queue "$key" "" omarchy bar transparent "$(bool_arg "$value")" ;;
@@ -390,7 +390,7 @@ for i in "${!RUN_KEYS[@]}"; do
   fi
   # Combined, not stderr alone: omarchy reports its failures on stdout, so
   # capturing stderr by itself left every failure with an empty reason.
-  if err=$(if [[ -n $stdin_payload ]]; then printf '%s' "$stdin_payload" | "${argv[@]}" 2>&1; else "${argv[@]}" 2>&1; fi); then
+  if err=$(if [[ -n $stdin_payload ]]; then printf '%s' "$stdin_payload" | ATMOS_HYPR_JSON=$stdin_payload "${argv[@]}" 2>&1; else "${argv[@]}" 2>&1; fi); then
     results+=("$(jq -nc --arg k "$key" '{key:$k, status:"applied"}')")
   else
     status=1

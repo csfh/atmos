@@ -723,6 +723,12 @@ function sliderLiveFlush(state, now, value) {
   return sliderLiveTake(state, now);
 }
 
+function agentErrorPrompt(err) {
+  var text = clipboardPayload(err, { maxLength: 8192 });
+  if (!text) return "";
+  return "Atmos hit an error and I want help fixing it.\n\nThe error:\n" + text + "\n";
+}
+
 function clipboardPayload(text, opts) {
   opts = opts && typeof opts === "object" ? opts : {};
   var s = String(text || "");

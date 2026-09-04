@@ -697,6 +697,12 @@ ShellRoot {
         font.pixelSize: Theme.fontSize
       }
 
+      PrefsButton {
+        text: "Ask my Agent to work on this"
+        primary: true
+        onClicked: Omarchy.askAgentAboutError()
+      }
+
       Row {
         anchors.right: parent.right
         spacing: Theme.space
@@ -708,7 +714,6 @@ ShellRoot {
 
         PrefsButton {
           text: "Dismiss"
-          primary: true
           onClicked: {
             errorDialog.close()
             Omarchy.clearLastError()

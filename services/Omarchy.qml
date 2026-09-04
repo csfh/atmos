@@ -2464,6 +2464,13 @@ QtObject {
     lastError = ""
   }
 
+  function askAgentAboutError() {
+    var prompt = RichUi.agentErrorPrompt(lastError)
+    if (!prompt) return
+    runCommand(["bash", "-c", "omarchy agent prompt \"$1\" >/dev/null 2>&1 &", "agent-prompt", prompt])
+    lastError = ""
+  }
+
   function showDebugError() {
     lastError = "Debug: this is the error banner. Copy puts it on the clipboard. Dismiss clears it."
   }

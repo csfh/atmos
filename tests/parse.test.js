@@ -745,16 +745,37 @@ assertEqual(
 );
 assertEqual(ui.clipboardPayload("ab\0c"), "", "clipboardPayload drops NULs");
 assertEqual(ui.clipboardPayload("abcdef", { maxLength: 3 }), "abc", "clipboardPayload caps length");
+assertEqual(ui.agentErrorPrompt(""), "", "agentErrorPrompt empty is empty");
+assert(
+  ui.agentErrorPrompt("boom\nline").indexOf("boom\nline") !== -1,
+  "agentErrorPrompt keeps the error body",
+);
+assert(
+  ui.agentErrorPrompt("boom").indexOf("Atmos hit an error") === 0,
+  "agentErrorPrompt starts with the Atmos brief",
+);
 const shellSrc = fs.readFileSync(path.join(__dirname, "..", "shell.qml"), "utf8");
 assert(shellSrc.indexOf("id: errorDialog") !== -1, "error dialog is a PrefsDialog");
 assert(shellSrc.indexOf("Omarchy.copyLastError()") !== -1, "error dialog copies lastError");
 assert(shellSrc.indexOf("Omarchy.clearLastError()") !== -1, "error dialog dismisses lastError");
+assert(
+  shellSrc.indexOf("Omarchy.askAgentAboutError()") !== -1,
+  "error dialog asks the default agent",
+);
 const omarchySrc = fs.readFileSync(path.join(__dirname, "..", "services", "Omarchy.qml"), "utf8");
 assert(omarchySrc.indexOf("function copyLastError()") !== -1, "Omarchy.copyLastError is defined");
 assert(omarchySrc.indexOf("function clearLastError()") !== -1, "Omarchy.clearLastError is defined");
 assert(
+  omarchySrc.indexOf("function askAgentAboutError()") !== -1,
+  "Omarchy.askAgentAboutError is defined",
+);
+assert(
   omarchySrc.indexOf("RichUi.clipboardPayload(lastError") !== -1,
   "copyLastError uses clipboardPayload",
+);
+assert(
+  omarchySrc.indexOf("omarchy agent prompt") !== -1,
+  "askAgentAboutError launches omarchy agent prompt",
 );
 assertEqual(
   ui.bindingCopyText({ keys: "SUPER + Q", action: "Close window" }),

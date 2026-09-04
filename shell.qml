@@ -644,7 +644,7 @@ ShellRoot {
 
       }
 
-      Rectangle {
+      Item {
         id: errorBanner
         anchors.top: header.bottom
         anchors.left: parent.left
@@ -652,25 +652,49 @@ ShellRoot {
         anchors.leftMargin: Theme.pad * 1.5
         anchors.rightMargin: Theme.pad * 1.5
         visible: Omarchy.lastError.length > 0
-        height: visible ? errorText.implicitHeight + Theme.pad : 0
-        color: Theme.urgent
-        opacity: 0.18
-        radius: Theme.radius
+        height: visible ? Math.max(errorText.implicitHeight, errorActions.implicitHeight) + Theme.pad : 0
+        Accessible.role: Accessible.AlertMessage
+        Accessible.name: Omarchy.lastError
+
+        Rectangle {
+          anchors.fill: parent
+          color: Theme.urgent
+          opacity: 0.18
+          radius: Theme.radius
+        }
 
         Text {
           id: errorText
           anchors.left: parent.left
-          anchors.right: parent.right
-          anchors.top: parent.top
+          anchors.right: errorActions.left
           anchors.leftMargin: 8
           anchors.rightMargin: 8
-          anchors.topMargin: 8
-          anchors.bottomMargin: 8
+          anchors.verticalCenter: parent.verticalCenter
           text: Omarchy.lastError
           color: Theme.urgent
           wrapMode: Text.WordWrap
           font.family: Theme.fontFamily
           font.pixelSize: Theme.captionSize
+        }
+
+        Row {
+          id: errorActions
+          anchors.right: parent.right
+          anchors.rightMargin: 8
+          anchors.verticalCenter: parent.verticalCenter
+          spacing: 8
+
+          PrefsButton {
+            text: "Copy"
+            Accessible.name: "Copy error"
+            onClicked: Omarchy.copyLastError()
+          }
+
+          PrefsButton {
+            text: "Dismiss"
+            Accessible.name: "Dismiss error"
+            onClicked: Omarchy.clearLastError()
+          }
         }
       }
 

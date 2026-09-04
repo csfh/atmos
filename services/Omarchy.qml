@@ -2449,10 +2449,19 @@ QtObject {
     wifiQrSize = parsed.size
   }
   function copyText(text) {
-    text = String(text || "")
-    if (!text || text.length > 1024) return
-    if (/[\r\n\0]/.test(text)) return
+    text = RichUi.clipboardPayload(text, { singleLine: true, maxLength: 1024 })
+    if (!text) return
     runCommand(["bash", "-c", "printf '%s' \"$1\" | wl-copy -n", "copy-text", text])
+  }
+
+  function copyLastError() {
+    var text = RichUi.clipboardPayload(lastError, { maxLength: 8192 })
+    if (!text) return
+    runCommand(["bash", "-c", "printf '%s' \"$1\" | wl-copy -n", "copy-text", text])
+  }
+
+  function clearLastError() {
+    lastError = ""
   }
   function setWifiRadio(on) {
     if (on === wifiRadio) return

@@ -723,6 +723,18 @@ function sliderLiveFlush(state, now, value) {
   return sliderLiveTake(state, now);
 }
 
+function clipboardPayload(text, opts) {
+  opts = opts && typeof opts === "object" ? opts : {};
+  var s = String(text || "");
+  if (!s) return "";
+  if (s.indexOf("\0") !== -1) return "";
+  if (opts.singleLine && /[\r\n]/.test(s)) return "";
+  var max = Number(opts.maxLength);
+  if (!isFinite(max) || max <= 0) max = 1024;
+  if (s.length > max) s = s.substring(0, max);
+  return s;
+}
+
 function parseXkbLayoutList(text) {
   var lines = String(text || "").split("\n");
   var inLayout = false;

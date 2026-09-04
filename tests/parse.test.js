@@ -710,6 +710,29 @@ assertEqual(
   "reminderCopyText includes remaining and time",
 );
 assertEqual(ui.reminderCopyText(null), "", "reminderCopyText empty without a row");
+assertEqual(ui.clipboardPayload(""), "", "clipboardPayload empty is empty");
+assertEqual(
+  ui.clipboardPayload("ok\nline", { singleLine: true }),
+  "",
+  "clipboardPayload singleLine drops newlines",
+);
+assertEqual(
+  ui.clipboardPayload("ok\nline"),
+  "ok\nline",
+  "clipboardPayload keeps newlines for lastError",
+);
+assertEqual(ui.clipboardPayload("ab\0c"), "", "clipboardPayload drops NULs");
+assertEqual(ui.clipboardPayload("abcdef", { maxLength: 3 }), "abc", "clipboardPayload caps length");
+const shellSrc = fs.readFileSync(path.join(__dirname, "..", "shell.qml"), "utf8");
+assert(shellSrc.indexOf("Omarchy.copyLastError()") !== -1, "error banner copies lastError");
+assert(shellSrc.indexOf("Omarchy.clearLastError()") !== -1, "error banner dismisses lastError");
+const omarchySrc = fs.readFileSync(path.join(__dirname, "..", "services", "Omarchy.qml"), "utf8");
+assert(omarchySrc.indexOf("function copyLastError()") !== -1, "Omarchy.copyLastError is defined");
+assert(omarchySrc.indexOf("function clearLastError()") !== -1, "Omarchy.clearLastError is defined");
+assert(
+  omarchySrc.indexOf("RichUi.clipboardPayload(lastError") !== -1,
+  "copyLastError uses clipboardPayload",
+);
 assertEqual(
   ui.bindingCopyText({ keys: "SUPER + Q", action: "Close window" }),
   "SUPER + Q — Close window",

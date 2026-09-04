@@ -2,6 +2,24 @@
 
 Notable changes to Atmos. Each section is a git tag on `main` and `alpha`. Install and in-app Update follow the `alpha` branch.
 
+## [v0.0.1-alpha.6] - 2026-09-04
+
+### Added
+
+- **Accounts** hub after Security. This account has a PNG or JPEG face (`~/.face.icon` and AccountsService), full name, and password. Users lists human logins (UID 1000 and up). Add copies `/etc/skel` and can put the login in wheel. Remove deletes the home directory. You cannot remove the session you are in. Groups shows wheel, docker, and extra groups. Select a group and toggle members. You cannot drop this session from wheel or delete wheel and docker. Omarchy's greeter still does not draw faces.
+- Sidebar clusters with muted labels: Desktop, Controls, Machine, Apps, Admin. Remix line icons on each hub. Search flattens the list.
+- Sidebar header: a round face, full name, and `user@hostname`. An empty face opens the image picker. The name opens Accounts.
+
+### Changed
+
+- Full name lives on Accounts. System stays the machine (hostname, locale, clock, updates).
+- Root work asks for your password in an Atmos dialog and runs `sudo -S`. After that, sudo stays unlocked for the minutes on Security. pkexec is still the fallback when stdin cannot supply a password.
+
+### Fixed
+
+- Enabling sudo mode opened Polkit with the raw `bash -c` line from `set-passwordless-sudo.sh`.
+- The sidebar photo stayed square because `clip` plus `radius` does not round an Image. It is masked with `MultiEffect` the same way Omarchy's image picker is.
+
 ## [v0.0.1-alpha.5] - 2026-09-03
 
 ### Added
@@ -75,6 +93,7 @@ First public alpha. Standalone [Quickshell](https://quickshell.org) preferences 
 - Keyboard use on controls (tab focus and activation). File watching of Omarchy/Hyprland paths so outside changes can refresh the snapshot. Shared page routing and content-column layout.
 - MIT license. Contributions assign copyright to Christoffer Hallas ([CLA](CLA.md)).
 
+[v0.0.1-alpha.6]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.5...v0.0.1-alpha.6
 [v0.0.1-alpha.5]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.4...v0.0.1-alpha.5
 [v0.0.1-alpha.4]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.3...v0.0.1-alpha.4
 [v0.0.1-alpha.3]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.2...v0.0.1-alpha.3

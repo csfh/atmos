@@ -289,6 +289,77 @@ function faceRowDescription(path) {
   return "No face is set. Choose a PNG or JPEG. Omarchy's greeter does not draw it yet, but AccountsService and ~/.face.icon keep the file.";
 }
 
+function validHostname(raw) {
+  var hostname = String(raw || "").replace(/^\s+|\s+$/g, "");
+  if (
+    !/^[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*$/.test(
+      hostname,
+    ) ||
+    hostname.length > 253
+  )
+    return "";
+  return hostname;
+}
+
+function validFullName(raw) {
+  var fullName = String(raw || "");
+  if (fullName.length > 256 || fullName.charAt(0) === "-" || /[:\n\r,]/.test(fullName)) return "";
+  return fullName;
+}
+
+function validAvatarPath(raw) {
+  var avatarPath = String(raw || "");
+  if (avatarPath.charAt(0) !== "/" || avatarPath.indexOf("..") !== -1) return "";
+  return avatarPath;
+}
+
+function applyAccountPatch(cur, parsed) {
+  var src = parsed && typeof parsed === "object" ? parsed : {};
+  var now = cur && typeof cur === "object" ? cur : {};
+  var out = {
+    hostname: String(now.hostname || ""),
+    fullName: String(now.fullName || ""),
+    currentUser: String(now.currentUser || ""),
+    avatarPath: String(now.avatarPath || ""),
+    users: Array.isArray(now.users) ? now.users : [],
+    groups: Array.isArray(now.groups) ? now.groups : [],
+  };
+  if ("hostname" in src) out.hostname = validHostname(src.hostname);
+  if ("fullName" in src) out.fullName = validFullName(src.fullName);
+  if ("currentUser" in src) out.currentUser = String(src.currentUser || "");
+  if ("avatarPath" in src) out.avatarPath = validAvatarPath(src.avatarPath);
+  if ("users" in src) out.users = Array.isArray(src.users) ? src.users : [];
+  if ("groups" in src) out.groups = Array.isArray(src.groups) ? src.groups : [];
+  return out;
+}
+
+function seedFromDisk(src) {
+  var raw = src && typeof src === "object" ? src : {};
+  var currentUser = parseUsername(raw.currentUser) || String(raw.currentUser || "");
+  var hostname = validHostname(raw.hostname);
+  var home = String(raw.home || "");
+  var users = parsePasswd(raw.passwd, currentUser);
+  var fullName = "";
+  var i;
+  for (i = 0; i < users.length; i++) {
+    if (!users[i] || users[i].current !== true) continue;
+    fullName = validFullName(users[i].fullName || "");
+    if (!home) home = String(users[i].home || "");
+    break;
+  }
+  var groups = visibleGroups(parseGroup(raw.group), attachWheel(users, parseGroup(raw.group)));
+  var avatarPath = "";
+  if (typeof raw.exists === "function") avatarPath = pickAvatarPath(home, currentUser, raw.exists);
+  return {
+    hostname: hostname,
+    fullName: fullName,
+    currentUser: currentUser,
+    avatarPath: avatarPath,
+    users: attachWheel(users, parseGroup(raw.group)),
+    groups: groups,
+  };
+}
+
 function pickAvatarPath(home, username, exists) {
   var user = String(username || "");
   var dir = String(home || "");
@@ -328,5 +399,8 @@ if (typeof module !== "undefined" && module.exports) {
     profileHost: profileHost,
     faceRowDescription: faceRowDescription,
     pickAvatarPath: pickAvatarPath,
+    validHostname: validHostname,
+    applyAccountPatch: applyAccountPatch,
+    seedFromDisk: seedFromDisk,
   };
 }

@@ -233,12 +233,12 @@ QtObject {
   property bool ntp: false
   property bool ntpAvailable: false
   property bool ntpSynchronized: false
-  property string hostname: ""
-  property string fullName: ""
-  property string currentUser: ""
-  property string avatarPath: ""
-  property var accountUsers: []
-  property var accountGroups: []
+  readonly property string hostname: AccountsStore.hostname
+  readonly property string fullName: AccountsStore.fullName
+  readonly property string currentUser: AccountsStore.currentUser
+  readonly property string avatarPath: AccountsStore.avatarPath
+  readonly property var accountUsers: AccountsStore.users
+  readonly property var accountGroups: AccountsStore.groups
   property string keyboardLayout: ""
   property var keyboardLayouts: []
   property string locale: ""
@@ -564,18 +564,7 @@ QtObject {
     ntp = data.ntp === true
     ntpAvailable = data.ntpAvailable === true
     ntpSynchronized = data.ntpSynchronized === true
-    hostname = String(data.hostname || "")
-    if (!/^[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*$/.test(hostname) || hostname.length > 253)
-      hostname = ""
-    fullName = String(data.fullName || "")
-    if (fullName.length > 256 || fullName.charAt(0) === "-" || /[:\n\r,]/.test(fullName))
-      fullName = ""
-    currentUser = String(data.currentUser || "")
-    avatarPath = String(data.avatarPath || "")
-    if (avatarPath.charAt(0) !== "/" || avatarPath.indexOf("..") !== -1)
-      avatarPath = ""
-    accountUsers = adoptArray(accountUsers, data.users)
-    accountGroups = adoptArray(accountGroups, data.groups)
+    AccountsStore.applyPatch(data)
     keyboardLayout = String(data.keyboardLayout || "")
     if (keyboardLayout.indexOf(",") !== -1) keyboardLayout = keyboardLayout.split(",")[0]
     if (!/^[a-z0-9]{1,8}$/.test(keyboardLayout)) keyboardLayout = ""
@@ -786,24 +775,8 @@ QtObject {
     }
     if ("ntp" in parsed) ntp = parsed.ntp === true
     if ("ntpSynchronized" in parsed) ntpSynchronized = parsed.ntpSynchronized === true
-    if ("hostname" in parsed) {
-      hostname = String(parsed.hostname || "")
-      if (!/^[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*$/.test(hostname) || hostname.length > 253)
-        hostname = ""
-    }
-    if ("fullName" in parsed) {
-      fullName = String(parsed.fullName || "")
-      if (fullName.length > 256 || fullName.charAt(0) === "-" || /[:\n\r,]/.test(fullName))
-        fullName = ""
-    }
-    if ("currentUser" in parsed) currentUser = String(parsed.currentUser || "")
-    if ("avatarPath" in parsed) {
-      avatarPath = String(parsed.avatarPath || "")
-      if (avatarPath.charAt(0) !== "/" || avatarPath.indexOf("..") !== -1)
-        avatarPath = ""
-    }
-    if ("users" in parsed) accountUsers = adoptArray(accountUsers, parsed.users)
-    if ("groups" in parsed) accountGroups = adoptArray(accountGroups, parsed.groups)
+    if ("hostname" in parsed || "fullName" in parsed || "currentUser" in parsed || "avatarPath" in parsed || "users" in parsed || "groups" in parsed)
+      AccountsStore.applyPatch(parsed)
     if ("keyboardLayout" in parsed) {
       keyboardLayout = String(parsed.keyboardLayout || "")
       if (keyboardLayout.indexOf(",") !== -1) keyboardLayout = keyboardLayout.split(",")[0]
@@ -3475,11 +3448,6 @@ QtObject {
     { path: networkManagerDevicesDir, group: "rest" },
     { path: inputLuaFile, group: "rest" },
     { path: localtimeFile, group: "rest" },
-    { path: hostnameFile, group: "rest" },
-    { path: passwdFile, group: "rest" },
-    { path: groupFile, group: "rest" },
-    { path: faceIconFile, group: "rest" },
-    { path: faceFile, group: "rest" },
     { path: vconsoleFile, group: "rest" },
     { path: localeConfFile, group: "rest" },
     { path: pacmanConfFile, group: "rest" }

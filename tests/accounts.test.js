@@ -165,3 +165,46 @@ assert(
 );
 const shellProfileSrc = fs.readFileSync(path.join(__dirname, "..", "shell.qml"), "utf8");
 assert(shellProfileSrc.indexOf("id: profileHostSlot") !== -1, "sidebar reserves a host line slot");
+const seeded = accounts.seedFromDisk({
+  currentUser: "hallas",
+  hostname: "hallas\n",
+  passwd: passwdText,
+  group: groupText,
+  home: "/home/hallas",
+  exists: function (path) {
+    return path === "/home/hallas/.face.icon";
+  },
+});
+assertEqual(seeded.currentUser, "hallas", "seedFromDisk keeps the session user");
+assertEqual(seeded.hostname, "hallas", "seedFromDisk trims hostname");
+assertEqual(seeded.fullName, "Christoffer Hallas", "seedFromDisk reads GECOS");
+assertEqual(seeded.avatarPath, "/home/hallas/.face.icon", "seedFromDisk picks ~/.face.icon");
+const patched = accounts.applyAccountPatch(
+  { hostname: "old", fullName: "Ada", currentUser: "ada", avatarPath: "", users: [], groups: [] },
+  { hostname: "hallas", avatarPath: "/home/hallas/.face.icon" },
+);
+assertEqual(patched.hostname, "hallas", "applyAccountPatch updates hostname");
+assertEqual(patched.fullName, "Ada", "applyAccountPatch keeps fullName when omitted");
+assertEqual(patched.avatarPath, "/home/hallas/.face.icon", "applyAccountPatch updates avatarPath");
+assertEqual(
+  accounts.applyAccountPatch({}, { hostname: "bad host" }).hostname,
+  "",
+  "applyAccountPatch drops a bad hostname",
+);
+const omarchySrc = fs.readFileSync(path.join(__dirname, "..", "services", "Omarchy.qml"), "utf8");
+assert(
+  omarchySrc.indexOf("AccountsStore.hostname") !== -1,
+  "Omarchy forwards hostname from AccountsStore",
+);
+assert(
+  omarchySrc.indexOf('passwdFile, group: "rest"') === -1,
+  "Omarchy no longer watches passwd for a rest snapshot",
+);
+const storeSrc = fs.readFileSync(
+  path.join(__dirname, "..", "services", "AccountsStore.qml"),
+  "utf8",
+);
+assert(
+  storeSrc.indexOf("function reloadFromDisk()") !== -1,
+  "AccountsStore reloads from passwd and hostname",
+);

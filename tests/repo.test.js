@@ -58,3 +58,24 @@ assert(
   omarchySrc.indexOf("omarchy agent prompt") !== -1,
   "askAgentAboutError launches omarchy agent prompt",
 );
+assert(
+  omarchySrc.indexOf("function commandFailureText(") !== -1,
+  "failed jobs combine stdout and stderr",
+);
+assert(omarchySrc.indexOf("id: mutOut") !== -1, "mutProc keeps stdout for failure text");
+
+const idleSh = fs.readFileSync(path.join(__dirname, "..", "scripts", "set-idle.sh"), "utf8");
+assert(
+  idleSh.indexOf("OMARCHY_PATH:=/usr/share/omarchy") !== -1,
+  "set-idle.sh defaults OMARCHY_PATH before sourcing omarchy-shell-config",
+);
+const barSh = fs.readFileSync(path.join(__dirname, "..", "scripts", "set-bar-widget.sh"), "utf8");
+assert(
+  barSh.indexOf("OMARCHY_PATH:=/usr/share/omarchy") !== -1,
+  "set-bar-widget.sh defaults OMARCHY_PATH before sourcing omarchy-shell-config",
+);
+const envSh = fs.readFileSync(path.join(__dirname, "..", "scripts", "atmos-env.sh"), "utf8");
+assert(
+  envSh.indexOf("hyprctl reload >/dev/null || true") !== -1,
+  "atmos_hypr_reload does not fail the write when reload fails",
+);

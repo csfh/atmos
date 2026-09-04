@@ -47,7 +47,7 @@ atmos_hypr_reload() {
     return 0
   fi
   command -v hyprctl >/dev/null 2>&1 || return 0
-  hyprctl reload >/dev/null
+  hyprctl reload >/dev/null || true
   if [[ $check == errors ]]; then
     local errors
     errors=$(hyprctl configerrors 2>/dev/null || true)

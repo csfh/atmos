@@ -27,6 +27,9 @@ if ! command -v omarchy-shell-config >/dev/null 2>&1; then
   exit 1
 fi
 
+: "${OMARCHY_PATH:=/usr/share/omarchy}"
+export OMARCHY_PATH
+
 jq -cn --argjson value "$value" '$value' >/dev/null || {
   echo "set-bar-widget.sh: invalid JSON value: $value" >&2
   exit 1

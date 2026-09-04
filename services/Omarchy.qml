@@ -1264,6 +1264,13 @@ QtObject {
     jobProc.running = false
   }
 
+  function commandFailureText(err, out) {
+    var e = String(err || "").replace(/^\s+|\s+$/g, "")
+    var o = String(out || "").replace(/^\s+|\s+$/g, "")
+    if (e && o && o !== e) return e + "\n" + o
+    return e || o
+  }
+
   function stderrLooksLikeFailure(text) {
     var raw = String(text || "")
     var lines = raw.split("\n")
@@ -3540,7 +3547,10 @@ QtObject {
 
   property Process mutProc: Process {
     command: ["true"]
-    stdout: StdioCollector { waitForEnd: true }
+    stdout: StdioCollector {
+      id: mutOut
+      waitForEnd: true
+    }
     stderr: StdioCollector {
       id: mutErr
       waitForEnd: true
@@ -3548,11 +3558,11 @@ QtObject {
     onExited: function(exitCode) {
       var job = root.ioJob
       if (exitCode !== 0) {
-        var err = String(mutErr.text || "").replace(/^\s+|\s+$/g, "")
-        if (root.stderrLooksLikeFailure(err))
-          root.lastError = err || "Command failed"
+        var msg = root.commandFailureText(mutErr.text, mutOut.text)
+        if (root.stderrLooksLikeFailure(msg))
+          root.lastError = msg || "Command failed"
         else
-          root.lastError = ""
+          root.lastError = msg ? "" : "Command failed"
       } else {
         root.applyWritePatch(job)
         if (job && job.refresh !== "none")
@@ -3640,10 +3650,11 @@ QtObject {
         return
       }
       if (exitCode !== 0) {
-        if (root.stderrLooksLikeFailure(err))
-          root.lastError = err || "Command failed"
+        var failText = root.commandFailureText(err, out)
+        if (root.stderrLooksLikeFailure(failText))
+          root.lastError = failText || "Command failed"
         else
-          root.lastError = ""
+          root.lastError = failText ? "" : "Command failed"
       } else {
         root.lastError = ""
         if (!job || job.refresh !== "none")

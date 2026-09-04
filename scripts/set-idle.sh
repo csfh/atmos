@@ -21,6 +21,9 @@ if ! command -v omarchy-shell-config >/dev/null 2>&1; then
   exit 1
 fi
 
+: "${OMARCHY_PATH:=/usr/share/omarchy}"
+export OMARCHY_PATH
+
 # shellcheck disable=SC1091
 source omarchy-shell-config
 

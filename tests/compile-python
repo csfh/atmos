@@ -1,0 +1,41 @@
+#!/bin/bash
+# Parse scripts/*.py (syntax + tabnanny). Writes no .pyc files.
+set -euo pipefail
+
+ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+cd "$ROOT"
+
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "compile-python: python3 is not installed" >&2
+  exit 1
+fi
+
+python3 - "$ROOT/scripts" <<'PY'
+import ast
+import io
+import pathlib
+import sys
+import tabnanny
+from contextlib import redirect_stdout
+
+root = pathlib.Path(sys.argv[1])
+files = sorted(root.glob("*.py"))
+if not files:
+    print("compile-python: no scripts/*.py", file=sys.stderr)
+    sys.exit(1)
+failed = False
+for path in files:
+    try:
+        ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    except SyntaxError as err:
+        print(err, file=sys.stderr)
+        failed = True
+    buf = io.StringIO()
+    with redirect_stdout(buf):
+        tabnanny.check(str(path))
+    noisy = buf.getvalue().strip()
+    if noisy:
+        print(noisy, file=sys.stderr)
+        failed = True
+sys.exit(1 if failed else 0)
+PY

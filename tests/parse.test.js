@@ -22,6 +22,14 @@ function assertEqual(actual, expected, description) {
   assert(actual === expected, description, `expected: ${expected}\nactual:   ${actual}`);
 }
 
+const compilePython = fs.readFileSync(path.join(__dirname, "compile-python"), "utf8");
+assert(compilePython.indexOf("ast.parse") !== -1, "compile-python parses scripts/*.py");
+assert(compilePython.indexOf("tabnanny.check") !== -1, "compile-python runs tabnanny");
+const preCommit = fs.readFileSync(path.join(__dirname, "..", ".githooks", "pre-commit"), "utf8");
+assert(preCommit.indexOf("tests/compile-python") !== -1, "pre-commit runs compile-python");
+const testsRun = fs.readFileSync(path.join(__dirname, "run"), "utf8");
+assert(testsRun.indexOf("tests/compile-python") !== -1, "tests/run runs compile-python");
+
 const theme = load("services/Theme.js");
 const shell = load("services/ShellConfig.js");
 

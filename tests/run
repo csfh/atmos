@@ -13,6 +13,13 @@ echo "ok - oxlint"
 ./node_modules/.bin/oxfmt --check services tests
 echo "ok - oxfmt --check"
 
+if [[ ! -x tests/compile-python ]]; then
+  echo "not ok - tests/compile-python is not executable"
+  exit 1
+fi
+./tests/compile-python
+echo "ok - scripts/*.py compile"
+
 if [[ ! -x .githooks/pre-commit ]]; then
   echo "not ok - .githooks/pre-commit is not executable"
   exit 1

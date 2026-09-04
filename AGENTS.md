@@ -7,8 +7,8 @@ Atmos is a standalone Quickshell preferences app for Omarchy. Do not import `qs.
 - `./bin/atmos` — launch or focus
 - `npm install` — oxlint and oxfmt; also sets `core.hooksPath` to `.githooks`
 - `npm run lint` / `npm run fmt` — lint and format `services` and `tests`
-- `./tests/run` — oxlint, oxfmt --check, parser tests, plus a live snapshot check when `omarchy` is present
-- pre-commit (`.githooks/pre-commit`) — same oxlint and oxfmt --check; skip with `git commit --no-verify`
+- `./tests/run` — oxlint, oxfmt --check, `scripts/*.py` syntax, parser tests, plus a live snapshot check when `omarchy` is present
+- pre-commit (`.githooks/pre-commit`) — oxlint, oxfmt --check, and `tests/compile-python`; skip with `git commit --no-verify`
 
 ## Rules
 

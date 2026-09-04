@@ -37,9 +37,9 @@ npm install
 ./tests/run
 ```
 
-`./tests/run` lints and checks formatting with [oxlint](https://oxc.rs/docs/guide/usage/linter) and [oxfmt](https://oxc.rs/docs/guide/usage/formatter), then runs the parser tests. `npm run lint` and `npm run fmt` run those tools on their own.
+`./tests/run` lints and checks formatting with [oxlint](https://oxc.rs/docs/guide/usage/linter) and [oxfmt](https://oxc.rs/docs/guide/usage/formatter), parses `scripts/*.py`, then runs the parser tests. `npm run lint` and `npm run fmt` run those tools on their own.
 
-`npm install` points Git at `.githooks/`, so commits run oxlint and `oxfmt --check` first. `git commit --no-verify` skips that. From a clone that already has `node_modules`, run `scripts/install-git-hooks.sh`.
+`npm install` points Git at `.githooks/`, so commits run oxlint, `oxfmt --check`, and `tests/compile-python` first. `git commit --no-verify` skips that. From a clone that already has `node_modules`, run `scripts/install-git-hooks.sh`.
 
 ## License
 

@@ -361,6 +361,15 @@ assertEqual(snapshot.parseSnapshot("{"), null, "parseSnapshot rejects junk");
 
 const queue = load("services/WorkQueue.js");
 assertEqual(queue.snapshotGroupForHub("appearance"), "look", "appearance hub reads look first");
+assertEqual(queue.snapshotGroupForHub("display"), "look", "displays hub reads look first");
+assertEqual(queue.snapshotGroupForHub("windows"), "look", "windows hub reads look first");
+assertEqual(queue.snapshotGroupForHub("bar"), "look", "bar hub reads look first");
+assertEqual(
+  queue.snapshotGroupForHub("notifications"),
+  "look",
+  "notifications hub reads look first",
+);
+assertEqual(queue.snapshotGroupForHub("idle"), "look", "idle hub reads look first");
 assertEqual(queue.snapshotGroupForHub("hardware"), "all", "other hubs read the full snapshot");
 const sessionIo = queue.createWorkQueue();
 queue.enqueueRead(sessionIo, "look");

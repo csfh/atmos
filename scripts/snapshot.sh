@@ -20,6 +20,354 @@ omarchy_out() {
   omarchy "$@" 2>/dev/null || true
 }
 
+hypr_opt() {
+  local raw
+  raw=$(hyprctl -j getoption "$1" 2>/dev/null || true)
+  if printf '%s' "$raw" | jq -e . >/dev/null 2>&1; then
+    printf '%s' "$raw"
+  else
+    echo '{}'
+  fi
+}
+
+# Bar, idle, Hypr look, and monitors for the fast look snapshot. Sets globals.
+fill_look_surface() {
+  local shell_file clock_json indicators_json agents_json spacer_json tray_json
+  local cursor_size name bright kb_cur kb_max reminder_json dnd_state
+
+  bar_position=top
+  bar_transparent=false
+  bar_visible=true
+  screensaver=150
+  lock=300
+  screensaver_enabled=true
+  suspend_enabled=true
+  clock_present=false
+  clock_format=""
+  clock_format_alt=""
+  clock_week_start=""
+  clock_birth_year=0
+  clock_life_expectancy=0
+  indicators_present=false
+  indicators_always_show=false
+  indicators_items_json='[]'
+  agents_present=false
+  agents_refresh=900
+  agents_sync=false
+  agents_sync_dir=""
+  agents_sync_file=""
+  agents_sync_device=""
+  spacer_present=false
+  spacer_size=12
+  tray_present=false
+  tray_hidden_json='[]'
+  tray_pinned_json='[]'
+  hypr_look_json='{}'
+  hypr_look_managed=false
+  hypr_no_gaps=false
+  hypr_square_aspect=false
+  hypr_workspace_layout=dwindle
+  monitors_json='[]'
+  internal_present=false
+  internal_enabled=false
+  mirroring=false
+  external_present=false
+  touchpad_present=false
+  touchpad_enabled=true
+  touchscreen_present=false
+  touchscreen_enabled=true
+  keyboard_backlight_present=false
+  keyboard_brightness=0
+  is_laptop=false
+  battery_present=false
+  weather_present=false
+  dnd=false
+  reminder_count=0
+  reminder_active=false
+  reminders_json='[]'
+
+  shell_file=$DEFAULT_SHELL_JSON
+  if [[ -s $USER_SHELL_JSON ]]; then
+    shell_file=$USER_SHELL_JSON
+  fi
+  if [[ -f $shell_file ]]; then
+    bar_position=$(jq -r '.bar.position // "top"' "$shell_file")
+    bar_transparent=$(jq -r '.bar.transparent // false' "$shell_file")
+    screensaver=$(jq -r '.idle.screensaver // 150' "$shell_file")
+    lock=$(jq -r '.idle.lock // 300' "$shell_file")
+  fi
+  case $bar_position in
+    top | bottom | left | right) ;;
+    *) bar_position=top ;;
+  esac
+  [[ $bar_transparent == true ]] || bar_transparent=false
+  [[ $screensaver =~ ^[0-9]+$ ]] || screensaver=150
+  [[ $lock =~ ^[0-9]+$ ]] || lock=300
+  if omarchy toggle enabled screensaver-off >/dev/null 2>&1; then
+    screensaver_enabled=false
+  fi
+  if omarchy toggle enabled bar-off >/dev/null 2>&1; then
+    bar_visible=false
+  fi
+  if omarchy toggle enabled suspend-off >/dev/null 2>&1; then
+    suspend_enabled=false
+  fi
+
+  if [[ -f $shell_file ]]; then
+    clock_json=$(jq -c '[.bar.layout.left // [], .bar.layout.center // [], .bar.layout.right // []] | add | map(select(.id == "omarchy.clock")) | .[0] // empty' "$shell_file")
+    if [[ -n $clock_json ]]; then
+      clock_present=true
+      if [[ $bar_position == left || $bar_position == right ]]; then
+        clock_format=$(jq -r '.verticalFormat // "HH\n—\nmm"' <<<"$clock_json")
+        clock_format_alt=$(jq -r --arg def $'dd\nMMM\n\'W\'ww\n\'\'yy' '.verticalFormatAlt // $def' <<<"$clock_json")
+      else
+        clock_format=$(jq -r '.format // "dddd HH:mm"' <<<"$clock_json")
+        clock_format_alt=$(jq -r --arg def "d MMMM 'W'ww yyyy" '.formatAlt // $def' <<<"$clock_json")
+      fi
+      clock_week_start=$(jq -r '.weekStartDay // empty' <<<"$clock_json")
+      clock_week_start=${clock_week_start%$'\n'}
+      clock_week_start=${clock_week_start,,}
+      case $clock_week_start in
+        sunday | monday | tuesday | wednesday | thursday | friday | saturday) ;;
+        *) clock_week_start="" ;;
+      esac
+      clock_birth_year=$(jq -r '.birthYear // 0' <<<"$clock_json")
+      [[ $clock_birth_year =~ ^[0-9]+$ ]] || clock_birth_year=0
+      clock_life_expectancy=$(jq -r '.lifeExpectancy // 0' <<<"$clock_json")
+      [[ $clock_life_expectancy =~ ^[0-9]+$ ]] || clock_life_expectancy=0
+      if ((clock_life_expectancy < 1 || clock_life_expectancy > 150)); then
+        clock_life_expectancy=0
+      fi
+    fi
+    indicators_json=$(jq -c '[.bar.layout.left // [], .bar.layout.center // [], .bar.layout.right // []] | add | map(select(.id == "omarchy.indicators")) | .[0] // empty' "$shell_file")
+    if [[ -n $indicators_json ]]; then
+      indicators_present=true
+      indicators_always_show=$(jq -r '.alwaysShow // false' <<<"$indicators_json")
+      [[ $indicators_always_show == true ]] || indicators_always_show=false
+      indicators_items_json=$(jq -c '
+        def known: ["Dictation","ScreenRecording","Reminder","NightLight","Dnd","StayAwake"];
+        ((.items // .indicators // []) | if type == "array" then . else [] end)
+        | map(
+            if type == "string" then .
+            elif type == "object" and (.id | type == "string") then .id
+            else empty end
+          )
+        | map(select(. as $id | known | index($id) != null))
+      ' <<<"$indicators_json")
+      [[ -n $indicators_items_json ]] || indicators_items_json='[]'
+    fi
+    agents_json=$(jq -c '[.bar.layout.left // [], .bar.layout.center // [], .bar.layout.right // []] | add | map(select(.id == "omarchy.agents")) | .[0] // empty' "$shell_file")
+    if [[ -n $agents_json ]]; then
+      agents_present=true
+      agents_refresh=$(jq -r '.refreshIntervalSec // 900' <<<"$agents_json")
+      [[ $agents_refresh =~ ^[0-9]+$ ]] || agents_refresh=900
+      if ((agents_refresh < 30)); then
+        agents_refresh=30
+      fi
+      agents_sync=$(jq -r '.syncMode // "Off"' <<<"$agents_json")
+      [[ $agents_sync == On ]] && agents_sync=true || agents_sync=false
+      agents_sync_dir=$(jq -r '.syncDir // empty' <<<"$agents_json")
+      agents_sync_dir=${agents_sync_dir%$'\n'}
+      agents_sync_file=$(jq -r '.syncFileName // empty' <<<"$agents_json")
+      agents_sync_file=${agents_sync_file%$'\n'}
+      agents_sync_device=$(jq -r '.syncDeviceId // empty' <<<"$agents_json")
+      agents_sync_device=${agents_sync_device%$'\n'}
+    fi
+    spacer_json=$(jq -c '[.bar.layout.left // [], .bar.layout.center // [], .bar.layout.right // []] | add | map(select(.id == "omarchy.spacer")) | .[0] // empty' "$shell_file")
+    if [[ -n $spacer_json ]]; then
+      spacer_present=true
+      spacer_size=$(jq -r '.size // 12' <<<"$spacer_json")
+      [[ $spacer_size =~ ^[0-9]+$ ]] || spacer_size=12
+      if ((spacer_size > 64)); then
+        spacer_size=64
+      fi
+    fi
+    tray_json=$(jq -c '[.bar.layout.left // [], .bar.layout.center // [], .bar.layout.right // []] | add | map(select(.id == "omarchy.tray")) | .[0] // empty' "$shell_file")
+    if [[ -n $tray_json ]]; then
+      tray_present=true
+      tray_hidden_json=$(jq -c '
+        ((.hidden // []) | if type == "array" then . else [] end)
+        | map(select(type == "string" and length > 0))
+      ' <<<"$tray_json")
+      [[ -n $tray_hidden_json ]] || tray_hidden_json='[]'
+      tray_pinned_json=$(jq -c '
+        ((.pinned // []) | if type == "array" then . else [] end)
+        | map(select(type == "string" and length > 0))
+      ' <<<"$tray_json")
+      [[ -n $tray_pinned_json ]] || tray_pinned_json='[]'
+    fi
+    if jq -e '[.bar.layout.left // [], .bar.layout.center // [], .bar.layout.right // []] | add | map(select(.id == "omarchy.weather")) | length > 0' "$shell_file" >/dev/null 2>&1; then
+      weather_present=true
+    fi
+  fi
+
+  cursor_size=${HYPRCURSOR_SIZE:-${XCURSOR_SIZE:-24}}
+  [[ $cursor_size =~ ^[0-9]+$ ]] || cursor_size=24
+  if ((cursor_size < 8)); then cursor_size=8; fi
+  if ((cursor_size > 64)); then cursor_size=64; fi
+  hypr_look_json=$(jq -n \
+    --argjson gapsIn "$(hypr_opt general:gaps_in)" \
+    --argjson gapsOut "$(hypr_opt general:gaps_out)" \
+    --argjson borderSize "$(hypr_opt general:border_size)" \
+    --argjson rounding "$(hypr_opt decoration:rounding)" \
+    --argjson blur "$(hypr_opt decoration:blur:enabled)" \
+    --argjson shadow "$(hypr_opt decoration:shadow:enabled)" \
+    --argjson layout "$(hypr_opt general:layout)" \
+    --argjson columnWidth "$(hypr_opt scrolling:column_width)" \
+    --argjson dimInactive "$(hypr_opt decoration:dim_inactive)" \
+    --argjson dimStrength "$(hypr_opt decoration:dim_strength)" \
+    --argjson animations "$(hypr_opt animations:enabled)" \
+    --argjson cursorHideOnKey "$(hypr_opt cursor:hide_on_key_press)" \
+    --argjson cursorWarp "$(hypr_opt cursor:warp_on_change_workspace)" \
+    --argjson cursorSize "$cursor_size" \
+    --argjson allowTearing "$(hypr_opt general:allow_tearing)" \
+    --argjson resizeOnBorder "$(hypr_opt general:resize_on_border)" \
+    --argjson activeOpacity "$(hypr_opt decoration:active_opacity)" \
+    --argjson preserveSplit "$(hypr_opt dwindle:preserve_split)" \
+    --argjson focusOnActivate "$(hypr_opt misc:focus_on_activate)" \
+    '
+    def num(o; fb):
+      if o.int != null then o.int
+      elif o.float != null then o.float
+      elif (o.css | type) == "string" then (o.css | split(" ")[0] | tonumber? // fb)
+      else fb end;
+    def flag(o; fb): if o.bool != null then o.bool else fb end;
+    def txt(o; fb):
+      if (o.str | type) == "string" and o.str != "[[EMPTY]]" then o.str else fb end;
+    {
+      gapsIn: num($gapsIn; 5),
+      gapsOut: num($gapsOut; 10),
+      borderSize: num($borderSize; 2),
+      rounding: num($rounding; 0),
+      blur: flag($blur; false),
+      shadow: flag($shadow; false),
+      layout: txt($layout; "dwindle"),
+      columnWidth: num($columnWidth; 0.49),
+      dimInactive: flag($dimInactive; false),
+      dimStrength: num($dimStrength; 0.15),
+      animations: flag($animations; true),
+      cursorHideOnKey: flag($cursorHideOnKey; true),
+      cursorWarp: ((num($cursorWarp; 1) | tonumber) != 0),
+      cursorSize: $cursorSize,
+      allowTearing: flag($allowTearing; false),
+      resizeOnBorder: flag($resizeOnBorder; false),
+      activeOpacity: num($activeOpacity; 1),
+      preserveSplit: flag($preserveSplit; false),
+      focusOnActivate: flag($focusOnActivate; false)
+    }
+  ' 2>/dev/null || echo '{}')
+  [[ -n $hypr_look_json ]] || hypr_look_json='{}'
+  if [[ -f $HOME/.config/hypr/looknfeel.lua ]] && grep -q -- '-- atmos:look begin' "$HOME/.config/hypr/looknfeel.lua"; then
+    hypr_look_managed=true
+  fi
+  [[ -f $HOME/.local/state/omarchy/toggles/hypr/window-no-gaps.lua ]] && hypr_no_gaps=true
+  [[ -f $HOME/.local/state/omarchy/toggles/hypr/single-window-aspect-ratio.lua ]] && hypr_square_aspect=true
+  hypr_workspace_layout=$(hyprctl activeworkspace -j 2>/dev/null | jq -r '.tiledLayout // "dwindle"' || true)
+  case $hypr_workspace_layout in
+    scrolling) ;;
+    *) hypr_workspace_layout=dwindle ;;
+  esac
+
+  if present hyprctl && present jq; then
+    monitors_json=$(hyprctl monitors all -j 2>/dev/null | jq -c '
+      def internal: test("^(eDP|LVDS|DSI)-");
+      [.[] | {
+        name: (.name // ""),
+        description: (.description // ""),
+        focused: (.focused == true),
+        enabled: (.disabled != true),
+        internal: ((.name // "") | internal),
+        width: ((.width // 0) | floor),
+        height: ((.height // 0) | floor),
+        refresh: ((.refreshRate // 0) | floor),
+        scale: (.scale // 1),
+        x: ((.x // 0) | floor),
+        y: ((.y // 0) | floor),
+        mirrorOf: (if (.mirrorOf // "none") == "none" then "" else (.mirrorOf | tostring) end),
+        availableModes: (
+          (.availableModes // [])
+          | if type == "array" then .[:80] | map(tostring) else [] end
+        ),
+        brightness: 0,
+        brightnessAvailable: false
+      }]
+    ' || true)
+    [[ -n $monitors_json ]] || monitors_json='[]'
+    while IFS= read -r name; do
+      [[ $name =~ ^[A-Za-z0-9._-]+$ ]] || continue
+      bright=$(omarchy brightness display --no-osd --monitor "$name" 2>/dev/null | awk 'NR==1 && $1 ~ /^[0-9]+$/ { print $1; exit }' || true)
+      if [[ $bright =~ ^[0-9]+$ ]]; then
+        ((bright > 100)) && bright=100
+        monitors_json=$(jq -c --arg n "$name" --argjson b "$bright" \
+          'map(if .name == $n then . + {brightness:$b, brightnessAvailable:true} else . end)' <<<"$monitors_json")
+      fi
+    done < <(jq -r '.[].name' <<<"$monitors_json" 2>/dev/null || true)
+  fi
+  if [[ $monitors_json != '[]' ]]; then
+    if jq -e '[.[] | select(.internal == true)] | length > 0' <<<"$monitors_json" >/dev/null 2>&1; then
+      internal_present=true
+    fi
+    if jq -e '[.[] | select(.internal == true and .enabled == true)] | length > 0' <<<"$monitors_json" >/dev/null 2>&1; then
+      internal_enabled=true
+    fi
+    if jq -e '[.[] | select((.mirrorOf // "") != "")] | length > 0' <<<"$monitors_json" >/dev/null 2>&1; then
+      mirroring=true
+    fi
+  fi
+  if omarchy hw external monitors >/dev/null 2>&1; then
+    external_present=true
+  fi
+  if omarchy hw touchpad >/dev/null 2>&1; then
+    touchpad_present=true
+  fi
+  if [[ -f $HOME/.local/state/omarchy/toggles/hypr/touchpad-disabled-name ]]; then
+    touchpad_present=true
+    touchpad_enabled=false
+  fi
+  if omarchy hw touchscreen >/dev/null 2>&1; then
+    touchscreen_present=true
+  fi
+  if [[ -f $HOME/.local/state/omarchy/toggles/hypr/touchscreen-disabled-name ]]; then
+    touchscreen_present=true
+    touchscreen_enabled=false
+  fi
+  for candidate in /sys/class/leds/*kbd_backlight*; do
+    [[ -e $candidate/brightness && -e $candidate/max_brightness ]] || continue
+    keyboard_backlight_present=true
+    kb_cur=$(<"$candidate/brightness")
+    kb_max=$(<"$candidate/max_brightness")
+    if [[ $kb_cur =~ ^[0-9]+$ && $kb_max =~ ^[1-9][0-9]*$ ]]; then
+      keyboard_brightness=$((kb_cur * 100 / kb_max))
+      ((keyboard_brightness > 100)) && keyboard_brightness=100
+    fi
+    break
+  done
+  if omarchy hw laptop >/dev/null 2>&1; then
+    is_laptop=true
+  fi
+  if omarchy battery present >/dev/null 2>&1; then
+    battery_present=true
+  fi
+
+  dnd_state=$(omarchy-shell notifications isDnd 2>/dev/null || true)
+  dnd_state=${dnd_state%$'\n'}
+  if [[ $dnd_state == on ]]; then
+    dnd=true
+  elif [[ -z $dnd_state && -f $HOME/.local/state/omarchy/notifications.json ]]; then
+    dnd=$(jq -r '.dnd // false' "$HOME/.local/state/omarchy/notifications.json")
+    [[ $dnd == true ]] || dnd=false
+  fi
+  reminder_json=$(omarchy_out reminder show --json)
+  if [[ -n $reminder_json ]]; then
+    reminder_count=$(jq -r '.count // 0' <<<"$reminder_json" 2>/dev/null || true)
+    reminder_active=$(jq -r '.active // false' <<<"$reminder_json" 2>/dev/null || true)
+    reminders_json=$(jq -c '.reminders // []' <<<"$reminder_json" 2>/dev/null || echo '[]')
+  fi
+  [[ $reminder_count =~ ^[0-9]+$ ]] || reminder_count=0
+  [[ $reminder_active == true ]] || reminder_active=false
+  [[ -n $reminders_json ]] || reminders_json='[]'
+}
+
 GROUP=${1:-all}
 case $GROUP in
   look | rest | all) ;;
@@ -117,6 +465,7 @@ PY
       [[ $parsed_night_on == true ]] && nightlight_night_on=true
     fi
   fi
+  fill_look_surface
   jq -n \
     --arg theme "$theme" \
     --arg background "$background" \
@@ -135,6 +484,56 @@ PY
     --arg nightlightDay "$nightlight_day" \
     --arg nightlightNight "$nightlight_night" \
     --argjson nightlightNightOn "$nightlight_night_on" \
+    --arg barPosition "$bar_position" \
+    --argjson barTransparent "$bar_transparent" \
+    --argjson barVisible "$bar_visible" \
+    --argjson idleScreensaver "$screensaver" \
+    --argjson idleLock "$lock" \
+    --argjson screensaverEnabled "$screensaver_enabled" \
+    --argjson suspendEnabled "$suspend_enabled" \
+    --argjson clockPresent "$clock_present" \
+    --arg clockFormat "$clock_format" \
+    --arg clockFormatAlt "$clock_format_alt" \
+    --arg clockWeekStart "$clock_week_start" \
+    --argjson clockBirthYear "$clock_birth_year" \
+    --argjson clockLifeExpectancy "$clock_life_expectancy" \
+    --argjson indicatorsPresent "$indicators_present" \
+    --argjson indicatorsAlwaysShow "$indicators_always_show" \
+    --argjson indicatorsItems "$indicators_items_json" \
+    --argjson agentsPresent "$agents_present" \
+    --argjson agentsRefreshIntervalSec "$agents_refresh" \
+    --argjson agentsSync "$agents_sync" \
+    --arg agentsSyncDir "$agents_sync_dir" \
+    --arg agentsSyncFileName "$agents_sync_file" \
+    --arg agentsSyncDeviceId "$agents_sync_device" \
+    --argjson spacerPresent "$spacer_present" \
+    --argjson spacerSize "$spacer_size" \
+    --argjson trayPresent "$tray_present" \
+    --argjson trayHidden "$tray_hidden_json" \
+    --argjson trayPinned "$tray_pinned_json" \
+    --argjson hyprLook "$hypr_look_json" \
+    --argjson hyprLookManaged "$hypr_look_managed" \
+    --argjson hyprNoGaps "$hypr_no_gaps" \
+    --argjson hyprSquareAspect "$hypr_square_aspect" \
+    --arg hyprWorkspaceLayout "$hypr_workspace_layout" \
+    --argjson monitors "$monitors_json" \
+    --argjson internalPresent "$internal_present" \
+    --argjson internalEnabled "$internal_enabled" \
+    --argjson mirroring "$mirroring" \
+    --argjson externalPresent "$external_present" \
+    --argjson touchpadPresent "$touchpad_present" \
+    --argjson touchpadEnabled "$touchpad_enabled" \
+    --argjson touchscreenPresent "$touchscreen_present" \
+    --argjson touchscreenEnabled "$touchscreen_enabled" \
+    --argjson keyboardBacklightPresent "$keyboard_backlight_present" \
+    --argjson keyboardBrightness "$keyboard_brightness" \
+    --argjson isLaptop "$is_laptop" \
+    --argjson batteryPresent "$battery_present" \
+    --argjson weatherPresent "$weather_present" \
+    --argjson doNotDisturb "$dnd" \
+    --argjson reminderCount "$reminder_count" \
+    --argjson reminderActive "$reminder_active" \
+    --argjson reminders "$reminders_json" \
     '{
       theme: $theme,
       background: $background,
@@ -152,7 +551,57 @@ PY
       plymouthThemes: $plymouthThemes,
       nightlightDay: $nightlightDay,
       nightlightNight: $nightlightNight,
-      nightlightNightOn: $nightlightNightOn
+      nightlightNightOn: $nightlightNightOn,
+      barPosition: $barPosition,
+      barTransparent: $barTransparent,
+      barVisible: $barVisible,
+      idleScreensaver: $idleScreensaver,
+      idleLock: $idleLock,
+      screensaverEnabled: $screensaverEnabled,
+      suspendEnabled: $suspendEnabled,
+      clockPresent: $clockPresent,
+      clockFormat: $clockFormat,
+      clockFormatAlt: $clockFormatAlt,
+      clockWeekStart: $clockWeekStart,
+      clockBirthYear: $clockBirthYear,
+      clockLifeExpectancy: $clockLifeExpectancy,
+      indicatorsPresent: $indicatorsPresent,
+      indicatorsAlwaysShow: $indicatorsAlwaysShow,
+      indicatorsItems: $indicatorsItems,
+      agentsPresent: $agentsPresent,
+      agentsRefreshIntervalSec: $agentsRefreshIntervalSec,
+      agentsSync: $agentsSync,
+      agentsSyncDir: $agentsSyncDir,
+      agentsSyncFileName: $agentsSyncFileName,
+      agentsSyncDeviceId: $agentsSyncDeviceId,
+      spacerPresent: $spacerPresent,
+      spacerSize: $spacerSize,
+      trayPresent: $trayPresent,
+      trayHidden: $trayHidden,
+      trayPinned: $trayPinned,
+      hyprLook: $hyprLook,
+      hyprLookManaged: $hyprLookManaged,
+      hyprNoGaps: $hyprNoGaps,
+      hyprSquareAspect: $hyprSquareAspect,
+      hyprWorkspaceLayout: $hyprWorkspaceLayout,
+      monitors: $monitors,
+      internalPresent: $internalPresent,
+      internalEnabled: $internalEnabled,
+      mirroring: $mirroring,
+      externalPresent: $externalPresent,
+      touchpadPresent: $touchpadPresent,
+      touchpadEnabled: $touchpadEnabled,
+      touchscreenPresent: $touchscreenPresent,
+      touchscreenEnabled: $touchscreenEnabled,
+      keyboardBacklightPresent: $keyboardBacklightPresent,
+      keyboardBrightness: $keyboardBrightness,
+      isLaptop: $isLaptop,
+      batteryPresent: $batteryPresent,
+      weatherPresent: $weatherPresent,
+      doNotDisturb: $doNotDisturb,
+      reminderCount: $reminderCount,
+      reminderActive: $reminderActive,
+      reminders: $reminders
     }'
 }
 
@@ -988,16 +1437,6 @@ if [[ -r $xkb_lst ]] && present jq; then
   )
 fi
 [[ -n $keyboard_layouts_json ]] || keyboard_layouts_json='[]'
-
-hypr_opt() {
-  local raw
-  raw=$(hyprctl -j getoption "$1" 2>/dev/null || true)
-  if printf '%s' "$raw" | jq -e . >/dev/null 2>&1; then
-    printf '%s' "$raw"
-  else
-    echo '{}'
-  fi
-}
 
 cursor_size=${HYPRCURSOR_SIZE:-${XCURSOR_SIZE:-24}}
 [[ $cursor_size =~ ^[0-9]+$ ]] || cursor_size=24

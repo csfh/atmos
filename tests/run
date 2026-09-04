@@ -162,7 +162,7 @@ fi
 
 if [[ -x scripts/snapshot.sh ]] && command -v omarchy >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
   look_json=$(bash scripts/snapshot.sh look)
-  echo "$look_json" | jq -e '.theme and (.themes | type == "array") and has("font") and has("nightlight")' >/dev/null
+  echo "$look_json" | jq -e '.theme and (.themes | type == "array") and has("font") and has("nightlight") and has("barPosition") and has("hyprLook") and has("idleScreensaver") and has("monitors")' >/dev/null
   if echo "$look_json" | jq -e 'has("hardware") or has("disks")' >/dev/null; then
     echo "not ok - snapshot.sh look includes hardware or disks"
     exit 1

@@ -398,7 +398,7 @@ QtObject {
     }
     var data = SnapshotJs.mergeSnapshot(snapshotData, parsed)
     snapshotData = data
-    if (!("barPosition" in parsed) && !("hardware" in parsed) && !("disks" in parsed)) {
+    if (!("hardware" in parsed) && !("disks" in parsed)) {
       root.applyLookPatch(parsed)
       return
     }
@@ -725,6 +725,20 @@ QtObject {
     if ("barPosition" in parsed) barPosition = String(parsed.barPosition || "top")
     if ("barTransparent" in parsed) barTransparent = parsed.barTransparent === true
     if ("barVisible" in parsed) barVisible = parsed.barVisible !== false
+    if ("clockPresent" in parsed) clockPresent = parsed.clockPresent === true
+    if ("indicatorsPresent" in parsed) indicatorsPresent = parsed.indicatorsPresent === true
+    if ("agentsPresent" in parsed) agentsPresent = parsed.agentsPresent === true
+    if ("trayPresent" in parsed) trayPresent = parsed.trayPresent === true
+    if ("isLaptop" in parsed) isLaptop = parsed.isLaptop === true
+    if ("batteryPresent" in parsed) batteryPresent = parsed.batteryPresent === true
+    if ("weatherPresent" in parsed) weatherPresent = parsed.weatherPresent === true
+    if ("internalPresent" in parsed) internalPresent = parsed.internalPresent === true
+    if ("externalPresent" in parsed) externalPresent = parsed.externalPresent === true
+    if ("touchpadPresent" in parsed) touchpadPresent = parsed.touchpadPresent === true
+    if ("touchscreenPresent" in parsed) touchscreenPresent = parsed.touchscreenPresent === true
+    if ("keyboardBacklightPresent" in parsed) keyboardBacklightPresent = parsed.keyboardBacklightPresent === true
+    if ("hyprSquareAspect" in parsed) hyprSquareAspect = parsed.hyprSquareAspect === true
+    if ("hyprWorkspaceGesture" in parsed) hyprWorkspaceGesture = parsed.hyprWorkspaceGesture === true
     if ("clockFormat" in parsed) clockFormat = String(parsed.clockFormat || "")
     if ("clockFormatAlt" in parsed) clockFormatAlt = String(parsed.clockFormatAlt || "")
     if ("clockWeekStart" in parsed) {

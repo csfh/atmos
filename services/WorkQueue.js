@@ -8,7 +8,16 @@ function snapshotGroupForHub(hub) {
   var id = String(hub || "");
   var slash = id.indexOf("/");
   if (slash !== -1) id = id.substring(0, slash);
-  if (!id || id === "appearance") return "look";
+  if (
+    !id ||
+    id === "appearance" ||
+    id === "display" ||
+    id === "windows" ||
+    id === "bar" ||
+    id === "notifications" ||
+    id === "idle"
+  )
+    return "look";
   return "all";
 }
 

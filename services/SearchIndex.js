@@ -30,16 +30,22 @@ const HUBS = [
     keywords: ["monitor", "scale", "brightness"],
   },
   {
-    id: "hardware",
-    title: "Hardware",
-    description: "CPU, GPU, memory, and firmware.",
-    keywords: ["cpu", "gpu", "memory"],
-  },
-  {
     id: "windows",
     title: "Windows",
     description: "Gaps, borders, bindings, and window rules.",
     keywords: ["gaps", "bind", "window"],
+  },
+  {
+    id: "bar",
+    title: "Bar",
+    description: "Position, clock, and widgets.",
+    keywords: ["bar", "clock", "tray"],
+  },
+  {
+    id: "notifications",
+    title: "Notifications",
+    description: "Do not disturb and reminders.",
+    keywords: ["dnd", "reminder"],
   },
   {
     id: "input",
@@ -66,40 +72,16 @@ const HUBS = [
     keywords: ["screenshot", "record"],
   },
   {
+    id: "hardware",
+    title: "Hardware",
+    description: "CPU, GPU, memory, and firmware.",
+    keywords: ["cpu", "gpu", "memory"],
+  },
+  {
     id: "disks",
     title: "Disks",
     description: "Drives, snapshots, and swap.",
     keywords: ["drive", "snapper", "swap"],
-  },
-  {
-    id: "bar",
-    title: "Bar",
-    description: "Position, clock, and widgets.",
-    keywords: ["bar", "clock", "tray"],
-  },
-  {
-    id: "notifications",
-    title: "Notifications",
-    description: "Do not disturb and reminders.",
-    keywords: ["dnd", "reminder"],
-  },
-  {
-    id: "defaults",
-    title: "Defaults",
-    description: "Browser, terminal, editor, and MIME.",
-    keywords: ["browser", "terminal"],
-  },
-  {
-    id: "applications",
-    title: "Applications",
-    description: "Desktop, TUI, and web launchers.",
-    keywords: ["app", "launcher"],
-  },
-  {
-    id: "software",
-    title: "Software",
-    description: "Packages and extras.",
-    keywords: ["install", "package"],
   },
   {
     id: "network",
@@ -120,6 +102,30 @@ const HUBS = [
     keywords: ["lock", "screensaver"],
   },
   {
+    id: "defaults",
+    title: "Defaults",
+    description: "Browser, terminal, editor, and MIME.",
+    keywords: ["browser", "terminal"],
+  },
+  {
+    id: "applications",
+    title: "Applications",
+    description: "Desktop, TUI, and web launchers.",
+    keywords: ["app", "launcher"],
+  },
+  {
+    id: "software",
+    title: "Software",
+    description: "Packages and extras.",
+    keywords: ["install", "package"],
+  },
+  {
+    id: "hooks",
+    title: "Hooks",
+    description: "Theme-set and other scripts.",
+    keywords: ["hook", "script"],
+  },
+  {
     id: "security",
     title: "Security",
     description: "Fingerprint, SSH, and sudo.",
@@ -130,12 +136,6 @@ const HUBS = [
     title: "Accounts",
     description: "Face, password, users, and groups.",
     keywords: ["avatar", "user", "group", "password"],
-  },
-  {
-    id: "hooks",
-    title: "Hooks",
-    description: "Theme-set and other scripts.",
-    keywords: ["hook", "script"],
   },
   {
     id: "system",

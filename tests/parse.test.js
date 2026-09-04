@@ -1352,6 +1352,29 @@ assertEqual(
 assertEqual(helpTopics[1].body, "Monospace family.", "sectionHelpTopics falls back to description");
 assertEqual(helpTopics[1].command, "omarchy font set", "sectionHelpTopics keeps the command");
 assertEqual(layout.sectionHelpTopics(null).length, 0, "sectionHelpTopics ignores a non-array");
+assertEqual(layout.clusterByGroup(null).length, 0, "clusterByGroup ignores a non-array");
+assertEqual(layout.clusterByGroup([]).length, 0, "clusterByGroup empty list");
+const clustered = layout.clusterByGroup([
+  { id: "appearance", group: "look" },
+  { id: "display", group: "look" },
+  { id: "input", group: "input" },
+  { id: "system", group: "admin" },
+]);
+assertEqual(clustered.length, 3, "clusterByGroup splits when the group changes");
+assertEqual(clustered[0].length, 2, "clusterByGroup keeps consecutive look hubs");
+assertEqual(clustered[0][1].id, "display", "clusterByGroup keeps order inside a group");
+assertEqual(clustered[1][0].id, "input", "clusterByGroup starts a new cluster");
+assertEqual(
+  layout.clusterByGroup(
+    [
+      { id: "appearance", group: "look" },
+      { id: "system", group: "admin" },
+    ],
+    false,
+  ).length,
+  1,
+  "clusterByGroup is one list while searching",
+);
 
 const wrap = load("services/TextWrap.js");
 function ch(s) {

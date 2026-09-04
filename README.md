@@ -16,7 +16,7 @@ A second launch focuses the window that is already open. Pass a page if you want
 ./bin/atmos network/wifi
 ```
 
-Hubs include appearance, displays, hardware, windows, input, accessibility, sound, capture, disks, bar, notifications, defaults, applications, software, network, power, idle, security, accounts, hooks, and system.
+Hubs include appearance, displays, windows, bar, notifications, input, accessibility, sound, capture, hardware, disks, network, power, idle, defaults, applications, software, hooks, security, accounts, and system.
 
 ## Install
 

@@ -48,3 +48,27 @@ function sectionHelpTopics(rows) {
   }
   return out;
 }
+
+// Cluster sidebar hubs. Consecutive pages with the same `group` stay together.
+// When grouped is false (a search is active), everything is one cluster.
+function clusterByGroup(pages, grouped) {
+  var list = Array.isArray(pages) ? pages : [];
+  if (list.length === 0) return [];
+  if (grouped === false) return [list.slice()];
+  var groups = [];
+  var bucket = null;
+  var last = null;
+  var i;
+  for (i = 0; i < list.length; i++) {
+    var page = list[i];
+    if (!page) continue;
+    var g = String(page.group || "");
+    if (!bucket || g !== last) {
+      bucket = [];
+      groups.push(bucket);
+      last = g;
+    }
+    bucket.push(page);
+  }
+  return groups;
+}

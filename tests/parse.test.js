@@ -2446,3 +2446,25 @@ assertEqual(
   "hallas",
   "profileHost drops a hostname with a space",
 );
+assert(
+  accounts.faceRowDescription("").indexOf("greeter") !== -1,
+  "faceRowDescription mentions the greeter when empty",
+);
+assert(
+  accounts.faceRowDescription("/home/hallas/.face.icon").indexOf("/home/hallas/.face.icon") === 0,
+  "faceRowDescription starts with the path",
+);
+assert(
+  accounts.faceRowDescription("/home/hallas/.face.icon").indexOf("greeter") !== -1,
+  "faceRowDescription mentions the greeter when a face is set",
+);
+const accountsPageSrc = fs.readFileSync(
+  path.join(__dirname, "..", "pages", "AccountsPage.qml"),
+  "utf8",
+);
+assert(
+  accountsPageSrc.indexOf("AccountsJs.faceRowDescription(Omarchy.avatarPath)") !== -1,
+  "Accounts face row uses faceRowDescription",
+);
+const shellProfileSrc = fs.readFileSync(path.join(__dirname, "..", "shell.qml"), "utf8");
+assert(shellProfileSrc.indexOf("id: profileHostSlot") !== -1, "sidebar reserves a host line slot");

@@ -357,35 +357,51 @@ ShellRoot {
 
           Item {
             width: parent.width
-            height: profileCopy.implicitHeight
+            height: profileNameSlot.height + profileHostSlot.height
 
             Column {
               id: profileCopy
               width: parent.width
               spacing: 0
 
-              Text {
-                id: profileName
+              Item {
+                id: profileNameSlot
                 width: parent.width
-                text: root.profileTitle
-                color: Theme.foreground
-                font.family: Theme.fontFamily
-                font.pixelSize: Theme.fontSize
-                font.bold: true
-                horizontalAlignment: Text.AlignHCenter
-                elide: Text.ElideRight
+                height: Theme.fontSize + 6
+
+                Text {
+                  id: profileName
+                  width: parent.width
+                  height: parent.height
+                  text: root.profileTitle
+                  color: Theme.foreground
+                  font.family: Theme.fontFamily
+                  font.pixelSize: Theme.fontSize
+                  font.bold: true
+                  horizontalAlignment: Text.AlignHCenter
+                  verticalAlignment: Text.AlignVCenter
+                  elide: Text.ElideRight
+                }
               }
 
-              Text {
-                id: profileSub
+              Item {
+                id: profileHostSlot
                 width: parent.width
-                visible: root.profileHost.length > 0
-                text: root.profileHost
-                color: Theme.muted
-                font.family: Theme.fontFamily
-                font.pixelSize: Theme.captionSize
-                horizontalAlignment: Text.AlignHCenter
-                elide: Text.ElideRight
+                height: Theme.captionSize + 4
+
+                Text {
+                  id: profileSub
+                  width: parent.width
+                  height: parent.height
+                  text: root.profileHost
+                  color: Theme.muted
+                  font.family: Theme.fontFamily
+                  font.pixelSize: Theme.captionSize
+                  horizontalAlignment: Text.AlignHCenter
+                  verticalAlignment: Text.AlignTop
+                  elide: Text.ElideRight
+                  opacity: root.profileHost.length > 0 ? 1 : 0
+                }
               }
             }
 

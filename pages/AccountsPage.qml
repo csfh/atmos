@@ -410,9 +410,7 @@ PrefsPage {
 
     PrefsRow {
       label: Omarchy.currentUser.length ? Omarchy.currentUser : "Face"
-      description: Omarchy.avatarPath.length
-        ? Omarchy.avatarPath
-        : "No face is set. Choose a PNG or JPEG. Omarchy's greeter does not draw it yet, but AccountsService and ~/.face.icon keep the file."
+      description: AccountsJs.faceRowDescription(Omarchy.avatarPath)
       hint: "~/.face.icon"
       query: root.query
       keywords: ["avatar", "face", "icon", "picture", "sddm", "accountsservice"]

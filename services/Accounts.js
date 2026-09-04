@@ -283,6 +283,12 @@ function profileHost(user, hostname) {
   return login + "@" + host;
 }
 
+function faceRowDescription(path) {
+  var file = String(path || "");
+  if (file) return file + ". Omarchy's greeter does not draw this face.";
+  return "No face is set. Choose a PNG or JPEG. Omarchy's greeter does not draw it yet, but AccountsService and ~/.face.icon keep the file.";
+}
+
 function pickAvatarPath(home, username, exists) {
   var user = String(username || "");
   var dir = String(home || "");
@@ -320,6 +326,7 @@ if (typeof module !== "undefined" && module.exports) {
     parseAccounts: parseAccounts,
     profileTitle: profileTitle,
     profileHost: profileHost,
+    faceRowDescription: faceRowDescription,
     pickAvatarPath: pickAvatarPath,
   };
 }

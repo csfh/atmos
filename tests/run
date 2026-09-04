@@ -443,10 +443,11 @@ hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })
 -- omarchy-prefs:input end
 LUA
   ATMOS_INPUT_FILE="$input_home/input.lua" ATMOS_SKIP_HYPR=1 \
-    bash scripts/set-hypr-input.sh '{"sensitivity":-0.5,"accelProfile":"flat","naturalScroll":true,"workspaceGesture":true}'
+    bash scripts/set-hypr-input.sh '{"sensitivity":-0.5,"accelProfile":"flat","emulateDiscreteScroll":0,"naturalScroll":true,"workspaceGesture":true}'
   grep -q -- '-- user note' "$input_home/input.lua"
   grep -q 'sensitivity = -0.5' "$input_home/input.lua"
   grep -q 'accel_profile = "flat"' "$input_home/input.lua"
+  grep -q 'emulate_discrete_scroll = 0' "$input_home/input.lua"
   grep -q 'natural_scroll = true' "$input_home/input.lua"
   if grep -q -- '-- omarchy-prefs:input begin' "$input_home/input.lua"; then
     echo "not ok - set-hypr-input.sh left an omarchy-prefs input block"
@@ -531,6 +532,27 @@ if [[ -x scripts/set-sshd.sh ]]; then
   echo "ok - set-sshd.sh only accepts disable"
 else
   echo "ok - skipping set-sshd.sh"
+fi
+
+if [[ -x scripts/as-root.sh ]]; then
+  echo "ok - as-root.sh is executable"
+else
+  echo "not ok - as-root.sh is not executable"
+  exit 1
+fi
+
+if [[ -x scripts/set-passwordless-sudo.sh ]]; then
+  if bash scripts/set-passwordless-sudo.sh maybe >/dev/null 2>&1; then
+    echo "not ok - set-passwordless-sudo.sh accepted a junk action"
+    exit 1
+  fi
+  if bash scripts/set-passwordless-sudo.sh on 0 >/dev/null 2>&1; then
+    echo "not ok - set-passwordless-sudo.sh accepted zero minutes"
+    exit 1
+  fi
+  echo "ok - set-passwordless-sudo.sh rejects a junk action"
+else
+  echo "ok - skipping set-passwordless-sudo.sh"
 fi
 
 if [[ -x scripts/set-hyprsunset.sh ]] && command -v python3 >/dev/null 2>&1; then

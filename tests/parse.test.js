@@ -1546,6 +1546,24 @@ assert(
   inputLua.indexOf("hl.gesture({ fingers = 3") !== -1,
   "serializeInput writes the workspace gesture",
 );
+assert(
+  inputLua.indexOf("emulate_discrete_scroll = 1") !== -1,
+  "serializeInput writes default discrete scroll",
+);
+assert(
+  hypr.serializeInput({ emulateDiscreteScroll: 0 }).indexOf("emulate_discrete_scroll = 0") !== -1,
+  "serializeInput writes a smooth wheel",
+);
+assertEqual(
+  hypr.clampInput({ emulateDiscreteScroll: 5 }).emulateDiscreteScroll,
+  2,
+  "clampInput caps discrete scroll",
+);
+assertEqual(
+  hypr.clampInput({ emulateDiscreteScroll: -1 }).emulateDiscreteScroll,
+  0,
+  "clampInput floors discrete scroll",
+);
 assertEqual(
   hypr.clampInput({ kbLayoutOverride: "US,dk" }).kbLayoutOverride,
   "us,dk",

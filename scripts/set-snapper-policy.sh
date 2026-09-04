@@ -2,6 +2,7 @@
 # Snapper NUMBER_LIMIT and TIMELINE_CREATE for the root config.
 set -euo pipefail
 
+ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 action=${1:-}
 value=${2:-}
 
@@ -20,7 +21,7 @@ case $action in
   number-limit)
     [[ $value =~ ^[1-9][0-9]?$ ]] || usage
     (( value >= 1 && value <= 50 )) || usage
-    pkexec /bin/bash -c '
+    "$ROOT/as-root.sh" /bin/bash -c '
       set -euo pipefail
       n=$1
       conf=/etc/snapper/configs/root
@@ -40,7 +41,7 @@ case $action in
       *) usage ;;
     esac
     want=$([[ $value == on ]] && echo yes || echo no)
-    pkexec /bin/bash -c '
+    "$ROOT/as-root.sh" /bin/bash -c '
       set -euo pipefail
       want=$1
       conf=/etc/snapper/configs/root

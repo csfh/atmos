@@ -2,6 +2,7 @@
 # Enable or disable weekly SSD TRIM.
 set -euo pipefail
 
+ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 value=${1:-}
 
 usage() {
@@ -14,7 +15,7 @@ case $value in
   *) usage ;;
 esac
 
-pkexec /bin/bash -c '
+"$ROOT/as-root.sh" /bin/bash -c '
   set -euo pipefail
   value=$1
   if [[ $value == on ]]; then

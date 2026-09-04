@@ -55,6 +55,7 @@ Item {
     if (_holding && value === _heldValue) _holding = false
     refreshDisplayLabel()
   }
+  onShownValueChanged: refreshDisplayLabel()
   onOptionsChanged: {
     refreshDisplayLabel()
     refreshShownOptions()

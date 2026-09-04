@@ -38,6 +38,7 @@ function defaultInput() {
   return {
     sensitivity: 0,
     accelProfile: "",
+    emulateDiscreteScroll: 1,
     naturalScroll: false,
     scrollFactor: 0.4,
     clickfinger: true,
@@ -146,6 +147,7 @@ function clampInput(raw) {
   return {
     sensitivity: clampFloat(src.sensitivity, -1, 1, base.sensitivity),
     accelProfile: accel,
+    emulateDiscreteScroll: clampInt(src.emulateDiscreteScroll, 0, 2, base.emulateDiscreteScroll),
     naturalScroll: asBool(src.naturalScroll, base.naturalScroll),
     scrollFactor: clampFloat(src.scrollFactor, 0.1, 3, base.scrollFactor),
     clickfinger: asBool(src.clickfinger, base.clickfinger),
@@ -239,6 +241,7 @@ function serializeInput(raw) {
   ];
   if (s.accelProfile)
     inputLines.splice(1, 0, "    accel_profile = " + luaString(s.accelProfile) + ",");
+  inputLines.push("    emulate_discrete_scroll = " + luaNumber(s.emulateDiscreteScroll) + ",");
   if (s.kbLayoutOverride) {
     inputLines.push("    kb_layout = " + luaString(s.kbLayoutOverride) + ",");
     if (s.kbVariantOverride)

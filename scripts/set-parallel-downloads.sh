@@ -2,6 +2,7 @@
 # Set pacman ParallelDownloads in /etc/pacman.conf.
 set -euo pipefail
 
+ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 n=${1:-}
 
 usage() {
@@ -12,7 +13,7 @@ usage() {
 [[ $n =~ ^[1-9][0-9]?$ ]] || usage
 (( n >= 1 && n <= 20 )) || usage
 
-pkexec /bin/bash -c '
+"$ROOT/as-root.sh" /bin/bash -c '
   set -euo pipefail
   n=$1
   conf=/etc/pacman.conf

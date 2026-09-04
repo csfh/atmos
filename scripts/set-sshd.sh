@@ -2,6 +2,7 @@
 # Stop the OpenSSH server without deleting authorized_keys.
 set -euo pipefail
 
+ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 action=${1:-}
 
 usage() {
@@ -11,7 +12,7 @@ usage() {
 
 [[ $action == disable ]] || usage
 
-pkexec /bin/bash -c '
+"$ROOT/as-root.sh" /bin/bash -c '
   set -euo pipefail
   systemctl disable --now sshd.service 2>/dev/null || true
   if command -v ufw >/dev/null 2>&1; then

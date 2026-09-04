@@ -2,6 +2,7 @@
 # Set the current user's GECOS full name via chfn.
 set -euo pipefail
 
+ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 name=${1-}
 user=$(id -un)
 
@@ -16,4 +17,4 @@ usage() {
 [[ $name != *:* && $name != *,* ]] || usage
 [[ $user =~ ^[a-z_][a-z0-9_-]*$ ]] || usage
 
-pkexec chfn -f "$name" "$user"
+"$ROOT/as-root.sh" chfn -f "$name" "$user"

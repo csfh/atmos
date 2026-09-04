@@ -45,7 +45,7 @@ const HUBS = [
     id: "input",
     title: "Input",
     description: "Pointer, keyboard, and gestures.",
-    keywords: ["mouse", "keyboard"],
+    keywords: ["mouse", "keyboard", "scroll", "inertia"],
   },
   {
     id: "accessibility",

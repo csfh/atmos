@@ -188,6 +188,7 @@ def serialize_input(raw: dict) -> str:
     s = {
         "sensitivity": clamp_float(src.get("sensitivity"), -1, 1, 0),
         "accelProfile": accel,
+        "emulateDiscreteScroll": clamp_int(src.get("emulateDiscreteScroll"), 0, 2, 1),
         "naturalScroll": as_bool(src.get("naturalScroll"), False),
         "scrollFactor": clamp_float(src.get("scrollFactor"), 0.1, 3, 0.4),
         "clickfinger": as_bool(src.get("clickfinger"), True),
@@ -213,6 +214,7 @@ def serialize_input(raw: dict) -> str:
     ]
     if s["accelProfile"]:
         input_lines.insert(1, f"    accel_profile = {lua_string(s['accelProfile'])},")
+    input_lines.append(f"    emulate_discrete_scroll = {lua_number(s['emulateDiscreteScroll'])},")
     if s["kbLayoutOverride"]:
         input_lines.append(f"    kb_layout = {lua_string(s['kbLayoutOverride'])},")
         if s["kbVariantOverride"]:

@@ -2,6 +2,7 @@
 # Set the system timezone. Prefs already confirmed the IANA id.
 set -euo pipefail
 
+ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 tz=${1:-}
 
 usage() {
@@ -20,4 +21,4 @@ if [[ ! -e $zone || -d $zone ]]; then
   exit 1
 fi
 
-pkexec timedatectl set-timezone "$tz"
+"$ROOT/as-root.sh" timedatectl set-timezone "$tz"

@@ -47,6 +47,7 @@ QtObject {
   readonly property string setFstrimScript: shellDir + "/scripts/set-fstrim.sh"
   readonly property string setMimeDefaultScript: shellDir + "/scripts/set-mime-default.sh"
   readonly property string setSshdScript: shellDir + "/scripts/set-sshd.sh"
+  readonly property string setPasswordlessSudoScript: shellDir + "/scripts/set-passwordless-sudo.sh"
   readonly property string createHookScript: shellDir + "/scripts/create-hook.sh"
   readonly property string setHookSampleScript: shellDir + "/scripts/set-hook-sample.sh"
   readonly property string looknfeelLuaFile: Quickshell.env("HOME") + "/.config/hypr/looknfeel.lua"
@@ -254,6 +255,7 @@ QtObject {
   property bool hyprLookManaged: false
   property real hyprSensitivity: 0
   property string hyprAccelProfile: ""
+  property int hyprEmulateDiscreteScroll: 1
   property bool hyprNaturalScroll: false
   property real hyprScrollFactor: 0.4
   property bool hyprClickfinger: true
@@ -280,6 +282,10 @@ QtObject {
   property bool sshdEnabled: false
   property bool sshdActive: false
   property bool passwordlessSudo: false
+  property int sudoMinutes: 15
+  property bool sudoPromptOpen: false
+  property bool sudoEnabling: false
+  property var sudoPendingJob: null
   property bool sudolessDocker: false
   property string omarchyVersion: ""
   property string omarchyChannel: ""
@@ -944,14 +950,14 @@ QtObject {
   function runCommand(argv, opts) {
     if (!(argv instanceof Array) || argv.length === 0) return
     opts = opts || {}
-    WorkQueue.enqueueWrite(ioQueue, {
+    enqueueIo({
       kind: "mut",
       argv: argv,
       key: opts.key ? String(opts.key) : "",
       apply: opts.apply && typeof opts.apply === "object" ? opts.apply : null,
-      refresh: opts.refresh === "all" ? "all" : "none"
+      refresh: opts.refresh === "all" ? "all" : "none",
+      sudo: opts.sudo === true
     })
-    kickIo()
   }
 
   function applyWritePatch(job) {
@@ -1010,6 +1016,9 @@ QtObject {
     if (hyprSensitivity > 1) hyprSensitivity = 1
     hyprAccelProfile = String(input.accelProfile || "")
     if (hyprAccelProfile !== "flat" && hyprAccelProfile !== "adaptive") hyprAccelProfile = ""
+    hyprEmulateDiscreteScroll = Math.round(Number(input.emulateDiscreteScroll))
+    if (!isFinite(hyprEmulateDiscreteScroll) || hyprEmulateDiscreteScroll < 0 || hyprEmulateDiscreteScroll > 2)
+      hyprEmulateDiscreteScroll = 1
     hyprNaturalScroll = input.naturalScroll === true
     hyprScrollFactor = Number(input.scrollFactor)
     if (!isFinite(hyprScrollFactor)) hyprScrollFactor = 0.4
@@ -1076,6 +1085,7 @@ QtObject {
     var input = {
       sensitivity: hyprSensitivity,
       accelProfile: hyprAccelProfile,
+      emulateDiscreteScroll: hyprEmulateDiscreteScroll,
       naturalScroll: hyprNaturalScroll,
       scrollFactor: hyprScrollFactor,
       clickfinger: hyprClickfinger,
@@ -1128,26 +1138,59 @@ QtObject {
     })
   }
 
-  function runGumJob(argv, kind) {
+  function runGumJob(argv, kind, opts) {
     if (!(argv instanceof Array) || argv.length === 0) return
     var cmd = ["bash", "-c", "PATH=\"$1:$PATH\" exec \"$@\"", "prefs-job", gumStubDir]
     for (var i = 0; i < argv.length; i++) cmd.push(argv[i])
-    runJob(cmd, "", kind)
+    runJob(cmd, "", kind, opts)
+  }
+
+  function enqueueIo(job) {
+    if (!job) return
+    if (job.sudo && !passwordlessSudo) {
+      sudoPendingJob = job
+      sudoPromptOpen = true
+      return
+    }
+    WorkQueue.enqueueWrite(ioQueue, job)
+    kickIo()
+  }
+
+  function confirmSudoMode() {
+    sudoPromptOpen = false
+    var pending = sudoPendingJob
+    if (passwordlessSudo) {
+      sudoPendingJob = null
+      if (pending) {
+        pending.sudo = false
+        WorkQueue.enqueueWrite(ioQueue, pending)
+        kickIo()
+      }
+      return
+    }
+    sudoEnabling = true
+    enablePasswordlessSudo(sudoMinutes)
+  }
+
+  function cancelSudoMode() {
+    sudoPromptOpen = false
+    sudoPendingJob = null
+    sudoEnabling = false
   }
 
   function runJob(argv, stdinText, kind, opts) {
     if (!(argv instanceof Array) || argv.length === 0) return
     opts = opts || {}
     kind = String(kind || "")
-    WorkQueue.enqueueWrite(ioQueue, {
+    enqueueIo({
       kind: "job",
       argv: argv,
       stdin: String(stdinText || ""),
       jobKind: kind,
       key: opts.key ? String(opts.key) : kind,
-      refresh: opts.refresh === "none" ? "none" : "all"
+      refresh: opts.refresh === "none" ? "none" : "all",
+      sudo: opts.sudo === true
     })
-    kickIo()
   }
 
   function cancelJob() {
@@ -1582,7 +1625,8 @@ QtObject {
     runCommand(["omarchy", "remove", "launcher", "entry", id, name], {
       key: "desktop-remove:" + id,
       apply: { desktopApps: SnapshotJs.patchRemoveMatching(desktopApps, "id", id) },
-      refresh: "none"
+      refresh: "none",
+      sudo: true
     })
   }
   function removeTui(name) {
@@ -1778,7 +1822,8 @@ QtObject {
     runCommand(["bash", setTimezoneScript, name], {
       key: "timezone",
       apply: { timezone: name },
-      refresh: "none"
+      refresh: "none",
+      sudo: true
     })
   }
 
@@ -1787,7 +1832,8 @@ QtObject {
     runCommand(["bash", setNtpScript, on ? "true" : "false"], {
       key: "ntp",
       apply: { ntp: on, ntpSynchronized: on ? ntpSynchronized : false },
-      refresh: "none"
+      refresh: "none",
+      sudo: true
     })
   }
 
@@ -1799,7 +1845,8 @@ QtObject {
     runCommand(["bash", setHostnameScript, name], {
       key: "hostname",
       apply: { hostname: name },
-      refresh: "none"
+      refresh: "none",
+      sudo: true
     })
   }
 
@@ -1812,7 +1859,8 @@ QtObject {
     runCommand(["bash", setFullNameScript, name], {
       key: "fullName",
       apply: { fullName: name },
-      refresh: "none"
+      refresh: "none",
+      sudo: true
     })
   }
 
@@ -1824,7 +1872,8 @@ QtObject {
     runCommand(["bash", setKeyboardLayoutScript, name], {
       key: "keyboardLayout",
       apply: { keyboardLayout: name },
-      refresh: "none"
+      refresh: "none",
+      sudo: true
     })
   }
 
@@ -1835,7 +1884,8 @@ QtObject {
     runCommand(["bash", setLocaleScript, name], {
       key: "locale",
       apply: { locale: name },
-      refresh: "none"
+      refresh: "none",
+      sudo: true
     })
   }
 
@@ -1845,7 +1895,8 @@ QtObject {
     runCommand(["bash", setParallelDownloadsScript, String(n)], {
       key: "parallelDownloads",
       apply: { parallelDownloads: n },
-      refresh: "none"
+      refresh: "none",
+      sudo: true
     })
   }
 
@@ -1983,6 +2034,11 @@ QtObject {
     if (name === hyprAccelProfile) return
     writeHyprInput({ accelProfile: name })
   }
+  function setHyprEmulateDiscreteScroll(n) {
+    n = Math.round(Number(n))
+    if (!isFinite(n) || n < 0 || n > 2 || n === hyprEmulateDiscreteScroll) return
+    writeHyprInput({ emulateDiscreteScroll: n })
+  }
   function setHyprNaturalScroll(on) {
     if (on === hyprNaturalScroll) return
     writeHyprInput({ naturalScroll: on })
@@ -2067,53 +2123,53 @@ QtObject {
   }
 
   function setupFingerprint() {
-    runGumJob(["omarchy", "setup", "security", "fingerprint"], "security-fingerprint")
+    runGumJob(["omarchy", "setup", "security", "fingerprint"], "security-fingerprint", { sudo: true })
   }
   function removeFingerprint() {
     if (!fingerprintConfigured) return
-    runGumJob(["omarchy", "remove", "security", "fingerprint"], "security-fingerprint-remove")
+    runGumJob(["omarchy", "remove", "security", "fingerprint"], "security-fingerprint-remove", { sudo: true })
   }
   function setupFido2() {
-    runGumJob(["omarchy", "setup", "security", "fido2"], "security-fido2")
+    runGumJob(["omarchy", "setup", "security", "fido2"], "security-fido2", { sudo: true })
   }
   function removeFido2() {
     if (!fido2Configured) return
-    runGumJob(["omarchy", "remove", "security", "fido2"], "security-fido2-remove")
+    runGumJob(["omarchy", "remove", "security", "fido2"], "security-fido2-remove", { sudo: true })
   }
   function setupSshd(key) {
     key = String(key || "").replace(/^\s+|\s+$/g, "")
     if (!key || key.length > 8192) return
     if (key.indexOf("\n") !== -1) return
-    runGumJob(["omarchy", "setup", "security", "sshd", "--key=" + key], "security-sshd")
+    runGumJob(["omarchy", "setup", "security", "sshd", "--key=" + key], "security-sshd", { sudo: true })
   }
   function disableSshd() {
     if (!sshdEnabled && !sshdActive) return
-    runJob(["bash", setSshdScript, "disable"], "", "security-sshd-disable")
+    runJob(["bash", setSshdScript, "disable"], "", "security-sshd-disable", { sudo: true })
   }
   function enablePasswordlessSudo(minutes) {
     minutes = Math.round(Number(minutes))
     if (!isFinite(minutes) || minutes < 1 || minutes > 240) minutes = 15
-    runGumJob(["omarchy", "sudo", "passwordless", String(minutes)], "passwordless-sudo")
+    runJob(["bash", setPasswordlessSudoScript, "on", String(minutes)], "", "passwordless-sudo")
   }
   function disablePasswordlessSudo() {
     if (!passwordlessSudo) return
-    runGumJob(["omarchy", "sudo", "passwordless"], "passwordless-sudo-off")
+    runJob(["bash", setPasswordlessSudoScript, "off"], "", "passwordless-sudo-off", { sudo: true })
   }
   function setupSudolessDocker() {
-    runGumJob(["omarchy", "setup", "security", "sudoless", "docker"], "security-docker")
+    runGumJob(["omarchy", "setup", "security", "sudoless", "docker"], "security-docker", { sudo: true })
   }
   function removeSudolessDocker() {
     if (!sudolessDocker) return
-    runGumJob(["omarchy", "remove", "security", "sudoless", "docker"], "security-docker-remove")
+    runGumJob(["omarchy", "remove", "security", "sudoless", "docker"], "security-docker-remove", { sudo: true })
   }
 
   function setOmarchyChannel(name) {
     if (name !== "stable" && name !== "rc" && name !== "edge" && name !== "dev") return
     if (name === omarchyChannel) return
-    runGumJob(["omarchy", "channel", "set", name], "channel-set")
+    runGumJob(["omarchy", "channel", "set", name], "channel-set", { sudo: true })
   }
   function runOmarchyUpdate() {
-    runGumJob(["omarchy", "update"], "omarchy-update")
+    runGumJob(["omarchy", "update"], "omarchy-update", { sudo: true })
   }
   function checkOmarchyUpdate() {
     runJob(["omarchy", "update", "available"], "", "update-check")
@@ -2134,32 +2190,32 @@ QtObject {
     runJob(["bash", updateAtmosScript, "apply"], "", "atmos-update")
   }
   function updateFirmware() {
-    runGumJob(["omarchy", "update", "firmware"], "update-firmware")
+    runGumJob(["omarchy", "update", "firmware"], "update-firmware", { sudo: true })
   }
   function updateOrphanPkgs() {
-    runGumJob(["omarchy", "update", "orphan", "pkgs"], "update-orphans")
+    runGumJob(["omarchy", "update", "orphan", "pkgs"], "update-orphans", { sudo: true })
   }
   function prunePkgCache() {
-    runGumJob(["omarchy", "update", "pkg", "prune"], "update-prune")
+    runGumJob(["omarchy", "update", "pkg", "prune"], "update-prune", { sudo: true })
   }
 
   function installVoxtype() {
-    runGumJob(["omarchy", "voxtype", "install"], "voxtype-install")
+    runGumJob(["omarchy", "voxtype", "install"], "voxtype-install", { sudo: true })
   }
   function removeVoxtype() {
     if (!voxtypeInstalled) return
-    runGumJob(["omarchy", "voxtype", "remove"], "voxtype-remove")
+    runGumJob(["omarchy", "voxtype", "remove"], "voxtype-remove", { sudo: true })
   }
   function toggleHybridGpu() {
     if (!hybridGpuAvailable) return
-    runGumJob(["omarchy", "toggle", "hybrid", "gpu"], "hybrid-gpu")
+    runGumJob(["omarchy", "toggle", "hybrid", "gpu"], "hybrid-gpu", { sudo: true })
   }
   function installTailscale() {
-    runGumJob(["omarchy", "install", "service", "tailscale"], "tailscale-install")
+    runGumJob(["omarchy", "install", "service", "tailscale"], "tailscale-install", { sudo: true })
   }
   function removeTailscale() {
     if (!tailscaleInstalled) return
-    runGumJob(["omarchy", "remove", "service", "tailscale"], "tailscale-remove")
+    runGumJob(["omarchy", "remove", "service", "tailscale"], "tailscale-remove", { sudo: true })
   }
   function setPluginEnabled(id, on) {
     id = String(id || "")
@@ -2184,7 +2240,8 @@ QtObject {
     runCommand(["bash", setSnapperPolicyScript, "number-limit", String(n)], {
       key: "snapperNumberLimit",
       apply: { snapperNumberLimit: n },
-      refresh: "none"
+      refresh: "none",
+      sudo: true
     })
   }
   function setSnapperTimeline(on) {
@@ -2192,7 +2249,8 @@ QtObject {
     runCommand(["bash", setSnapperPolicyScript, "timeline", on ? "on" : "off"], {
       key: "snapperTimeline",
       apply: { snapperTimeline: on },
-      refresh: "none"
+      refresh: "none",
+      sudo: true
     })
   }
   function setFstrim(on) {
@@ -2200,12 +2258,13 @@ QtObject {
     runCommand(["bash", setFstrimScript, on ? "on" : "off"], {
       key: "fstrimEnabled",
       apply: { fstrimEnabled: on },
-      refresh: "none"
+      refresh: "none",
+      sudo: true
     })
   }
   function setupDirectBoot() {
     if (!directBootAvailable) return
-    runGumJob(["omarchy", "setup", "direct", "boot"], "direct-boot")
+    runGumJob(["omarchy", "setup", "direct", "boot"], "direct-boot", { sudo: true })
   }
   function setMimeDefault(kind, desktop) {
     if (kind !== "pdf" && kind !== "image" && kind !== "video") return
@@ -2544,23 +2603,23 @@ QtObject {
     newPass = String(newPass || "")
     if (!device || device.charAt(0) !== "/" || device.indexOf("..") !== -1) return
     if (!currentPass || !newPass) return
-    runJob(["bash", luksChangeKeyScript], device + "\n" + currentPass + "\n" + newPass + "\n", "luks")
+    runJob(["bash", luksChangeKeyScript], device + "\n" + currentPass + "\n" + newPass + "\n", "luks", { sudo: true })
   }
   function createSnapshot() {
-    runJob(["omarchy", "snapshot", "create"], "", "snapshot-create")
+    runJob(["omarchy", "snapshot", "create"], "", "snapshot-create", { sudo: true })
   }
   function restoreSnapshot(config, id) {
     config = String(config || "")
     id = String(id || "")
     if (!/^[A-Za-z0-9_-]+$/.test(config)) return
     if (!/^[0-9]+$/.test(id)) return
-    runJob(["bash", rollbackSnapshotScript, config, id], "", "snapshot-rollback")
+    runJob(["bash", rollbackSnapshotScript, config, id], "", "snapshot-rollback", { sudo: true })
   }
   function setupHibernation() {
-    runJob(["omarchy", "hibernation", "setup", "--force"], "", "hibernation-setup")
+    runJob(["omarchy", "hibernation", "setup", "--force"], "", "hibernation-setup", { sudo: true })
   }
   function removeHibernation() {
-    runJob(["bash", "-c", "PATH=\"$1:$PATH\" exec omarchy hibernation remove", "hibernation-remove", gumStubDir], "", "hibernation-remove")
+    runJob(["bash", "-c", "PATH=\"$1:$PATH\" exec omarchy hibernation remove", "hibernation-remove", gumStubDir], "", "hibernation-remove", { sudo: true })
   }
 
   function setSuspendEnabled(on) {
@@ -2796,22 +2855,22 @@ QtObject {
   function runSoftware(argv, kind) {
     if (!(argv instanceof Array) || argv.length < 2) return
     if (argv[0] !== "omarchy") return
-    runGumJob(argv, kind || "software")
+    runGumJob(argv, kind || "software", { sudo: true })
   }
   function installDevEnv(lang) {
     lang = String(lang || "")
     if (!/^[a-z]+$/.test(lang)) return
-    runGumJob(["omarchy", "install", "dev", "env", lang], "dev-env-install")
+    runGumJob(["omarchy", "install", "dev", "env", lang], "dev-env-install", { sudo: true })
   }
   function removeDevEnv(lang) {
     lang = String(lang || "")
     if (!/^[a-z]+$/.test(lang)) return
-    runGumJob(["omarchy", "remove", "dev", "env", lang], "dev-env-remove")
+    runGumJob(["omarchy", "remove", "dev", "env", lang], "dev-env-remove", { sudo: true })
   }
   function installDockerDb(name) {
     name = String(name || "")
     if (!/^[A-Za-z]+$/.test(name)) return
-    runGumJob(["omarchy", "install", "docker", "dbs", name], "docker-db-install")
+    runGumJob(["omarchy", "install", "docker", "dbs", name], "docker-db-install", { sudo: true })
   }
 
   function isHookId(name) {
@@ -3161,18 +3220,19 @@ QtObject {
     runCommand(["omarchy", "plymouth", "set", "by", "theme", name], {
       key: "plymouth",
       apply: { plymouth: name },
-      refresh: "none"
+      refresh: "none",
+      sudo: true
     })
   }
 
   function resetPlymouth() {
     if (plymouth === "default") return
-    runJob(["omarchy", "plymouth", "reset"], "", "plymouth-reset")
+    runJob(["omarchy", "plymouth", "reset"], "", "plymouth-reset", { sudo: true })
   }
   function setPlymouthFromPath(path) {
     path = String(path || "")
     if (!path || path.charAt(0) !== "/" || path.indexOf("..") !== -1) return
-    runJob(["bash", "-c", "bg=$(omarchy theme color background); text=$(omarchy theme color foreground); omarchy plymouth set \"$bg\" \"$text\" \"$1\"", "plymouth-set", path], "", "plymouth-set")
+    runJob(["bash", "-c", "bg=$(omarchy theme color background); text=$(omarchy theme color foreground); omarchy plymouth set \"$bg\" \"$text\" \"$1\"", "plymouth-set", path], "", "plymouth-set", { sudo: true })
   }
   function previewPlymouthFromPath(path) {
     path = String(path || "")
@@ -3191,11 +3251,14 @@ QtObject {
     return out
   }
 
-  Component.onCompleted: startSession(Quickshell.env("ATMOS_PAGE") || "appearance")
+  Component.onCompleted: {
+    Theme.currentThemeSwapped.connect(root.applyThemeNameFromFile)
+    startSession(Quickshell.env("ATMOS_PAGE") || "appearance")
+  }
 
   readonly property var watchPaths: [
     userShellJson, defaultShellJson, weatherJson, notificationsJson,
-    currentThemeNameFile, currentBackgroundFile, screensaverBrandFile,
+    currentBackgroundFile, screensaverBrandFile,
     defaultScreensaverBrandFile, aboutBrandFile, defaultAboutBrandFile,
     powerProfileAcFile, powerProfileBatteryFile, togglesDir, hyprTogglesDir,
     touchpadDisabledFile, touchscreenDisabledFile, indicatorsDir,
@@ -3207,29 +3270,33 @@ QtObject {
     localtimeFile, hostnameFile, vconsoleFile, localeConfFile, pacmanConfFile
   ]
 
-  function applyThemeNameFromFile() {
-    var slug = String(themeNameWatch.text() || "").replace(/^\s+|\s+$/g, "")
+  function applyThemeNameFromFile(slug) {
+    slug = String(slug || "").replace(/^\s+|\s+$/g, "")
     var name = ThemeJs.themeNameFromSlug(slug, root.themes)
     if (!name) return
-    Theme.applyNamedTheme(name)
-    if (name !== root.theme) root.applySnapshot(JSON.stringify({ theme: name }))
+    if (name !== root.theme) {
+      root.applySnapshot(JSON.stringify({ theme: name }))
+      root.scheduleRefresh()
+    }
+  }
+
+  function syncThemeFromDisk() {
+    var slug = Theme.currentThemeSlug()
+    if (!slug) return
+    Theme.handleCurrentChanged()
+    root.applyThemeNameFromFile(slug)
+  }
+
+  function syncThemeFromDiskIfStale() {
+    var slug = Theme.currentThemeSlug()
+    if (!slug) return
+    if (ThemeJs.themeSlug(slug) === ThemeJs.themeSlug(root.theme)) return
+    root.syncThemeFromDisk()
   }
 
   onThemesChanged: {
     var mapped = ThemeJs.themeNameFromSlug(root.theme, root.themes)
     if (mapped && mapped !== root.theme) root.applySnapshot(JSON.stringify({ theme: mapped }))
-  }
-
-  property FileView themeNameWatch: FileView {
-    path: root.currentThemeNameFile
-    watchChanges: true
-    preload: true
-    printErrors: false
-    onFileChanged: {
-      reload()
-      waitForJob()
-      root.applyThemeNameFromFile()
-    }
   }
 
   property Instantiator fileWatchers: Instantiator {
@@ -3322,6 +3389,20 @@ QtObject {
       var out = String(jobOut.text || "").replace(/^\s+|\s+$/g, "")
       var err = String(jobErr.text || "").replace(/^\s+|\s+$/g, "")
       root.jobLog = out
+      if (root.sudoEnabling && root.jobKind === "passwordless-sudo") {
+        root.sudoEnabling = false
+        if (exitCode === 0) {
+          root.passwordlessSudo = true
+          var pending = root.sudoPendingJob
+          root.sudoPendingJob = null
+          if (pending) {
+            pending.sudo = false
+            WorkQueue.enqueueWrite(root.ioQueue, pending)
+          }
+        } else {
+          root.sudoPendingJob = null
+        }
+      }
       if (root.jobKind === "update-check") {
         root.lastError = ""
         root.jobKind = ""

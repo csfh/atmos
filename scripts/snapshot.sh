@@ -1025,6 +1025,7 @@ hypr_look_json=$(jq -n \
 hypr_input_json=$(jq -n \
   --argjson sensitivity "$(hypr_opt input:sensitivity)" \
   --argjson accelProfile "$(hypr_opt input:accel_profile)" \
+  --argjson emulateDiscreteScroll "$(hypr_opt input:emulate_discrete_scroll)" \
   --argjson naturalScroll "$(hypr_opt input:touchpad:natural_scroll)" \
   --argjson scrollFactor "$(hypr_opt input:touchpad:scroll_factor)" \
   --argjson clickfinger "$(hypr_opt input:touchpad:clickfinger_behavior)" \
@@ -1050,6 +1051,7 @@ hypr_input_json=$(jq -n \
   {
     sensitivity: num($sensitivity; 0),
     accelProfile: txt($accelProfile; ""),
+    emulateDiscreteScroll: num($emulateDiscreteScroll; 1),
     naturalScroll: flag($naturalScroll; false),
     scrollFactor: num($scrollFactor; 0.4),
     clickfinger: flag($clickfinger; true),

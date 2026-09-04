@@ -18,7 +18,7 @@ ShellRoot {
     { id: "display", title: "Displays", keywords: "monitor scale hidpi brightness backlight ddc keyboard laptop lid internal mirror clone edp hdmi dp resolution refresh touchpad trackpad pointer mouse input touch touchscreen tablet digitizer" },
     { id: "hardware", title: "Hardware", keywords: "gpu graphics nvidia vulkan hybrid supergfx igpu cuda radeon cpu processor intel amd memory ram dimm ddr chipset motherboard bios uefi firmware tpm npu xdna neural tpu ai accelerator dmi chassis laptop desktop framework usb nic thermal battery" },
     { id: "windows", title: "Windows", keywords: "gaps border rounding blur shadow tiling dwindle scrolling niri column opacity transparency fullscreen tight square aspect dim animations cursor tearing looknfeel preserve split focus activate keybinding hotkey shortcut bind unbind chord window rule float tile class" },
-    { id: "input", title: "Input", keywords: "mouse pointer sensitivity acceleration natural scroll touchpad clickfinger repeat delay numlock follow dpms gesture swipe layout xkb" },
+    { id: "input", title: "Input", keywords: "mouse pointer sensitivity acceleration natural scroll inertia wheel high-res discrete smooth touchpad clickfinger repeat delay numlock follow dpms gesture swipe layout xkb" },
     { id: "accessibility", title: "Accessibility", keywords: "a11y motion animations reduce text size font cursor pointer hide typing touchscreen herdr screen reader" },
     { id: "sound", title: "Sound", keywords: "audio volume mute speaker headphone sink source microphone mic input output pipewire pactl wpctl tuning dsp restart voxtype dictation speech" },
     { id: "capture", title: "Capture", keywords: "screenshot record recording screen video ocr qr webcam grim slurp pictures videos" },
@@ -188,6 +188,43 @@ ShellRoot {
     visible: true
 
     onClosed: Qt.quit()
+
+    // FileView on the Theme singleton does not see omarchy-theme-set replacing
+    // ~/.local/state/omarchy/current/theme. inotifywait watches that directory
+    // the same way the shell plugin registry watches plugins.
+    Process {
+      id: currentDirWatcher
+      running: true
+      command: [
+        "inotifywait", "-m", "-q",
+        "-e", "close_write,create,delete,move,modify,attrib",
+        "--format", "%e %f",
+        Theme.currentDir
+      ]
+      stdout: SplitParser {
+        onRead: function(line) { currentDirDebounce.restart() }
+      }
+      onExited: currentDirWatcherRestart.restart()
+    }
+
+    Timer {
+      id: currentDirWatcherRestart
+      interval: 1000
+      onTriggered: currentDirWatcher.running = true
+    }
+
+    Timer {
+      id: currentDirDebounce
+      interval: 120
+      onTriggered: Omarchy.syncThemeFromDisk()
+    }
+
+    Timer {
+      interval: 800
+      running: true
+      repeat: true
+      onTriggered: Omarchy.syncThemeFromDiskIfStale()
+    }
 
     Rectangle {
       id: sidebar
@@ -477,6 +514,24 @@ ShellRoot {
             })
           }
         }
+      }
+    }
+
+    PrefsConfirm {
+      id: sudoModeConfirm
+      title: "Sudo mode"
+      message: "This change needs root. Enable passwordless sudo for " + Omarchy.sudoMinutes + " minutes so Atmos can run it? Anything else running as you can use sudo without a password until then."
+      confirmText: "Enable"
+      destructive: false
+      onConfirmed: Omarchy.confirmSudoMode()
+      onCanceled: Omarchy.cancelSudoMode()
+    }
+
+    Connections {
+      target: Omarchy
+      function onSudoPromptOpenChanged() {
+        if (Omarchy.sudoPromptOpen) sudoModeConfirm.ask()
+        else if (sudoModeConfirm.visible) sudoModeConfirm.close()
       }
     }
 

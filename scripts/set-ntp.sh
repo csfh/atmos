@@ -2,6 +2,7 @@
 # Enable or disable NTP. Prefs already confirmed true/false.
 set -euo pipefail
 
+ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 on=${1:-}
 
 usage() {
@@ -11,4 +12,4 @@ usage() {
 
 [[ $on == true || $on == false ]] || usage
 
-pkexec timedatectl set-ntp "$on"
+"$ROOT/as-root.sh" timedatectl set-ntp "$on"

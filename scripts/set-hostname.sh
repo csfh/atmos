@@ -2,6 +2,7 @@
 # Set the static hostname. Prefs already confirmed the name.
 set -euo pipefail
 
+ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 name=${1:-}
 
 usage() {
@@ -14,4 +15,4 @@ usage() {
 [[ ${#name} -le 253 ]] || usage
 [[ $name =~ ^[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*$ ]] || usage
 
-pkexec hostnamectl set-hostname "$name"
+"$ROOT/as-root.sh" hostnamectl set-hostname "$name"

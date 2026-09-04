@@ -2,6 +2,7 @@
 # Snapper rollback of one config + snapshot id. Prefs already confirmed.
 set -euo pipefail
 
+ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 config=${1:-}
 id=${2:-}
 
@@ -14,4 +15,4 @@ id=${2:-}
   exit 1
 }
 
-pkexec snapper -c "$config" rollback "$id"
+"$ROOT/as-root.sh" snapper -c "$config" rollback "$id"

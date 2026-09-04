@@ -8,8 +8,9 @@ QtObject {
   id: root
 
   readonly property string home: Quickshell.env("HOME")
-  readonly property string currentThemePath: home + "/.local/state/omarchy/current/theme"
-  readonly property string currentThemeNameFile: home + "/.local/state/omarchy/current/theme.name"
+  readonly property string currentDir: home + "/.local/state/omarchy/current"
+  readonly property string currentThemePath: currentDir + "/theme"
+  readonly property string currentThemeNameFile: currentDir + "/theme.name"
   readonly property string userShellPath: home + "/.config/omarchy/shell.toml"
 
   property color foreground: "#cacccc"
@@ -138,6 +139,46 @@ QtObject {
     userShellFile.reload()
   }
 
+  function currentThemeSlug() {
+    return String(root.readPath(root.currentThemeNameFile) || "").replace(/^\s+|\s+$/g, "")
+  }
+
+  // The bar watches ~/.local/state/omarchy/current (the directory), not
+  // theme.name. omarchy-theme-set replaces the theme directory, then writes
+  // theme.name, then retargets the background symlink. Debounce those events
+  // so colors.toml exists before we read it.
+  function handleCurrentChanged() {
+    var slug = root.currentThemeSlug()
+    var colors = root.readPath(root.currentThemePath + "/colors.toml")
+    if (!colors && root.currentDirTries < 8) {
+      root.currentDirTries++
+      currentDirDebounce.interval = 40
+      currentDirDebounce.restart()
+      return
+    }
+    root.currentDirTries = 0
+    currentDirDebounce.interval = 80
+    if (slug) root.applyNamedTheme(slug)
+    if (colors) root.applyColors(colors)
+    var shellRaw = root.readPath(root.currentThemePath + "/shell.toml")
+    if (shellRaw) {
+      root.themeShellValues = ThemeJs.parseShell(shellRaw)
+      root.mergeShell()
+    }
+    root.reopenThemeFiles()
+    if (slug) root.currentThemeSwapped(slug)
+  }
+
+  signal currentThemeSwapped(string slug)
+
+  property int currentDirTries: 0
+
+  property Timer currentDirDebounce: Timer {
+    interval: 80
+    repeat: false
+    onTriggered: root.handleCurrentChanged()
+  }
+
   property FileView peekFile: FileView {
     printErrors: false
     blockLoading: true
@@ -148,18 +189,13 @@ QtObject {
     watchChanges: true
     preload: true
     printErrors: false
-    onFileChanged: {
-      reload()
-      waitForJob()
-      var slug = String(text() || "").replace(/^\s+|\s+$/g, "")
-      if (slug) root.applyNamedTheme(slug)
-      root.reopenThemeFiles()
-    }
+    onFileChanged: currentDirDebounce.restart()
   }
 
   property FileView colorsFile: FileView {
     path: root.currentThemePath + "/colors.toml"
     watchChanges: true
+    preload: true
     printErrors: false
     onLoaded: {
       var raw = text()
@@ -172,6 +208,7 @@ QtObject {
   property FileView shellFile: FileView {
     path: root.currentThemePath + "/shell.toml"
     watchChanges: true
+    preload: true
     printErrors: false
     onLoaded: {
       var raw = text()
@@ -189,6 +226,7 @@ QtObject {
   property FileView userShellFile: FileView {
     path: root.userShellPath
     watchChanges: true
+    preload: true
     printErrors: false
     onLoaded: {
       root.userShellValues = ThemeJs.parseShell(text())

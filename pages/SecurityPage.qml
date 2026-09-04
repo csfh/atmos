@@ -7,8 +7,6 @@ PrefsPage {
   title: "Security"
   description: "Fingerprint, a security key, and whether this machine accepts SSH. Passwordless sudo is under Advanced."
 
-  property int sudoMinutes: 15
-
   PrefsConfirm {
     id: fingerprintSetupConfirm
     title: "Set up fingerprint"
@@ -52,7 +50,7 @@ PrefsPage {
   PrefsConfirm {
     id: passwordlessOnConfirm
     title: "Passwordless sudo"
-    message: "Any process under this account can run root commands without a password for " + root.sudoMinutes + " minutes. That includes agents and anything else logged in as you."
+    message: "Any process under this account can run root commands without a password for " + Omarchy.sudoMinutes + " minutes. That includes agents and anything else logged in as you."
     confirmText: "Enable"
     onConfirmed: Omarchy.enablePasswordlessSudo(root.sudoMinutes)
   }
@@ -243,9 +241,9 @@ PrefsPage {
         from: 5
         to: 120
         stepSize: 5
-        value: root.sudoMinutes
-        valueText: root.sudoMinutes + " min"
-        onChanged: function(value) { root.sudoMinutes = Math.round(value) }
+        value: Omarchy.sudoMinutes
+        valueText: Omarchy.sudoMinutes + " min"
+        onChanged: function(value) { Omarchy.sudoMinutes = Math.round(value) }
       }
     }
 

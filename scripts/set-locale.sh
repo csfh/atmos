@@ -2,6 +2,7 @@
 # Set LANG. Generates the locale from locale.gen when it is not installed yet.
 set -euo pipefail
 
+ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 locale=${1:-}
 
 usage() {
@@ -22,11 +23,11 @@ if [[ -r $supported ]]; then
 fi
 
 if localectl list-locales 2>/dev/null | grep -Fxq -- "$locale"; then
-  pkexec localectl set-locale "LANG=$locale"
+  "$ROOT/as-root.sh" localectl set-locale "LANG=$locale"
   exit 0
 fi
 
-pkexec /bin/bash -c '
+"$ROOT/as-root.sh" /bin/bash -c '
   set -euo pipefail
   loc=$1
   gen=/etc/locale.gen

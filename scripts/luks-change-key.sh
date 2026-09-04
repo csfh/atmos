@@ -3,6 +3,7 @@
 # passphrase, new passphrase. Secrets never appear on argv.
 set -euo pipefail
 
+ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 IFS= read -r device
 IFS= read -r old_pass
 IFS= read -r new_pass
@@ -41,4 +42,4 @@ printf '%s' "$new_pass" >"$newf"
 old_pass=""
 new_pass=""
 
-pkexec cryptsetup luksChangeKey --pbkdf argon2id --iter-time 2000 --key-file "$oldf" "$device" "$newf"
+"$ROOT/as-root.sh" cryptsetup luksChangeKey --pbkdf argon2id --iter-time 2000 --key-file "$oldf" "$device" "$newf"

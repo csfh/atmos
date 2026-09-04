@@ -55,6 +55,28 @@ PrefsPage {
         }
       }
     }
+
+    PrefsRow {
+      label: "Scroll inertia"
+      description: "How a high-resolution or free-spin mouse wheel is turned into scroll events. Smooth keeps the fine motion. Stepped turns it into clicks."
+      hint: "~/.config/hypr/input.lua · input.emulate_discrete_scroll"
+      query: root.query
+      keywords: ["inertia", "wheel", "high-res", "discrete", "smooth", "scroll"]
+
+      PrefsSelect {
+        value: String(Omarchy.hyprEmulateDiscreteScroll)
+        options: [
+          { value: "0", label: "Smooth" },
+          { value: "1", label: "Default" },
+          { value: "2", label: "Stepped" }
+        ]
+        onChanged: function(value) {
+          var next = Math.round(Number(value))
+          if (next !== Omarchy.hyprEmulateDiscreteScroll)
+            Omarchy.setHyprEmulateDiscreteScroll(next)
+        }
+      }
+    }
   }
 
   PrefsGroup {

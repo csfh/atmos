@@ -371,6 +371,33 @@ assertEqual(
 );
 assertEqual(queue.snapshotGroupForHub("idle"), "look", "idle hub reads look first");
 assertEqual(queue.snapshotGroupForHub("hardware"), "all", "other hubs read the full snapshot");
+assertEqual(
+  queue.snapshotGroupForWatchPath("/home/x/.config/hypr/looknfeel.lua"),
+  "look",
+  "looknfeel.lua watch is look",
+);
+assertEqual(queue.snapshotGroupForWatchPath("/etc/hostname"), "rest", "hostname watch is rest");
+assertEqual(queue.snapshotGroupForWatchPath("/home/x/.face.icon"), "rest", "face watch is rest");
+assertEqual(
+  queue.snapshotGroupForWatchPath("/home/x/.local/state/omarchy/toggles"),
+  "all",
+  "toggles dir watch is all",
+);
+assertEqual(
+  queue.snapshotGroupForWatchPath("/home/x/.local/state/omarchy/toggles/hypr"),
+  "look",
+  "hypr toggles watch is look",
+);
+assertEqual(
+  queue.addPendingRefresh(["look"], "rest").join(","),
+  "look,rest",
+  "pending look plus rest stays both",
+);
+assertEqual(
+  queue.addPendingRefresh(["look", "rest"], "all").join(","),
+  "look,all",
+  "pending all keeps look and drops rest",
+);
 const sessionIo = queue.createWorkQueue();
 queue.enqueueRead(sessionIo, "look");
 queue.enqueueRead(sessionIo, "rest");

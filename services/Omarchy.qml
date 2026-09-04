@@ -922,12 +922,15 @@ QtObject {
   }
 
   function refresh() {
-    scheduleRefresh()
+    scheduleRefresh("all")
   }
 
-  function scheduleRefresh() {
+  function scheduleRefresh(group) {
+    pendingRefreshGroups = WorkQueue.addPendingRefresh(pendingRefreshGroups, group || "all")
     refreshTimer.restart()
   }
+
+  property var pendingRefreshGroups: []
 
   function enqueueRead(group) {
     WorkQueue.enqueueRead(ioQueue, group || "all")
@@ -3407,19 +3410,51 @@ QtObject {
     startSession(Quickshell.env("ATMOS_PAGE") || "appearance")
   }
 
-  readonly property var watchPaths: [
-    userShellJson, defaultShellJson, weatherJson, notificationsJson,
-    currentBackgroundFile, screensaverBrandFile,
-    defaultScreensaverBrandFile, aboutBrandFile, defaultAboutBrandFile,
-    powerProfileAcFile, powerProfileBatteryFile, togglesDir, hyprTogglesDir,
-    touchpadDisabledFile, touchscreenDisabledFile, indicatorsDir,
-    applicationsDir, extraThemesDir, packagedThemesDir, defaultEditorFile,
-    defaultAgentFile, defaultTerminalFile, defaultBrowserFile, fontconfigFile,
-    userShellToml, reminderDir, dnsConfFile, bluetoothRfkillDir,
-    plymouthLogoFile, defaultPlymouthLogoFile, powerProfilesStateFile,
-    networkManagerDevicesDir, looknfeelLuaFile, inputLuaFile, monitorsLuaFile,
-    localtimeFile, hostnameFile, passwdFile, groupFile, faceIconFile, faceFile,
-    vconsoleFile, localeConfFile, pacmanConfFile
+  readonly property var watchSpecs: [
+    { path: userShellJson, group: "look" },
+    { path: defaultShellJson, group: "look" },
+    { path: userShellToml, group: "look" },
+    { path: weatherJson, group: "look" },
+    { path: notificationsJson, group: "look" },
+    { path: currentBackgroundFile, group: "look" },
+    { path: screensaverBrandFile, group: "look" },
+    { path: defaultScreensaverBrandFile, group: "look" },
+    { path: aboutBrandFile, group: "look" },
+    { path: defaultAboutBrandFile, group: "look" },
+    { path: plymouthLogoFile, group: "look" },
+    { path: defaultPlymouthLogoFile, group: "look" },
+    { path: extraThemesDir, group: "look" },
+    { path: packagedThemesDir, group: "look" },
+    { path: fontconfigFile, group: "look" },
+    { path: indicatorsDir, group: "look" },
+    { path: reminderDir, group: "look" },
+    { path: looknfeelLuaFile, group: "look" },
+    { path: monitorsLuaFile, group: "look" },
+    { path: hyprTogglesDir, group: "look" },
+    { path: touchpadDisabledFile, group: "look" },
+    { path: touchscreenDisabledFile, group: "look" },
+    { path: togglesDir, group: "all" },
+    { path: powerProfileAcFile, group: "rest" },
+    { path: powerProfileBatteryFile, group: "rest" },
+    { path: powerProfilesStateFile, group: "rest" },
+    { path: applicationsDir, group: "rest" },
+    { path: defaultEditorFile, group: "rest" },
+    { path: defaultAgentFile, group: "rest" },
+    { path: defaultTerminalFile, group: "rest" },
+    { path: defaultBrowserFile, group: "rest" },
+    { path: dnsConfFile, group: "rest" },
+    { path: bluetoothRfkillDir, group: "rest" },
+    { path: networkManagerDevicesDir, group: "rest" },
+    { path: inputLuaFile, group: "rest" },
+    { path: localtimeFile, group: "rest" },
+    { path: hostnameFile, group: "rest" },
+    { path: passwdFile, group: "rest" },
+    { path: groupFile, group: "rest" },
+    { path: faceIconFile, group: "rest" },
+    { path: faceFile, group: "rest" },
+    { path: vconsoleFile, group: "rest" },
+    { path: localeConfFile, group: "rest" },
+    { path: pacmanConfFile, group: "rest" }
   ]
 
   function applyThemeNameFromFile(slug) {
@@ -3428,7 +3463,7 @@ QtObject {
     if (!name) return
     if (name !== root.theme) {
       root.applySnapshot(JSON.stringify({ theme: name }))
-      root.scheduleRefresh()
+      root.scheduleRefresh("look")
     }
   }
 
@@ -3452,14 +3487,14 @@ QtObject {
   }
 
   property Instantiator fileWatchers: Instantiator {
-    model: root.watchPaths
+    model: root.watchSpecs
     delegate: FileView {
-      path: modelData
+      path: modelData.path
       watchChanges: true
       printErrors: false
       onFileChanged: {
         reload()
-        root.scheduleRefresh()
+        root.scheduleRefresh(modelData.group)
       }
     }
   }
@@ -3467,7 +3502,12 @@ QtObject {
   property Timer refreshTimer: Timer {
     interval: 180
     repeat: false
-    onTriggered: root.enqueueRead("all")
+    onTriggered: {
+      var groups = root.pendingRefreshGroups
+      root.pendingRefreshGroups = []
+      var i
+      for (i = 0; i < groups.length; i++) root.enqueueRead(groups[i])
+    }
   }
 
   property Process snapshotProc: Process {

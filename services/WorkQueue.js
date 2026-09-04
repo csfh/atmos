@@ -21,6 +21,50 @@ function snapshotGroupForHub(hub) {
   return "all";
 }
 
+function snapshotGroupForWatchPath(path) {
+  var p = String(path || "");
+  var i = p.lastIndexOf("/");
+  var base = i === -1 ? p : p.substring(i + 1);
+  if (
+    base === "shell.json" ||
+    base === "shell.toml" ||
+    base === "looknfeel.lua" ||
+    base === "monitors.lua" ||
+    base === "screensaver.txt" ||
+    base === "about.txt" ||
+    base === "logo.txt" ||
+    base === "icon.txt" ||
+    base === "logo.png" ||
+    base === "fonts.conf" ||
+    base === "weather.json" ||
+    base === "notifications.json" ||
+    p.indexOf("/omarchy/current/background") !== -1 ||
+    p.indexOf("/omarchy/themes") !== -1 ||
+    p.indexOf("/omarchy/themes/") !== -1 ||
+    p.indexOf("/usr/share/omarchy/themes") !== -1 ||
+    p.indexOf("/omarchy/indicators") !== -1 ||
+    p.indexOf("/omarchy-reminders") !== -1 ||
+    p.indexOf("/toggles/hypr") !== -1
+  )
+    return "look";
+  if (p.indexOf("/omarchy/toggles") !== -1 && p.indexOf("/toggles/hypr") === -1) return "all";
+  return "rest";
+}
+
+function addPendingRefresh(pending, group) {
+  var q = { reads: [], writes: [], running: false, writeSeq: 0 };
+  var src = Array.isArray(pending) ? pending : [];
+  var i;
+  for (i = 0; i < src.length; i++) enqueueRead(q, src[i]);
+  enqueueRead(q, group || "all");
+  var out = [];
+  var reads = q.reads || [];
+  for (i = 0; i < reads.length; i++) {
+    if (reads[i] && reads[i].group) out.push(reads[i].group);
+  }
+  return out;
+}
+
 function enqueueRead(queue, group) {
   var g = String(group || "all");
   if (g !== "look" && g !== "rest" && g !== "all") g = "all";
@@ -106,6 +150,8 @@ if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     createWorkQueue: createWorkQueue,
     snapshotGroupForHub: snapshotGroupForHub,
+    snapshotGroupForWatchPath: snapshotGroupForWatchPath,
+    addPendingRefresh: addPendingRefresh,
     enqueueRead: enqueueRead,
     enqueueWrite: enqueueWrite,
     takeNext: takeNext,

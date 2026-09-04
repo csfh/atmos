@@ -460,6 +460,20 @@ function walkQmlFiles(dir, prefix, files) {
   }
 }
 
+function expandSharedRows(src, hub, pagesDir) {
+  const out = [];
+  const re = /\b([A-Z][A-Za-z0-9]*Row)\s*\{/g;
+  let m;
+  const rowsDir = path.join(pagesDir, "rows");
+  while ((m = re.exec(src))) {
+    if (m[1] === "PrefsRow") continue;
+    const full = path.join(rowsDir, m[1] + ".qml");
+    if (!fs.existsSync(full)) continue;
+    out.push.apply(out, rowsFromQml(fs.readFileSync(full, "utf8"), hub));
+  }
+  return out;
+}
+
 function catalogFromQmlDir(pagesDir) {
   if (!pagesDir || !fs.existsSync(pagesDir)) return [];
   const files = [];
@@ -468,7 +482,9 @@ function catalogFromQmlDir(pagesDir) {
   for (let i = 0; i < files.length; i++) {
     const hub = hubForPage(files[i].rel);
     if (!hub) continue;
-    out.push.apply(out, rowsFromQml(fs.readFileSync(files[i].full, "utf8"), hub));
+    const src = fs.readFileSync(files[i].full, "utf8");
+    out.push.apply(out, rowsFromQml(src, hub));
+    out.push.apply(out, expandSharedRows(src, hub, pagesDir));
   }
   return out;
 }
@@ -578,6 +594,7 @@ module.exports = {
   queryRows,
   defaultCatalog,
   catalogFromQmlDir,
+  expandSharedRows,
   hubRows,
   rowHaystack,
   parseArgs,

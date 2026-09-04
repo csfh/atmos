@@ -2,6 +2,7 @@ import QtQuick
 import "../components"
 import "../services"
 import "../services/RichUi.js" as RichUi
+import "rows"
 
 PrefsPage {
   id: root
@@ -225,19 +226,9 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
-      available: Omarchy.touchscreenPresent
-      label: "Touchscreen"
-      description: "Finger input on the display. Turning it off survives a Hyprland reload."
-      hint: "omarchy toggle touchscreen"
+    TouchscreenRow {
       query: root.query
-      keywords: ["touch", "touchscreen", "tablet", "digitizer"]
-
-      PrefsToggle {
-        checked: Omarchy.touchscreenEnabled
-        enabled: Omarchy.touchscreenPresent
-        onToggled: Omarchy.setTouchscreen(!Omarchy.touchscreenEnabled)
-      }
+      requirePresent: true
     }
 
     PrefsRow {

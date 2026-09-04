@@ -2,6 +2,7 @@ import QtQuick
 import "../components"
 import "../services"
 import "windows" as Win
+import "rows"
 
 PrefsPage {
   id: root
@@ -383,31 +384,9 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
-      label: "Animations"
-      description: "Window open, close, and fade motion."
-      hint: "~/.config/hypr/looknfeel.lua · animations.enabled"
-      query: root.query
-      keywords: ["animation", "motion", "reduce"]
+    AnimationsRow { query: root.query }
 
-      PrefsToggle {
-        checked: Omarchy.hyprAnimations
-        onToggled: Omarchy.setHyprAnimations(!Omarchy.hyprAnimations)
-      }
-    }
-
-    PrefsRow {
-      label: "Hide cursor while typing"
-      description: "The pointer disappears when you start typing."
-      hint: "~/.config/hypr/looknfeel.lua · cursor.hide_on_key_press"
-      query: root.query
-      keywords: ["cursor", "pointer", "hide", "type"]
-
-      PrefsToggle {
-        checked: Omarchy.hyprCursorHideOnKey
-        onToggled: Omarchy.setHyprCursorHideOnKey(!Omarchy.hyprCursorHideOnKey)
-      }
-    }
+    HideCursorRow { query: root.query }
 
     PrefsRow {
       label: "Warp cursor on workspace"
@@ -448,28 +427,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
-      stretchControl: true
-      label: "Cursor size"
-      description: "How large the pointer is. Accessibility has the same slider."
-      hint: "~/.config/hypr/looknfeel.lua · HYPRCURSOR_SIZE"
-      query: root.query
-      keywords: ["cursor", "pointer", "size"]
-
-      PrefsSlider {
-        width: parent.width
-        from: 8
-        to: 64
-        stepSize: 2
-        value: Omarchy.hyprCursorSize
-        valueText: Omarchy.hyprCursorSize + " px"
-        onChanged: function(value) {
-          var next = Math.round(value)
-          if (next !== Omarchy.hyprCursorSize)
-            Omarchy.setHyprCursorSize(next)
-        }
-      }
-    }
+    CursorSizeRow { query: root.query }
 
     PrefsRow {
       stretchControl: true

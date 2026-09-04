@@ -148,6 +148,30 @@ assert(
   "qml catalog indexes the Font row",
 );
 assert(
+  qmlCatalog.some(function (row) {
+    return row.label === "Text size" && row.hub === "appearance";
+  }),
+  "qml catalog indexes shared Text size on Appearance",
+);
+assert(
+  qmlCatalog.some(function (row) {
+    return row.label === "Text size" && row.hub === "accessibility";
+  }),
+  "qml catalog indexes shared Text size on Accessibility",
+);
+assert(
+  qmlCatalog.some(function (row) {
+    return row.label === "Animations" && row.hub === "windows";
+  }),
+  "qml catalog indexes shared Animations on Windows",
+);
+assert(
+  qmlCatalog.some(function (row) {
+    return row.label === "Touchscreen" && row.hub === "display";
+  }),
+  "qml catalog indexes shared Touchscreen on Displays",
+);
+assert(
   !qmlCatalog.some(function (row) {
     return row.label === "Error dialog" || row.label === "Debug";
   }),

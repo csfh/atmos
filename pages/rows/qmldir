@@ -1,0 +1,6 @@
+module rows
+TextSizeRow 1.0 TextSizeRow.qml
+AnimationsRow 1.0 AnimationsRow.qml
+HideCursorRow 1.0 HideCursorRow.qml
+CursorSizeRow 1.0 CursorSizeRow.qml
+TouchscreenRow 1.0 TouchscreenRow.qml

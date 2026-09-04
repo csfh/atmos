@@ -974,8 +974,8 @@ function applyForecast(plan) {
   var lines = [countLabel(changes, "change", "changes") + ", a few seconds."];
   if (asks > 0) {
     lines.push(
-      countLabel(asks, "change asks", "changes ask") +
-        " for your password, and they ask one at a time. Cancelling one skips that change and the rest carry on.",
+      countLabel(asks, "change needs", "changes need") +
+        " root. Atmos asks for sudo mode once and the rest run without asking again.",
     );
   }
   return lines.join("\n");

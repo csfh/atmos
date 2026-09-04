@@ -34,6 +34,9 @@ PrefsPage {
   // Set once an import has run, so the way back is offered where you are
   // looking rather than buried in a row further down.
   property int appliedCount: 0
+  // True while Atmos is raising privileges for us, so the apply can resume
+  // itself the moment sudo mode is granted.
+  property bool waitingForSudo: false
   // Progress, streamed from the executor as each change is reached.
   property int stepNow: 0
   property int stepTotal: 0
@@ -166,7 +169,20 @@ PrefsPage {
     readProc.running = true
   }
 
+  // Atmos already raises privileges once for a stretch of work. Using that
+  // means an import asks at most once instead of once per root writer.
   function doApply() {
+    if (!root.planHasChanges) return
+    if (SettingsJs.passwordCount(root.plan) > 0 && !Omarchy.passwordlessSudo) {
+      root.waitingForSudo = true
+      root.importStatus = "Waiting for sudo mode…"
+      Omarchy.enablePasswordlessSudo(Omarchy.sudoMinutes)
+      return
+    }
+    root.runApply()
+  }
+
+  function runApply() {
     if (!root.planHasChanges) return
     root.importStatus = ""
     applyProc.pending = root.plan.changes.length
@@ -578,6 +594,24 @@ PrefsPage {
     message: "Puts back the values the last import replaced."
     confirmText: "Undo"
     onConfirmed: root.doUndo()
+  }
+
+  Connections {
+    target: Omarchy
+
+    function onPasswordlessSudoChanged() {
+      if (!root.waitingForSudo || !Omarchy.passwordlessSudo) return
+      root.waitingForSudo = false
+      root.runApply()
+    }
+
+    // The prompt closing with no sudo mode means it was refused, and an
+    // import that needs root would only fail partway through.
+    function onSudoPromptOpenChanged() {
+      if (!root.waitingForSudo || Omarchy.sudoPromptOpen || Omarchy.passwordlessSudo) return
+      root.waitingForSudo = false
+      root.importStatus = "Nothing applied: these changes need sudo mode."
+    }
   }
 
   Component.onCompleted: {

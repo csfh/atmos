@@ -3049,11 +3049,11 @@ assertEqual(rootPlan.changes.length, 3, "three changes planned");
 assertEqual(settings.passwordCount(rootPlan), 2, "two of them raise privileges");
 const forecast = settings.applyForecast(rootPlan);
 assert(forecast.indexOf("3 changes") === 0, "the forecast leads with the count");
+assert(forecast.indexOf("2 changes need root") !== -1, "the forecast counts what needs root");
 assert(
-  forecast.indexOf("2 changes ask for your password") !== -1,
-  "the forecast counts the prompts",
+  forecast.indexOf("asks for sudo mode once") !== -1,
+  "the forecast says Atmos asks once rather than per change",
 );
-assert(forecast.indexOf("one at a time") !== -1, "the forecast says they come one at a time");
 
 const quietPlan = settings.planImport(
   settings.parseSettingsMarkdown(

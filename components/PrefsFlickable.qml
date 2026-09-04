@@ -8,14 +8,18 @@ import "../services"
 // laptop showed the events arriving with a pixel delta of five to eleven,
 // so the view was moving a fraction of what the fingers asked for.
 //
-// The wheel is handled here instead. Note that this is a MouseArea and not
-// a WheelHandler: a WheelHandler placed on this Flickable never received a
-// single event, while a MouseArea receives all of them.
+// The wheel is handled here instead. Note that this is a MouseArea on the
+// Flickable viewport and not a WheelHandler: a WheelHandler placed as a
+// child of this Flickable never received a single event, while a MouseArea
+// receives them.
 //
-// scrollFactor compensates for Omarchy shipping input.lua with
-// scroll_factor = 0.4, which damps the deltas before they ever reach an
-// application. Three restores roughly what the fingers moved. It is the
-// one number here that is a matter of taste rather than correctness.
+// The handler sits on the viewport (parent: root), not contentItem. Flickable
+// reparents children onto contentItem, so a z: -1 MouseArea there only gets
+// the wheel where nothing else wants it. Nav rows, search hits, toggles,
+// and sliders all have their own MouseAreas that would swallow the event.
+//
+// scrollFactor defaults to 1 so Input → Scroll speed remains the only
+// speed control. pixelDelta already includes compositor scroll_factor.
 //
 // The nav list already pinned the flick direction and the content pane did
 // not, so the two panes of one window scrolled differently. Pinning it here
@@ -26,7 +30,9 @@ Flickable {
   // How far one mouse-wheel notch travels.
   property real wheelStep: Theme.rowHeight * 3
   // How much of the reported distance a touchpad drag actually moves.
-  property real scrollFactor: 3
+  // 1 keeps Input → Scroll speed as the only speed control; pixelDelta
+  // already includes compositor scroll_factor.
+  property real scrollFactor: 1
 
   contentWidth: width
   flickableDirection: Flickable.VerticalFlick
@@ -35,17 +41,14 @@ Flickable {
   // against its own bounds.
   interactive: contentHeight > height
 
-  // Fills the content item, so it lies under the pointer wherever the view
-  // is scrolled to. NoButton means it never takes a press, so every control
-  // on the page still works; it is here only for the wheel, which nothing
-  // in a settings row consumes.
+  // On the viewport, not contentItem. NoButton means it never takes a
+  // press, so every control on the page still works. Disabled when the
+  // Flickable is not the scroller so an embedded page does not take the
+  // wheel on its way to the pane that does.
   MouseArea {
-    anchors.fill: parent
-    z: -1
+    parent: root
+    anchors.fill: root
     acceptedButtons: Qt.NoButton
-    propagateComposedEvents: true
-    // An embedded page is not the scroller. Without this it would take the
-    // wheel on its way to the pane that actually scrolls.
     enabled: root.interactive
 
     onWheel: function(wheel) {

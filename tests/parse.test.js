@@ -29,6 +29,13 @@ const preCommit = fs.readFileSync(path.join(__dirname, "..", ".githooks", "pre-c
 assert(preCommit.indexOf("tests/compile-python") !== -1, "pre-commit runs compile-python");
 const testsRun = fs.readFileSync(path.join(__dirname, "run"), "utf8");
 assert(testsRun.indexOf("tests/compile-python") !== -1, "tests/run runs compile-python");
+const workflow = fs.readFileSync(
+  path.join(__dirname, "..", ".github", "workflows", "tests.yml"),
+  "utf8",
+);
+assert(workflow.indexOf("./tests/run") !== -1, "GitHub Actions runs ./tests/run");
+assert(workflow.indexOf("npm ci") !== -1, "GitHub Actions installs with npm ci");
+assert(workflow.indexOf("ubuntu-latest") !== -1, "GitHub Actions uses ubuntu-latest");
 
 const theme = load("services/Theme.js");
 const shell = load("services/ShellConfig.js");

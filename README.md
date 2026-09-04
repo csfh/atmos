@@ -41,6 +41,8 @@ npm install
 
 `npm install` points Git at `.githooks/`, so commits run oxlint, `oxfmt --check`, and `tests/compile-python` first. `git commit --no-verify` skips that. From a clone that already has `node_modules`, run `scripts/install-git-hooks.sh`.
 
+Pull requests and pushes to `main` and `alpha` run `./tests/run` on GitHub Actions (`.github/workflows/tests.yml`). The live Omarchy snapshot step is skipped on those runners.
+
 ## License
 
 MIT. See [LICENSE](LICENSE). Copyright (c) 2026 Christoffer Hallas.

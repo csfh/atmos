@@ -9,6 +9,7 @@ Atmos is a standalone Quickshell preferences app for Omarchy. Do not import `qs.
 - `npm run lint` / `npm run fmt` — lint and format `services` and `tests`
 - `./tests/run` — oxlint, oxfmt --check, `scripts/*.py` syntax, parser tests, plus a live snapshot check when `omarchy` is present
 - pre-commit (`.githooks/pre-commit`) — oxlint, oxfmt --check, and `tests/compile-python`; skip with `git commit --no-verify`
+- GitHub Actions (`.github/workflows/tests.yml`) — `npm ci` and `./tests/run` on pull requests and on `main` / `alpha`. Live snapshot stays skipped without `omarchy`.
 
 ## Rules
 

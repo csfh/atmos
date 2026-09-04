@@ -1354,6 +1354,12 @@ assertEqual(helpTopics[1].command, "omarchy font set", "sectionHelpTopics keeps 
 assertEqual(layout.sectionHelpTopics(null).length, 0, "sectionHelpTopics ignores a non-array");
 assertEqual(layout.clusterByGroup(null).length, 0, "clusterByGroup ignores a non-array");
 assertEqual(layout.clusterByGroup([]).length, 0, "clusterByGroup empty list");
+assertEqual(layout.navGroupLabel("look"), "Desktop", "navGroupLabel names look");
+assertEqual(layout.navGroupLabel("input"), "Controls", "navGroupLabel names input");
+assertEqual(layout.navGroupLabel("device"), "Machine", "navGroupLabel names device");
+assertEqual(layout.navGroupLabel("apps"), "Apps", "navGroupLabel names apps");
+assertEqual(layout.navGroupLabel("admin"), "Admin", "navGroupLabel names admin");
+assertEqual(layout.navGroupLabel("nope"), "", "navGroupLabel misses an unknown group");
 const clustered = layout.clusterByGroup([
   { id: "appearance", group: "look" },
   { id: "display", group: "look" },
@@ -1361,20 +1367,22 @@ const clustered = layout.clusterByGroup([
   { id: "system", group: "admin" },
 ]);
 assertEqual(clustered.length, 3, "clusterByGroup splits when the group changes");
-assertEqual(clustered[0].length, 2, "clusterByGroup keeps consecutive look hubs");
-assertEqual(clustered[0][1].id, "display", "clusterByGroup keeps order inside a group");
-assertEqual(clustered[1][0].id, "input", "clusterByGroup starts a new cluster");
-assertEqual(
-  layout.clusterByGroup(
-    [
-      { id: "appearance", group: "look" },
-      { id: "system", group: "admin" },
-    ],
-    false,
-  ).length,
-  1,
-  "clusterByGroup is one list while searching",
+assertEqual(clustered[0].title, "Desktop", "clusterByGroup labels look as Desktop");
+assertEqual(clustered[0].pages.length, 2, "clusterByGroup keeps consecutive look hubs");
+assertEqual(clustered[0].pages[1].id, "display", "clusterByGroup keeps order inside a group");
+assertEqual(clustered[1].pages[0].id, "input", "clusterByGroup starts a new cluster");
+assertEqual(clustered[1].title, "Controls", "clusterByGroup labels input as Controls");
+assertEqual(clustered[2].title, "Admin", "clusterByGroup labels admin");
+const searched = layout.clusterByGroup(
+  [
+    { id: "appearance", group: "look" },
+    { id: "system", group: "admin" },
+  ],
+  false,
 );
+assertEqual(searched.length, 1, "clusterByGroup is one list while searching");
+assertEqual(searched[0].title, "", "clusterByGroup drops labels while searching");
+assertEqual(searched[0].pages.length, 2, "clusterByGroup keeps every search hit");
 
 const wrap = load("services/TextWrap.js");
 function ch(s) {

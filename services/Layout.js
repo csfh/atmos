@@ -49,12 +49,29 @@ function sectionHelpTopics(rows) {
   return out;
 }
 
+var NAV_GROUP_LABELS = {
+  look: "Desktop",
+  input: "Controls",
+  device: "Machine",
+  apps: "Apps",
+  admin: "Admin",
+};
+
+function navGroupLabel(id) {
+  var key = String(id || "");
+  return NAV_GROUP_LABELS[key] || "";
+}
+
+function emptyNavCluster(pages) {
+  return { id: "", title: "", pages: Array.isArray(pages) ? pages : [] };
+}
+
 // Cluster sidebar hubs. Consecutive pages with the same `group` stay together.
-// When grouped is false (a search is active), everything is one cluster.
+// When grouped is false (a search is active), everything is one unlabeled cluster.
 function clusterByGroup(pages, grouped) {
   var list = Array.isArray(pages) ? pages : [];
   if (list.length === 0) return [];
-  if (grouped === false) return [list.slice()];
+  if (grouped === false) return [emptyNavCluster(list.slice())];
   var groups = [];
   var bucket = null;
   var last = null;
@@ -64,11 +81,11 @@ function clusterByGroup(pages, grouped) {
     if (!page) continue;
     var g = String(page.group || "");
     if (!bucket || g !== last) {
-      bucket = [];
+      bucket = { id: g, title: navGroupLabel(g), pages: [] };
       groups.push(bucket);
       last = g;
     }
-    bucket.push(page);
+    bucket.pages.push(page);
   }
   return groups;
 }

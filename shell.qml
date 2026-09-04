@@ -352,8 +352,29 @@ ShellRoot {
                 spacing: 2
                 topPadding: index > 0 ? Theme.spaceMd : 0
 
+                Item {
+                  width: navColumn.width
+                  visible: !!(navGroup.modelData && navGroup.modelData.title)
+                  height: groupLabel.implicitHeight + 4
+
+                  Text {
+                    id: groupLabel
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.bottom: parent.bottom
+                    anchors.leftMargin: Theme.pad
+                    anchors.rightMargin: Theme.pad
+                    text: navGroup.modelData && navGroup.modelData.title ? navGroup.modelData.title : ""
+                    color: Theme.muted
+                    font.family: Theme.fontFamily
+                    font.pixelSize: Theme.captionSize
+                    font.bold: true
+                    elide: Text.ElideRight
+                  }
+                }
+
                 Repeater {
-                  model: navGroup.modelData
+                  model: navGroup.modelData && navGroup.modelData.pages ? navGroup.modelData.pages : []
                   delegate: Rectangle {
                     required property var modelData
                     width: navColumn.width

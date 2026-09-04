@@ -161,12 +161,18 @@ if [[ $GROUP == look ]]; then
   exit 0
 fi
 
-theme=$(omarchy_out theme current)
-theme=${theme%$'\n'}
-background=$(omarchy_out theme bg current)
-background=${background%$'\n'}
-font=$(omarchy_out font current)
-font=${font%$'\n'}
+if [[ $GROUP != rest ]]; then
+  theme=$(omarchy_out theme current)
+  theme=${theme%$'\n'}
+  background=$(omarchy_out theme bg current)
+  background=${background%$'\n'}
+  font=$(omarchy_out font current)
+  font=${font%$'\n'}
+else
+  theme=""
+  background=""
+  font=""
+fi
 browser=$(omarchy_out default browser)
 browser=${browser%$'\n'}
 terminal=$(omarchy_out default terminal)
@@ -182,17 +188,24 @@ case $dns in
   *) dns="" ;;
 esac
 
-text_size=$(omarchy display text size 2>/dev/null | awk '/text size:/{print $3; exit}' || true)
-[[ $text_size =~ ^[0-9]+$ ]] || text_size=12
+if [[ $GROUP != rest ]]; then
+  text_size=$(omarchy display text size 2>/dev/null | awk '/text size:/{print $3; exit}' || true)
+  [[ $text_size =~ ^[0-9]+$ ]] || text_size=12
 
-stay_awake=$(omarchy_out toggle idle status | jq -r '.enabled // false' 2>/dev/null || true)
-[[ $stay_awake == true ]] || stay_awake=false
+  stay_awake=$(omarchy_out toggle idle status | jq -r '.enabled // false' 2>/dev/null || true)
+  [[ $stay_awake == true ]] || stay_awake=false
 
-nightlight_json=$(omarchy_out toggle nightlight --status)
-nightlight=$(jq -r '.enabled // false' <<<"$nightlight_json" 2>/dev/null || true)
-[[ $nightlight == true ]] || nightlight=false
-nightlight_temp=$(jq -r '.temperature // empty' <<<"$nightlight_json" 2>/dev/null || true)
-[[ $nightlight_temp =~ ^[0-9]+$ ]] || nightlight_temp=0
+  nightlight_json=$(omarchy_out toggle nightlight --status)
+  nightlight=$(jq -r '.enabled // false' <<<"$nightlight_json" 2>/dev/null || true)
+  [[ $nightlight == true ]] || nightlight=false
+  nightlight_temp=$(jq -r '.temperature // empty' <<<"$nightlight_json" 2>/dev/null || true)
+  [[ $nightlight_temp =~ ^[0-9]+$ ]] || nightlight_temp=0
+else
+  text_size=12
+  stay_awake=false
+  nightlight=false
+  nightlight_temp=0
+fi
 
 screensaver_enabled=true
 if omarchy toggle enabled screensaver-off >/dev/null 2>&1; then
@@ -489,24 +502,26 @@ if [[ -f $resume_conf ]] && grep -q '^HOOKS+=(resume)$' "$resume_conf"; then
 fi
 
 screensaver_branded=false
-brand_file="$HOME/.config/omarchy/branding/screensaver.txt"
-default_brand="$OMARCHY_PATH/logo.txt"
-if [[ -f $brand_file ]]; then
-  if [[ -f $default_brand ]] && cmp -s "$brand_file" "$default_brand"; then
-    screensaver_branded=false
-  else
-    screensaver_branded=true
-  fi
-fi
-
 about_branded=false
-about_file="$HOME/.config/omarchy/branding/about.txt"
-default_about="$OMARCHY_PATH/icon.txt"
-if [[ -f $about_file ]]; then
-  if [[ -f $default_about ]] && cmp -s "$about_file" "$default_about"; then
-    about_branded=false
-  else
-    about_branded=true
+if [[ $GROUP != rest ]]; then
+  brand_file="$HOME/.config/omarchy/branding/screensaver.txt"
+  default_brand="$OMARCHY_PATH/logo.txt"
+  if [[ -f $brand_file ]]; then
+    if [[ -f $default_brand ]] && cmp -s "$brand_file" "$default_brand"; then
+      screensaver_branded=false
+    else
+      screensaver_branded=true
+    fi
+  fi
+
+  about_file="$HOME/.config/omarchy/branding/about.txt"
+  default_about="$OMARCHY_PATH/icon.txt"
+  if [[ -f $about_file ]]; then
+    if [[ -f $default_about ]] && cmp -s "$about_file" "$default_about"; then
+      about_branded=false
+    else
+      about_branded=true
+    fi
   fi
 fi
 
@@ -530,9 +545,15 @@ if [[ -f $weather_file ]]; then
   fi
 fi
 
-themes_json=$(omarchy_out theme list | lines_json)
-extra_themes_json=$(omarchy_out theme extras | awk -F/ 'NF { print $NF }' | lines_json)
-fonts_json=$(omarchy_out font list | lines_json)
+if [[ $GROUP != rest ]]; then
+  themes_json=$(omarchy_out theme list | lines_json)
+  extra_themes_json=$(omarchy_out theme extras | awk -F/ 'NF { print $NF }' | lines_json)
+  fonts_json=$(omarchy_out font list | lines_json)
+else
+  themes_json='[]'
+  extra_themes_json='[]'
+  fonts_json='[]'
+fi
 power_profiles_json=$(omarchy_out powerprofiles list | lines_json)
 power_profile=$(omarchy_out powerprofiles list --active-state | awk -F'\t' '$2 == 1 { print $1; exit }')
 power_profile=${power_profile%$'\n'}
@@ -555,9 +576,14 @@ if [[ -r $powerprofiles_state/battery ]]; then
   power_profile_battery=${power_profile_battery%$'\n'}
 fi
 [[ -n $power_profile_battery ]] || power_profile_battery=balanced
-plymouth=$(omarchy_out plymouth current)
-plymouth=${plymouth%$'\n'}
-plymouth_themes_json=$(omarchy_out plymouth list | lines_json)
+if [[ $GROUP != rest ]]; then
+  plymouth=$(omarchy_out plymouth current)
+  plymouth=${plymouth%$'\n'}
+  plymouth_themes_json=$(omarchy_out plymouth list | lines_json)
+else
+  plymouth=""
+  plymouth_themes_json='[]'
+fi
 
 shell_file=$DEFAULT_SHELL_JSON
 if [[ -s $USER_SHELL_JSON ]]; then
@@ -1517,7 +1543,7 @@ hyprsunset_file=${ATMOS_HYPRSUNSET_FILE:-"$HOME/.config/hypr/hyprsunset.conf"}
 nightlight_day=07:00
 nightlight_night=20:00
 nightlight_night_on=false
-if [[ -f $hyprsunset_file ]]; then
+if [[ $GROUP != rest && -f $hyprsunset_file ]]; then
   hyprsunset_parsed=$(python3 - "$hyprsunset_file" <<'PY' 2>/dev/null || true
 import re, sys
 from pathlib import Path
@@ -1558,7 +1584,7 @@ if [[ $tailscale_running == true ]] && present tailscale && present jq; then
 fi
 [[ -n $tailscale_peers_json ]] || tailscale_peers_json='[]'
 
-jq -n \
+snapshot_json=$(jq -n \
   --arg theme "$theme" \
   --arg background "$background" \
   --arg font "$font" \
@@ -2003,4 +2029,15 @@ jq -n \
     nightlightNight: $nightlightNight,
     nightlightNightOn: $nightlightNightOn,
     tailscalePeers: $tailscalePeers
-  }'
+  }')
+
+if [[ $GROUP == rest ]]; then
+  jq -c 'del(
+    .theme, .background, .font, .textSize, .themes, .extraThemes, .fonts,
+    .stayAwake, .nightlight, .nightlightTemperature,
+    .screensaverBranded, .aboutBranded, .plymouth, .plymouthThemes,
+    .nightlightDay, .nightlightNight, .nightlightNightOn
+  )' <<<"$snapshot_json"
+else
+  printf '%s\n' "$snapshot_json"
+fi

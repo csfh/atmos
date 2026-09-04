@@ -923,7 +923,7 @@ QtObject {
   function startSession(hub) {
     var first = WorkQueue.snapshotGroupForHub(hub)
     WorkQueue.enqueueRead(ioQueue, first)
-    if (first === "look") WorkQueue.enqueueRead(ioQueue, "all")
+    if (first === "look") WorkQueue.enqueueRead(ioQueue, "rest")
     kickIo()
   }
 

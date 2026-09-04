@@ -29,6 +29,13 @@ const preCommit = fs.readFileSync(path.join(__dirname, "..", ".githooks", "pre-c
 assert(preCommit.indexOf("tests/compile-python") !== -1, "pre-commit runs compile-python");
 const testsRun = fs.readFileSync(path.join(__dirname, "run"), "utf8");
 assert(testsRun.indexOf("tests/compile-python") !== -1, "tests/run runs compile-python");
+const omarchyQml = fs.readFileSync(path.join(__dirname, "..", "services", "Omarchy.qml"), "utf8");
+assert(
+  omarchyQml.indexOf('enqueueRead(ioQueue, "rest")') !== -1,
+  "startSession follows look with rest",
+);
+const snapshotSh = fs.readFileSync(path.join(__dirname, "..", "scripts", "snapshot.sh"), "utf8");
+assert(snapshotSh.indexOf("GROUP == rest") !== -1, "snapshot.sh strips look keys from rest");
 const workflow = fs.readFileSync(
   path.join(__dirname, "..", ".github", "workflows", "tests.yml"),
   "utf8",
@@ -355,6 +362,11 @@ assertEqual(snapshot.parseSnapshot("{"), null, "parseSnapshot rejects junk");
 const queue = load("services/WorkQueue.js");
 assertEqual(queue.snapshotGroupForHub("appearance"), "look", "appearance hub reads look first");
 assertEqual(queue.snapshotGroupForHub("hardware"), "all", "other hubs read the full snapshot");
+const sessionIo = queue.createWorkQueue();
+queue.enqueueRead(sessionIo, "look");
+queue.enqueueRead(sessionIo, "rest");
+assertEqual(sessionIo.reads[0].group, "look", "session queues look before rest");
+assertEqual(sessionIo.reads[1].group, "rest", "session queues rest after look");
 const io = queue.createWorkQueue();
 queue.enqueueRead(io, "look");
 queue.enqueueWrite(io, { kind: "mut", argv: ["true"] });

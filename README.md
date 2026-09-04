@@ -26,6 +26,10 @@ curl -fsSL https://raw.githubusercontent.com/csfh/atmos/alpha/install.sh | bash
 
 That copies the launcher into `~/.local/bin`, the QML app into `~/.local/share/atmos`, and the desktop file plus Hypr drop-in into the usual XDG config dirs. From a clone, `./install.sh` does the same thing. System → Atmos follows the **alpha** git branch for Check and Update.
 
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for every alpha tag.
+
 ## Tests
 
 ```bash

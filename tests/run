@@ -84,12 +84,24 @@ if [[ ! -f $ATMOS_SEARCH_INDEX ]]; then
   rm -f "$catalog" "$snapshot"
   exit 1
 fi
-rm -rf "$search_cache"
-rm -f "$catalog" "$snapshot"
-unset ATMOS_SEARCH_INDEX
 echo "ok - SearchIndex.js query hits font and misses network"
 echo "ok - SearchIndex.js state reads snapshot-derived theme"
 echo "ok - SearchIndex.js writes the sqlite cache file"
+
+serve_out=$(printf '%s\n' '{"query":"font"}' '{"query":"network"}' | node services/SearchIndex.js serve --rows "$catalog")
+echo "$serve_out" | node -e '
+const lines = require("fs").readFileSync(0, "utf8").trim().split("\n")
+if (lines.length !== 2) process.exit(1)
+const a = JSON.parse(lines[0])
+const b = JSON.parse(lines[1])
+if (a.query !== "font" || !a.hits.some((row) => row.id === "appearance/font")) process.exit(1)
+if (b.query !== "network" || b.hits.some((row) => row.id === "appearance/font")) process.exit(1)
+'
+echo "ok - SearchIndex.js serve answers two queries on one process"
+
+rm -rf "$search_cache"
+rm -f "$catalog" "$snapshot"
+unset ATMOS_SEARCH_INDEX
 
 if command -v jq >/dev/null 2>&1; then
   paired_list=$'Device AA:BB:CC:DD:EE:FF Headphones\nDevice 11:22:33:44:55:66 Keyboard'

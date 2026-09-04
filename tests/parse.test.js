@@ -29,6 +29,15 @@ const preCommit = fs.readFileSync(path.join(__dirname, "..", ".githooks", "pre-c
 assert(preCommit.indexOf("tests/compile-python") !== -1, "pre-commit runs compile-python");
 const testsRun = fs.readFileSync(path.join(__dirname, "run"), "utf8");
 assert(testsRun.indexOf("tests/compile-python") !== -1, "tests/run runs compile-python");
+const searchPageSrc = fs.readFileSync(
+  path.join(__dirname, "..", "pages", "SearchPage.qml"),
+  "utf8",
+);
+assert(searchPageSrc.indexOf('"serve"') !== -1, "SearchPage keeps a SearchIndex serve process");
+assert(
+  searchPageSrc.indexOf('SearchIndex.js", "query"') === -1,
+  "SearchPage does not spawn a query process per keystroke",
+);
 const omarchyQml = fs.readFileSync(path.join(__dirname, "..", "services", "Omarchy.qml"), "utf8");
 assert(
   omarchyQml.indexOf('enqueueRead(ioQueue, "rest")') !== -1,
@@ -251,6 +260,24 @@ search.ingestRows(index, catalog);
 const emptyHits = search.queryRows(index, "");
 assert(emptyHits.length === 2, "empty query matches every indexed row");
 const fontHits = search.queryRows(index, "font");
+const servedFont = JSON.parse(
+  search.handleServeLine(index, JSON.stringify({ cmd: "query", query: "font" })),
+);
+assertEqual(servedFont.query, "font", "handleServeLine echoes the query");
+assert(
+  servedFont.hits.some(function (row) {
+    return row.id === "appearance/font";
+  }),
+  "handleServeLine hits font without reopening sqlite",
+);
+const servedAgain = JSON.parse(search.handleServeLine(index, "ssid"));
+assert(
+  servedAgain.hits.some(function (row) {
+    return row.id === "network/wifi";
+  }),
+  "handleServeLine reuses the same index for a second query",
+);
+assertEqual(search.parseArgs(["serve", "--root", "/tmp"]).cmd, "serve", "parseArgs accepts serve");
 assert(
   fontHits.some(function (row) {
     return row.id === "appearance/font";

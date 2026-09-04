@@ -493,7 +493,7 @@ function parseArgs(argv) {
   };
   const rest = argv.slice();
   const cmd = rest.shift();
-  if (cmd === "query" || cmd === "state") out.cmd = cmd;
+  if (cmd === "query" || cmd === "state" || cmd === "serve") out.cmd = cmd;
   else if (cmd) rest.unshift(cmd);
   if (out.cmd === "query") out.query = rest.shift() || "";
   if (out.cmd === "state") out.key = rest.shift() || "";
@@ -506,14 +506,51 @@ function parseArgs(argv) {
   return out;
 }
 
+function handleServeLine(db, line) {
+  var text = String(line || "").replace(/^\s+|\s+$/g, "");
+  var query = text;
+  if (!text) return JSON.stringify({ query: "", hits: [] });
+  try {
+    var msg = JSON.parse(text);
+    if (msg && typeof msg === "object" && Object.prototype.hasOwnProperty.call(msg, "query"))
+      query = String(msg.query || "");
+  } catch (e) {
+    query = text;
+  }
+  return JSON.stringify({ query: query, hits: queryRows(db, query) });
+}
+
+function serve(args) {
+  const db = openIndex(indexPath());
+  if (args.rows) ingestRows(db, readJsonFile(args.rows));
+  else ingestRows(db, defaultCatalog(args.root));
+  if (args.snapshot) ingestSnapshot(db, readJsonFile(args.snapshot));
+  const readline = require("readline");
+  const rl = readline.createInterface({ input: process.stdin, crlfDelay: Infinity });
+  rl.on("line", function (line) {
+    process.stdout.write(handleServeLine(db, line) + "\n");
+  });
+  rl.on("close", function () {
+    db.close();
+  });
+  return 0;
+}
+
 function main(argv) {
   const args = parseArgs(argv);
-  if (args.cmd !== "query" && args.cmd !== "state") {
+  if (args.cmd !== "query" && args.cmd !== "state" && args.cmd !== "serve") {
     process.stderr.write(
       "usage: SearchIndex.js query <text> [--rows file] [--snapshot file] [--root dir]\n",
     );
     process.stderr.write("       SearchIndex.js state <key> --snapshot file\n");
+    process.stderr.write(
+      "       SearchIndex.js serve [--rows file] [--snapshot file] [--root dir]\n",
+    );
     return 2;
+  }
+  if (args.cmd === "serve") {
+    serve(args);
+    return null;
   }
   const db = openIndex(indexPath());
   try {
@@ -544,7 +581,11 @@ module.exports = {
   hubRows,
   rowHaystack,
   parseArgs,
+  handleServeLine,
   main,
 };
 
-if (require.main === module) process.exit(main(process.argv.slice(2)) || 0);
+if (require.main === module) {
+  const code = main(process.argv.slice(2));
+  if (code !== null && code !== undefined) process.exit(code || 0);
+}

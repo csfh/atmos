@@ -14,14 +14,25 @@ Item {
 
   readonly property bool hasHits: root.hits.length > 0
 
+  property string pendingQuery: ""
+
+  function sendQuery(text) {
+    searchProc.write(JSON.stringify({ cmd: "query", query: text }) + "\n")
+  }
+
   function runQuery() {
     if (root.query.length === 0) {
       root.hits = []
       root.searchError = ""
+      root.pendingQuery = ""
       return
     }
-    if (searchProc.running) searchProc.running = false
-    searchProc.running = true
+    root.pendingQuery = root.query
+    if (!searchProc.running) {
+      searchProc.running = true
+      return
+    }
+    root.sendQuery(root.pendingQuery)
   }
 
   onQueryChanged: searchDebounce.restart()
@@ -37,28 +48,32 @@ Item {
 
   Process {
     id: searchProc
-    command: ["node", Omarchy.shellDir + "/services/SearchIndex.js", "query", root.query, "--root", Omarchy.shellDir]
-    stdout: StdioCollector {
-      id: searchOut
-      waitForEnd: true
+    command: ["node", Omarchy.shellDir + "/services/SearchIndex.js", "serve", "--root", Omarchy.shellDir]
+    stdinEnabled: true
+    stdout: SplitParser {
+      onRead: function(line) {
+        try {
+          var parsed = JSON.parse(String(line || "{}"))
+          if (String(parsed.query || "") !== root.query) return
+          root.searchError = ""
+          root.hits = Array.isArray(parsed.hits) ? parsed.hits : []
+        } catch (e) {
+          root.hits = []
+          root.searchError = "Search returned invalid JSON"
+        }
+      }
     }
     stderr: StdioCollector {
       id: searchErr
-      waitForEnd: true
+      waitForEnd: false
+    }
+    onStarted: {
+      if (root.pendingQuery.length > 0) root.sendQuery(root.pendingQuery)
     }
     onExited: function(code) {
-      if (code !== 0) {
+      if (code !== 0 && root.query.length > 0) {
         root.hits = []
         root.searchError = String(searchErr.text || "Search failed").replace(/^\s+|\s+$/g, "")
-        return
-      }
-      root.searchError = ""
-      try {
-        var parsed = JSON.parse(String(searchOut.text || "[]"))
-        root.hits = Array.isArray(parsed) ? parsed : []
-      } catch (e) {
-        root.hits = []
-        root.searchError = "Search returned invalid JSON"
       }
     }
   }

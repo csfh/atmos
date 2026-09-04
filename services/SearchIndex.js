@@ -126,6 +126,12 @@ const HUBS = [
     keywords: ["ssh", "fingerprint"],
   },
   {
+    id: "accounts",
+    title: "Accounts",
+    description: "Face, password, users, and groups.",
+    keywords: ["avatar", "user", "group", "password"],
+  },
+  {
     id: "hooks",
     title: "Hooks",
     description: "Theme-set and other scripts.",
@@ -158,6 +164,7 @@ const FILE_HUB = {
   "PowerPage.qml": "power",
   "IdlePage.qml": "idle",
   "SecurityPage.qml": "security",
+  "AccountsPage.qml": "accounts",
   "HooksPage.qml": "hooks",
   "SystemPage.qml": "system",
 };

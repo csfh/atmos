@@ -424,6 +424,15 @@ fi
 [[ -n $swap_devices_json ]] || swap_devices_json='[]'
 [[ -n $snapshots_json ]] || snapshots_json='[]'
 
+accounts_json='{"currentUser":"","avatarPath":"","users":[],"groups":[]}'
+if present python3 && [[ -x $SNAP_DIR/list-accounts.py ]]; then
+  accounts_inv=$(python3 "$SNAP_DIR/list-accounts.py" 2>/dev/null || true)
+  if [[ -n $accounts_inv ]]; then
+    accounts_json=$(jq -c '.' <<<"$accounts_inv" 2>/dev/null || echo '{"currentUser":"","avatarPath":"","users":[],"groups":[]}')
+  fi
+fi
+[[ -n $accounts_json ]] || accounts_json='{"currentUser":"","avatarPath":"","users":[],"groups":[]}'
+
 hardware_json='{}'
 if present python3 && [[ -x $SNAP_DIR/hw-inventory.py ]]; then
   hw_inv=$(python3 "$SNAP_DIR/hw-inventory.py" 2>/dev/null || true)
@@ -1665,6 +1674,7 @@ jq -n \
   --argjson plymouthThemes "$plymouth_themes_json" \
   --arg hostname "$hostname" \
   --arg fullName "$full_name" \
+  --argjson accounts "$accounts_json" \
   --arg timezone "$timezone" \
   --argjson timezones "$timezones_json" \
   --argjson ntp "$ntp" \
@@ -1900,6 +1910,10 @@ jq -n \
     editors: $editors,
     hostname: $hostname,
     fullName: $fullName,
+    currentUser: ($accounts.currentUser // ""),
+    avatarPath: ($accounts.avatarPath // ""),
+    users: ($accounts.users // []),
+    groups: ($accounts.groups // []),
     timezone: $timezone,
     timezones: $timezones,
     ntp: $ntp,

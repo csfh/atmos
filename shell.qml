@@ -32,8 +32,9 @@ ShellRoot {
     { id: "power", title: "Power", keywords: "power profile performance balanced battery saver percentage charge laptop ac plugged adapter charger unplugged discharging status notify draw" },
     { id: "idle", title: "Idle and lock", keywords: "screensaver lock timeout idle security stay awake caffeine allow disable suspend sleep branding logo ascii lid clamshell" },
     { id: "security", title: "Security", keywords: "fingerprint fido2 yubikey ssh sshd sudo passwordless docker pam u2f" },
+    { id: "accounts", title: "Accounts", keywords: "account avatar face icon picture sddm user group password passwd login wheel admin docker useradd userdel groupadd usermod chfn gecos full name real name display name chpasswd" },
     { id: "hooks", title: "Hooks", keywords: "hook script theme-set font-set post-boot post-update pacman battery-low" },
-    { id: "system", title: "System", keywords: "crash capture diagnostics coredump weather location city forecast coordinates latitude longitude gps units celsius fahrenheit metric imperial refresh interval about logo branding fastfetch timezone tz utc region city date time zoneinfo timedatectl hostname computer machine device name hostnamectl keyboard layout keymap xkb qwerty language input localectl ntp timesync synchronize automatic clock network time locale lang utf-8 i18n translation pacman parallel downloads packages mirrors aur full name user gecos account chfn update channel firmware orphan prune version printer cups print restore hyprland shell restart atmos git pull reset sentinel overrides" }
+    { id: "system", title: "System", keywords: "crash capture diagnostics coredump weather location city forecast coordinates latitude longitude gps units celsius fahrenheit metric imperial refresh interval about logo branding fastfetch timezone tz utc region city date time zoneinfo timedatectl hostname computer machine device name hostnamectl keyboard layout keymap xkb qwerty language input localectl ntp timesync synchronize automatic clock network time locale lang utf-8 i18n translation pacman parallel downloads packages mirrors aur update channel firmware orphan prune version printer cups print restore hyprland shell restart atmos git pull reset sentinel overrides" }
   ]
 
   function pageMatches(page, q) {
@@ -139,6 +140,7 @@ ShellRoot {
   Component { id: powerPage; PowerPage { query: root.query } }
   Component { id: idlePage; IdlePage { query: root.query } }
   Component { id: securityPage; SecurityPage { query: root.query } }
+  Component { id: accountsPage; AccountsPage { query: root.query } }
   Component { id: hooksPage; HooksPage { query: root.query } }
   Component { id: systemPage; SystemPage { query: root.query } }
   Component { id: searchPage; SearchPage { query: root.query; navigator: prefsNavigator } }
@@ -162,6 +164,7 @@ ShellRoot {
     power: powerPage,
     idle: idlePage,
     security: securityPage,
+    accounts: accountsPage,
     hooks: hooksPage,
     system: systemPage
   })

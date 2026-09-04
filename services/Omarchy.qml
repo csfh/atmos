@@ -2,6 +2,7 @@ pragma Singleton
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import "Accounts.js" as AccountsJs
 import "AtmosUpdate.js" as AtmosUpdate
 import "Hardware.js" as HardwareJs
 import "Hooks.js" as HooksJs
@@ -28,6 +29,8 @@ QtObject {
   readonly property string setNtpScript: shellDir + "/scripts/set-ntp.sh"
   readonly property string setHostnameScript: shellDir + "/scripts/set-hostname.sh"
   readonly property string setFullNameScript: shellDir + "/scripts/set-full-name.sh"
+  readonly property string setAvatarScript: shellDir + "/scripts/set-avatar.sh"
+  readonly property string manageAccountScript: shellDir + "/scripts/manage-account.sh"
   readonly property string setKeyboardLayoutScript: shellDir + "/scripts/set-keyboard-layout.sh"
   readonly property string setLocaleScript: shellDir + "/scripts/set-locale.sh"
   readonly property string setParallelDownloadsScript: shellDir + "/scripts/set-parallel-downloads.sh"
@@ -55,6 +58,10 @@ QtObject {
   readonly property string pacmanConfFile: "/etc/pacman.conf"
   readonly property string localtimeFile: "/etc/localtime"
   readonly property string hostnameFile: "/etc/hostname"
+  readonly property string passwdFile: "/etc/passwd"
+  readonly property string groupFile: "/etc/group"
+  readonly property string faceIconFile: Quickshell.env("HOME") + "/.face.icon"
+  readonly property string faceFile: Quickshell.env("HOME") + "/.face"
   readonly property string vconsoleFile: "/etc/vconsole.conf"
   readonly property string localeConfFile: "/etc/locale.conf"
   readonly property string gumStubDir: shellDir + "/scripts/stubs"
@@ -228,6 +235,10 @@ QtObject {
   property bool ntpSynchronized: false
   property string hostname: ""
   property string fullName: ""
+  property string currentUser: ""
+  property string avatarPath: ""
+  property var accountUsers: []
+  property var accountGroups: []
   property string keyboardLayout: ""
   property var keyboardLayouts: []
   property string locale: ""
@@ -558,6 +569,12 @@ QtObject {
     fullName = String(data.fullName || "")
     if (fullName.length > 256 || fullName.charAt(0) === "-" || /[:\n\r,]/.test(fullName))
       fullName = ""
+    currentUser = String(data.currentUser || "")
+    avatarPath = String(data.avatarPath || "")
+    if (avatarPath.charAt(0) !== "/" || avatarPath.indexOf("..") !== -1)
+      avatarPath = ""
+    accountUsers = adoptArray(accountUsers, data.users)
+    accountGroups = adoptArray(accountGroups, data.groups)
     keyboardLayout = String(data.keyboardLayout || "")
     if (keyboardLayout.indexOf(",") !== -1) keyboardLayout = keyboardLayout.split(",")[0]
     if (!/^[a-z0-9]{1,8}$/.test(keyboardLayout)) keyboardLayout = ""
@@ -764,6 +781,14 @@ QtObject {
       if (fullName.length > 256 || fullName.charAt(0) === "-" || /[:\n\r,]/.test(fullName))
         fullName = ""
     }
+    if ("currentUser" in parsed) currentUser = String(parsed.currentUser || "")
+    if ("avatarPath" in parsed) {
+      avatarPath = String(parsed.avatarPath || "")
+      if (avatarPath.charAt(0) !== "/" || avatarPath.indexOf("..") !== -1)
+        avatarPath = ""
+    }
+    if ("users" in parsed) accountUsers = adoptArray(accountUsers, parsed.users)
+    if ("groups" in parsed) accountGroups = adoptArray(accountGroups, parsed.groups)
     if ("keyboardLayout" in parsed) {
       keyboardLayout = String(parsed.keyboardLayout || "")
       if (keyboardLayout.indexOf(",") !== -1) keyboardLayout = keyboardLayout.split(",")[0]
@@ -1853,13 +1878,79 @@ QtObject {
   function setFullName(name) {
     name = String(name || "").replace(/^\s+|\s+$/g, "")
     if (name === fullName) return
-    if (name.length > 256) return
-    if (name.charAt(0) === "-") return
-    if (/[:\n\r,]/.test(name)) return
+    if (!AccountsJs.isFullName(name)) return
     runCommand(["bash", setFullNameScript, name], {
       key: "fullName",
       apply: { fullName: name },
       refresh: "none",
+      sudo: true
+    })
+  }
+
+  function setAvatarPath(path) {
+    path = String(path || "")
+    if (!currentUser) return
+    if (!path || path.charAt(0) !== "/" || path.indexOf("..") !== -1) return
+    runCommand(["bash", setAvatarScript, "set", currentUser, path], {
+      key: "avatar",
+      apply: { avatarPath: path },
+      refresh: "none",
+      sudo: true
+    })
+  }
+
+  function clearAvatar() {
+    if (!currentUser) return
+    runCommand(["bash", setAvatarScript, "clear", currentUser], {
+      key: "avatar",
+      apply: { avatarPath: "" },
+      refresh: "none",
+      sudo: true
+    })
+  }
+
+  function addAccountUser(name, full, password, wheel) {
+    name = AccountsJs.parseUsername(name)
+    full = String(full || "").replace(/^\s+|\s+$/g, "")
+    password = String(password || "")
+    if (!name || !password || password.indexOf("\n") !== -1) return
+    if (!AccountsJs.isFullName(full)) return
+    runJob(["bash", manageAccountScript, "add-user", name, full, wheel === true ? "true" : "false"], password + "\n", "account-add", { sudo: true })
+  }
+
+  function removeAccountUser(name) {
+    name = AccountsJs.parseUsername(name)
+    if (!name || name === currentUser) return
+    runJob(["bash", manageAccountScript, "remove-user", name], "", "account-remove", { sudo: true })
+  }
+
+  function setAccountPassword(name, password) {
+    name = AccountsJs.parseUsername(name)
+    password = String(password || "")
+    if (!name || !password || password.indexOf("\n") !== -1) return
+    runJob(["bash", manageAccountScript, "set-password", name], password + "\n", "account-password", { sudo: true })
+  }
+
+  function addAccountGroup(name) {
+    name = AccountsJs.parseGroupName(name)
+    if (!name) return
+    runJob(["bash", manageAccountScript, "add-group", name], "", "account-group-add", { sudo: true })
+  }
+
+  function removeAccountGroup(name) {
+    name = AccountsJs.parseGroupName(name)
+    if (!name || name === "wheel" || name === "docker") return
+    runJob(["bash", manageAccountScript, "remove-group", name], "", "account-group-remove", { sudo: true })
+  }
+
+  function setGroupMember(group, name, on) {
+    group = AccountsJs.parseGroupName(group)
+    name = AccountsJs.parseUsername(name)
+    if (!group || !name) return
+    if (on !== true && group === "wheel" && name === currentUser) return
+    runCommand(["bash", manageAccountScript, "set-member", group, name, on === true ? "on" : "off"], {
+      key: "account-member-" + group + "-" + name,
+      refresh: "all",
       sudo: true
     })
   }
@@ -3267,7 +3358,8 @@ QtObject {
     userShellToml, reminderDir, dnsConfFile, bluetoothRfkillDir,
     plymouthLogoFile, defaultPlymouthLogoFile, powerProfilesStateFile,
     networkManagerDevicesDir, looknfeelLuaFile, inputLuaFile, monitorsLuaFile,
-    localtimeFile, hostnameFile, vconsoleFile, localeConfFile, pacmanConfFile
+    localtimeFile, hostnameFile, passwdFile, groupFile, faceIconFile, faceFile,
+    vconsoleFile, localeConfFile, pacmanConfFile
   ]
 
   function applyThemeNameFromFile(slug) {

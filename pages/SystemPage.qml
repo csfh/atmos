@@ -5,7 +5,7 @@ import "../services"
 PrefsPage {
   id: root
   title: "System"
-  description: "This machine's name, language, and clock. Printers, weather, crash capture, and Omarchy updates are further down."
+  description: "This machine's name, language, and clock. Account name and face are on Accounts. Printers, weather, crash capture, and Omarchy updates are further down."
 
   PrefsConfirm {
     id: channelConfirm
@@ -98,7 +98,7 @@ PrefsPage {
   PrefsGroup {
     title: "Machine"
     query: root.query
-    detail: "Hostname is how this computer shows up on the network and in prompts. Full name is the account's real name."
+    detail: "Hostname is how this computer shows up on the network and in prompts."
 
     PrefsRow {
       stretchControl: true
@@ -125,35 +125,6 @@ PrefsPage {
           text: "Set"
           primary: true
           onClicked: Omarchy.setHostname(hostnameField.currentText())
-        }
-      }
-    }
-
-    PrefsRow {
-      stretchControl: true
-      label: "Full name"
-      description: "The name on this account. Login screens and user lists show it."
-      hint: "chfn --full-name"
-      query: root.query
-      keywords: ["user", "gecos", "real name", "display name", "account"]
-
-      Row {
-        width: parent.width
-        spacing: Theme.space
-
-        PrefsField {
-          id: fullNameField
-          width: parent.width - fullNameSetBtn.width - parent.spacing
-          value: Omarchy.fullName
-          placeholder: "Your name"
-          onSubmitted: function(value) { Omarchy.setFullName(value) }
-        }
-
-        PrefsButton {
-          id: fullNameSetBtn
-          text: "Set"
-          primary: true
-          onClicked: Omarchy.setFullName(fullNameField.currentText())
         }
       }
     }

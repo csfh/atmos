@@ -544,6 +544,28 @@ This page is inventory. Most of it is read-only.
 
 ---
 
+## Accounts
+
+### This account
+
+**Say:** Face, full name, and password for the login you are using. Face is a PNG or JPEG. Omarchy's greeter does not draw it yet.
+
+**Do:** Hover Choose and Full name. Do not change the password on camera.
+
+### Users
+
+**Say:** Other local logins. Add creates a home from skel. Remove is off for this session.
+
+**Do:** Hover Add a user. Cancel if a dialog opens.
+
+### Groups
+
+**Say:** wheel and docker, plus extra groups. Select one, then toggle who is in it. You cannot drop this session from wheel.
+
+**Do:** Hover Groups. Next hub.
+
+---
+
 ## Hooks
 
 ### Install
@@ -564,7 +586,7 @@ This page is inventory. Most of it is read-only.
 
 ### Machine
 
-**Say:** Hostname and your account full name.
+**Say:** Hostname is this computer's name on the network.
 
 **Do:** Hover Machine. Do not rename the host on camera.
 

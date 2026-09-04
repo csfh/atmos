@@ -1,9 +1,12 @@
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Dialogs
 import Quickshell
 import Quickshell.Io
 import "services"
+import "services/Accounts.js" as AccountsJs
 import "services/Layout.js" as LayoutJs
+import "services/RichUi.js" as RichUi
 import "components"
 import "pages"
 
@@ -13,6 +16,13 @@ ShellRoot {
   property string launchPath: Quickshell.env("ATMOS_PAGE") || "appearance"
   property string currentPage: "appearance"
   property string query: ""
+
+  readonly property string profileTitle: AccountsJs.profileTitle(Omarchy.fullName, Omarchy.currentUser)
+  readonly property string profileCaption: AccountsJs.profileCaption(
+    Omarchy.fullName,
+    Omarchy.currentUser,
+    Omarchy.avatarPath.length > 0
+  )
 
   readonly property var pages: [
     { id: "appearance", title: "Appearance", group: "look", icon: "palette-line", keywords: "theme background wallpaper font text size reset default scale aether palette night light nightlight warmth temperature kelvin schedule hyprsunset plymouth boot screen unlock sddm login refresh reapply templates switcher preview thumbnail picker install git extra clone update pull remove uninstall delete custom folder file image path directory cache logo png render" },
@@ -257,16 +267,108 @@ ShellRoot {
         anchors.fill: parent
         anchors.margins: Theme.spaceMd
 
-        Text {
+        FileDialog {
+          id: sidebarAvatarDialog
+          title: "Choose a face"
+          nameFilters: ["Images (*.png *.jpg *.jpeg)"]
+          onAccepted: Omarchy.setAvatarPath(RichUi.pathFromUrl(selectedFile))
+        }
+
+        Item {
           id: sidebarTitle
           anchors.left: parent.left
           anchors.right: parent.right
           anchors.top: parent.top
-          text: "Atmos"
-          color: Theme.foreground
-          font.family: Theme.fontFamily
-          font.pixelSize: Theme.titleSize
-          font.bold: true
+          height: 40
+
+          Rectangle {
+            id: avatarWell
+            width: 40
+            height: 40
+            radius: width / 2
+            clip: true
+            layer.enabled: true
+            layer.smooth: true
+            color: Theme.fill(Theme.normalFill)
+            border.width: avatarMouse.containsMouse ? 1 : 0
+            border.color: Theme.accent
+
+            Image {
+              anchors.fill: parent
+              visible: Omarchy.avatarPath.length > 0
+              fillMode: Image.PreserveAspectCrop
+              asynchronous: true
+              source: Omarchy.avatarPath.length ? ("file://" + encodeURI(Omarchy.avatarPath)) : ""
+            }
+
+            PrefsIcon {
+              visible: Omarchy.avatarPath.length === 0
+              anchors.centerIn: parent
+              name: "user-3-line"
+              size: 18
+              color: avatarMouse.containsMouse ? Theme.foreground : Theme.muted
+            }
+
+            MouseArea {
+              id: avatarMouse
+              anchors.fill: parent
+              hoverEnabled: true
+              cursorShape: Qt.PointingHandCursor
+              enabled: Omarchy.currentUser.length > 0 && !Omarchy.jobBusy
+              onClicked: sidebarAvatarDialog.open()
+            }
+
+            Accessible.role: Accessible.Button
+            Accessible.name: Omarchy.avatarPath.length ? "Change face" : "Set a face"
+            Accessible.onPressAction: if (avatarMouse.enabled) sidebarAvatarDialog.open()
+          }
+
+          Item {
+            anchors.left: avatarWell.right
+            anchors.leftMargin: 8
+            anchors.right: parent.right
+            anchors.verticalCenter: parent.verticalCenter
+            height: profileName.implicitHeight + (profileSub.visible ? profileSub.implicitHeight : 0)
+
+            Column {
+              anchors.left: parent.left
+              anchors.right: parent.right
+              spacing: 0
+
+              Text {
+                id: profileName
+                width: parent.width
+                text: root.profileTitle
+                color: Theme.foreground
+                font.family: Theme.fontFamily
+                font.pixelSize: Theme.fontSize
+                font.bold: true
+                elide: Text.ElideRight
+              }
+
+              Text {
+                id: profileSub
+                width: parent.width
+                visible: root.profileCaption.length > 0
+                text: root.profileCaption
+                color: Theme.muted
+                font.family: Theme.fontFamily
+                font.pixelSize: Theme.captionSize
+                elide: Text.ElideRight
+              }
+            }
+
+            MouseArea {
+              anchors.fill: parent
+              hoverEnabled: true
+              cursorShape: Qt.PointingHandCursor
+              onClicked: root.openPage("accounts")
+            }
+
+            Accessible.role: Accessible.Button
+            Accessible.name: "Accounts"
+            Accessible.onPressAction: root.openPage("accounts")
+          }
         }
 
         Rectangle {

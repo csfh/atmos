@@ -267,6 +267,21 @@ function parseAccounts(raw) {
   };
 }
 
+function profileTitle(fullName, user) {
+  var name = String(fullName || "").replace(/^\s+|\s+$/g, "");
+  if (name) return name;
+  var login = String(user || "").replace(/^\s+|\s+$/g, "");
+  return login || "Account";
+}
+
+function profileCaption(fullName, user, hasAvatar) {
+  var name = String(fullName || "").replace(/^\s+|\s+$/g, "");
+  var login = String(user || "").replace(/^\s+|\s+$/g, "");
+  if (name && login) return login;
+  if (!hasAvatar) return "Set a face";
+  return "";
+}
+
 function pickAvatarPath(home, username, exists) {
   var user = String(username || "");
   var dir = String(home || "");
@@ -302,6 +317,8 @@ if (typeof module !== "undefined" && module.exports) {
     groupHasMember: groupHasMember,
     visibleGroups: visibleGroups,
     parseAccounts: parseAccounts,
+    profileTitle: profileTitle,
+    profileCaption: profileCaption,
     pickAvatarPath: pickAvatarPath,
   };
 }

@@ -15,27 +15,27 @@ ShellRoot {
   property string query: ""
 
   readonly property var pages: [
-    { id: "appearance", title: "Appearance", group: "look", keywords: "theme background wallpaper font text size reset default scale aether palette night light nightlight warmth temperature kelvin schedule hyprsunset plymouth boot screen unlock sddm login refresh reapply templates switcher preview thumbnail picker install git extra clone update pull remove uninstall delete custom folder file image path directory cache logo png render" },
-    { id: "display", title: "Displays", group: "look", keywords: "monitor scale hidpi brightness backlight ddc keyboard laptop lid internal mirror clone edp hdmi dp resolution refresh touchpad trackpad pointer mouse input touch touchscreen tablet digitizer" },
-    { id: "windows", title: "Windows", group: "look", keywords: "gaps border rounding blur shadow tiling dwindle scrolling niri column opacity transparency fullscreen tight square aspect dim animations cursor tearing looknfeel preserve split focus activate keybinding hotkey shortcut bind unbind chord window rule float tile class" },
-    { id: "bar", title: "Bar", group: "look", keywords: "position transparent menu bar top bottom left right show hide visible clock format time alternate date week start calendar sunday monday birth year age life expectancy indicators always show status icons dictation recording reminder night light dnd stay awake agents usage refresh sync snapshot file hostname device id spacer gap padding tray hidden icons unhide pin unpin plugin widget" },
-    { id: "notifications", title: "Notifications", group: "look", keywords: "do not disturb dnd silent mute quiet toast reminder timer notify later test time battery weather" },
-    { id: "input", title: "Input", group: "input", keywords: "mouse pointer sensitivity acceleration natural scroll inertia wheel high-res discrete smooth touchpad clickfinger repeat delay numlock follow dpms gesture swipe layout xkb" },
-    { id: "accessibility", title: "Accessibility", group: "input", keywords: "a11y motion animations reduce text size font cursor pointer hide typing touchscreen herdr screen reader" },
-    { id: "sound", title: "Sound", group: "input", keywords: "audio volume mute speaker headphone sink source microphone mic input output pipewire pactl wpctl tuning dsp restart voxtype dictation speech" },
-    { id: "capture", title: "Capture", group: "input", keywords: "screenshot record recording screen video ocr qr webcam grim slurp pictures videos" },
-    { id: "hardware", title: "Hardware", group: "device", keywords: "gpu graphics nvidia vulkan hybrid supergfx igpu cuda radeon cpu processor intel amd memory ram dimm ddr chipset motherboard bios uefi firmware tpm npu xdna neural tpu ai accelerator dmi chassis laptop desktop framework usb nic thermal battery" },
-    { id: "disks", title: "Disks", group: "device", keywords: "drive nvme ssd lsblk luks encryption snapper snapshot btrfs hibernation zram swap speedtest df usage trim fstrim timeline retention" },
-    { id: "network", title: "Network", group: "device", keywords: "dns cloudflare google dhcp custom nameserver resolver bluetooth radio wifi band ghz wlan qr share ssid password psk copy ethernet status ip speedtest join scan pair headset forget restart rfkill connectivity tailscale vpn tailnet localsend taildrop clipboard file folder" },
-    { id: "power", title: "Power", group: "device", keywords: "power profile performance balanced battery saver percentage charge laptop ac plugged adapter charger unplugged discharging status notify draw" },
-    { id: "idle", title: "Idle and lock", group: "device", keywords: "screensaver lock timeout idle security stay awake caffeine allow disable suspend sleep branding logo ascii lid clamshell" },
-    { id: "defaults", title: "Defaults", group: "apps", keywords: "browser terminal editor agent chrome firefox nvim pdf mime image video" },
-    { id: "applications", title: "Applications", group: "apps", keywords: "desktop app tui webapp web app add install create remove uninstall launcher shortcut delete autostart startup launch" },
-    { id: "software", title: "Software", group: "apps", keywords: "install remove browser terminal editor service gaming steam heroic lutris docker chatgpt 1password dropbox tailscale nordvpn signal spotify sunshine" },
-    { id: "hooks", title: "Hooks", group: "apps", keywords: "hook script theme-set font-set post-boot post-update pacman battery-low" },
-    { id: "security", title: "Security", group: "admin", keywords: "fingerprint fido2 yubikey ssh sshd sudo passwordless docker pam u2f" },
-    { id: "accounts", title: "Accounts", group: "admin", keywords: "account avatar face icon picture sddm user group password passwd login wheel admin docker useradd userdel groupadd usermod chfn gecos full name real name display name chpasswd" },
-    { id: "system", title: "System", group: "admin", keywords: "crash capture diagnostics coredump weather location city forecast coordinates latitude longitude gps units celsius fahrenheit metric imperial refresh interval about logo branding fastfetch timezone tz utc region city date time zoneinfo timedatectl hostname computer machine device name hostnamectl keyboard layout keymap xkb qwerty language input localectl ntp timesync synchronize automatic clock network time locale lang utf-8 i18n translation pacman parallel downloads packages mirrors aur update channel firmware orphan prune version printer cups print restore hyprland shell restart atmos git pull reset sentinel overrides" }
+    { id: "appearance", title: "Appearance", group: "look", icon: "palette-line", keywords: "theme background wallpaper font text size reset default scale aether palette night light nightlight warmth temperature kelvin schedule hyprsunset plymouth boot screen unlock sddm login refresh reapply templates switcher preview thumbnail picker install git extra clone update pull remove uninstall delete custom folder file image path directory cache logo png render" },
+    { id: "display", title: "Displays", group: "look", icon: "computer-line", keywords: "monitor scale hidpi brightness backlight ddc keyboard laptop lid internal mirror clone edp hdmi dp resolution refresh touchpad trackpad pointer mouse input touch touchscreen tablet digitizer" },
+    { id: "windows", title: "Windows", group: "look", icon: "layout-grid-line", keywords: "gaps border rounding blur shadow tiling dwindle scrolling niri column opacity transparency fullscreen tight square aspect dim animations cursor tearing looknfeel preserve split focus activate keybinding hotkey shortcut bind unbind chord window rule float tile class" },
+    { id: "bar", title: "Bar", group: "look", icon: "layout-top-2-line", keywords: "position transparent menu bar top bottom left right show hide visible clock format time alternate date week start calendar sunday monday birth year age life expectancy indicators always show status icons dictation recording reminder night light dnd stay awake agents usage refresh sync snapshot file hostname device id spacer gap padding tray hidden icons unhide pin unpin plugin widget" },
+    { id: "notifications", title: "Notifications", group: "look", icon: "notification-3-line", keywords: "do not disturb dnd silent mute quiet toast reminder timer notify later test time battery weather" },
+    { id: "input", title: "Input", group: "input", icon: "keyboard-box-line", keywords: "mouse pointer sensitivity acceleration natural scroll inertia wheel high-res discrete smooth touchpad clickfinger repeat delay numlock follow dpms gesture swipe layout xkb" },
+    { id: "accessibility", title: "Accessibility", group: "input", icon: "accessibility-line", keywords: "a11y motion animations reduce text size font cursor pointer hide typing touchscreen herdr screen reader" },
+    { id: "sound", title: "Sound", group: "input", icon: "volume-up-line", keywords: "audio volume mute speaker headphone sink source microphone mic input output pipewire pactl wpctl tuning dsp restart voxtype dictation speech" },
+    { id: "capture", title: "Capture", group: "input", icon: "screenshot-2-line", keywords: "screenshot record recording screen video ocr qr webcam grim slurp pictures videos" },
+    { id: "hardware", title: "Hardware", group: "device", icon: "cpu-line", keywords: "gpu graphics nvidia vulkan hybrid supergfx igpu cuda radeon cpu processor intel amd memory ram dimm ddr chipset motherboard bios uefi firmware tpm npu xdna neural tpu ai accelerator dmi chassis laptop desktop framework usb nic thermal battery" },
+    { id: "disks", title: "Disks", group: "device", icon: "hard-drive-2-line", keywords: "drive nvme ssd lsblk luks encryption snapper snapshot btrfs hibernation zram swap speedtest df usage trim fstrim timeline retention" },
+    { id: "network", title: "Network", group: "device", icon: "wifi-line", keywords: "dns cloudflare google dhcp custom nameserver resolver bluetooth radio wifi band ghz wlan qr share ssid password psk copy ethernet status ip speedtest join scan pair headset forget restart rfkill connectivity tailscale vpn tailnet localsend taildrop clipboard file folder" },
+    { id: "power", title: "Power", group: "device", icon: "battery-2-charge-line", keywords: "power profile performance balanced battery saver percentage charge laptop ac plugged adapter charger unplugged discharging status notify draw" },
+    { id: "idle", title: "Idle and lock", group: "device", icon: "lock-2-line", keywords: "screensaver lock timeout idle security stay awake caffeine allow disable suspend sleep branding logo ascii lid clamshell" },
+    { id: "defaults", title: "Defaults", group: "apps", icon: "links-line", keywords: "browser terminal editor agent chrome firefox nvim pdf mime image video" },
+    { id: "applications", title: "Applications", group: "apps", icon: "apps-2-line", keywords: "desktop app tui webapp web app add install create remove uninstall launcher shortcut delete autostart startup launch" },
+    { id: "software", title: "Software", group: "apps", icon: "box-3-line", keywords: "install remove browser terminal editor service gaming steam heroic lutris docker chatgpt 1password dropbox tailscale nordvpn signal spotify sunshine" },
+    { id: "hooks", title: "Hooks", group: "apps", icon: "code-s-slash-line", keywords: "hook script theme-set font-set post-boot post-update pacman battery-low" },
+    { id: "security", title: "Security", group: "admin", icon: "shield-keyhole-line", keywords: "fingerprint fido2 yubikey ssh sshd sudo passwordless docker pam u2f" },
+    { id: "accounts", title: "Accounts", group: "admin", icon: "user-3-line", keywords: "account avatar face icon picture sddm user group password passwd login wheel admin docker useradd userdel groupadd usermod chfn gecos full name real name display name chpasswd" },
+    { id: "system", title: "System", group: "admin", icon: "settings-3-line", keywords: "crash capture diagnostics coredump weather location city forecast coordinates latitude longitude gps units celsius fahrenheit metric imperial refresh interval about logo branding fastfetch timezone tz utc region city date time zoneinfo timedatectl hostname computer machine device name hostnamectl keyboard layout keymap xkb qwerty language input localectl ntp timesync synchronize automatic clock network time locale lang utf-8 i18n translation pacman parallel downloads packages mirrors aur update channel firmware orphan prune version printer cups print restore hyprland shell restart atmos git pull reset sentinel overrides" }
   ]
 
   readonly property var groupedPages: {
@@ -384,11 +384,23 @@ ShellRoot {
                       ? Theme.fill(Theme.selectedFill)
                       : (navMouse.containsMouse ? Theme.fill(Theme.hoverFill) : "transparent")
 
-                    Text {
+                    PrefsIcon {
+                      id: navIcon
                       anchors.left: parent.left
+                      anchors.leftMargin: Theme.pad
+                      anchors.verticalCenter: parent.verticalCenter
+                      name: modelData && modelData.icon ? modelData.icon : ""
+                      size: Theme.fontSize + 2
+                      color: root.query.length === 0 && root.currentPage === modelData.id
+                        ? Theme.foreground
+                        : (navMouse.containsMouse ? Theme.foreground : Theme.muted)
+                    }
+
+                    Text {
+                      anchors.left: navIcon.right
                       anchors.right: parent.right
                       anchors.verticalCenter: parent.verticalCenter
-                      anchors.leftMargin: Theme.pad
+                      anchors.leftMargin: 8
                       anchors.rightMargin: Theme.pad
                       text: modelData.title
                       color: Theme.foreground

@@ -427,8 +427,13 @@ ShellRoot {
 
         Text {
           id: errorText
-          anchors.fill: parent
-          anchors.margins: 8
+          anchors.left: parent.left
+          anchors.right: parent.right
+          anchors.top: parent.top
+          anchors.leftMargin: 8
+          anchors.rightMargin: 8
+          anchors.topMargin: 8
+          anchors.bottomMargin: 8
           text: Omarchy.lastError
           color: Theme.urgent
           wrapMode: Text.WordWrap

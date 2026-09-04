@@ -9,6 +9,7 @@ QtObject {
 
   readonly property string home: Quickshell.env("HOME")
   readonly property string currentThemePath: home + "/.local/state/omarchy/current/theme"
+  readonly property string currentThemeNameFile: home + "/.local/state/omarchy/current/theme.name"
   readonly property string userShellPath: home + "/.config/omarchy/shell.toml"
 
   property color foreground: "#cacccc"
@@ -95,11 +96,34 @@ QtObject {
     userShellFile.reload()
   }
 
+  // omarchy-theme-set rm -rf's current/theme then mv's a new directory in.
+  // FileView watches the old inode, so bounce the path onto the new files.
+  function reopenThemeFiles() {
+    var colors = root.currentThemePath + "/colors.toml"
+    var shell = root.currentThemePath + "/shell.toml"
+    colorsFile.path = ""
+    shellFile.path = ""
+    colorsFile.path = colors
+    shellFile.path = shell
+    userShellFile.reload()
+  }
+
+  property FileView themeNameFile: FileView {
+    path: root.currentThemeNameFile
+    watchChanges: true
+    printErrors: false
+    onFileChanged: root.reopenThemeFiles()
+  }
+
   property FileView colorsFile: FileView {
     path: root.currentThemePath + "/colors.toml"
     watchChanges: true
     printErrors: false
-    onLoaded: root.applyColors(text())
+    onLoaded: {
+      var raw = text()
+      if (!raw) return
+      root.applyColors(raw)
+    }
     onFileChanged: reload()
   }
 
@@ -108,7 +132,9 @@ QtObject {
     watchChanges: true
     printErrors: false
     onLoaded: {
-      root.themeShellValues = ThemeJs.parseShell(text())
+      var raw = text()
+      if (!raw) return
+      root.themeShellValues = ThemeJs.parseShell(raw)
       root.mergeShell()
     }
     onLoadFailed: {

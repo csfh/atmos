@@ -3211,6 +3211,11 @@ QtObject {
       printErrors: false
       onFileChanged: {
         reload()
+        if (String(path) === root.currentThemeNameFile) {
+          var name = String(text() || "").replace(/^\s+|\s+$/g, "")
+          if (name && name.indexOf("/") === -1 && name.charAt(0) !== ".")
+            root.applySnapshot(JSON.stringify({ theme: name }))
+        }
         root.scheduleRefresh()
       }
     }

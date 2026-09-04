@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Dialogs
+import QtQuick.Effects
 import Quickshell
 import Quickshell.Io
 import "services"
@@ -277,25 +278,51 @@ ShellRoot {
           anchors.top: parent.top
           spacing: Theme.space
 
-          Rectangle {
+          Item {
             id: avatarWell
             width: 88
             height: 88
-            radius: width / 2
             anchors.horizontalCenter: parent.horizontalCenter
-            clip: true
-            layer.enabled: true
-            layer.smooth: true
-            color: Theme.fill(Theme.normalFill)
-            border.width: avatarMouse.containsMouse ? 1 : 0
-            border.color: Theme.accent
 
-            Image {
+            Item {
+              id: avatarMask
+              anchors.fill: parent
+              visible: false
+              layer.enabled: true
+              layer.smooth: true
+
+              Rectangle {
+                anchors.fill: parent
+                radius: width / 2
+                color: "white"
+              }
+            }
+
+            Rectangle {
+              anchors.fill: parent
+              radius: width / 2
+              color: Theme.fill(Theme.normalFill)
+              visible: Omarchy.avatarPath.length === 0
+            }
+
+            Item {
               anchors.fill: parent
               visible: Omarchy.avatarPath.length > 0
-              fillMode: Image.PreserveAspectCrop
-              asynchronous: true
-              source: Omarchy.avatarPath.length ? ("file://" + encodeURI(Omarchy.avatarPath)) : ""
+              layer.enabled: true
+              layer.smooth: true
+              layer.effect: MultiEffect {
+                maskEnabled: true
+                maskSource: avatarMask
+                maskThresholdMin: 0.3
+                maskSpreadAtMin: 0.3
+              }
+
+              Image {
+                anchors.fill: parent
+                fillMode: Image.PreserveAspectCrop
+                asynchronous: true
+                source: Omarchy.avatarPath.length ? ("file://" + encodeURI(Omarchy.avatarPath)) : ""
+              }
             }
 
             PrefsIcon {
@@ -304,6 +331,14 @@ ShellRoot {
               name: "user-3-line"
               size: 36
               color: avatarMouse.containsMouse ? Theme.foreground : Theme.muted
+            }
+
+            Rectangle {
+              anchors.fill: parent
+              radius: width / 2
+              color: "transparent"
+              border.width: avatarMouse.containsMouse ? 1 : 0
+              border.color: Theme.accent
             }
 
             MouseArea {

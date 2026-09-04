@@ -11,7 +11,14 @@ assertEqual(
   "notifications hub reads look first",
 );
 assertEqual(queue.snapshotGroupForHub("idle"), "look", "idle hub reads look first");
+assertEqual(queue.snapshotGroupForHub("network"), "network", "network hub reads network first");
+assertEqual(queue.snapshotGroupForHub("disks"), "disks", "disks hub reads disks first");
+assertEqual(queue.snapshotGroupForHub("accounts"), "accounts", "accounts hub reads accounts first");
+assertEqual(queue.snapshotGroupForHub("system"), "system", "system hub reads system first");
 assertEqual(queue.snapshotGroupForHub("hardware"), "all", "other hubs read the full snapshot");
+const netIo = queue.createWorkQueue();
+queue.enqueueRead(netIo, "network");
+assertEqual(netIo.reads[0].group, "network", "enqueueRead keeps a network group");
 assertEqual(
   queue.snapshotGroupForWatchPath("/home/x/.config/hypr/looknfeel.lua"),
   "look",

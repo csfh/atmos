@@ -18,6 +18,10 @@ function snapshotGroupForHub(hub) {
     id === "idle"
   )
     return "look";
+  if (id === "network") return "network";
+  if (id === "disks") return "disks";
+  if (id === "accounts") return "accounts";
+  if (id === "system") return "system";
   return "all";
 }
 
@@ -67,7 +71,16 @@ function addPendingRefresh(pending, group) {
 
 function enqueueRead(queue, group) {
   var g = String(group || "all");
-  if (g !== "look" && g !== "rest" && g !== "all") g = "all";
+  if (
+    g !== "look" &&
+    g !== "rest" &&
+    g !== "all" &&
+    g !== "network" &&
+    g !== "disks" &&
+    g !== "accounts" &&
+    g !== "system"
+  )
+    g = "all";
   var reads = queue.reads || [];
   var i;
   for (i = 0; i < reads.length; i++) {

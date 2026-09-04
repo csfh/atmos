@@ -883,6 +883,34 @@ QtObject {
     if ("bluetooth" in parsed) bluetooth = parsed.bluetooth === true
     if ("wifiBandSelected" in parsed) wifiBandSelected = String(parsed.wifiBandSelected || "auto")
     if ("wifiRadio" in parsed) wifiRadio = parsed.wifiRadio === true
+    if ("wifiHw" in parsed) wifiHw = parsed.wifiHw === true
+    if ("wifiIface" in parsed) {
+      wifiIface = String(parsed.wifiIface || "")
+      if (!/^[a-zA-Z0-9._-]+$/.test(wifiIface)) wifiIface = ""
+    }
+    if ("wifiBand" in parsed) wifiBand = String(parsed.wifiBand || "")
+    if ("wifiBands" in parsed) wifiBands = adoptArray(wifiBands, parsed.wifiBands)
+    if ("netIface" in parsed) netIface = String(parsed.netIface || "")
+    if ("netIp" in parsed) netIp = String(parsed.netIp || "")
+    if ("netSpeed" in parsed) netSpeed = String(parsed.netSpeed || "")
+    if ("netSignal" in parsed) netSignal = String(parsed.netSignal || "")
+    if ("tailscaleInstalled" in parsed) tailscaleInstalled = parsed.tailscaleInstalled === true
+    if ("tailscaleRunning" in parsed) tailscaleRunning = parsed.tailscaleRunning === true
+    if ("tailscalePeers" in parsed) tailscalePeers = adoptArray(tailscalePeers, parsed.tailscalePeers)
+    if ("disks" in parsed) disks = adoptArray(disks, parsed.disks)
+    if ("luksDevices" in parsed) luksDevices = adoptArray(luksDevices, parsed.luksDevices)
+    if ("swapDevices" in parsed) swapDevices = adoptArray(swapDevices, parsed.swapDevices)
+    if ("snapshots" in parsed) snapshots = adoptArray(snapshots, parsed.snapshots)
+    if ("snapperPresent" in parsed) snapperPresent = parsed.snapperPresent === true
+    if ("snapperConfigs" in parsed) snapperConfigs = adoptArray(snapperConfigs, parsed.snapperConfigs)
+    if ("hibernationAvailable" in parsed) hibernationAvailable = parsed.hibernationAvailable === true
+    if ("hibernationSupported" in parsed) hibernationSupported = parsed.hibernationSupported === true
+    if ("hibernationConfigured" in parsed) hibernationConfigured = parsed.hibernationConfigured === true
+    if ("fstrimEnabled" in parsed) fstrimEnabled = parsed.fstrimEnabled === true
+    if ("timezones" in parsed) timezones = adoptArray(timezones, parsed.timezones)
+    if ("ntpAvailable" in parsed) ntpAvailable = parsed.ntpAvailable === true
+    if ("locales" in parsed) locales = adoptArray(locales, parsed.locales)
+    if ("keyboardLayouts" in parsed) keyboardLayouts = adoptArray(keyboardLayouts, parsed.keyboardLayouts)
     if ("audioOutputVolume" in parsed) {
       audioOutputVolume = Math.round(Number(parsed.audioOutputVolume)) || 0
       if (audioOutputVolume < 0) audioOutputVolume = 0
@@ -940,7 +968,7 @@ QtObject {
   function startSession(hub) {
     var first = WorkQueue.snapshotGroupForHub(hub)
     WorkQueue.enqueueRead(ioQueue, first)
-    if (first === "look") WorkQueue.enqueueRead(ioQueue, "rest")
+    if (first !== "all") WorkQueue.enqueueRead(ioQueue, "rest")
     kickIo()
   }
 

@@ -370,9 +370,9 @@ fill_look_surface() {
 
 GROUP=${1:-all}
 case $GROUP in
-  look | rest | all) ;;
+  look | rest | all | network | disks | accounts | system) ;;
   *)
-    echo "snapshot.sh: group must be look, rest, or all" >&2
+    echo "snapshot.sh: group must be look, rest, all, network, disks, accounts, or system" >&2
     exit 2
     ;;
 esac
@@ -605,8 +605,464 @@ PY
     }'
 }
 
+emit_network_snapshot() {
+  local dns bluetooth wifi_connected wifi_band wifi_selected wifi_bands_json band_out wifi_available
+  local wifi_iface net_kind net_iface net_ssid net_signal net_ip net_speed status_line verbose_status
+  local wifi_hw wifi_radio wifi_radio_out wifi_hw_out wifi_connections_json
+  local bluetooth_devices_json paired_list connected_list
+  local tailscale_installed tailscale_running tailscale_peers_json
+  dns=$(omarchy_out dns)
+  dns=${dns%$'\n'}
+  case $dns in
+    Cloudflare | Google | DHCP | Custom) ;;
+    *) dns="" ;;
+  esac
+  bluetooth=false
+  if omarchy bluetooth power is-on >/dev/null 2>&1; then
+    bluetooth=true
+  fi
+  wifi_connected=false
+  wifi_band=""
+  wifi_selected="auto"
+  wifi_bands_json='["auto"]'
+  band_out=$(omarchy_out network band)
+  if [[ -n $band_out ]]; then
+    wifi_connected=true
+    wifi_band=$(awk -F'\t' '$1=="band"{print $2; exit}' <<<"$band_out")
+    wifi_selected=$(awk -F'\t' '$1=="selected"{print $2; exit}' <<<"$band_out")
+    wifi_available=$(awk -F'\t' '$1=="available"{print $2; exit}' <<<"$band_out")
+    case $wifi_selected in
+      auto | 2.4 | 5 | 6) ;;
+      *) wifi_selected=auto ;;
+    esac
+    wifi_bands_json=$(jq -n --arg avail "$wifi_available" --arg selected "$wifi_selected" '
+      def ok: . == "2.4" or . == "5" or . == "6";
+      ["auto"] + ($avail | split(" ") | map(select(ok)))
+      | if ($selected != "auto") and ($selected | ok) and (index($selected) == null) then . + [$selected] else . end
+    ')
+  fi
+  wifi_iface=""
+  if [[ $wifi_connected == true ]]; then
+    wifi_iface=$(LC_ALL=C nmcli -e no -g DEVICE,TYPE,STATE device status 2>/dev/null | awk -F: '$2 == "wifi" && $3 == "connected" { print $1; exit }' || true)
+    [[ $wifi_iface =~ ^[a-zA-Z0-9._-]+$ ]] || wifi_iface=""
+  fi
+  net_kind=disconnected
+  net_iface=""
+  net_ssid=""
+  net_signal=""
+  net_ip=""
+  net_speed=""
+  status_line=$(omarchy_out network status)
+  net_kind=$(awk -F'\t' 'NR==1 { print $1; exit }' <<<"$status_line")
+  case $net_kind in
+    ethernet)
+      net_iface=$(awk -F'\t' 'NR==1 { print $2; exit }' <<<"$status_line")
+      ;;
+    wifi)
+      net_ssid=$(awk -F'\t' 'NR==1 { print $2; exit }' <<<"$status_line")
+      net_signal=$(awk -F'\t' 'NR==1 { print $3; exit }' <<<"$status_line")
+      ;;
+    *)
+      net_kind=disconnected
+      ;;
+  esac
+  [[ $net_iface =~ ^[a-zA-Z0-9._-]+$ ]] || net_iface=""
+  [[ $net_signal =~ ^[0-9]+$ ]] || net_signal=""
+  verbose_status=$(omarchy network status --verbose 2>/dev/null || true)
+  if [[ -n $verbose_status ]]; then
+    [[ -n $net_iface ]] || net_iface=$(awk -F'\t' '$1=="iface"{print $2; exit}' <<<"$verbose_status")
+    net_ip=$(awk -F'\t' '$1=="ip"{print $2; exit}' <<<"$verbose_status")
+    net_speed=$(awk -F'\t' '$1=="speed"{print $2; exit}' <<<"$verbose_status")
+  fi
+  [[ $net_iface =~ ^[a-zA-Z0-9._-]+$ ]] || net_iface=""
+  [[ $net_ip =~ ^[0-9a-fA-F:.]+$ ]] || net_ip=""
+  [[ $net_speed =~ ^[0-9]+$ ]] || net_speed=""
+  wifi_hw=false
+  wifi_radio=false
+  wifi_radio_out=$(nmcli radio wifi 2>/dev/null || true)
+  wifi_radio_out=${wifi_radio_out%$'\n'}
+  [[ $wifi_radio_out == enabled ]] && wifi_radio=true
+  wifi_hw_out=$(nmcli -t -f WIFI-HW radio 2>/dev/null || true)
+  wifi_hw_out=${wifi_hw_out%$'\n'}
+  [[ $wifi_hw_out == enabled ]] && wifi_hw=true
+  wifi_connections_json='[]'
+  if present nmcli && present jq; then
+    wifi_connections_json=$(
+      LC_ALL=C nmcli -t -f UUID,TYPE,STATE,NAME connection show 2>/dev/null \
+        | awk -F: '$2 == "802-11-wireless" {
+            uuid=$1
+            state=$3
+            name=$4
+            for (i = 5; i <= NF; i++) name = name ":" $i
+            gsub(/\\:/, ":", name)
+            printf "%s\t%s\t%s\n", uuid, state, name
+          }' \
+        | jq -R -s -c '
+            split("\n")
+            | map(select(length > 0) | split("\t"))
+            | map(select(length >= 3 and (.[0] | test("^[0-9a-fA-F-]{36}$")))
+              | {uuid: .[0], active: (.[1] == "activated"), name: .[2]})
+          ' || true
+    )
+    [[ -n $wifi_connections_json ]] || wifi_connections_json='[]'
+  fi
+  bluetooth_devices_json='[]'
+  if present bluetoothctl && present jq; then
+    paired_list=$(timeout 2s bluetoothctl devices Paired 2>/dev/null || true)
+    connected_list=$(timeout 2s bluetoothctl devices Connected 2>/dev/null || true)
+    bluetooth_devices_json=$(
+      jq -n -c --arg paired "$paired_list" --arg connected "$connected_list" '
+        def parse:
+          split("\n")
+          | map(select(test("^Device ")))
+          | map(capture("^Device (?<address>[0-9A-Fa-f:]{17})(?: (?<name>.*))?$")
+            | {address: .address, name: ((.name // "") | if . == "" then .address else . end)});
+        ([$connected | parse[] | .address] | unique) as $on
+        | [$paired | parse[] as $d | $d + {connected: ($on | index($d.address) != null)}]
+      ' || true
+    )
+    [[ -n $bluetooth_devices_json ]] || bluetooth_devices_json='[]'
+  fi
+  tailscale_installed=false
+  tailscale_running=false
+  tailscale_peers_json='[]'
+  if present tailscale; then
+    tailscale_installed=true
+  fi
+  if present systemctl && [[ $(systemctl is-active tailscaled.service 2>/dev/null || true) == active ]]; then
+    tailscale_running=true
+    tailscale_installed=true
+  fi
+  if [[ $tailscale_running == true ]] && present tailscale && present jq; then
+    tailscale_peers_json=$(tailscale status --json 2>/dev/null | jq -c '[.Peer[]? | {name: (.HostName // (.DNSName // "" | split(".")[0])), online: (.Online == true)}] | map(select(.name != ""))' || echo '[]')
+  fi
+  [[ -n $tailscale_peers_json ]] || tailscale_peers_json='[]'
+  jq -n \
+    --arg dns "$dns" \
+    --argjson bluetooth "$bluetooth" \
+    --argjson wifiConnected "$wifi_connected" \
+    --arg wifiBand "$wifi_band" \
+    --arg wifiBandSelected "$wifi_selected" \
+    --argjson wifiBands "$wifi_bands_json" \
+    --arg wifiIface "$wifi_iface" \
+    --arg netKind "$net_kind" \
+    --arg netIface "$net_iface" \
+    --arg netSsid "$net_ssid" \
+    --arg netSignal "$net_signal" \
+    --arg netIp "$net_ip" \
+    --arg netSpeed "$net_speed" \
+    --argjson wifiHw "$wifi_hw" \
+    --argjson wifiRadio "$wifi_radio" \
+    --argjson wifiConnections "$wifi_connections_json" \
+    --argjson bluetoothDevices "$bluetooth_devices_json" \
+    --argjson tailscaleInstalled "$tailscale_installed" \
+    --argjson tailscaleRunning "$tailscale_running" \
+    --argjson tailscalePeers "$tailscale_peers_json" \
+    '{
+      dns: $dns,
+      bluetooth: $bluetooth,
+      wifiConnected: $wifiConnected,
+      wifiBand: $wifiBand,
+      wifiBandSelected: $wifiBandSelected,
+      wifiBands: $wifiBands,
+      wifiIface: $wifiIface,
+      netKind: $netKind,
+      netIface: $netIface,
+      netSsid: $netSsid,
+      netSignal: $netSignal,
+      netIp: $netIp,
+      netSpeed: $netSpeed,
+      wifiHw: $wifiHw,
+      wifiRadio: $wifiRadio,
+      wifiConnections: $wifiConnections,
+      bluetoothDevices: $bluetoothDevices,
+      tailscaleInstalled: $tailscaleInstalled,
+      tailscaleRunning: $tailscaleRunning,
+      tailscalePeers: $tailscalePeers
+    }'
+}
+
+emit_disks_snapshot() {
+  local disks_json luks_devices_json swap_devices_json snapshots_json disk_inv
+  local snapper_present snapper_configs_json
+  local hibernation_available hibernation_supported hibernation_configured resume_conf
+  local snapper_number_limit snapper_timeline snapper_limit_raw snapper_timeline_raw
+  local fstrim_enabled
+  disks_json='[]'
+  luks_devices_json='[]'
+  swap_devices_json='[]'
+  snapshots_json='[]'
+  if present python3 && [[ -x $SNAP_DIR/disk-inventory.py ]]; then
+    disk_inv=$(python3 "$SNAP_DIR/disk-inventory.py" 2>/dev/null || true)
+    if [[ -n $disk_inv ]]; then
+      disks_json=$(jq -c '.disks // []' <<<"$disk_inv" 2>/dev/null || echo '[]')
+      luks_devices_json=$(jq -c '.luksDevices // []' <<<"$disk_inv" 2>/dev/null || echo '[]')
+      swap_devices_json=$(jq -c '.swapDevices // []' <<<"$disk_inv" 2>/dev/null || echo '[]')
+      snapshots_json=$(jq -c '.snapshots // []' <<<"$disk_inv" 2>/dev/null || echo '[]')
+    fi
+  fi
+  [[ -n $disks_json ]] || disks_json='[]'
+  [[ -n $luks_devices_json ]] || luks_devices_json='[]'
+  [[ -n $swap_devices_json ]] || swap_devices_json='[]'
+  [[ -n $snapshots_json ]] || snapshots_json='[]'
+  snapper_present=false
+  snapper_configs_json='[]'
+  if present snapper; then
+    snapper_present=true
+    snapper_configs_json=$(
+      snapper --csvout list-configs 2>/dev/null \
+        | awk -F, 'NR > 1 && $1 != "" { printf "%s\t%s\n", $1, $2 }' \
+        | jq -R -s -c '
+            split("\n")
+            | map(select(length > 0) | split("\t") | {name: .[0], subvolume: (.[1] // "")})
+          ' || true
+    )
+  fi
+  [[ -n $snapper_configs_json ]] || snapper_configs_json='[]'
+  hibernation_available=false
+  if omarchy hibernation available >/dev/null 2>&1; then
+    hibernation_available=true
+  fi
+  hibernation_supported=false
+  if [[ -f /sys/power/image_size ]] && command -v limine-mkinitcpio >/dev/null 2>&1; then
+    hibernation_supported=true
+  fi
+  hibernation_configured=false
+  resume_conf=/etc/mkinitcpio.conf.d/omarchy_resume.conf
+  if [[ -f $resume_conf ]] && grep -q '^HOOKS+=(resume)$' "$resume_conf"; then
+    hibernation_configured=true
+  fi
+  snapper_number_limit=5
+  snapper_timeline=false
+  if [[ -r /etc/snapper/configs/root ]]; then
+    snapper_limit_raw=$(awk -F= '/^[[:space:]]*NUMBER_LIMIT=/{gsub(/"/, "", $2); print $2; exit}' /etc/snapper/configs/root)
+    [[ $snapper_limit_raw =~ ^[0-9]+$ ]] && snapper_number_limit=$snapper_limit_raw
+    snapper_timeline_raw=$(awk -F= '/^[[:space:]]*TIMELINE_CREATE=/{gsub(/"/, "", $2); print $2; exit}' /etc/snapper/configs/root)
+    [[ $snapper_timeline_raw == yes ]] && snapper_timeline=true
+  fi
+  ((snapper_number_limit >= 1 && snapper_number_limit <= 50)) || snapper_number_limit=5
+  fstrim_enabled=false
+  if present systemctl && [[ $(systemctl is-enabled fstrim.timer 2>/dev/null || true) == enabled ]]; then
+    fstrim_enabled=true
+  fi
+  jq -n \
+    --argjson disks "$disks_json" \
+    --argjson luksDevices "$luks_devices_json" \
+    --argjson swapDevices "$swap_devices_json" \
+    --argjson snapshots "$snapshots_json" \
+    --argjson snapperPresent "$snapper_present" \
+    --argjson snapperConfigs "$snapper_configs_json" \
+    --argjson hibernationAvailable "$hibernation_available" \
+    --argjson hibernationSupported "$hibernation_supported" \
+    --argjson hibernationConfigured "$hibernation_configured" \
+    --argjson snapperNumberLimit "$snapper_number_limit" \
+    --argjson snapperTimeline "$snapper_timeline" \
+    --argjson fstrimEnabled "$fstrim_enabled" \
+    '{
+      disks: $disks,
+      luksDevices: $luksDevices,
+      swapDevices: $swapDevices,
+      snapshots: $snapshots,
+      snapperPresent: $snapperPresent,
+      snapperConfigs: $snapperConfigs,
+      hibernationAvailable: $hibernationAvailable,
+      hibernationSupported: $hibernationSupported,
+      hibernationConfigured: $hibernationConfigured,
+      snapperNumberLimit: $snapperNumberLimit,
+      snapperTimeline: $snapperTimeline,
+      fstrimEnabled: $fstrimEnabled
+    }'
+}
+
+emit_accounts_snapshot() {
+  local accounts_json accounts_inv full_name user_name
+  accounts_json='{"currentUser":"","avatarPath":"","users":[],"groups":[]}'
+  if present python3 && [[ -x $SNAP_DIR/list-accounts.py ]]; then
+    accounts_inv=$(python3 "$SNAP_DIR/list-accounts.py" 2>/dev/null || true)
+    if [[ -n $accounts_inv ]]; then
+      accounts_json=$(jq -c '.' <<<"$accounts_inv" 2>/dev/null || echo '{"currentUser":"","avatarPath":"","users":[],"groups":[]}')
+    fi
+  fi
+  [[ -n $accounts_json ]] || accounts_json='{"currentUser":"","avatarPath":"","users":[],"groups":[]}'
+  full_name=""
+  user_name=$(id -un 2>/dev/null || true)
+  if [[ $user_name =~ ^[a-z_][a-z0-9_-]*$ ]]; then
+    full_name=$(getent passwd "$user_name" 2>/dev/null | awk -F: '{print $5}' | awk -F, '{print $1}')
+  fi
+  full_name=${full_name%%$'\n'*}
+  if [[ $full_name == -* || ${#full_name} -gt 256 || $full_name == *:* ]]; then
+    full_name=""
+  fi
+  jq -n \
+    --argjson accounts "$accounts_json" \
+    --arg fullName "$full_name" \
+    '{
+      fullName: $fullName,
+      currentUser: ($accounts.currentUser // ""),
+      avatarPath: ($accounts.avatarPath // ""),
+      users: ($accounts.users // []),
+      groups: ($accounts.groups // [])
+    }'
+}
+
+emit_system_snapshot() {
+  local hostname timezone timezones_json ntp ntp_available ntp_synchronized
+  local ntp_can ntp_val ntp_sync locale locales_json supported
+  local parallel_downloads keyboard_layout keyboard_layouts_json xkb_lst
+  local crash_capture
+  hostname=""
+  if [[ -r /etc/hostname ]]; then
+    hostname=$(< /etc/hostname)
+    hostname=${hostname%%$'\n'*}
+    hostname=${hostname%% *}
+  fi
+  if [[ -z $hostname ]] && present hostnamectl; then
+    hostname=$(hostnamectl --static 2>/dev/null || true)
+    hostname=${hostname%$'\n'}
+  fi
+  if [[ $hostname == -* || ${#hostname} -gt 253 || ! $hostname =~ ^[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*$ ]]; then
+    hostname=""
+  fi
+  timezone=""
+  timezones_json='[]'
+  if present timedatectl; then
+    timezone=$(timedatectl show -p Timezone --value 2>/dev/null || true)
+    timezone=${timezone%$'\n'}
+    if [[ $timezone == *..* || ! $timezone =~ ^[A-Za-z0-9/_+-]+$ ]]; then
+      timezone=""
+    fi
+    timezones_json=$(timedatectl list-timezones 2>/dev/null | awk '
+      /^[A-Za-z0-9/_+-]+$/ && !/\.\./ { print }
+    ' | lines_json || true)
+  fi
+  [[ -n $timezones_json ]] || timezones_json='[]'
+  ntp=false
+  ntp_available=false
+  ntp_synchronized=false
+  if present timedatectl; then
+    ntp_can=$(timedatectl show -p CanNTP --value 2>/dev/null || true)
+    ntp_can=${ntp_can%$'\n'}
+    ntp_val=$(timedatectl show -p NTP --value 2>/dev/null || true)
+    ntp_val=${ntp_val%$'\n'}
+    ntp_sync=$(timedatectl show -p NTPSynchronized --value 2>/dev/null || true)
+    ntp_sync=${ntp_sync%$'\n'}
+    [[ $ntp_can == yes ]] && ntp_available=true
+    [[ $ntp_val == yes ]] && ntp=true
+    [[ $ntp_sync == yes ]] && ntp_synchronized=true
+  fi
+  locale=""
+  if [[ -r /etc/locale.conf ]]; then
+    locale=$(
+      unset LANG
+      . /etc/locale.conf
+      printf '%s' "${LANG:-}"
+    )
+  fi
+  [[ $locale == C.UTF-8 || $locale =~ ^[a-z]{2,3}(_[A-Z]{2})?\.UTF-8(@[A-Za-z0-9]+)?$ ]] || locale=""
+  locales_json='[]'
+  supported=/usr/share/i18n/SUPPORTED
+  if [[ -r $supported ]]; then
+    locales_json=$(awk '
+      $2 == "UTF-8" && ($1 == "C.UTF-8" || $1 ~ /^[a-z]{2,3}(_[A-Z]{2})?\.UTF-8(@[A-Za-z0-9]+)?$/) { print $1 }
+    ' "$supported" | lines_json)
+  fi
+  [[ -n $locales_json ]] || locales_json='[]'
+  parallel_downloads=5
+  if [[ -r /etc/pacman.conf ]]; then
+    parallel_downloads=$(awk '
+      /^[[:space:]]*ParallelDownloads[[:space:]]*=/ {
+        if (match($0, /[0-9]+/)) { print substr($0, RSTART, RLENGTH); exit }
+      }
+    ' /etc/pacman.conf)
+  fi
+  [[ $parallel_downloads =~ ^[0-9]+$ ]] || parallel_downloads=5
+  if ((parallel_downloads < 1)); then parallel_downloads=5; fi
+  if ((parallel_downloads > 20)); then parallel_downloads=20; fi
+  keyboard_layout=""
+  if [[ -r /etc/vconsole.conf ]]; then
+    keyboard_layout=$(awk -F= '
+      $1 == "XKBLAYOUT" {
+        gsub(/[[:space:]"'\'']/, "", $2)
+        print $2
+        exit
+      }
+    ' /etc/vconsole.conf)
+  fi
+  keyboard_layout=${keyboard_layout%%,*}
+  [[ $keyboard_layout =~ ^[a-z0-9]{1,8}$ ]] || keyboard_layout=""
+  keyboard_layouts_json='[]'
+  xkb_lst="/usr/share/X11/xkb/rules/evdev.lst"
+  if [[ -r $xkb_lst ]] && present jq; then
+    keyboard_layouts_json=$(
+      awk '
+        $0 ~ /^! layout[[:space:]]*$/ { p=1; next }
+        p && /^! / { exit }
+        p && $1 ~ /^[a-z0-9]{1,8}$/ && NF >= 2 {
+          id=$1
+          $1=""
+          sub(/^[[:space:]]+/, "")
+          print id "\t" $0
+        }
+      ' "$xkb_lst" \
+        | jq -R -s -c '
+            split("\n")
+            | map(select(length > 0) | split("\t"))
+            | map(select(length >= 2) | {value: .[0], label: .[1]})
+          ' || true
+    )
+  fi
+  [[ -n $keyboard_layouts_json ]] || keyboard_layouts_json='[]'
+  crash_capture=true
+  if omarchy toggle enabled crash-capture-off >/dev/null 2>&1; then
+    crash_capture=false
+  fi
+  jq -n \
+    --arg hostname "$hostname" \
+    --arg timezone "$timezone" \
+    --argjson timezones "$timezones_json" \
+    --argjson ntp "$ntp" \
+    --argjson ntpAvailable "$ntp_available" \
+    --argjson ntpSynchronized "$ntp_synchronized" \
+    --arg locale "$locale" \
+    --argjson locales "$locales_json" \
+    --argjson parallelDownloads "$parallel_downloads" \
+    --arg keyboardLayout "$keyboard_layout" \
+    --argjson keyboardLayouts "$keyboard_layouts_json" \
+    --argjson crashCapture "$crash_capture" \
+    '{
+      hostname: $hostname,
+      timezone: $timezone,
+      timezones: $timezones,
+      ntp: $ntp,
+      ntpAvailable: $ntpAvailable,
+      ntpSynchronized: $ntpSynchronized,
+      locale: $locale,
+      locales: $locales,
+      parallelDownloads: $parallelDownloads,
+      keyboardLayout: $keyboardLayout,
+      keyboardLayouts: $keyboardLayouts,
+      crashCapture: $crashCapture
+    }'
+}
+
 if [[ $GROUP == look ]]; then
   emit_look_snapshot
+  exit 0
+fi
+if [[ $GROUP == network ]]; then
+  emit_network_snapshot
+  exit 0
+fi
+if [[ $GROUP == disks ]]; then
+  emit_disks_snapshot
+  exit 0
+fi
+if [[ $GROUP == accounts ]]; then
+  emit_accounts_snapshot
+  exit 0
+fi
+if [[ $GROUP == system ]]; then
+  emit_system_snapshot
   exit 0
 fi
 

@@ -38,13 +38,21 @@ PrefsPage {
   readonly property bool qrLoading: Omarchy.jobKind === "wifi-qr" && Omarchy.jobBusy
   property bool enterpriseBusy: Omarchy.jobKind === "wifi-enterprise"
   property bool wifiJoinBusy: Omarchy.jobKind === "wifi-join" || Omarchy.jobKind === "wifi-enterprise"
+  readonly property var networkDevices: Networking.devices ? Networking.devices.values : []
+  readonly property var wifiDevice: findWifiDevice()
+  readonly property var wifiNetworkObjects: wifiDevice && wifiDevice.networks ? wifiDevice.networks.values : []
+  readonly property bool wantScan: root.visible && Omarchy.wifiHw && Omarchy.wifiRadio
 
-  function wifiDevice() {
-    var list = Networking.devices ? Networking.devices.values : []
-    for (var i = 0; i < list.length; i++) {
-      if (list[i] && list[i].type === DeviceType.Wifi) return list[i]
+  function findWifiDevice() {
+    var devices = RichUi.objectList(root.networkDevices)
+    var fallback = null
+    for (var i = 0; i < devices.length; i++) {
+      var device = devices[i]
+      if (!device || device.type !== DeviceType.Wifi) continue
+      if (device.connected) return device
+      if (!fallback) fallback = device
     }
-    return null
+    return fallback
   }
 
   function securityKind(sec) {
@@ -55,8 +63,7 @@ PrefsPage {
   }
 
   function rebuildWifi() {
-    var device = wifiDevice()
-    var objects = device && device.networks ? device.networks.values : []
+    var objects = RichUi.objectList(root.wifiNetworkObjects)
     var rows = []
     for (var i = 0; i < objects.length; i++) {
       var net = objects[i]
@@ -67,12 +74,22 @@ PrefsPage {
   }
 
   function setScanner(on) {
-    var next = on ? wifiDevice() : null
+    var next = on ? root.wifiDevice : null
     if (scannerDevice && scannerDevice !== next)
       scannerDevice.scannerEnabled = false
     scannerDevice = next
     if (scannerDevice)
       scannerDevice.scannerEnabled = true
+  }
+
+  function bounceScanner() {
+    if (!scannerDevice) {
+      setScanner(root.wantScan)
+      rebuildWifi()
+      return
+    }
+    scannerDevice.scannerEnabled = false
+    scanRestart.restart()
   }
 
   function connectWifi(row) {
@@ -117,16 +134,44 @@ PrefsPage {
   }
 
   Component.onCompleted: {
-    setScanner(Omarchy.wifiRadio)
+    setScanner(root.wantScan)
     rebuildWifi()
   }
   Component.onDestruction: setScanner(false)
+  onWantScanChanged: setScanner(root.wantScan)
+  onWifiDeviceChanged: setScanner(root.wantScan)
+  onWifiNetworkObjectsChanged: rebuildWifi()
+
+  Timer {
+    id: scanRestart
+    interval: 80
+    repeat: false
+    onTriggered: {
+      if (root.scannerDevice)
+        root.scannerDevice.scannerEnabled = true
+      root.rebuildWifi()
+    }
+  }
 
   Timer {
     interval: 900
-    running: root.visible && Omarchy.wifiRadio
+    running: root.wantScan
     repeat: true
     onTriggered: root.rebuildWifi()
+  }
+
+  Connections {
+    target: Networking.devices
+    function onValuesChanged() {
+      root.rebuildWifi()
+    }
+  }
+
+  Connections {
+    target: root.wifiDevice && root.wifiDevice.networks
+    function onValuesChanged() {
+      root.rebuildWifi()
+    }
   }
 
   onEnterpriseBusyChanged: {
@@ -224,7 +269,7 @@ PrefsPage {
         enabled: Omarchy.wifiHw && Omarchy.wifiRadio
         onClicked: {
           Omarchy.refresh()
-          root.rebuildWifi()
+          root.bounceScanner()
         }
       }
     }

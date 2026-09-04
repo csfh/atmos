@@ -11,35 +11,59 @@ PrefsPage {
 
   property bool scanningBt: false
   property var discoveredBt: []
+  property var pairedBt: []
+  readonly property var adapter: Bluetooth.defaultAdapter
+  readonly property var bluetoothDeviceObjects: Bluetooth.devices ? Bluetooth.devices.values : []
+  readonly property bool wantDiscover: root.visible && Omarchy.bluetooth && root.scanningBt
 
   function rebuildBt() {
-    var list = Bluetooth.devices ? Bluetooth.devices.values : []
-    var out = []
-    for (var i = 0; i < list.length; i++) {
-      var d = list[i]
-      if (!d || !d.address) continue
-      if (d.paired || d.bonded || d.trusted || d.connected) continue
-      var name = String(d.deviceName || d.name || "")
-      if (!name) continue
-      out.push(RichUi.bluetoothRow(d.address, name, d.connected, d.paired))
-    }
-    discoveredBt = out
+    var lists = RichUi.bluetoothLists(root.bluetoothDeviceObjects)
+    var livePaired = lists.paired || []
+    if (livePaired.length > 0)
+      pairedBt = livePaired
+    else if (Omarchy.bluetoothDevices && Omarchy.bluetoothDevices.length)
+      pairedBt = Omarchy.bluetoothDevices
+    else
+      pairedBt = []
+    discoveredBt = lists.discovered || []
   }
 
+  function syncDiscovering() {
+    if (!root.adapter) return
+    root.adapter.discovering = root.wantDiscover
+  }
+
+  Component.onCompleted: rebuildBt()
   Component.onDestruction: {
-    if (Bluetooth.defaultAdapter) Bluetooth.defaultAdapter.discovering = false
+    if (root.adapter) root.adapter.discovering = false
   }
-
-  onScanningBtChanged: {
-    if (Bluetooth.defaultAdapter)
-      Bluetooth.defaultAdapter.discovering = scanningBt
-  }
+  onWantDiscoverChanged: syncDiscovering()
+  onAdapterChanged: syncDiscovering()
+  onBluetoothDeviceObjectsChanged: rebuildBt()
 
   Timer {
     interval: 900
-    running: root.visible && root.scanningBt
+    running: root.visible && (root.scanningBt || Omarchy.bluetooth)
     repeat: true
     onTriggered: root.rebuildBt()
+  }
+
+  Connections {
+    target: Bluetooth.devices
+    function onValuesChanged() {
+      root.rebuildBt()
+    }
+  }
+
+  Connections {
+    target: Omarchy
+    function onBluetoothDevicesChanged() {
+      root.rebuildBt()
+    }
+    function onBluetoothChanged() {
+      root.syncDiscovering()
+      root.rebuildBt()
+    }
   }
 
   PrefsConfirm {
@@ -96,7 +120,7 @@ PrefsPage {
     hint: "omarchy bluetooth device"
 
     PrefsRow {
-      available: Omarchy.bluetoothDevices.length === 0
+      available: root.pairedBt.length === 0
       sectionHelp: false
       label: "Paired devices"
       description: Omarchy.bluetooth
@@ -113,11 +137,11 @@ PrefsPage {
     }
 
     Repeater {
-      model: Omarchy.bluetoothDevices
+      model: root.pairedBt
 
       PrefsRow {
         required property var modelData
-        available: Omarchy.bluetooth
+        available: true
         sectionHelp: false
         label: modelData && modelData.name ? modelData.name : "Bluetooth device"
         description: modelData && modelData.connected ? "Connected and ready." : "Paired. Connect when you want to use it."
@@ -130,7 +154,7 @@ PrefsPage {
           PrefsButton {
             text: modelData && modelData.connected ? "Disconnect" : "Connect"
             primary: !(modelData && modelData.connected)
-            enabled: Omarchy.bluetooth && modelData && modelData.address
+            enabled: modelData && modelData.address
             onClicked: {
               if (modelData.connected) Omarchy.disconnectBluetoothDevice(modelData.address)
               else Omarchy.connectBluetoothDevice(modelData.address)

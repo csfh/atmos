@@ -475,6 +475,48 @@ function bluetoothRow(address, name, connected, paired) {
   };
 }
 
+function objectList(values) {
+  if (!values) return [];
+  if (Array.isArray(values)) return values.slice();
+  var length = Number(values.length || 0);
+  if (!isFinite(length) || length <= 0) return [];
+  var list = [];
+  var i;
+  for (i = 0; i < length; i++) list.push(values[i]);
+  return list;
+}
+
+function bluetoothDeviceName(device) {
+  if (!device) return "";
+  return String(device.deviceName || device.name || "").replace(/^\s+|\s+$/g, "");
+}
+
+function bluetoothLists(devices) {
+  var values = objectList(devices);
+  var connected = [];
+  var known = [];
+  var discovered = [];
+  var i;
+  for (i = 0; i < values.length; i++) {
+    var d = values[i];
+    if (!d || !d.address) continue;
+    var name = bluetoothDeviceName(d);
+    if (!name) name = String(d.address || "");
+    if (!name) continue;
+    var paired = !!(d.paired || d.bonded || d.trusted);
+    var row = bluetoothRow(d.address, name, d.connected, paired);
+    if (d.connected) connected.push(row);
+    else if (paired) known.push(row);
+    else discovered.push(row);
+  }
+  return {
+    connected: connected,
+    known: known,
+    discovered: discovered,
+    paired: connected.concat(known),
+  };
+}
+
 function reminderCopyText(row) {
   if (!row) return "";
   var label = String(row.label || row.message || "").replace(/[\r\n\0]/g, " ");

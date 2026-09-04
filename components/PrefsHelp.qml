@@ -107,14 +107,12 @@ Item {
         font.bold: true
       }
 
-      Flickable {
+      PrefsFlickable {
         width: parent.width
         visible: helpColumn.implicitHeight > 0
         height: visible ? Math.min(helpColumn.implicitHeight, 360) : 0
-        contentWidth: width
         contentHeight: helpColumn.implicitHeight
         clip: true
-        boundsBehavior: Flickable.StopAtBounds
 
         Column {
           id: helpColumn

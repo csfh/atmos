@@ -20,13 +20,11 @@ Item {
   height: root.embed ? implicitHeight : (parent ? parent.height : 400)
   visible: !root.embed || root.hasSections
 
-  Flickable {
+  PrefsFlickable {
     id: flick
     anchors.fill: parent
     clip: !root.embed
-    interactive: !root.embed
-    boundsBehavior: Flickable.StopAtBounds
-    contentWidth: width
+    interactive: !root.embed && contentHeight > height
     contentHeight: pageColumn.implicitHeight + (root.embed ? 0 : Theme.spaceLg * 2)
 
     Column {

@@ -2368,17 +2368,14 @@ assertEqual(
 assertEqual(accounts.profileTitle("", "hallas"), "hallas", "profileTitle falls back to login");
 assertEqual(accounts.profileTitle("", ""), "Account", "profileTitle empty is Account");
 assertEqual(
-  accounts.profileCaption("Chris Hallas", "hallas", false),
+  accounts.profileHost("hallas", "framework"),
+  "hallas@framework",
+  "profileHost joins login and hostname",
+);
+assertEqual(accounts.profileHost("hallas", ""), "hallas", "profileHost falls back to login");
+assertEqual(accounts.profileHost("", "framework"), "", "profileHost empty without a login");
+assertEqual(
+  accounts.profileHost("hallas", "bad host"),
   "hallas",
-  "profileCaption shows the login under a full name",
-);
-assertEqual(
-  accounts.profileCaption("", "hallas", false),
-  "Set a face",
-  "profileCaption asks to set a face when none is set",
-);
-assertEqual(
-  accounts.profileCaption("", "hallas", true),
-  "",
-  "profileCaption is empty when the login is the title and a face is set",
+  "profileHost drops a hostname with a space",
 );

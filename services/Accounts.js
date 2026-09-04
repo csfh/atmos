@@ -274,12 +274,13 @@ function profileTitle(fullName, user) {
   return login || "Account";
 }
 
-function profileCaption(fullName, user, hasAvatar) {
-  var name = String(fullName || "").replace(/^\s+|\s+$/g, "");
+function profileHost(user, hostname) {
   var login = String(user || "").replace(/^\s+|\s+$/g, "");
-  if (name && login) return login;
-  if (!hasAvatar) return "Set a face";
-  return "";
+  var host = String(hostname || "").replace(/^\s+|\s+$/g, "");
+  if (host.indexOf("..") !== -1 || host.indexOf(" ") !== -1) host = "";
+  if (!login) return "";
+  if (!host) return login;
+  return login + "@" + host;
 }
 
 function pickAvatarPath(home, username, exists) {
@@ -318,7 +319,7 @@ if (typeof module !== "undefined" && module.exports) {
     visibleGroups: visibleGroups,
     parseAccounts: parseAccounts,
     profileTitle: profileTitle,
-    profileCaption: profileCaption,
+    profileHost: profileHost,
     pickAvatarPath: pickAvatarPath,
   };
 }

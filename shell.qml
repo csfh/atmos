@@ -18,11 +18,7 @@ ShellRoot {
   property string query: ""
 
   readonly property string profileTitle: AccountsJs.profileTitle(Omarchy.fullName, Omarchy.currentUser)
-  readonly property string profileCaption: AccountsJs.profileCaption(
-    Omarchy.fullName,
-    Omarchy.currentUser,
-    Omarchy.avatarPath.length > 0
-  )
+  readonly property string profileHost: AccountsJs.profileHost(Omarchy.currentUser, Omarchy.hostname)
 
   readonly property var pages: [
     { id: "appearance", title: "Appearance", group: "look", icon: "palette-line", keywords: "theme background wallpaper font text size reset default scale aether palette night light nightlight warmth temperature kelvin schedule hyprsunset plymouth boot screen unlock sddm login refresh reapply templates switcher preview thumbnail picker install git extra clone update pull remove uninstall delete custom folder file image path directory cache logo png render" },
@@ -274,18 +270,19 @@ ShellRoot {
           onAccepted: Omarchy.setAvatarPath(RichUi.pathFromUrl(selectedFile))
         }
 
-        Item {
+        Column {
           id: sidebarTitle
           anchors.left: parent.left
           anchors.right: parent.right
           anchors.top: parent.top
-          height: 40
+          spacing: Theme.space
 
           Rectangle {
             id: avatarWell
-            width: 40
-            height: 40
+            width: 88
+            height: 88
             radius: width / 2
+            anchors.horizontalCenter: parent.horizontalCenter
             clip: true
             layer.enabled: true
             layer.smooth: true
@@ -305,7 +302,7 @@ ShellRoot {
               visible: Omarchy.avatarPath.length === 0
               anchors.centerIn: parent
               name: "user-3-line"
-              size: 18
+              size: 36
               color: avatarMouse.containsMouse ? Theme.foreground : Theme.muted
             }
 
@@ -324,15 +321,12 @@ ShellRoot {
           }
 
           Item {
-            anchors.left: avatarWell.right
-            anchors.leftMargin: 8
-            anchors.right: parent.right
-            anchors.verticalCenter: parent.verticalCenter
-            height: profileName.implicitHeight + (profileSub.visible ? profileSub.implicitHeight : 0)
+            width: parent.width
+            height: profileCopy.implicitHeight
 
             Column {
-              anchors.left: parent.left
-              anchors.right: parent.right
+              id: profileCopy
+              width: parent.width
               spacing: 0
 
               Text {
@@ -343,17 +337,19 @@ ShellRoot {
                 font.family: Theme.fontFamily
                 font.pixelSize: Theme.fontSize
                 font.bold: true
+                horizontalAlignment: Text.AlignHCenter
                 elide: Text.ElideRight
               }
 
               Text {
                 id: profileSub
                 width: parent.width
-                visible: root.profileCaption.length > 0
-                text: root.profileCaption
+                visible: root.profileHost.length > 0
+                text: root.profileHost
                 color: Theme.muted
                 font.family: Theme.fontFamily
                 font.pixelSize: Theme.captionSize
+                horizontalAlignment: Text.AlignHCenter
                 elide: Text.ElideRight
               }
             }
@@ -376,7 +372,7 @@ ShellRoot {
           anchors.left: parent.left
           anchors.right: parent.right
           anchors.top: sidebarTitle.bottom
-          anchors.topMargin: Theme.space
+          anchors.topMargin: Theme.spaceMd
           height: Theme.controlHeight
           radius: Theme.radius
           color: searchField.activeFocus || searchHover.hovered ? Theme.fill(Theme.hoverFill) : Theme.fill(Theme.normalFill)

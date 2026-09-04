@@ -164,37 +164,158 @@ function settingsCatalog() {
       hostBound: true,
       consequence:
         "The machine renames itself. Anything that reaches it by name, including SSH configs and Tailscale, sees the new one.",
+      needsRoot: true,
     }),
     entry("timezone", "system", "Timezone", "identity", {
       type: "string",
       options: "timezones",
       consequence: "The clock jumps. Calendar reminders shift with it.",
+      needsRoot: true,
     }),
     entry("locale", "system", "Locale", "identity", {
       type: "string",
       options: "locales",
       consequence:
         "Date, number, and sort order change. Running apps keep the old locale until they restart.",
+      needsRoot: true,
     }),
     entry("keyboardLayout", "system", "Keyboard layout", "identity", {
       type: "string",
       options: "keyboardLayouts",
       consequence:
         "Keys remap immediately. A layout you cannot type on is hard to undo with the keyboard.",
+      needsRoot: true,
     }),
     entry("ntp", "system", "Network time", "identity", {
       type: "boolean",
       consequence: "Turning network time off lets the clock drift until you set it by hand.",
+      needsRoot: true,
     }),
     entry("fullName", "system", "Full name", "identity", { type: "string" }),
     entry("parallelDownloads", "system", "Parallel downloads", "identity", {
       type: "integer",
       consequence: "Edits /etc/pacman.conf. Only affects how fast updates fetch.",
+      needsRoot: true,
     }),
     entry("dns", "network", "DNS", "identity", {
       type: "string",
       consequence:
         "All name lookups go to a different resolver. A wrong value takes the network down until you change it back.",
+    }),
+
+    // Sound
+    entry("audioOutputVolume", "sound", "Output volume", "behavior", {
+      type: "integer",
+      consequence: "Speaker volume jumps to the exported level the moment this applies.",
+    }),
+    entry("audioInputVolume", "sound", "Input volume", "behavior", {
+      type: "integer",
+      consequence: "Microphone level changes, which callers hear before you do.",
+    }),
+    entry("audioOutputMuted", "sound", "Output muted", "behavior", {
+      type: "boolean",
+      consequence: "Muting the output silences everything until you unmute it.",
+    }),
+    entry("audioInputMuted", "sound", "Input muted", "behavior", {
+      type: "boolean",
+      consequence: "Muting the microphone is silent from your side; nobody hears you.",
+    }),
+    entry("audioTuningOn", "sound", "Audio tuning", "look", { type: "boolean" }),
+
+    // Power
+    entry("powerProfileAc", "power", "Profile on mains", "behavior", {
+      type: "string",
+      options: "powerProfiles",
+      consequence: "Changes how hard the machine runs while plugged in.",
+    }),
+    entry("powerProfileBattery", "power", "Profile on battery", "behavior", {
+      type: "string",
+      options: "powerProfiles",
+      consequence: "Changes the trade between speed and battery life when unplugged.",
+    }),
+    entry("suspendEnabled", "power", "Suspend", "behavior", {
+      type: "boolean",
+      consequence: "Turning suspend off means a closed lid keeps running and draining.",
+    }),
+    entry("crashCapture", "power", "Capture crashes", "look", { type: "boolean" }),
+
+    // Bar widgets
+    entry("clockBirthYear", "bar", "Birth year", "look", { type: "integer" }),
+    entry("clockLifeExpectancy", "bar", "Life expectancy", "look", { type: "integer" }),
+    entry("indicatorsAlwaysShow", "bar", "Always show indicators", "look", { type: "boolean" }),
+    entry("powerShowPercentage", "bar", "Battery percentage", "look", { type: "boolean" }),
+    entry("spacerSize", "bar", "Spacer width", "look", { type: "integer" }),
+    entry("weatherLocation", "bar", "Weather location", "look", {
+      type: "string",
+      consequence:
+        "The bar reports weather for the exported town, which is rarely the one you are in.",
+    }),
+    entry("weatherUnit", "bar", "Weather unit", "look", { type: "string" }),
+    entry("weatherRefreshMinutes", "bar", "Weather refresh", "look", { type: "integer" }),
+    entry("agentsRefreshIntervalSec", "bar", "Agents refresh", "look", { type: "integer" }),
+    entry("agentsSync", "bar", "Sync agents", "behavior", {
+      type: "boolean",
+      consequence: "Turning sync on starts writing an agents file into the folder below.",
+    }),
+    entry("agentsSyncDir", "bar", "Agents sync folder", "behavior", {
+      type: "string",
+      hostBound: true,
+      consequence: "A folder from another machine will not exist here.",
+    }),
+    entry("agentsSyncFileName", "bar", "Agents sync file", "look", { type: "string" }),
+
+    // Appearance and boot
+    entry("plymouth", "appearance", "Boot theme", "look", {
+      type: "string",
+      options: "plymouthThemes",
+      consequence: "Changes the splash shown while the machine starts.",
+    }),
+    // screensaverBranded and aboutBranded are reported by the snapshot as
+    // booleans, but the writer takes image, text, or reset. There is no
+    // honest mapping from true back to one of those, so they stay out.
+
+    // Devices. Tied to this machine's hardware, so they travel badly.
+    entry("touchpadEnabled", "input", "Touchpad", "behavior", {
+      type: "boolean",
+      hostBound: true,
+      consequence:
+        "Turning the touchpad off on a laptop with no mouse attached leaves you without a pointer.",
+    }),
+    entry("touchscreenEnabled", "input", "Touchscreen", "behavior", {
+      type: "boolean",
+      hostBound: true,
+    }),
+    entry("bluetooth", "network", "Bluetooth radio", "behavior", {
+      type: "boolean",
+      hostBound: true,
+      consequence:
+        "Turning the radio off drops every connected device, including a mouse or headset.",
+    }),
+
+    // Lists. A whole list is replaced at once, because these are the
+    // settings people actually mean when they say they want to hand someone
+    // their desktop.
+    listEntry("bindings", "Keybindings", {
+      consequence:
+        "Your Super-key shortcuts are replaced. Imported bindings become the block Atmos manages in bindings.lua; bindings you wrote by hand stay where they are.",
+    }),
+    listEntry("windowRules", "Window rules", {
+      consequence:
+        "Rules about which windows float, centre, or open on a given workspace are replaced. Rules naming an app you do not have simply never match.",
+    }),
+    listEntry("indicatorsItems", "Bar indicators", {
+      consequence: "Replaces which indicators the bar shows and in what order.",
+    }),
+    listEntry("trayHidden", "Hidden tray icons", {
+      consequence:
+        "Replaces which tray icons are folded away. Icons for apps you do not have simply never appear.",
+    }),
+    listEntry("trayPinned", "Pinned tray icons", {
+      consequence: "Replaces which tray icons stay visible.",
+    }),
+    listEntry("autostart", "Startup programs", {
+      consequence:
+        "The programs Hyprland launches at login are replaced. A program you do not have installed fails quietly at the next login.",
     }),
 
     // Report only. No importer, by design.
@@ -219,9 +340,13 @@ function entry(key, section, label, tier, opts) {
     section: section,
     label: label,
     tier: tier,
+    kind: String(o.kind || "scalar"),
     type: String(o.type || "string"),
     options: String(o.options || ""),
     hostBound: o.hostBound === true,
+    // Written by a script that raises privileges with pkexec, so applying it
+    // pops a password dialog.
+    needsRoot: o.needsRoot === true,
     consequence: String(o.consequence || ""),
     importable: tier !== "system",
   };
@@ -229,6 +354,18 @@ function entry(key, section, label, tier, opts) {
 
 function report(key, section, label) {
   return entry(key, section, label, "system", {});
+}
+
+// A list setting is its own section, so the block that carries it is named
+// for the setting itself: ```json atmos:bindings.
+function listEntry(key, label, opts) {
+  var o = opts || {};
+  return entry(key, key, label, "behavior", {
+    kind: "list",
+    type: "list",
+    consequence: o.consequence,
+    hostBound: o.hostBound === true,
+  });
 }
 
 function catalogByKey(catalog) {
@@ -269,6 +406,34 @@ function settingsSections() {
       title: "Network",
       note: "Resolver choice. Wi-Fi passwords are never exported.",
     },
+    {
+      id: "sound",
+      title: "Sound",
+      note: "Volumes and muting. These take effect the moment they apply.",
+    },
+    { id: "power", title: "Power", note: "Profiles on mains and battery, suspend, crash capture." },
+    {
+      id: "bindings",
+      title: "Keybindings",
+      note: "Every shortcut, Super key and all. The list is replaced whole.",
+    },
+    {
+      id: "windowRules",
+      title: "Window rules",
+      note: "Which windows float, centre, or open somewhere specific.",
+    },
+    {
+      id: "indicatorsItems",
+      title: "Bar indicators",
+      note: "Which indicators the bar shows, in order.",
+    },
+    {
+      id: "trayHidden",
+      title: "Hidden tray icons",
+      note: "Tray icons folded away behind the chevron.",
+    },
+    { id: "trayPinned", title: "Pinned tray icons", note: "Tray icons kept visible." },
+    { id: "autostart", title: "Startup programs", note: "What Hyprland launches when you log in." },
     { id: "system", title: "System", note: "Machine identity. Off by default when you import." },
     {
       id: "security",
@@ -295,6 +460,53 @@ function presetKeys(preset, catalog) {
     if (want === "portable" && item.tier === "identity") continue;
     if (want === "portable" && item.hostBound) continue;
     out.push(item.key);
+  }
+  return out;
+}
+
+// The importable keys in one section, for a UI that offers sections rather
+// than one switch per setting.
+function sectionKeys(section, catalog) {
+  var list = catalog || settingsCatalog();
+  var want = String(section || "");
+  var out = [];
+  for (var i = 0; i < list.length; i++) {
+    if (list[i].section !== want) continue;
+    if (!list[i].importable) continue;
+    out.push(list[i].key);
+  }
+  return out;
+}
+
+// The sections worth offering: the ones that hold something you can carry.
+// The security section is reported either way and never has a switch.
+function selectableSections(catalog) {
+  var list = catalog || settingsCatalog();
+  var sections = settingsSections();
+  var out = [];
+  for (var i = 0; i < sections.length; i++) {
+    var keys = sectionKeys(sections[i].id, list);
+    if (keys.length === 0) continue;
+    out.push({
+      id: sections[i].id,
+      title: sections[i].title,
+      note: sections[i].note,
+      count: keys.length,
+      // Identity belongs to one machine, so it starts switched off.
+      byDefault: sections[i].id !== "system",
+    });
+  }
+  return out;
+}
+
+function keysForSections(ids, catalog) {
+  var list = catalog || settingsCatalog();
+  var want = keyLookup(ids);
+  var out = [];
+  for (var i = 0; i < list.length; i++) {
+    if (!list[i].importable) continue;
+    if (!want[list[i].section]) continue;
+    out.push(list[i].key);
   }
   return out;
 }
@@ -353,6 +565,7 @@ function exportMarkdown(snapshot, keys, meta) {
     var section = sections[s];
     var body = [];
     var reported = [];
+    var listBlocks = [];
     for (var i = 0; i < catalog.length; i++) {
       var item = catalog[i];
       if (item.section !== section.id) continue;
@@ -363,9 +576,14 @@ function exportMarkdown(snapshot, keys, meta) {
         continue;
       }
       if (!selected[item.key]) continue;
+      if (item.kind === "list") {
+        if (!Array.isArray(value)) continue;
+        listBlocks.push({ key: item.key, value: value });
+        continue;
+      }
       body.push(tomlLine(item.key, value));
     }
-    if (body.length === 0 && reported.length === 0) continue;
+    if (body.length === 0 && reported.length === 0 && listBlocks.length === 0) continue;
 
     lines.push("## " + section.title);
     lines.push("");
@@ -381,9 +599,25 @@ function exportMarkdown(snapshot, keys, meta) {
       lines.push("```");
       lines.push("");
     }
+    // A list is JSON rather than TOML-lite. Rows have shape, and inventing a
+    // table syntax to avoid one JSON.parse would be a worse trade.
+    for (var b2 = 0; b2 < listBlocks.length; b2++) {
+      lines.push("```json atmos:" + listBlocks[b2].key);
+      lines.push(jsonBlock(listBlocks[b2].value));
+      lines.push("```");
+      lines.push("");
+    }
   }
 
   return lines.join("\n").replace(/\n+$/, "") + "\n";
+}
+
+// One row per line: long enough to read, short enough to diff.
+function jsonBlock(list) {
+  var rows = [];
+  for (var i = 0; i < list.length; i++) rows.push("  " + JSON.stringify(list[i]));
+  if (rows.length === 0) return "[]";
+  return "[\n" + rows.join(",\n") + "\n]";
 }
 
 function keyLookup(keys) {
@@ -401,6 +635,7 @@ function quotedOr(value, fallback) {
 function displayValue(value) {
   if (value === true) return "on";
   if (value === false) return "off";
+  if (Array.isArray(value)) return countLabel(value.length, "entry", "entries");
   return String(value);
 }
 
@@ -411,26 +646,32 @@ function parseSettingsMarkdown(text) {
   var sections = {};
   var errors = [];
   var open = "";
+  var openKind = "toml";
   var buffer = [];
 
   for (var i = 0; i < lines.length; i++) {
     var line = lines[i];
     var trimmed = line.replace(/^\s+|\s+$/g, "");
     if (!open) {
-      var start = trimmed.match(/^```\s*toml\s+atmos:([a-z][a-z0-9-]*)\s*$/);
+      var start = trimmed.match(/^```\s*(toml|json)\s+atmos:([A-Za-z][A-Za-z0-9-]*)\s*$/);
       if (start) {
-        open = start[1];
+        openKind = start[1];
+        open = start[2];
         buffer = [];
       }
       continue;
     }
     if (trimmed === "```") {
-      var parsed = parseTomlLite(buffer, open, errors);
+      var parsed =
+        openKind === "json"
+          ? parseJsonBlock(buffer, open, errors)
+          : parseTomlLite(buffer, open, errors);
       if (!sections[open]) sections[open] = {};
       for (var key in parsed) {
         if (Object.prototype.hasOwnProperty.call(parsed, key)) sections[open][key] = parsed[key];
       }
       open = "";
+      openKind = "toml";
       buffer = [];
       continue;
     }
@@ -442,6 +683,21 @@ function parseSettingsMarkdown(text) {
   var meta = sections.meta || {};
   delete sections.meta;
   return { meta: meta, sections: sections, errors: errors };
+}
+
+function parseJsonBlock(lines, name, errors) {
+  var out = {};
+  try {
+    var value = JSON.parse((lines || []).join("\n"));
+    if (!Array.isArray(value)) {
+      errors.push("atmos:" + name + " is not a list");
+      return out;
+    }
+    out[name] = value;
+  } catch (e) {
+    errors.push("atmos:" + name + " is not readable JSON");
+  }
+  return out;
 }
 
 function parseTomlLite(lines, section, errors) {
@@ -611,6 +867,17 @@ function planImport(doc, snapshot, keys, options) {
       if (selected && !selected[key]) continue;
 
       var to = values[key];
+      var from = readValue(snap, key);
+
+      // Settled before anything is validated. A value the machine already
+      // holds needs no permission to stay: plymouth reports "default" as
+      // its theme while the installable themes list does not contain it,
+      // so validating first would refuse the machine its own setting.
+      if (sameValue(from, to)) {
+        unchanged.push(key);
+        continue;
+      }
+
       if (!typeMatches(item.type, to)) {
         blocked.push({
           key: key,
@@ -620,12 +887,27 @@ function planImport(doc, snapshot, keys, options) {
       }
       if (item.options) {
         var allowed = readValue(snap, item.options);
-        if (Array.isArray(allowed) && allowed.length > 0 && !allowedContains(allowed, to)) {
-          blocked.push({
+        if (Array.isArray(allowed) && allowed.length > 0) {
+          if (!allowedContains(allowed, to)) {
+            blocked.push({
+              key: key,
+              reason: displayValue(to) + " is not available on this machine.",
+            });
+            continue;
+          }
+        } else {
+          // Refusing everything on a machine that cannot list its own options
+          // would be worse than letting it through, but saying nothing would
+          // leave the check looking exact when it was never made.
+          warnings.push({
             key: key,
-            reason: displayValue(to) + " is not available on this machine.",
+            message:
+              "This machine did not report which " +
+              item.label.toLowerCase() +
+              " values it has, so " +
+              displayValue(to) +
+              " could not be checked. It may fail when applied.",
           });
-          continue;
         }
       }
       if (item.hostBound && differentHardware) {
@@ -635,11 +917,21 @@ function planImport(doc, snapshot, keys, options) {
         });
         continue;
       }
-
-      var from = readValue(snap, key);
-      if (sameValue(from, to)) {
-        unchanged.push(key);
-        continue;
+      // The sentinel writers add a block of their own and leave whatever you
+      // wrote by hand where it is. Importing a list Atmos does not already
+      // own therefore leaves two copies of those rows in the file, with the
+      // Atmos block winning. That is worth saying before it happens.
+      var handWritten = unmanagedCount(from);
+      if (handWritten > 0) {
+        warnings.push({
+          key: key,
+          message:
+            countLabel(handWritten, "row", "rows") +
+            " of your current " +
+            item.label.toLowerCase() +
+            " are written by hand in the config file. Atmos writes its own block and leaves those lines alone, " +
+            "so they stay in the file with the imported ones taking effect.",
+        });
       }
       changes.push({
         key: key,
@@ -658,6 +950,35 @@ function planImport(doc, snapshot, keys, options) {
   });
   unchanged.sort();
   return result(changes, unchanged, warnings, blocked);
+}
+
+// How many of these will stop and ask for a password. Each writer raises
+// privileges on its own, so they ask one at a time rather than once.
+function passwordCount(plan) {
+  var list = (plan && plan.changes) || [];
+  var byKey = catalogByKey();
+  var n = 0;
+  for (var i = 0; i < list.length; i++) {
+    var item = byKey[list[i].key];
+    if (item && item.needsRoot) n++;
+  }
+  return n;
+}
+
+// What to expect before pressing the button: how much, how long, and
+// whether it will interrupt you.
+function applyForecast(plan) {
+  var changes = ((plan && plan.changes) || []).length;
+  if (changes === 0) return "";
+  var asks = passwordCount(plan);
+  var lines = [countLabel(changes, "change", "changes") + ", a few seconds."];
+  if (asks > 0) {
+    lines.push(
+      countLabel(asks, "change asks", "changes ask") +
+        " for your password, and they ask one at a time. Cancelling one skips that change and the rest carry on.",
+    );
+  }
+  return lines.join("\n");
 }
 
 function result(changes, unchanged, warnings, blocked) {
@@ -684,6 +1005,7 @@ function countLabel(n, one, many) {
 }
 
 function typeMatches(type, value) {
+  if (type === "list") return Array.isArray(value);
   if (type === "boolean") return value === true || value === false;
   if (type === "integer")
     return typeof value === "number" && isFinite(value) && Math.floor(value) === value;
@@ -708,19 +1030,150 @@ function allowedContains(list, value) {
   return false;
 }
 
+// Rows the snapshot says live outside the block Atmos manages.
+function unmanagedCount(value) {
+  if (!Array.isArray(value)) return 0;
+  var n = 0;
+  for (var i = 0; i < value.length; i++) {
+    var row = value[i];
+    if (row && typeof row === "object" && row.managed === false) n++;
+  }
+  return n;
+}
+
 function sameValue(a, b) {
   if (typeof a === "number" && typeof b === "number") return Math.abs(a - b) < 1e-9;
+  if (Array.isArray(a) && Array.isArray(b)) return JSON.stringify(a) === JSON.stringify(b);
   return a === b;
 }
 
-// Every change the plan carries, as the argument list its writer takes.
-// The executor is `scripts/apply-settings.sh`; this keeps the shape in one
-// place so the review screen and the executor cannot disagree.
+// A name that says what the file is, whose machine it came from, and when
+// it was taken, because these files pile up in a downloads folder and
+// "atmos-settings.md" tells you nothing about which one you want.
+//
+//   atmos-export-vic-2026-09-03-1930.md
+//
+// Local time rather than UTC: the person reading the folder listing is the
+// person who made it. The date leads the time so the names sort by age.
+function exportFileName(hostname, when) {
+  var host = fileSafe(hostname);
+  // Duck-typed rather than instanceof: a Date made in another QML or JS
+  // context is not an instance of this context's Date.
+  var usable = !!when && typeof when.getTime === "function" && !isNaN(when.getTime());
+  var date = usable ? when : new Date();
+  var stamp =
+    date.getFullYear() +
+    "-" +
+    pad2(date.getMonth() + 1) +
+    "-" +
+    pad2(date.getDate()) +
+    "-" +
+    pad2(date.getHours()) +
+    pad2(date.getMinutes());
+  return "atmos-export-" + (host.length > 0 ? host + "-" : "") + stamp + ".md";
+}
+
+// Hostnames are usually tame, but a name is only useful if it is also a
+// filename, so anything that is not a letter, digit, or dash goes.
+function fileSafe(value) {
+  return String(value === null || value === undefined ? "" : value)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 40);
+}
+
+function pad2(n) {
+  return n < 10 ? "0" + n : String(n);
+}
+
+// What the file says about itself. A plan tells you what would change; this
+// tells you what you are about to trust, which is the other half of reading
+// a settings file before running it.
+function fileSummary(doc, plan) {
+  var meta = (doc && doc.meta) || {};
+  var sections = (doc && doc.sections) || {};
+  var lines = [];
+
+  var host = String(meta.hostname || "");
+  var when = String(meta.exported || "");
+  if (host || when) {
+    lines.push(
+      "From " +
+        (host || "an unnamed machine") +
+        (when
+          ? ", exported " + when.replace("T", " ").replace(/\..*$/, "").replace("Z", " UTC")
+          : ""),
+    );
+  }
+
+  var hardware = String(meta.hardware || "");
+  if (hardware) lines.push("Hardware: " + hardware);
+
+  var names = [];
+  for (var id in sections) {
+    if (Object.prototype.hasOwnProperty.call(sections, id)) names.push(id);
+  }
+  names.sort();
+  if (names.length > 0)
+    lines.push(countLabel(names.length, "section", "sections") + ": " + names.join(", "));
+
+  if (plan) {
+    var settled = plan.unchanged.length;
+    if (settled > 0) lines.push(settled + " of these already match this machine.");
+  }
+
+  return lines.join("\n");
+}
+
+// ---------------------------------------------------------------------------
+// Rendering a plan
+// ---------------------------------------------------------------------------
+//
+// The page shows these as text. Building them here rather than in QML keeps
+// the wording under test.
+
+function changeLines(plan) {
+  var list = (plan && plan.changes) || [];
+  var out = [];
+  for (var i = 0; i < list.length; i++) {
+    var change = list[i];
+    var line = "• " + change.label + ": " + shownValue(change.from) + " → " + shownValue(change.to);
+    if (change.consequence) line += "\n    " + change.consequence;
+    out.push(line);
+  }
+  return out.join("\n");
+}
+
+function warningLines(plan) {
+  var list = (plan && plan.warnings) || [];
+  var out = [];
+  for (var i = 0; i < list.length; i++) out.push("• " + list[i].message);
+  return out.join("\n");
+}
+
+function blockedLines(plan) {
+  var list = (plan && plan.blocked) || [];
+  var out = [];
+  for (var i = 0; i < list.length; i++) out.push("• " + list[i].reason);
+  return out.join("\n");
+}
+
+// A value as a person would read it, including the ones that are absent.
+function shownValue(value) {
+  if (value === null || value === undefined || value === "") return "not set";
+  return displayValue(value);
+}
+
+// The plan as the executor reads it. `scripts/apply-settings.sh` takes this
+// on stdin, so the review screen and the executor cannot disagree about what
+// is being applied. Each change carries `from` as well as `value`, which is
+// what lets the executor write an undo plan before it touches anything.
 function planToJson(plan) {
   var list = (plan && plan.changes) || [];
   var out = [];
   for (var i = 0; i < list.length; i++) {
-    out.push({ key: list[i].key, value: list[i].to });
+    out.push({ key: list[i].key, value: list[i].to, from: list[i].from });
   }
   return JSON.stringify({ schema: SETTINGS_SCHEMA, changes: out });
 }

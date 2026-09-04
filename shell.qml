@@ -42,7 +42,8 @@ ShellRoot {
     { id: "hooks", title: "Hooks", group: "apps", icon: "code-s-slash-line", keywords: "hook script theme-set font-set post-boot post-update pacman battery-low" },
     { id: "security", title: "Security", group: "admin", icon: "shield-keyhole-line", keywords: "fingerprint fido2 yubikey ssh sshd sudo passwordless docker pam u2f" },
     { id: "accounts", title: "Accounts", group: "admin", icon: "user-3-line", keywords: "account avatar face icon picture sddm user group password passwd login wheel admin docker useradd userdel groupadd usermod chfn gecos full name real name display name chpasswd" },
-    { id: "system", title: "System", group: "admin", icon: "settings-3-line", keywords: "crash capture diagnostics coredump weather location city forecast coordinates latitude longitude gps units celsius fahrenheit metric imperial refresh interval about logo branding fastfetch timezone tz utc region city date time zoneinfo timedatectl hostname computer machine device name hostnamectl keyboard layout keymap xkb qwerty language input localectl ntp timesync synchronize automatic clock network time locale lang utf-8 i18n translation pacman parallel downloads packages mirrors aur update channel firmware orphan prune version printer cups print restore hyprland shell restart atmos git pull reset sentinel overrides" }
+    { id: "system", title: "System", group: "admin", icon: "settings-3-line", keywords: "crash capture diagnostics coredump weather location city forecast coordinates latitude longitude gps units celsius fahrenheit metric imperial refresh interval about logo branding fastfetch timezone tz utc region city date time zoneinfo timedatectl hostname computer machine device name hostnamectl keyboard layout keymap xkb qwerty language input localectl ntp timesync synchronize automatic clock network time locale lang utf-8 i18n translation pacman parallel downloads packages mirrors aur update channel firmware orphan prune version printer cups print restore hyprland shell restart atmos git pull reset sentinel overrides" },
+    { id: "export", title: "Import and export", group: "admin", icon: "file-transfer-line", keywords: "import export backup restore settings file markdown md share declare machine profile transfer move migrate copy clone another laptop dotfiles plan dry run review undo revert apply keybindings bindings rules autostart" }
   ]
 
   readonly property var groupedPages: {
@@ -166,6 +167,7 @@ ShellRoot {
   Component { id: accountsPage; AccountsPage { query: root.query } }
   Component { id: hooksPage; HooksPage { query: root.query } }
   Component { id: systemPage; SystemPage { query: root.query } }
+  Component { id: exportPage; ExportPage { query: root.query } }
   Component { id: searchPage; SearchPage { query: root.query; navigator: prefsNavigator } }
 
   readonly property var pageById: ({
@@ -189,7 +191,8 @@ ShellRoot {
     security: securityPage,
     accounts: accountsPage,
     hooks: hooksPage,
-    system: systemPage
+    system: systemPage,
+    export: exportPage,
   })
 
   IpcHandler {

@@ -40,7 +40,10 @@ if [[ $remix_count -lt 24 ]]; then
 fi
 echo "ok - remix line icons are present"
 
-node tests/parse.test.js
+shopt -s nullglob
+for t in tests/*.test.js; do
+  node "$t"
+done
 
 catalog=$(mktemp)
 snapshot=$(mktemp)

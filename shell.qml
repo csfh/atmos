@@ -97,6 +97,10 @@ ShellRoot {
     return "ok"
   }
 
+  function submitSudoPassword() {
+    Omarchy.confirmSudoMode(sudoPassword.currentText())
+  }
+
   QtObject {
     id: prefsNavigator
     function go(path) {
@@ -520,21 +524,82 @@ ShellRoot {
       }
     }
 
-    PrefsConfirm {
-      id: sudoModeConfirm
-      title: "Sudo mode"
-      message: "This change needs root. Enable passwordless sudo for " + Omarchy.sudoMinutes + " minutes so Atmos can run it? Anything else running as you can use sudo without a password until then."
-      confirmText: "Enable"
-      destructive: false
-      onConfirmed: Omarchy.confirmSudoMode()
-      onCanceled: Omarchy.cancelSudoMode()
+    PrefsDialog {
+      id: sudoModeDialog
+      title: "Administrator password"
+      closePolicy: Popup.CloseOnEscape
+
+      PrefsText {
+        width: parent.width
+        text: Omarchy.sudoEnabling
+          ? "Unlocking sudo…"
+          : "This change needs your password. Sudo then stays unlocked for " + Omarchy.sudoMinutes + " minutes. Agents and anything else running as you can use it until then."
+        color: Theme.muted
+        font.family: Theme.fontFamily
+        font.pixelSize: Theme.captionSize
+      }
+
+      PrefsPassword {
+        id: sudoPassword
+        width: parent.width
+        placeholder: "Password"
+        enabled: !Omarchy.sudoEnabling
+        onSubmitted: function() { root.submitSudoPassword() }
+      }
+
+      PrefsText {
+        width: parent.width
+        visible: Omarchy.sudoError.length > 0
+        text: Omarchy.sudoError
+        color: Theme.urgent
+        font.family: Theme.fontFamily
+        font.pixelSize: Theme.captionSize
+      }
+
+      Row {
+        anchors.right: parent.right
+        spacing: Theme.space
+
+        PrefsButton {
+          text: "Cancel"
+          enabled: !Omarchy.sudoEnabling
+          onClicked: {
+            sudoModeDialog.close()
+            Omarchy.cancelSudoMode()
+          }
+        }
+
+        PrefsButton {
+          text: "Continue"
+          primary: true
+          enabled: !Omarchy.sudoEnabling
+          onClicked: root.submitSudoPassword()
+        }
+      }
+
+      onClosed: {
+        sudoPassword.clear()
+        if (Omarchy.sudoPromptOpen && !Omarchy.sudoEnabling)
+          Omarchy.cancelSudoMode()
+      }
     }
 
     Connections {
       target: Omarchy
       function onSudoPromptOpenChanged() {
-        if (Omarchy.sudoPromptOpen) sudoModeConfirm.ask()
-        else if (sudoModeConfirm.visible) sudoModeConfirm.close()
+        if (Omarchy.sudoPromptOpen) {
+          if (!sudoModeDialog.visible) sudoPassword.clear()
+          sudoModeDialog.open()
+          Qt.callLater(function() { sudoPassword.focusInput() })
+        } else if (sudoModeDialog.visible) {
+          sudoModeDialog.close()
+        }
+      }
+      function onSudoErrorChanged() {
+        if (Omarchy.sudoError.length > 0) {
+          sudoPassword.clear()
+          Qt.callLater(function() { sudoPassword.focusInput() })
+        }
       }
     }
 

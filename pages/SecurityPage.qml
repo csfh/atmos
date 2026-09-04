@@ -48,14 +48,6 @@ PrefsPage {
   }
 
   PrefsConfirm {
-    id: passwordlessOnConfirm
-    title: "Passwordless sudo"
-    message: "Any process under this account can run root commands without a password for " + Omarchy.sudoMinutes + " minutes. That includes agents and anything else logged in as you."
-    confirmText: "Enable"
-    onConfirmed: Omarchy.enablePasswordlessSudo(root.sudoMinutes)
-  }
-
-  PrefsConfirm {
     id: passwordlessOffConfirm
     title: "Turn off passwordless sudo"
     message: "Sudo will ask for a password again."
@@ -117,7 +109,6 @@ PrefsPage {
     fido2SetupConfirm.parent = root.prefsOverlay
     fido2RemoveConfirm.parent = root.prefsOverlay
     sshdDisableConfirm.parent = root.prefsOverlay
-    passwordlessOnConfirm.parent = root.prefsOverlay
     passwordlessOffConfirm.parent = root.prefsOverlay
     dockerOnConfirm.parent = root.prefsOverlay
     dockerOffConfirm.parent = root.prefsOverlay
@@ -262,7 +253,7 @@ PrefsPage {
           visible: !Omarchy.passwordlessSudo
           text: "Enable…"
           enabled: !Omarchy.jobBusy && !Omarchy.passwordlessSudo
-          onClicked: passwordlessOnConfirm.ask()
+          onClicked: Omarchy.requestSudoMode()
         }
         PrefsButton {
           visible: Omarchy.passwordlessSudo

@@ -607,6 +607,15 @@ fi
 
 if [[ -x scripts/as-root.sh ]]; then
   echo "ok - as-root.sh is executable"
+  if ! grep -q 'ATMOS_SUDO_ASK' scripts/as-root.sh; then
+    echo "not ok - as-root.sh missing ATMOS_SUDO_ASK"
+    exit 1
+  fi
+  if ! grep -q 'sudo -S' scripts/as-root.sh; then
+    echo "not ok - as-root.sh missing sudo -S"
+    exit 1
+  fi
+  echo "ok - as-root.sh can take a password on stdin"
 else
   echo "not ok - as-root.sh is not executable"
   exit 1

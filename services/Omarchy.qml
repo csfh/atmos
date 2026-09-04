@@ -296,6 +296,7 @@ QtObject {
   property int sudoMinutes: 15
   property bool sudoPromptOpen: false
   property bool sudoEnabling: false
+  property string sudoError: ""
   property var sudoPendingJob: null
   property bool sudolessDocker: false
   property string omarchyVersion: ""
@@ -1174,6 +1175,7 @@ QtObject {
     if (!job) return
     if (job.sudo && !passwordlessSudo) {
       sudoPendingJob = job
+      sudoError = ""
       sudoPromptOpen = true
       return
     }
@@ -1181,10 +1183,22 @@ QtObject {
     kickIo()
   }
 
-  function confirmSudoMode() {
-    sudoPromptOpen = false
-    var pending = sudoPendingJob
+  function requestSudoMode() {
+    sudoError = ""
+    sudoPromptOpen = true
+  }
+
+  function confirmSudoMode(password) {
+    password = String(password || "")
+    if (!password || password.indexOf("\n") !== -1) {
+      sudoError = "Password cannot be empty."
+      sudoPromptOpen = true
+      return
+    }
+    sudoError = ""
     if (passwordlessSudo) {
+      sudoPromptOpen = false
+      var pending = sudoPendingJob
       sudoPendingJob = null
       if (pending) {
         pending.sudo = false
@@ -1194,13 +1208,14 @@ QtObject {
       return
     }
     sudoEnabling = true
-    enablePasswordlessSudo(sudoMinutes)
+    enablePasswordlessSudo(sudoMinutes, password)
   }
 
   function cancelSudoMode() {
     sudoPromptOpen = false
     sudoPendingJob = null
     sudoEnabling = false
+    sudoError = ""
   }
 
   function runJob(argv, stdinText, kind, opts) {
@@ -2237,10 +2252,21 @@ QtObject {
     if (!sshdEnabled && !sshdActive) return
     runJob(["bash", setSshdScript, "disable"], "", "security-sshd-disable", { sudo: true })
   }
-  function enablePasswordlessSudo(minutes) {
+  function enablePasswordlessSudo(minutes, password) {
     minutes = Math.round(Number(minutes))
     if (!isFinite(minutes) || minutes < 1 || minutes > 240) minutes = 15
-    runJob(["bash", setPasswordlessSudoScript, "on", String(minutes)], "", "passwordless-sudo")
+    password = String(password || "")
+    if (!password) {
+      requestSudoMode()
+      return
+    }
+    if (password.indexOf("\n") !== -1) return
+    sudoEnabling = true
+    runJob(
+      ["bash", "-c", "export ATMOS_SUDO_ASK=1; exec \"$1\" on \"$2\"", "atmos-sudo", setPasswordlessSudoScript, String(minutes)],
+      password + "\n",
+      "passwordless-sudo"
+    )
   }
   function disablePasswordlessSudo() {
     if (!passwordlessSudo) return
@@ -3485,6 +3511,8 @@ QtObject {
         root.sudoEnabling = false
         if (exitCode === 0) {
           root.passwordlessSudo = true
+          root.sudoPromptOpen = false
+          root.sudoError = ""
           var pending = root.sudoPendingJob
           root.sudoPendingJob = null
           if (pending) {
@@ -3492,7 +3520,12 @@ QtObject {
             WorkQueue.enqueueWrite(root.ioQueue, pending)
           }
         } else {
-          root.sudoPendingJob = null
+          root.sudoError = "Wrong password."
+          root.sudoPromptOpen = true
+          root.lastError = ""
+          root.jobKind = ""
+          root.ioFinished()
+          return
         }
       }
       if (root.jobKind === "update-check") {

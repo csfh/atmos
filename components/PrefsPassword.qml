@@ -25,6 +25,10 @@ Item {
     field.text = ""
   }
 
+  function focusInput() {
+    field.forceActiveFocus()
+  }
+
   function setText(next) {
     field.text = String(next || "")
   }

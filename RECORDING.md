@@ -538,7 +538,7 @@ This page is inventory. Most of it is read-only.
 
 ### Advanced
 
-**Say:** Passwordless sudo and sudoless Docker. Both are explicit, both confirm.
+**Say:** Passwordless sudo asks for your password in Atmos. Sudoless Docker is a confirm.
 
 **Do:** Hover those rows. Cancel any dialog.
 

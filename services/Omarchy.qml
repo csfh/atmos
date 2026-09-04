@@ -991,6 +991,14 @@ QtObject {
     enqueueRead("all")
   }
 
+  function snapshotRefreshGroup(value) {
+    var g = String(value || "none")
+    if (g === "none" || g === "") return "none"
+    if (g === "look" || g === "rest" || g === "all" || g === "network" || g === "disks" || g === "accounts" || g === "system")
+      return g
+    return "all"
+  }
+
   function runCommand(argv, opts) {
     if (!(argv instanceof Array) || argv.length === 0) return
     opts = opts || {}
@@ -999,7 +1007,7 @@ QtObject {
       argv: argv,
       key: opts.key ? String(opts.key) : "",
       apply: opts.apply && typeof opts.apply === "object" ? opts.apply : null,
-      refresh: opts.refresh === "all" ? "all" : "none",
+      refresh: snapshotRefreshGroup(opts.refresh),
       sudo: opts.sudo === true
     })
   }
@@ -2421,7 +2429,7 @@ QtObject {
     runCommand(["omarchy", "bluetooth", "power", on ? "on" : "off"], {
       key: "bluetooth",
       apply: { bluetooth: on },
-      refresh: "none"
+      refresh: "network"
     })
   }
 
@@ -2497,7 +2505,7 @@ QtObject {
     runCommand(["bash", setWifiConnectionScript, "radio", on ? "on" : "off"], {
       key: "wifiRadio",
       apply: { wifiRadio: on },
-      refresh: "none"
+      refresh: "network"
     })
   }
   function connectEnterpriseWifi(ssid, identity, password) {
@@ -2620,10 +2628,10 @@ QtObject {
     })
   }
   function restartWifi() {
-    runCommand(["omarchy", "restart", "wifi"])
+    runCommand(["omarchy", "restart", "wifi"], { refresh: "network" })
   }
   function restartBluetooth() {
-    runCommand(["omarchy", "restart", "bluetooth"])
+    runCommand(["omarchy", "restart", "bluetooth"], { refresh: "network" })
   }
   function pairBluetoothDevice(address) {
     address = String(address || "")
@@ -3547,8 +3555,8 @@ QtObject {
           root.lastError = ""
       } else {
         root.applyWritePatch(job)
-        if (job && job.refresh !== "none")
-          WorkQueue.enqueueRead(root.ioQueue, "all")
+        if (job && job.refresh && job.refresh !== "none")
+          WorkQueue.enqueueRead(root.ioQueue, job.refresh)
       }
       root.ioFinished()
     }

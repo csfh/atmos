@@ -317,6 +317,20 @@ assertEqual(bt.address, "AA:BB:CC:DD:EE:FF", "bluetoothRow keeps the address");
 assertEqual(bt.name, "Buds", "bluetoothRow keeps the name");
 assert(bt.connected === true, "bluetoothRow coerces connected");
 assert(bt.paired === false, "bluetoothRow coerces unpaired");
+const lists = ui.bluetoothLists([
+  { address: "AA:BB:CC:DD:EE:01", name: "Buds", connected: true, paired: true },
+  { address: "AA:BB:CC:DD:EE:02", deviceName: "Mouse", connected: false, bonded: true },
+  { address: "AA:BB:CC:DD:EE:03", name: "Speaker", connected: false, paired: false },
+  { address: "", name: "skip" },
+]);
+assertEqual(lists.paired.length, 2, "bluetoothLists paired is connected plus known");
+assertEqual(lists.discovered.length, 1, "bluetoothLists discovered is unpaired");
+assertEqual(lists.discovered[0].name, "Speaker", "bluetoothLists keeps discovered name");
+assertEqual(
+  ui.objectList({ 0: "a", 1: "b", length: 2 }).join(","),
+  "a,b",
+  "objectList copies array-like values",
+);
 
 assert(ui.isTimezoneId("America/New_York") === true, "isTimezoneId accepts Area/City");
 assert(ui.isTimezoneId("UTC") === true, "isTimezoneId accepts UTC");

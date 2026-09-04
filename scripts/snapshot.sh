@@ -44,7 +44,7 @@ emit_look_snapshot() {
   background=${background%$'\n'}
   font=$(omarchy_out font current)
   font=${font%$'\n'}
-  text_size=$(omarchy display text size 2>/dev/null | awk '/text size:/{print $3; exit}')
+  text_size=$(omarchy display text size 2>/dev/null | awk '/text size:/{print $3; exit}' || true)
   [[ $text_size =~ ^[0-9]+$ ]] || text_size=12
   stay_awake=$(omarchy_out toggle idle status | jq -r '.enabled // false' 2>/dev/null || true)
   [[ $stay_awake == true ]] || stay_awake=false
@@ -182,7 +182,7 @@ case $dns in
   *) dns="" ;;
 esac
 
-text_size=$(omarchy display text size 2>/dev/null | awk '/text size:/{print $3; exit}')
+text_size=$(omarchy display text size 2>/dev/null | awk '/text size:/{print $3; exit}' || true)
 [[ $text_size =~ ^[0-9]+$ ]] || text_size=12
 
 stay_awake=$(omarchy_out toggle idle status | jq -r '.enabled // false' 2>/dev/null || true)
@@ -252,7 +252,7 @@ fi
 
 wifi_iface=""
 if [[ $wifi_connected == true ]]; then
-  wifi_iface=$(LC_ALL=C nmcli -e no -g DEVICE,TYPE,STATE device status 2>/dev/null | awk -F: '$2 == "wifi" && $3 == "connected" { print $1; exit }')
+  wifi_iface=$(LC_ALL=C nmcli -e no -g DEVICE,TYPE,STATE device status 2>/dev/null | awk -F: '$2 == "wifi" && $3 == "connected" { print $1; exit }' || true)
   [[ $wifi_iface =~ ^[a-zA-Z0-9._-]+$ ]] || wifi_iface=""
 fi
 
@@ -335,7 +335,7 @@ if present bluetoothctl && present jq; then
         | map(capture("^Device (?<address>[0-9A-Fa-f:]{17})(?: (?<name>.*))?$")
           | {address: .address, name: ((.name // "") | if . == "" then .address else . end)});
       ([$connected | parse[] | .address] | unique) as $on
-      | [$paired | parse[] | . + {connected: ($on | index(.address) != null)}]
+      | [$paired | parse[] as $d | $d + {connected: ($on | index($d.address) != null)}]
     ' || true
   )
   [[ -n $bluetooth_devices_json ]] || bluetooth_devices_json='[]'
@@ -737,7 +737,7 @@ if present hyprctl && present jq; then
   [[ -n $monitors_json ]] || monitors_json='[]'
   while IFS= read -r name; do
     [[ $name =~ ^[A-Za-z0-9._-]+$ ]] || continue
-    bright=$(omarchy brightness display --no-osd --monitor "$name" 2>/dev/null | awk 'NR==1 && $1 ~ /^[0-9]+$/ { print $1; exit }')
+    bright=$(omarchy brightness display --no-osd --monitor "$name" 2>/dev/null | awk 'NR==1 && $1 ~ /^[0-9]+$/ { print $1; exit }' || true)
     if [[ $bright =~ ^[0-9]+$ ]]; then
       (( bright > 100 )) && bright=100
       monitors_json=$(jq -c --arg n "$name" --argjson b "$bright" \
@@ -868,7 +868,7 @@ if present timedatectl; then
   fi
   timezones_json=$(timedatectl list-timezones 2>/dev/null | awk '
     /^[A-Za-z0-9/_+-]+$/ && !/\.\./ { print }
-  ' | lines_json)
+  ' | lines_json || true)
 fi
 [[ -n $timezones_json ]] || timezones_json='[]'
 

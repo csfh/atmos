@@ -58,6 +58,75 @@ rm -f "$catalog" "$snapshot"
 echo "ok - SearchIndex.js query hits font and misses network"
 echo "ok - SearchIndex.js state reads snapshot-derived theme"
 
+if command -v jq >/dev/null 2>&1; then
+  paired_list=$'Device AA:BB:CC:DD:EE:FF Headphones\nDevice 11:22:33:44:55:66 Keyboard'
+  connected_list='Device AA:BB:CC:DD:EE:FF Headphones'
+  bt_jq='
+    def parse:
+      split("\n")
+      | map(select(test("^Device ")))
+      | map(capture("^Device (?<address>[0-9A-Fa-f:]{17})(?: (?<name>.*))?$")
+        | {address: .address, name: ((.name // "") | if . == "" then .address else . end)});
+    ([$connected | parse[] | .address] | unique) as $on
+    | [$paired | parse[] as $d | $d + {connected: ($on | index($d.address) != null)}]
+  '
+  bt_json=$(jq -n -c --arg paired "$paired_list" --arg connected "$connected_list" "$bt_jq")
+  echo "$bt_json" | jq -e '
+    length == 2
+    and ([.[] | select(.address == "AA:BB:CC:DD:EE:FF" and .name == "Headphones" and .connected == true)] | length == 1)
+    and ([.[] | select(.address == "11:22:33:44:55:66" and .name == "Keyboard" and .connected == false)] | length == 1)
+  ' >/dev/null
+  echo "ok - bluetooth jq marks connected paired devices without aborting"
+
+  if jq -n -c --arg paired "$paired_list" --arg connected "$connected_list" '
+    def parse:
+      split("\n")
+      | map(select(test("^Device ")))
+      | map(capture("^Device (?<address>[0-9A-Fa-f:]{17})(?: (?<name>.*))?$")
+        | {address: .address, name: ((.name // "") | if . == "" then .address else . end)});
+    ([$connected | parse[] | .address] | unique) as $on
+    | [$paired | parse[] | . + {connected: ($on | index(.address) != null)}]
+  ' >/dev/null 2>&1; then
+    echo "not ok - broken bluetooth jq unexpectedly succeeded"
+    exit 1
+  fi
+  echo "ok - broken bluetooth jq still aborts on paired devices"
+else
+  echo "ok - skipping bluetooth jq (jq not available)"
+fi
+
+if [[ -f scripts/snapshot.sh ]]; then
+  if ! grep -q 'parse\[\] as \$d | \$d + {connected: (\$on | index(\$d.address) != null)}' scripts/snapshot.sh; then
+    echo "not ok - snapshot.sh bluetooth jq still indexes .address against \$on"
+    exit 1
+  fi
+  echo "ok - snapshot.sh bluetooth jq binds each paired device before index()"
+
+  text_size_guards=$(grep -cE 'omarchy display text size .*\| awk .* \|\| true' scripts/snapshot.sh || true)
+  if [[ $text_size_guards -lt 2 ]]; then
+    echo "not ok - text_size probe missing a || true guard"
+    exit 1
+  fi
+  if ! grep -qE 'omarchy brightness display --no-osd --monitor .* \|\| true' scripts/snapshot.sh; then
+    echo "not ok - brightness probe is unguarded"
+    exit 1
+  fi
+  if ! grep -qE 'nmcli -e no -g DEVICE,TYPE,STATE device status .* \|\| true' scripts/snapshot.sh; then
+    echo "not ok - wifi_iface probe is unguarded"
+    exit 1
+  fi
+  if ! grep -A3 'timedatectl list-timezones' scripts/snapshot.sh | grep -q '|| true'; then
+    echo "not ok - timezones probe is unguarded"
+    exit 1
+  fi
+  echo "ok - snapshot.sh best-effort probes are guarded with || true"
+
+  set -euo pipefail
+  guarded=$(false | awk 'NR==1 { print $1; exit }' || true)
+  [[ -z $guarded ]]
+  echo "ok - guarded failing probe does not abort under set -euo pipefail"
+fi
+
 if [[ -x scripts/snapshot.sh ]] && command -v omarchy >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
   look_json=$(bash scripts/snapshot.sh look)
   echo "$look_json" | jq -e '.theme and (.themes | type == "array") and has("font") and has("nightlight")' >/dev/null

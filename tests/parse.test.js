@@ -589,7 +589,7 @@ assert(
 );
 assert(
   !qmlCatalog.some(function (row) {
-    return row.label === "Error banner" || row.label === "Debug";
+    return row.label === "Error dialog" || row.label === "Debug";
   }),
   "qml catalog skips the System Debug group",
 );
@@ -599,7 +599,7 @@ const systemPageSrc = fs.readFileSync(
 );
 assert(
   systemPageSrc.indexOf("Omarchy.showDebugError()") !== -1,
-  "System Debug shows the error banner",
+  "System Debug shows the error dialog",
 );
 const omarchyDebugSrc = fs.readFileSync(
   path.join(__dirname, "..", "services", "Omarchy.qml"),
@@ -746,8 +746,9 @@ assertEqual(
 assertEqual(ui.clipboardPayload("ab\0c"), "", "clipboardPayload drops NULs");
 assertEqual(ui.clipboardPayload("abcdef", { maxLength: 3 }), "abc", "clipboardPayload caps length");
 const shellSrc = fs.readFileSync(path.join(__dirname, "..", "shell.qml"), "utf8");
-assert(shellSrc.indexOf("Omarchy.copyLastError()") !== -1, "error banner copies lastError");
-assert(shellSrc.indexOf("Omarchy.clearLastError()") !== -1, "error banner dismisses lastError");
+assert(shellSrc.indexOf("id: errorDialog") !== -1, "error dialog is a PrefsDialog");
+assert(shellSrc.indexOf("Omarchy.copyLastError()") !== -1, "error dialog copies lastError");
+assert(shellSrc.indexOf("Omarchy.clearLastError()") !== -1, "error dialog dismisses lastError");
 const omarchySrc = fs.readFileSync(path.join(__dirname, "..", "services", "Omarchy.qml"), "utf8");
 assert(omarchySrc.indexOf("function copyLastError()") !== -1, "Omarchy.copyLastError is defined");
 assert(omarchySrc.indexOf("function clearLastError()") !== -1, "Omarchy.clearLastError is defined");

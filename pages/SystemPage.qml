@@ -709,12 +709,12 @@ PrefsPage {
     title: "Debug"
     catalog: false
     query: root.query
-    detail: "Not in Find a setting. Show error paints the banner so you can try Copy and Dismiss without failing a real command."
+    detail: "Not in Find a setting. Show error opens the error dialog so you can try Copy and Dismiss without failing a real command."
 
     PrefsRow {
       catalog: false
-      label: "Error banner"
-      description: "Paint lastError without running a failing command. Copy and Dismiss are on the banner."
+      label: "Error dialog"
+      description: "Set lastError without running a failing command. Copy and Dismiss are on the dialog."
       query: root.query
       sectionHelp: false
 

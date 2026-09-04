@@ -644,63 +644,9 @@ ShellRoot {
 
       }
 
-      Item {
-        id: errorBanner
-        anchors.top: header.bottom
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.leftMargin: Theme.pad * 1.5
-        anchors.rightMargin: Theme.pad * 1.5
-        visible: Omarchy.lastError.length > 0
-        height: visible ? Math.max(errorText.implicitHeight, errorActions.implicitHeight) + Theme.pad : 0
-        Accessible.role: Accessible.AlertMessage
-        Accessible.name: Omarchy.lastError
-
-        Rectangle {
-          anchors.fill: parent
-          color: Theme.urgent
-          opacity: 0.18
-          radius: Theme.radius
-        }
-
-        Text {
-          id: errorText
-          anchors.left: parent.left
-          anchors.right: errorActions.left
-          anchors.leftMargin: 8
-          anchors.rightMargin: 8
-          anchors.verticalCenter: parent.verticalCenter
-          text: Omarchy.lastError
-          color: Theme.urgent
-          wrapMode: Text.WordWrap
-          font.family: Theme.fontFamily
-          font.pixelSize: Theme.captionSize
-        }
-
-        Row {
-          id: errorActions
-          anchors.right: parent.right
-          anchors.rightMargin: 8
-          anchors.verticalCenter: parent.verticalCenter
-          spacing: 8
-
-          PrefsButton {
-            text: "Copy"
-            Accessible.name: "Copy error"
-            onClicked: Omarchy.copyLastError()
-          }
-
-          PrefsButton {
-            text: "Dismiss"
-            Accessible.name: "Dismiss error"
-            onClicked: Omarchy.clearLastError()
-          }
-        }
-      }
-
       StackView {
         id: pageStack
-        anchors.top: errorBanner.bottom
+        anchors.top: header.bottom
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom
@@ -733,6 +679,56 @@ ShellRoot {
                 pageStack.currentItem.openSubpage(sub)
             })
           }
+        }
+      }
+    }
+
+    PrefsDialog {
+      id: errorDialog
+      title: "Error"
+      closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+
+      PrefsText {
+        width: parent.width
+        text: Omarchy.lastError
+        color: Theme.urgent
+        wrapMode: Text.WordWrap
+        font.family: Theme.fontFamily
+        font.pixelSize: Theme.fontSize
+      }
+
+      Row {
+        anchors.right: parent.right
+        spacing: Theme.space
+
+        PrefsButton {
+          text: "Copy"
+          onClicked: Omarchy.copyLastError()
+        }
+
+        PrefsButton {
+          text: "Dismiss"
+          primary: true
+          onClicked: {
+            errorDialog.close()
+            Omarchy.clearLastError()
+          }
+        }
+      }
+
+      onClosed: {
+        if (Omarchy.lastError.length > 0)
+          Omarchy.clearLastError()
+      }
+    }
+
+    Connections {
+      target: Omarchy
+      function onLastErrorChanged() {
+        if (Omarchy.lastError.length > 0) {
+          if (!errorDialog.visible) errorDialog.open()
+        } else if (errorDialog.visible) {
+          errorDialog.close()
         }
       }
     }

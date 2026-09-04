@@ -7,6 +7,7 @@ import "Hardware.js" as HardwareJs
 import "Hooks.js" as HooksJs
 import "RichUi.js" as RichUi
 import "Snapshot.js" as SnapshotJs
+import "Theme.js" as ThemeJs
 import "WorkQueue.js" as WorkQueue
 
 QtObject {
@@ -3206,6 +3207,31 @@ QtObject {
     localtimeFile, hostnameFile, vconsoleFile, localeConfFile, pacmanConfFile
   ]
 
+  function applyThemeNameFromFile() {
+    var slug = String(themeNameWatch.text() || "").replace(/^\s+|\s+$/g, "")
+    var name = ThemeJs.themeNameFromSlug(slug, root.themes)
+    if (!name) return
+    Theme.applyNamedTheme(name)
+    if (name !== root.theme) root.applySnapshot(JSON.stringify({ theme: name }))
+  }
+
+  onThemesChanged: {
+    var mapped = ThemeJs.themeNameFromSlug(root.theme, root.themes)
+    if (mapped && mapped !== root.theme) root.applySnapshot(JSON.stringify({ theme: mapped }))
+  }
+
+  property FileView themeNameWatch: FileView {
+    path: root.currentThemeNameFile
+    watchChanges: true
+    preload: true
+    printErrors: false
+    onFileChanged: {
+      reload()
+      waitForJob()
+      root.applyThemeNameFromFile()
+    }
+  }
+
   property Instantiator fileWatchers: Instantiator {
     model: root.watchPaths
     delegate: FileView {
@@ -3214,11 +3240,6 @@ QtObject {
       printErrors: false
       onFileChanged: {
         reload()
-        if (String(path) === root.currentThemeNameFile) {
-          var name = String(text() || "").replace(/^\s+|\s+$/g, "")
-          if (name && name.indexOf("/") === -1 && name.charAt(0) !== ".")
-            root.applySnapshot(JSON.stringify({ theme: name }))
-        }
         root.scheduleRefresh()
       }
     }

@@ -148,7 +148,13 @@ QtObject {
     watchChanges: true
     preload: true
     printErrors: false
-    onFileChanged: root.reopenThemeFiles()
+    onFileChanged: {
+      reload()
+      waitForJob()
+      var slug = String(text() || "").replace(/^\s+|\s+$/g, "")
+      if (slug) root.applyNamedTheme(slug)
+      root.reopenThemeFiles()
+    }
   }
 
   property FileView colorsFile: FileView {

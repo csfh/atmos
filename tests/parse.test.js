@@ -79,6 +79,21 @@ assertEqual(
 );
 assertEqual(theme.themeSlug("Miasma"), "miasma", "themeSlug lowercases a single word");
 assertEqual(
+  theme.themeNameFromSlug("miasma", ["Catppuccin Latte", "Miasma", "Tokyo Night"]),
+  "Miasma",
+  "themeNameFromSlug maps a slug onto the display name",
+);
+assertEqual(
+  theme.themeNameFromSlug("catppuccin-latte", ["Catppuccin Latte", "Miasma"]),
+  "Catppuccin Latte",
+  "themeNameFromSlug maps a kebab slug onto a spaced name",
+);
+assertEqual(
+  theme.themeNameFromSlug("unknown-theme", ["Miasma"]),
+  "unknown-theme",
+  "themeNameFromSlug keeps an unknown slug",
+);
+assertEqual(
   theme.themeFileCandidates("Catppuccin Latte", "colors.toml", "/home/u", "/usr/share/omarchy")[0],
   "/home/u/.config/omarchy/themes/catppuccin-latte/colors.toml",
   "themeFileCandidates prefers the user overlay",

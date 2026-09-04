@@ -82,6 +82,20 @@ function themeSlug(name) {
     .replace(/ /g, "-");
 }
 
+function themeNameFromSlug(slug, names) {
+  var want = themeSlug(slug);
+  if (!want) return "";
+  var list = names || [];
+  var i;
+  for (i = 0; i < list.length; i++) {
+    var item = list[i];
+    var label =
+      item && typeof item === "object" ? String(item.label || item.value || "") : String(item);
+    if (themeSlug(label) === want) return label;
+  }
+  return want;
+}
+
 function themeFileCandidates(name, rel, home, omarchyPath) {
   var slug = themeSlug(name);
   if (!slug || slug.indexOf("/") !== -1 || slug.charAt(0) === ".") return [];

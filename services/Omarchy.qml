@@ -218,6 +218,9 @@ QtObject {
   property string jobKind: ""
   property string jobLog: ""
   property string jobStdin: ""
+  property string jobStdoutBuf: ""
+  property var jobStdoutLineCb: null
+  property var jobFinishedCb: null
   property var wifiQrRows: []
   property int wifiQrSize: 0
   property string wifiQrSsid: ""
@@ -970,6 +973,9 @@ QtObject {
       jobLog = ""
       jobKind = String(job.jobKind || "")
       jobStdin = String(job.stdin || "")
+      jobStdoutBuf = ""
+      jobStdoutLineCb = typeof job.onStdoutLine === "function" ? job.onStdoutLine : null
+      jobFinishedCb = typeof job.onFinished === "function" ? job.onFinished : null
       jobBusy = true
       if (jobKind === "wifi-qr") {
         wifiQrError = ""
@@ -1247,7 +1253,9 @@ QtObject {
       jobKind: kind,
       key: opts.key ? String(opts.key) : kind,
       refresh: opts.refresh === "none" ? "none" : "all",
-      sudo: opts.sudo === true
+      sudo: opts.sudo === true,
+      onStdoutLine: typeof opts.onStdoutLine === "function" ? opts.onStdoutLine : null,
+      onFinished: typeof opts.onFinished === "function" ? opts.onFinished : null
     })
   }
 
@@ -3557,9 +3565,12 @@ QtObject {
   property Process jobProc: Process {
     command: ["true"]
     stdinEnabled: false
-    stdout: StdioCollector {
-      id: jobOut
-      waitForEnd: true
+    stdout: SplitParser {
+      onRead: function(line) {
+        root.jobStdoutBuf += String(line) + "\n"
+        var cb = root.jobStdoutLineCb
+        if (typeof cb === "function") cb(line)
+      }
     }
     stderr: StdioCollector {
       id: jobErr
@@ -3574,9 +3585,13 @@ QtObject {
     onExited: function(exitCode) {
       var job = root.ioJob
       root.jobBusy = false
-      var out = String(jobOut.text || "").replace(/^\s+|\s+$/g, "")
+      var out = String(root.jobStdoutBuf || "").replace(/^\s+|\s+$/g, "")
       var err = String(jobErr.text || "").replace(/^\s+|\s+$/g, "")
       root.jobLog = out
+      var finished = root.jobFinishedCb
+      root.jobFinishedCb = null
+      root.jobStdoutLineCb = null
+      if (typeof finished === "function") finished(exitCode, out, err)
       if (root.sudoEnabling && root.jobKind === "passwordless-sudo") {
         root.sudoEnabling = false
         if (exitCode === 0) {

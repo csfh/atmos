@@ -143,6 +143,12 @@ const HUBS = [
     description: "Host, locale, updates, and about.",
     keywords: ["hostname", "locale", "update"],
   },
+  {
+    id: "export",
+    title: "Import and export",
+    description: "Write settings to a Markdown file, or review and apply one.",
+    keywords: ["import", "export", "backup", "restore", "markdown"],
+  },
 ];
 
 const FILE_HUB = {
@@ -167,6 +173,7 @@ const FILE_HUB = {
   "AccountsPage.qml": "accounts",
   "HooksPage.qml": "hooks",
   "SystemPage.qml": "system",
+  "ExportPage.qml": "export",
 };
 
 function hubTitle(hub) {

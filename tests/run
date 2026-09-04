@@ -1037,3 +1037,187 @@ if [[ -x scripts/set-atmos-channel.sh ]]; then
 else
   echo "ok - skipping set-atmos-channel.sh"
 fi
+
+if [[ -x scripts/apply-settings.sh ]] && command -v jq >/dev/null 2>&1; then
+  apply_dir=$(mktemp -d)
+  cat >"$apply_dir/snapshot.json" <<'JSON'
+{
+  "theme": "one",
+  "browser": "brave",
+  "idleScreensaver": 300,
+  "idleLock": 600,
+  "stayAwake": false,
+  "barVisible": true,
+  "nightlightDay": "07:00",
+  "nightlightNight": "20:00",
+  "nightlightNightOn": true,
+  "nightlightTemperature": 4000,
+  "hyprLook": { "gapsIn": 5, "gapsOut": 10, "rounding": 0, "layout": "dwindle" }
+}
+JSON
+
+  if bash scripts/apply-settings.sh --dry-run --snapshot "$apply_dir/snapshot.json" \
+    --plan /dev/null >/dev/null 2>&1; then
+    echo "not ok - apply-settings.sh accepted an empty plan file"
+    rm -rf "$apply_dir"
+    exit 1
+  fi
+
+  printf '{"schema":9,"changes":[{"key":"theme","value":"two"}]}' >"$apply_dir/future.json"
+  if bash scripts/apply-settings.sh --dry-run --snapshot "$apply_dir/snapshot.json" \
+    --plan "$apply_dir/future.json" >/dev/null 2>&1; then
+    echo "not ok - apply-settings.sh accepted a newer schema"
+    rm -rf "$apply_dir"
+    exit 1
+  fi
+
+  printf '{"schema":1,"changes":[{"key":"sshdEnabled","value":true}]}' >"$apply_dir/bad-key.json"
+  if bash scripts/apply-settings.sh --dry-run --snapshot "$apply_dir/snapshot.json" \
+    --plan "$apply_dir/bad-key.json" >/dev/null 2>&1; then
+    echo "not ok - apply-settings.sh accepted a key with no writer"
+    rm -rf "$apply_dir"
+    exit 1
+  fi
+
+  cat >"$apply_dir/plan.json" <<'JSON'
+{
+  "schema": 1,
+  "changes": [
+    { "key": "theme", "value": "two", "from": "one" },
+    { "key": "hyprLook.gapsIn", "value": 9, "from": 5 },
+    { "key": "hyprLook.rounding", "value": 8, "from": 0 },
+    { "key": "idleLock", "value": 900, "from": 600 },
+    { "key": "stayAwake", "value": true, "from": false },
+    { "key": "barVisible", "value": true, "from": true }
+  ]
+}
+JSON
+  out=$(bash scripts/apply-settings.sh --dry-run --snapshot "$apply_dir/snapshot.json" \
+    --plan "$apply_dir/plan.json" --backup "$apply_dir/backup")
+
+  looks=$(grep -c 'set-hypr-look.sh' <<<"$out" || true)
+  if [[ $looks -ne 1 ]]; then
+    echo "not ok - apply-settings.sh made $looks look calls for two look changes"
+    rm -rf "$apply_dir"
+    exit 1
+  fi
+  # The sentinel writer replaces the whole block, so the call carries the
+  # settings the plan never mentioned as well as the ones it changed.
+  grep -q '"gapsIn":9' <<<"$out"
+  grep -q '"rounding":8' <<<"$out"
+  grep -q '"gapsOut":10' <<<"$out"
+  grep -q '"layout":"dwindle"' <<<"$out"
+  # A paired writer takes both values, so the one that did not change is read
+  # back from the snapshot rather than lost.
+  grep -q 'set-idle.sh 300 900' <<<"$out"
+  grep -q 'omarchy toggle idle stay-awake' <<<"$out"
+  if grep -q 'toggle bar' <<<"$out"; then
+    echo "not ok - apply-settings.sh toggled the bar that was already on"
+    rm -rf "$apply_dir"
+    exit 1
+  fi
+
+  jq -e '
+    .schema == 1 and
+    (.changes | map(select(.key == "theme")) | .[0].value == "one") and
+    (.changes | map(select(.key == "hyprLook.gapsIn")) | .[0].value == 5)
+  ' "$apply_dir/backup/undo.json" >/dev/null
+
+  if [[ -f $apply_dir/backup/looknfeel.lua ]]; then
+    echo "not ok - a dry run copied a config file"
+    rm -rf "$apply_dir"
+    exit 1
+  fi
+
+  rm -rf "$apply_dir"
+  echo "ok - apply-settings.sh groups writers, pairs values, skips settled toggles, and writes an undo plan"
+else
+  echo "ok - skipping apply-settings.sh"
+fi
+
+if [[ -x scripts/apply-settings.sh ]] && command -v jq >/dev/null 2>&1; then
+  toggle_dir=$(mktemp -d)
+  printf '{"hyprNoGaps":false,"hyprSquareAspect":true}' >"$toggle_dir/snapshot.json"
+  cat >"$toggle_dir/plan.json" <<'JSON'
+{
+  "schema": 1,
+  "changes": [
+    { "key": "hyprNoGaps", "value": true, "from": false },
+    { "key": "hyprSquareAspect", "value": false, "from": true }
+  ]
+}
+JSON
+  out=$(bash scripts/apply-settings.sh --dry-run --snapshot "$toggle_dir/snapshot.json" --plan "$toggle_dir/plan.json")
+  grep -q 'window-no-gaps on' <<<"$out"
+  grep -q 'single-window-aspect-ratio off' <<<"$out"
+  if grep -qE 'window-no-gaps"$|window-no-gaps[[:space:]]*$' <<<"$out"; then
+    echo "not ok - apply-settings.sh queued hyprNoGaps without on/off"
+    rm -rf "$toggle_dir"
+    exit 1
+  fi
+  rm -rf "$toggle_dir"
+  echo "ok - apply-settings.sh sets hyprNoGaps and hyprSquareAspect on or off"
+else
+  echo "ok - skipping apply-settings.sh toggle args"
+fi
+
+if [[ -x scripts/apply-settings.sh ]] && command -v jq >/dev/null 2>&1; then
+  list_dir=$(mktemp -d)
+  printf '{"bindings":[],"autostart":[],"windowRules":[]}' >"$list_dir/snapshot.json"
+  cat >"$list_dir/plan.json" <<'JSON'
+{
+  "schema": 1,
+  "changes": [
+    { "key": "bindings", "from": [],
+      "value": [ { "keys": "SUPER + T", "label": "Term", "command": "kitty", "unbind": false, "managed": false } ] },
+    { "key": "autostart", "from": [],
+      "value": [ { "command": "solaar --window=hide", "managed": false } ] }
+  ]
+}
+JSON
+  out=$(bash scripts/apply-settings.sh --dry-run --snapshot "$list_dir/snapshot.json" --plan "$list_dir/plan.json")
+  grep -q 'set-hypr-bindings.sh' <<<"$out"
+  grep -q 'kitty' <<<"$out"
+  # `managed` says where a row lives today, so it must not reach the writer.
+  if grep -q 'managed' <<<"$out"; then
+    echo "not ok - apply-settings.sh sent the managed flag to a sentinel writer"
+    rm -rf "$list_dir"
+    exit 1
+  fi
+  # autostart takes bare commands, not the rows the snapshot reports. The
+  # managed check above already proves the rows were not passed through.
+  grep -q 'commands' <<<"$out"
+  grep -q 'solaar' <<<"$out"
+  binds=$(grep -c 'set-hypr-bindings.sh' <<<"$out" || true)
+  if [[ $binds -ne 1 ]]; then
+    echo "not ok - apply-settings.sh made $binds bindings calls for one list"
+    rm -rf "$list_dir"
+    exit 1
+  fi
+  rm -rf "$list_dir"
+  echo "ok - apply-settings.sh sends a whole list once and strips the managed flag"
+else
+  echo "ok - skipping apply-settings.sh list dispatch"
+fi
+
+if [[ -x scripts/apply-settings.sh ]] && command -v jq >/dev/null 2>&1; then
+  undo_dir=$(mktemp -d)
+  printf '{"theme":"one"}' >"$undo_dir/snapshot.json"
+  printf '{"schema":1,"changes":[{"key":"theme","value":"two","from":"one"}]}' >"$undo_dir/plan.json"
+  bash scripts/apply-settings.sh --dry-run --snapshot "$undo_dir/snapshot.json" \
+    --plan "$undo_dir/plan.json" --backup "$undo_dir/first" >/dev/null
+  jq -e '.changes[0].value == "one"' "$undo_dir/first/undo.json" >/dev/null
+  # Undoing must not leave a way back of its own, or a second undo would put
+  # the import straight back.
+  bash scripts/apply-settings.sh --dry-run --no-backup --snapshot "$undo_dir/snapshot.json" \
+    --plan "$undo_dir/first/undo.json" --backup "$undo_dir/second" >/dev/null
+  if [[ -f $undo_dir/second/undo.json ]]; then
+    echo "not ok - apply-settings.sh --no-backup still wrote a way back"
+    rm -rf "$undo_dir"
+    exit 1
+  fi
+  rm -rf "$undo_dir"
+  echo "ok - apply-settings.sh --no-backup leaves no way back, so undo does not redo"
+else
+  echo "ok - skipping apply-settings.sh undo"
+fi

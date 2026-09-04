@@ -72,6 +72,32 @@ assertEqual(
 
 const merged = theme.mergeShell({ "font.base-size": "12" }, { "font.base-size": "16" });
 assertEqual(merged["font.base-size"], "16", "user shell.toml wins over theme");
+assertEqual(
+  theme.themeSlug("Catppuccin Latte"),
+  "catppuccin-latte",
+  "themeSlug kebab-cases a display name",
+);
+assertEqual(theme.themeSlug("Miasma"), "miasma", "themeSlug lowercases a single word");
+assertEqual(
+  theme.themeFileCandidates("Catppuccin Latte", "colors.toml", "/home/u", "/usr/share/omarchy")[0],
+  "/home/u/.config/omarchy/themes/catppuccin-latte/colors.toml",
+  "themeFileCandidates prefers the user overlay",
+);
+assertEqual(
+  theme.themeFileCandidates("Catppuccin Latte", "colors.toml", "/home/u", "/usr/share/omarchy")[1],
+  "/usr/share/omarchy/themes/catppuccin-latte/colors.toml",
+  "themeFileCandidates falls back to the packaged theme",
+);
+assertEqual(
+  theme.themeFileCandidates("../x", "colors.toml", "/home/u").length,
+  0,
+  "themeFileCandidates rejects a path slug",
+);
+assertEqual(
+  theme.themeFileCandidates("x", "../colors.toml", "/home/u").length,
+  0,
+  "themeFileCandidates rejects a path file",
+);
 
 assertEqual(theme.formatSeconds(45), "45s", "formatSeconds under a minute");
 assertEqual(theme.formatSeconds(150), "2m 30s", "formatSeconds minutes and seconds");

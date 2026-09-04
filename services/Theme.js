@@ -74,6 +74,27 @@ function parseShell(raw) {
   return parsed;
 }
 
+function themeSlug(name) {
+  return String(name || "")
+    .replace(/<[^>]+>/g, "")
+    .replace(/^\s+|\s+$/g, "")
+    .toLowerCase()
+    .replace(/ /g, "-");
+}
+
+function themeFileCandidates(name, rel, home, omarchyPath) {
+  var slug = themeSlug(name);
+  if (!slug || slug.indexOf("/") !== -1 || slug.charAt(0) === ".") return [];
+  rel = String(rel || "");
+  if (!rel || rel.indexOf("..") !== -1) return [];
+  home = home || "";
+  omarchyPath = omarchyPath || "/usr/share/omarchy";
+  return [
+    home + "/.config/omarchy/themes/" + slug + "/" + rel,
+    omarchyPath + "/themes/" + slug + "/" + rel,
+  ];
+}
+
 function mergeShell(themeValues, userValues) {
   var merged = {};
   var key;

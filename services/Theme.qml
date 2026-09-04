@@ -96,6 +96,36 @@ QtObject {
     userShellFile.reload()
   }
 
+  function readPath(path) {
+    peekFile.path = path
+    peekFile.reload()
+    peekFile.waitForJob()
+    return peekFile.text() || ""
+  }
+
+  function applyNamedTheme(name) {
+    var paths = ThemeJs.themeFileCandidates(name, "colors.toml", root.home)
+    var i
+    var raw = ""
+    for (i = 0; i < paths.length; i++) {
+      raw = root.readPath(paths[i])
+      if (raw) {
+        root.applyColors(raw)
+        break
+      }
+    }
+    paths = ThemeJs.themeFileCandidates(name, "shell.toml", root.home)
+    raw = ""
+    for (i = 0; i < paths.length; i++) {
+      raw = root.readPath(paths[i])
+      if (raw) {
+        root.themeShellValues = ThemeJs.parseShell(raw)
+        root.mergeShell()
+        break
+      }
+    }
+  }
+
   // omarchy-theme-set rm -rf's current/theme then mv's a new directory in.
   // FileView watches the old inode, so bounce the path onto the new files.
   function reopenThemeFiles() {
@@ -108,9 +138,15 @@ QtObject {
     userShellFile.reload()
   }
 
+  property FileView peekFile: FileView {
+    printErrors: false
+    blockLoading: true
+  }
+
   property FileView themeNameFile: FileView {
     path: root.currentThemeNameFile
     watchChanges: true
+    preload: true
     printErrors: false
     onFileChanged: root.reopenThemeFiles()
   }

@@ -1176,6 +1176,7 @@ QtObject {
   function setTheme(name) {
     name = String(name || "")
     if (!name || name === theme) return
+    Theme.applyNamedTheme(name)
     runCommand(["omarchy", "theme", "set", name], {
       key: "theme",
       apply: { theme: name },

@@ -2,6 +2,25 @@
 
 Notable changes to Atmos. Each section is a git tag on `main` and `alpha`. Install and in-app Update follow the `alpha` branch.
 
+## [v0.0.1-alpha.7] - 2026-09-04
+
+### Added
+
+- Failed settings work opens a centered **Error** dialog. Copy puts the message on the clipboard. Dismiss clears it. **Ask my Agent to work on this** launches the default coding agent with that error, the same path as Omarchy's crash toast (`omarchy agent prompt`).
+- **Debug** at the bottom of System. Show error paints a sample `lastError` so you can try the dialog. Find a setting does not list it.
+- GitHub Actions runs `./tests/run` on pull requests and on pushes to `main` and `alpha`. The live Omarchy snapshot step stays skipped on those runners.
+- `tests/compile-python` parses `scripts/*.py` (ast and tabnanny) from pre-commit and `./tests/run`.
+
+### Changed
+
+- Appearance and the other look hubs (Displays, Windows, Bar, Notifications, Idle) read a look snapshot first, then `rest`. The look dump now includes bar, idle, Hypr look, monitors, DND, and reminders. Network, Disks, Accounts, and System each have their own snapshot group before `rest`.
+- File watches enqueue `look`, `rest`, or `all` by path. A face or hostname change does not rerun hardware and disk inventory.
+- Account name, host, face, and user lists live in `AccountsStore`. Omarchy still exposes the same properties. Those files are watched on the store, not through a full snapshot.
+- Find a setting keeps one `SearchIndex.js serve` process for the pane and sends queries on stdin.
+- Accessibility text size, animations, cursor hide/size, and touchscreen are shared `pages/rows` components used from Appearance, Windows, and Displays.
+- Parser tests are split along `services/*.js`. `./tests/run` loops `tests/*.test.js`.
+- The Face row always says Omarchy's greeter does not draw the file. The sidebar name and `user@host` lines keep a fixed height while snapshot data arrives.
+
 ## [v0.0.1-alpha.6] - 2026-09-04
 
 ### Added
@@ -93,6 +112,7 @@ First public alpha. Standalone [Quickshell](https://quickshell.org) preferences 
 - Keyboard use on controls (tab focus and activation). File watching of Omarchy/Hyprland paths so outside changes can refresh the snapshot. Shared page routing and content-column layout.
 - MIT license. Contributions assign copyright to Christoffer Hallas ([CLA](CLA.md)).
 
+[v0.0.1-alpha.7]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.6...v0.0.1-alpha.7
 [v0.0.1-alpha.6]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.5...v0.0.1-alpha.6
 [v0.0.1-alpha.5]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.4...v0.0.1-alpha.5
 [v0.0.1-alpha.4]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.3...v0.0.1-alpha.4

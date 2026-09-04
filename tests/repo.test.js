@@ -30,7 +30,7 @@ const flickSrc = fs.readFileSync(
   "utf8",
 );
 assert(
-  flickSrc.indexOf("anchors.fill: root") === -1,
+  !/\n\s+anchors\.fill:\s*root\b/.test(flickSrc),
   "PrefsFlickable does not anchors.fill the viewport",
 );
 assert(

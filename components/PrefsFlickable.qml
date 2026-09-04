@@ -47,8 +47,8 @@ Flickable {
   // wheel on its way to the pane that does.
   MouseArea {
     parent: root
-    // Flickable still resolves anchors against contentItem, so
-    // anchors.fill: root warns and leaves this 0×0. Bind size instead.
+    // Flickable still resolves anchors against contentItem, so filling
+    // the viewport that way warns and leaves this 0×0. Bind size instead.
     width: root.width
     height: root.height
     acceptedButtons: Qt.NoButton

@@ -1177,16 +1177,18 @@ QtObject {
     name = String(name || "")
     if (!name || name === theme) return
     Theme.applyNamedTheme(name)
-    runCommand(["omarchy", "theme", "set", name], {
+    // Same detach as the shell "Switch theme" action: omarchy-theme-set
+    // recolors the shell over IPC after the swap, then retints apps.
+    runCommand(["bash", "-c", "omarchy theme set \"$1\" >/dev/null 2>&1 &", "theme-set", name], {
       key: "theme",
       apply: { theme: name },
       refresh: "none"
     })
   }
   function openThemeSwitcher() {
-    runCommand(["bash", "-c", "theme=$(omarchy theme switcher || true); [[ -n $theme ]] && omarchy theme set \"$theme\""], {
+    runCommand(["bash", "-c", "theme=$(omarchy theme switcher || true); [[ -n $theme ]] && omarchy theme set \"$theme\" >/dev/null 2>&1 &"], {
       key: "theme",
-      refresh: "all"
+      refresh: "none"
     })
   }
   function refreshTheme() { runCommand(["omarchy", "theme", "refresh"]) }

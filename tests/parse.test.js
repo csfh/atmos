@@ -547,6 +547,19 @@ assert(
   "qml catalog indexes the Font row",
 );
 
+const remix = load("services/RemixIcons.js");
+assertEqual(remix.viewBoxSize(), 24, "remix viewBox is 24");
+assertEqual(remix.pathFor(""), "", "pathFor misses an empty name");
+assertEqual(remix.pathFor("nope"), "", "pathFor misses an unknown name");
+["information-line", "arrow-left-s-line", "arrow-right-s-line"].forEach(function (name) {
+  const svg = fs.readFileSync(path.join(__dirname, "..", "icons", name + ".svg"), "utf8");
+  assertEqual(
+    remix.pathFor(name),
+    remix.pathFromSvg(svg),
+    "pathFor matches icons/" + name + ".svg",
+  );
+});
+
 const ui = load("services/RichUi.js");
 const qr = ui.parseQrOutput("meta\twlan0\tWPA\tCafe\n0110\n1001\n");
 assert(qr.ok === true, "parseQrOutput accepts a meta header and matrix");

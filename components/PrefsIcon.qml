@@ -1,6 +1,7 @@
 import QtQuick
-import QtQuick.Effects
+import QtQuick.Shapes
 import "../services"
+import "../services/RemixIcons.js" as RemixIcons
 
 Item {
   id: root
@@ -9,27 +10,29 @@ Item {
   property color color: Theme.muted
   property int size: Theme.fontSize
 
+  readonly property int box: RemixIcons.viewBoxSize()
+
   implicitWidth: size
   implicitHeight: size
   width: implicitWidth
   height: implicitHeight
 
-  Image {
-    id: src
-    anchors.fill: parent
-    visible: false
-    source: root.name.length ? Qt.resolvedUrl("../icons/" + root.name + ".svg") : ""
-    sourceSize.width: root.size
-    sourceSize.height: root.size
-    fillMode: Image.PreserveAspectFit
-    smooth: true
-    layer.enabled: true
-  }
+  Shape {
+    width: root.box
+    height: root.box
+    preferredRendererType: Shape.CurveRenderer
+    transform: Scale {
+      xScale: root.box > 0 ? root.size / root.box : 1
+      yScale: root.box > 0 ? root.size / root.box : 1
+    }
 
-  MultiEffect {
-    anchors.fill: parent
-    source: src
-    colorization: 1
-    colorizationColor: root.color
+    ShapePath {
+      fillColor: root.color
+      strokeColor: "transparent"
+      fillRule: ShapePath.WindingFill
+      PathSvg {
+        path: RemixIcons.pathFor(root.name)
+      }
+    }
   }
 }

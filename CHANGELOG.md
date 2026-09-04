@@ -2,6 +2,21 @@
 
 Notable changes to Atmos. Each section is a git tag on `main` and `alpha`. Install and in-app Update follow the `alpha` branch.
 
+## [v0.0.1-alpha.8] - 2026-09-04
+
+### Added
+
+- **Import and export** hub. Atmos writes this machine's settings to a Markdown file with fenced `atmos:` blocks, then reviews a file before applying it. Cosmetic and behavior settings travel. Hostname, timezone, locale, and keyboard layout are off unless you opt in. sshd, passwordless sudo, sudoless docker, Snapper, and TRIM are written as prose and have no importer. Apply goes through the existing `omarchy` and `set-*.sh` writers and sudo mode. Based on work by Fred Nix ([@nixfred](https://github.com/nixfred)). ([#9](https://github.com/csfh/atmos/pull/9), [#7](https://github.com/csfh/atmos/issues/7))
+
+### Fixed
+
+- Nearby Wi-Fi and Bluetooth lists stay empty when Quickshell's device objects appear after the page first loads. The Wi-Fi page keeps the scanner on while it is open. Bluetooth paired and nearby rows come from the live BlueZ list. Turning a radio on queues a network snapshot.
+- Touchpad and mouse-wheel scrolling in prefs panes. One `PrefsFlickable` handles the wheel on the viewport. `WheelHandler` never received those events here. Based on work by Fred Nix. ([#8](https://github.com/csfh/atmos/pull/8), [#6](https://github.com/csfh/atmos/issues/6))
+- The wheel `MouseArea` used `anchors.fill` on a Flickable child, which Qt left at 0×0. It now binds `width` and `height` to the viewport.
+- `set-idle.sh` and `set-bar-widget.sh` default `OMARCHY_PATH` before sourcing `omarchy-shell-config`, so a write outside a desktop session still works. ([#10](https://github.com/csfh/atmos/issues/10))
+- A failed `hyprctl reload` no longer fails a sentinel write that already landed. ([#11](https://github.com/csfh/atmos/issues/11))
+- Failed `omarchy` jobs show stdout as well as stderr, because the CLI prints errors on stdout. ([#12](https://github.com/csfh/atmos/issues/12))
+
 ## [v0.0.1-alpha.7] - 2026-09-04
 
 ### Added
@@ -112,6 +127,7 @@ First public alpha. Standalone [Quickshell](https://quickshell.org) preferences 
 - Keyboard use on controls (tab focus and activation). File watching of Omarchy/Hyprland paths so outside changes can refresh the snapshot. Shared page routing and content-column layout.
 - MIT license. Contributions assign copyright to Christoffer Hallas ([CLA](CLA.md)).
 
+[v0.0.1-alpha.8]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.7...v0.0.1-alpha.8
 [v0.0.1-alpha.7]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.6...v0.0.1-alpha.7
 [v0.0.1-alpha.6]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.5...v0.0.1-alpha.6
 [v0.0.1-alpha.5]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.4...v0.0.1-alpha.5

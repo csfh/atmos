@@ -2749,10 +2749,20 @@ assertEqual(listChanged.changes[0].from.length, 2, "the change carries the list 
 assertEqual(listChanged.changes[0].to.length, 1, "the change carries the incoming list");
 assertEqual(settings.displayValue(listChanged.changes[0].to), "1 entry", "a list reads as a count");
 const listDiff = settings.changeLines(listChanged);
-assert(listDiff.indexOf("SUPER + T → kitty") !== -1, "changeLines shows the incoming binding command");
-assert(listDiff.indexOf("SUPER + RETURN → kitty") !== -1, "changeLines shows the binding being replaced");
+assert(
+  listDiff.indexOf("SUPER + T → kitty") !== -1,
+  "changeLines shows the incoming binding command",
+);
+assert(
+  listDiff.indexOf("SUPER + RETURN → kitty") !== -1,
+  "changeLines shows the binding being replaced",
+);
 assert(settings.hasCommandImport(listChanged), "replacing bindings is a command import");
-assertEqual(settings.commandImportLines(listChanged)[0], "kitty", "commandImportLines lists the binding command");
+assertEqual(
+  settings.commandImportLines(listChanged)[0],
+  "kitty",
+  "commandImportLines lists the binding command",
+);
 
 const autostartPlan = settings.planImport(
   settings.parseSettingsMarkdown(
@@ -3118,6 +3128,18 @@ const applyJson =
   '{"backup":"/tmp/imports/one","results":[{"key":"theme","status":"applied"},{"key":"font","status":"failed"}]}';
 const applyResult = settings.parseApplyResult(applyJson);
 assertEqual(applyResult.backup, "/tmp/imports/one", "parseApplyResult reads the backup path");
-assertEqual(settings.appliedCountFromResult(applyResult), 1, "appliedCountFromResult skips failures");
-assertEqual(settings.backupDirFromResult(applyResult), "/tmp/imports/one", "backupDirFromResult reads backup");
-assertEqual(settings.parseApplyResult("progress\t1\t1\ttheme").backup, "", "parseApplyResult survives no JSON");
+assertEqual(
+  settings.appliedCountFromResult(applyResult),
+  1,
+  "appliedCountFromResult skips failures",
+);
+assertEqual(
+  settings.backupDirFromResult(applyResult),
+  "/tmp/imports/one",
+  "backupDirFromResult reads backup",
+);
+assertEqual(
+  settings.parseApplyResult("progress\t1\t1\ttheme").backup,
+  "",
+  "parseApplyResult survives no JSON",
+);

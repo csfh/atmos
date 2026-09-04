@@ -25,6 +25,18 @@ assert(
   omarchyQml.indexOf('enqueueRead(ioQueue, "rest")') !== -1,
   "startSession follows look with rest",
 );
+const flickSrc = fs.readFileSync(
+  path.join(__dirname, "..", "components", "PrefsFlickable.qml"),
+  "utf8",
+);
+assert(
+  flickSrc.indexOf("anchors.fill: root") === -1,
+  "PrefsFlickable does not anchors.fill the viewport",
+);
+assert(
+  flickSrc.indexOf("width: root.width") !== -1,
+  "PrefsFlickable sizes the wheel area from the viewport",
+);
 const snapshotSh = fs.readFileSync(path.join(__dirname, "..", "scripts", "snapshot.sh"), "utf8");
 assert(snapshotSh.indexOf("GROUP == rest") !== -1, "snapshot.sh strips look keys from rest");
 const workflow = fs.readFileSync(

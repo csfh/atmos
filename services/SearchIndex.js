@@ -430,6 +430,7 @@ function rowsFromQml(src, hub) {
     const blocks = namedBlocks(src, kinds[k]);
     for (let i = 0; i < blocks.length; i++) {
       const block = blocks[i];
+      if (/\bcatalog\s*:\s*false\b/.test(block)) continue;
       const label =
         kinds[k] === "PrefsGroup" ? stringProp(block, "title") : stringProp(block, "label");
       if (!label) continue;

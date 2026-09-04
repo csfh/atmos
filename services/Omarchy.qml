@@ -2463,6 +2463,10 @@ QtObject {
   function clearLastError() {
     lastError = ""
   }
+
+  function showDebugError() {
+    lastError = "Debug: this is the error banner. Copy puts it on the clipboard. Dismiss clears it."
+  }
   function setWifiRadio(on) {
     if (on === wifiRadio) return
     runCommand(["bash", setWifiConnectionScript, "radio", on ? "on" : "off"], {

@@ -18,6 +18,8 @@ Item {
   property bool available: true
   // List rows (wifi SSIDs, devices) stay out of the section modal.
   property bool sectionHelp: true
+  // Find a setting indexes PrefsRow blocks unless this is false.
+  property bool catalog: true
 
   default property alias extra: controlSlot.data
 

@@ -9,6 +9,8 @@ Column {
   property string query: ""
   property string detail: ""
   property string hint: ""
+  // Find a setting indexes PrefsGroup blocks unless this is false.
+  property bool catalog: true
 
   width: parent ? parent.width : 640
   spacing: Theme.space

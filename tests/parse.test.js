@@ -587,6 +587,28 @@ assert(
   }),
   "qml catalog indexes the Font row",
 );
+assert(
+  !qmlCatalog.some(function (row) {
+    return row.label === "Error banner" || row.label === "Debug";
+  }),
+  "qml catalog skips the System Debug group",
+);
+const systemPageSrc = fs.readFileSync(
+  path.join(__dirname, "..", "pages", "SystemPage.qml"),
+  "utf8",
+);
+assert(
+  systemPageSrc.indexOf("Omarchy.showDebugError()") !== -1,
+  "System Debug shows the error banner",
+);
+const omarchyDebugSrc = fs.readFileSync(
+  path.join(__dirname, "..", "services", "Omarchy.qml"),
+  "utf8",
+);
+assert(
+  omarchyDebugSrc.indexOf("function showDebugError()") !== -1,
+  "Omarchy.showDebugError is defined",
+);
 
 const remix = load("services/RemixIcons.js");
 assertEqual(remix.viewBoxSize(), 24, "remix viewBox is 24");

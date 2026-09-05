@@ -91,3 +91,11 @@ assert(
   envSh.indexOf("hyprctl reload >/dev/null || true") !== -1,
   "atmos_hypr_reload does not fail the write when reload fails",
 );
+
+// runGumJob passes the stub dir as $1 and the command after it. Without the
+// shift, "$@" still carries $1 and exec is handed the directory itself:
+//   prefs-job: .../scripts/stubs: Is a directory
+assert(
+  omarchySrc.indexOf('PATH=\\"$1:$PATH\\"; shift; exec \\"$@\\"') !== -1,
+  "runGumJob shifts the stub dir off before exec",
+);

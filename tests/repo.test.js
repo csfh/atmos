@@ -1015,5 +1015,31 @@ assert(
 //   prefs-job: .../scripts/stubs: Is a directory
 assert(
   omarchySrc.indexOf('PATH=\"$1:$PATH\"; shift; exec \"$@\"') !== -1,
-  "runGumJob shifts the stub dir off before exec",
+  "runGumJob shifts the stub dir off before exec"
+);
+
+// A job whose input is read to EOF hangs unless stdin is closed after the
+// write. enqueueIo re-arms stdinEnabled per job, so closing is safe.
+assert(
+  /write\(root\.jobStdin\)[\s\S]{0,400}stdinEnabled = false/.test(omarchySrc),
+  "jobProc closes stdin after writing",
+);
+
+const applySh = fs.readFileSync(path.join(__dirname, "..", "scripts", "apply-settings.sh"), "utf8");
+// omarchy toggle bar maps to the bar-off flag, so the argument is inverted.
+assert(
+  applySh.indexOf('omarchy toggle bar "$([[ $value == true ]] && echo off || echo on)"') !== -1,
+  "barVisible passes the bar-off state, not the visibility",
+);
+// set-audio.sh unmutes before setting a volume, so mute has to come after.
+assert(
+  applySh.indexOf("queue_mute audioOutputMuted audioOutputVolume") !== -1,
+  "mute is applied after volume, against the state volume leaves behind",
+);
+assert(applySh.indexOf("clock_key format") !== -1, "a side bar writes verticalFormat");
+
+const exportPage = fs.readFileSync(path.join(__dirname, "..", "pages", "ExportPage.qml"), "utf8");
+assert(
+  exportPage.indexOf("writeProc.stdinEnabled = true") !== -1,
+  "export re-arms stdin, so a second export is not an empty file",
 );

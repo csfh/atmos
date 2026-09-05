@@ -156,6 +156,10 @@ PrefsPage {
       hardware: Omarchy.dmiProduct
     })
     root.forgetExport()
+    // Re-armed every time: onStarted clears it to give cat its EOF, and that
+    // assignment does not restore itself, so a second export would write
+    // nothing and still report success.
+    writeProc.stdinEnabled = true
     writeProc.target = root.realPath(root.exportPath)
     writeProc.text = text
     writeProc.command = ["sh", "-c", "cat > \"$1\"", "sh", writeProc.target]

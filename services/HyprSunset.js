@@ -42,8 +42,22 @@ function clampSchedule(raw) {
   };
 }
 
+function stripConfComments(text) {
+  var lines = String(text || "").split("\n");
+  var out = [];
+  for (var i = 0; i < lines.length; i++) {
+    var line = lines[i];
+    var hash = line.indexOf("#");
+    if (hash !== -1) line = line.substring(0, hash);
+    out.push(line);
+  }
+  return out.join("\n");
+}
+
 function parseConf(text) {
-  var src = String(text || "");
+  // Omarchy's stock hyprsunset.conf comments out the night profile.
+  // Splitting on profile { would treat that example as live.
+  var src = stripConfComments(text);
   var base = defaultSchedule();
   var blocks = src.split(/profile\s*\{/);
   var day = "";

@@ -71,23 +71,23 @@ PrefsPage {
 
   function wifiHubDescription() {
     if (!Omarchy.wifiHw)
-      return "NetworkManager does not see a Wi-Fi adapter. The switch stays off until the kernel exposes one (driver or rfkill)."
+      return "No Wi-Fi adapter."
     if (!Omarchy.wifiRadio)
-      return "The radio is stopped. Turn it on to scan. Nearby and saved networks, band, and a QR code are on the next page."
+      return "Scan and join nearby networks."
     if (Omarchy.netKind === "wifi" && Omarchy.netSsid.length)
-      return "Connected to " + Omarchy.netSsid + ". Open networks to switch, forget, or share a QR code."
-    return "Scanning. Open networks to pick an access point."
+      return "Connected to " + Omarchy.netSsid + "."
+    return "Scanning for access points."
   }
 
   function bluetoothHubDescription() {
     if (!Omarchy.bluetooth)
-      return "The adapter is powered down. Turn it on to pair a headset or mouse. Pairing and a scan are on the next page."
+      return "Pair a headset or mouse."
     var n = Omarchy.bluetoothDevices.length
     if (n === 1)
-      return "One paired device. Open devices to connect, forget, or scan."
+      return "One paired device."
     if (n > 1)
-      return n + " paired devices. Open devices to connect, forget, or scan."
-    return "No paired devices yet. Open devices to scan for a headset or mouse."
+      return n + " paired devices."
+    return "No paired devices."
   }
 
   PrefsGroup {
@@ -96,7 +96,7 @@ PrefsPage {
     detail: "What the machine is using to reach the internet right now. Ethernet shows the interface and link speed. Wi-Fi shows the network name and signal."
     hint: "omarchy network status"
 
-    PrefsRow {
+    SettingRow {
       label: root.linkLabel()
       description: root.linkDescription()
       hint: "omarchy network status"
@@ -109,7 +109,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       available: Omarchy.netIp.length > 0
       label: "Address"
       description: Omarchy.netIp
@@ -131,7 +131,7 @@ PrefsPage {
     detail: "Radios sit here. Nearby networks, pairing, and the speed test open their own pages."
     hint: "omarchy network"
 
-    PrefsRow {
+    SettingRow {
       label: "Wi-Fi"
       description: root.wifiHubDescription()
       hint: "nmcli radio wifi"
@@ -139,21 +139,21 @@ PrefsPage {
       keywords: ["wlan", "ssid", "scan", "join", "psk", "qr", "rfkill"]
 
       Row {
-        spacing: 8
+        spacing: Theme.space
         PrefsToggle {
           checked: Omarchy.wifiHw && Omarchy.wifiRadio
           enabled: Omarchy.wifiHw
           onToggled: Omarchy.setWifiRadio(!Omarchy.wifiRadio)
         }
         PrefsButton {
-          text: "Networks"
+          text: "Manage…"
           enabled: Omarchy.wifiHw
           onClicked: root.openSubpage("wifi")
         }
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: "Bluetooth"
       description: root.bluetoothHubDescription()
       hint: "omarchy bluetooth power"
@@ -161,19 +161,19 @@ PrefsPage {
       keywords: ["bt", "pair", "headset", "scan", "forget", "radio"]
 
       Row {
-        spacing: 8
+        spacing: Theme.space
         PrefsToggle {
           checked: Omarchy.bluetooth
           onToggled: Omarchy.setBluetooth(!Omarchy.bluetooth)
         }
         PrefsButton {
-          text: "Devices"
+          text: "Manage…"
           onClicked: root.openSubpage("bluetooth")
         }
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: "Speed test"
       description: "A short download, then an upload, on whatever you are connected to now."
       hint: "omarchy network speedtest"
@@ -181,7 +181,7 @@ PrefsPage {
       keywords: ["bandwidth", "ping", "speedtest"]
 
       PrefsButton {
-        text: "Open"
+        text: "Test…"
         onClicked: root.openSubpage("speedtest")
       }
     }
@@ -193,7 +193,7 @@ PrefsPage {
     detail: "This writes NetworkManager and systemd-resolved so lookups go through the same resolvers. Cloudflare is 1.1.1.1 and 1.0.0.1. Google is 8.8.8.8 and 8.8.4.4. DHCP keeps whatever the link already handed out. Custom uses the servers field below. A VPN or a per-connection DNS setting in NetworkManager can still win for that connection."
     hint: "omarchy dns"
 
-    PrefsRow {
+    SettingRow {
       label: "DNS provider"
       description: "Who answers name lookups for this machine."
       hint: "omarchy dns"
@@ -212,7 +212,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       stretchControl: true
       label: "Custom servers"
       description: root.dnsError.length > 0
@@ -256,7 +256,7 @@ PrefsPage {
     query: root.query
     detail: "Tailscale is a mesh VPN Omarchy can install. LocalSend and Taildrop are actions, not extra config."
 
-    PrefsRow {
+    SettingRow {
       label: "Tailscale"
       description: Omarchy.tailscaleRunning
         ? "tailscaled is running."
@@ -268,7 +268,7 @@ PrefsPage {
       keywords: ["tailscale", "vpn", "tailnet", "mesh"]
 
       Row {
-        spacing: 8
+        spacing: Theme.space
         PrefsButton {
           visible: !Omarchy.tailscaleInstalled
           text: "Install…"
@@ -286,7 +286,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       available: Omarchy.extras && Omarchy.extras.localsend === true
       label: "LocalSend clipboard"
       description: "Send whatever is on the clipboard to a nearby machine."
@@ -301,7 +301,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       available: Omarchy.extras && Omarchy.extras.localsend === true
       label: "LocalSend file"
       description: "Pick a file and send it with LocalSend."
@@ -319,7 +319,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       available: Omarchy.extras && Omarchy.extras.localsend === true
       label: "LocalSend folder"
       description: "Pick a folder and send it with LocalSend."
@@ -334,7 +334,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       available: Omarchy.tailscaleInstalled
       label: "Taildrop send"
       description: "Send a file to a machine on your tailnet. Type the short name, then pick a file."
@@ -343,7 +343,7 @@ PrefsPage {
       keywords: ["taildrop", "tailscale", "send", "share"]
 
       Row {
-        spacing: 8
+        spacing: Theme.space
         PrefsField {
           width: 140
           placeholder: "machine"
@@ -362,7 +362,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       available: Omarchy.tailscaleInstalled
       label: "Taildrop receive"
       description: "Wait for one incoming file and drop it in Downloads."

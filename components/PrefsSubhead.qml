@@ -18,7 +18,7 @@ Item {
     text: root.text
     color: Theme.foreground
     font.family: Theme.fontFamily
-    font.pixelSize: Theme.fontSize
+    font.pixelSize: Theme.labelSize
     font.bold: true
   }
 }

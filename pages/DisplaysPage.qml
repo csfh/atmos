@@ -68,16 +68,16 @@ PrefsPage {
     detail: "Hyprland did not report any outputs. Refresh after a display is connected. Modes live in ~/.config/hypr/monitors.lua."
     hint: "hyprctl monitors all"
 
-    PrefsRow {
+    SettingRow {
       available: Omarchy.monitors.length === 0
-      label: "No outputs"
-      description: "Hyprland did not report any monitors. Refresh after a display is connected. Atmos cannot change the panel mode here — edit ~/.config/hypr/monitors.lua."
+      label: "Monitors"
+      description: "No monitors reported."
       hint: "hyprctl monitors all"
       query: root.query
       keywords: ["monitor", "display", "hdmi", "dp", "edp", "resolution", "empty"]
 
       Row {
-        spacing: 8
+        spacing: Theme.space
         PrefsButton {
           text: "Refresh"
           onClicked: Omarchy.refresh()
@@ -94,13 +94,14 @@ PrefsPage {
     model: Omarchy.monitors.length
 
     PrefsGroup {
+    framed: true
       required property int index
       readonly property var modelData: Omarchy.monitors[index] || ({})
       title: root.monitorTitle(modelData)
       query: root.query
       detail: "This output's current mode. Scale only shows when the monitor is focused. Brightness works on the built-in panel and on some external monitors. Resolution is set in ~/.config/hypr/monitors.lua."
 
-      PrefsRow {
+      SettingRow {
         label: "Resolution"
         description: root.resolutionDescription(modelData)
         hint: "~/.config/hypr/monitors.lua"
@@ -109,7 +110,7 @@ PrefsPage {
         keywords: ["monitor", "display", "hdmi", "dp", "edp", "resolution", "refresh"]
 
         Row {
-          spacing: 8
+          spacing: Theme.space
           PrefsSelect {
             value: RichUi.currentMonitorModeValue(modelData)
             options: RichUi.monitorModeOptions(modelData)
@@ -127,7 +128,7 @@ PrefsPage {
         }
       }
 
-      PrefsRow {
+      SettingRow {
         available: modelData && modelData.focused === true
         label: "Scale"
         description: "How large the interface looks on the focused monitor. Hyprland snaps to a factor it can draw cleanly."
@@ -146,7 +147,7 @@ PrefsPage {
         }
       }
 
-      PrefsRow {
+      SettingRow {
         available: modelData && modelData.brightnessAvailable === true
         stretchControl: true
         label: "Brightness"
@@ -179,11 +180,11 @@ PrefsPage {
     query: (Omarchy.internalPresent || Omarchy.keyboardBacklightPresent || Omarchy.touchpadPresent || Omarchy.touchscreenPresent) ? root.query : "."
     detail: "These only show up on a laptop. The built-in screen can turn off while an external monitor is plugged in. Touchpad and touchscreen stay off across a Hyprland reload."
 
-    PrefsRow {
+    SettingRow {
       available: Omarchy.internalPresent
       label: "Laptop screen"
       description: Omarchy.externalPresent
-        ? "Leave the built-in panel on, or turn it off while an external monitor is plugged in."
+        ? "Keep the built-in panel on."
         : "This is the only display, so it has to stay on."
       hint: "omarchy hyprland monitor internal"
       query: root.query
@@ -196,10 +197,10 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       available: Omarchy.internalPresent && Omarchy.externalPresent
       label: "Mirror to the first external"
-      description: "Show the same picture on the laptop screen and the first external monitor."
+      description: "The same picture on the laptop screen and the first external monitor."
       hint: "omarchy hyprland monitor internal mirror"
       query: root.query
       keywords: ["mirror", "clone", "duplicate"]
@@ -211,10 +212,10 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       available: Omarchy.touchpadPresent
       label: "Touchpad"
-      description: "The laptop trackpad. Turning it off survives a Hyprland reload."
+      description: "Finger and pointer input on the trackpad. The choice survives a Hyprland reload."
       hint: "omarchy toggle touchpad"
       query: root.query
       keywords: ["trackpad", "touchpad", "pointer", "mouse", "input"]
@@ -231,7 +232,7 @@ PrefsPage {
       requirePresent: true
     }
 
-    PrefsRow {
+    SettingRow {
       available: Omarchy.keyboardBacklightPresent
       label: "Keyboard backlight"
       description: Omarchy.keyboardBrightness > 0
@@ -242,19 +243,19 @@ PrefsPage {
       keywords: ["kbd", "backlight", "leds"]
 
       Row {
-        spacing: 8
+        spacing: Theme.space
         PrefsButton {
           text: "Dim"
           enabled: Omarchy.keyboardBacklightPresent
           onClicked: Omarchy.adjustKeyboardBacklight("down")
         }
         PrefsButton {
-          text: "Brighter"
+          text: "Brighten"
           enabled: Omarchy.keyboardBacklightPresent
           onClicked: Omarchy.adjustKeyboardBacklight("up")
         }
         PrefsButton {
-          text: "Off"
+          text: "Turn off"
           enabled: Omarchy.keyboardBacklightPresent && Omarchy.keyboardBrightness > 0
           onClicked: Omarchy.adjustKeyboardBacklight("off")
         }

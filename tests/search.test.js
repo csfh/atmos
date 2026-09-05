@@ -143,6 +143,12 @@ fs.rmSync(cacheDir, { recursive: true, force: true });
 const qmlCatalog = search.catalogFromQmlDir(path.join(__dirname, "..", "pages"));
 assert(
   qmlCatalog.some(function (row) {
+    return row.label === "Locale" && String(row.id).indexOf("SettingRow") !== -1;
+  }),
+  "qml catalog indexes SettingRow blocks",
+);
+assert(
+  qmlCatalog.some(function (row) {
     return row.label === "Font" && row.hub === "appearance";
   }),
   "qml catalog indexes the Font row",
@@ -167,10 +173,97 @@ assert(
 );
 assert(
   qmlCatalog.some(function (row) {
+    return row.label === "Inactive opacity" && row.hub === "windows";
+  }),
+  "qml catalog indexes Inactive opacity on Windows",
+);
+assert(
+  qmlCatalog.some(function (row) {
     return row.label === "Touchscreen" && row.hub === "display";
   }),
   "qml catalog indexes shared Touchscreen on Displays",
 );
+assert(
+  qmlCatalog.some(function (row) {
+    return row.label === "Add a binding" && row.hub === "windows/bindings";
+  }),
+  "qml catalog sends binding rows to the keybindings subpage",
+);
+assert(
+  qmlCatalog.some(function (row) {
+    return row.label === "Add a rule" && row.hub === "windows/rules";
+  }),
+  "qml catalog sends window-rule rows to the rules subpage",
+);
+assert(
+  qmlCatalog.some(function (row) {
+    return row.label === "Next wallpaper" && row.hub === "appearance/background";
+  }),
+  "qml catalog sends wallpaper rows to the background subpage",
+);
+assert(
+  qmlCatalog.some(function (row) {
+    return row.label === "Unlock theme" && row.hub === "appearance/boot";
+  }),
+  "qml catalog sends Plymouth rows to the boot subpage",
+);
+assert(
+  qmlCatalog.some(function (row) {
+    return row.label === "Wi-Fi radio" && row.hub === "network/wifi";
+  }),
+  "qml catalog sends Wi-Fi rows to the wifi subpage",
+);
+assert(
+  qmlCatalog.some(function (row) {
+    return row.label === "Bluetooth radio" && row.hub === "network/bluetooth";
+  }),
+  "qml catalog sends Bluetooth rows to the bluetooth subpage",
+);
+assert(
+  qmlCatalog.some(function (row) {
+    return row.label === "Download" && row.hub === "network/speedtest";
+  }),
+  "qml catalog sends speed-test rows to the speedtest subpage",
+);
+assert(
+  qmlCatalog.some(function (row) {
+    return (
+      row.label === "Add a binding" &&
+      row.hub === "windows/bindings" &&
+      row.hubTitle === "Keybindings"
+    );
+  }),
+  "binding search hits show the keybindings page title",
+);
+const staleIndex = search.openIndex();
+search.ingestRows(staleIndex, [
+  {
+    id: "windows/add-a-binding-PrefsRow-0",
+    hub: "windows",
+    hubTitle: "Windows",
+    label: "Add a binding",
+    description: "stale hub path",
+    hint: "",
+    keywords: [],
+  },
+]);
+search.replaceRows(staleIndex, [
+  {
+    id: "windows/bindings/add-a-binding-PrefsRow-0",
+    hub: "windows/bindings",
+    hubTitle: "Keybindings",
+    label: "Add a binding",
+    description: "live hub path",
+    hint: "",
+    keywords: [],
+  },
+]);
+const replaced = search.queryRows(staleIndex, "binding");
+assert(
+  replaced.length === 1 && replaced[0].hub === "windows/bindings",
+  "replaceRows drops stale search rows whose ids changed",
+);
+staleIndex.close();
 assert(
   !qmlCatalog.some(function (row) {
     return row.label === "Error dialog" || row.label === "Debug";

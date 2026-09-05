@@ -99,6 +99,7 @@ PrefsPage {
   Component.onCompleted: softwareConfirm.parent = root.prefsOverlay
 
   PrefsGroup {
+    framed: true
     title: "Browsers"
     query: root.query
     detail: "Install an extra browser, then set the default on Defaults if you want Omarchy to open it."
@@ -111,6 +112,7 @@ PrefsPage {
   }
 
   PrefsGroup {
+    framed: true
     title: "Terminals"
     query: root.query
     detail: "Omarchy can install another terminal. There is no matching remove command, so these rows only install."
@@ -123,6 +125,7 @@ PrefsPage {
   }
 
   PrefsGroup {
+    framed: true
     title: "Editors"
     query: root.query
     detail: "Optional editors with Omarchy theme wiring. Remove is not a separate Omarchy command here."
@@ -135,6 +138,7 @@ PrefsPage {
   }
 
   PrefsGroup {
+    framed: true
     title: "Services"
     query: root.query
     detail: "Optional apps Omarchy packages as services. Tailscale also has a shortcut on Network."
@@ -147,6 +151,7 @@ PrefsPage {
   }
 
   PrefsGroup {
+    framed: true
     title: "Gaming"
     query: root.query
     detail: "Launchers and a couple of cloud clients. Remove for Steam and the others wipes their libraries."
@@ -159,11 +164,12 @@ PrefsPage {
   }
 
   PrefsGroup {
+    framed: true
     title: "Development"
     query: root.query
     detail: "Language toolchains through mise, a Docker database, and the ChatGPT desktop app."
 
-    PrefsRow {
+    SettingRow {
       label: "Language toolchain"
       description: "Install or remove a dev environment Omarchy knows."
       hint: "omarchy install dev env"
@@ -172,7 +178,7 @@ PrefsPage {
 
       Flow {
         width: parent.width
-        spacing: 8
+        spacing: Theme.space
         PrefsSelect {
           width: 140
           value: root.devLang
@@ -195,7 +201,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       available: Omarchy.extras && Omarchy.extras.docker === true
       label: "Docker database"
       description: "Start a supported database in Docker."
@@ -205,7 +211,7 @@ PrefsPage {
 
       Flow {
         width: parent.width
-        spacing: 8
+        spacing: Theme.space
         PrefsSelect {
           width: 140
           value: root.dockerDb
@@ -230,41 +236,24 @@ PrefsPage {
 
   Component {
     id: softwareDelegate
-    PrefsRow {
+    CollectionRow {
       required property var modelData
-      sectionHelp: false
       label: modelData && modelData.label ? modelData.label : ""
       description: root.installed(modelData)
-        ? (modelData.remove ? "Installed. Remove asks before it runs." : "Installed.")
-        : (modelData.wipe ? "Install this launcher. Remove later also deletes its libraries." : "Not installed.")
+        ? "Installed"
+        : (modelData && modelData.wipe
+          ? "Not installed. Remove later also deletes its libraries."
+          : "Not installed")
       hint: modelData && modelData.hint ? modelData.hint : ""
       query: root.query
       keywords: [modelData && modelData.id ? modelData.id : "", modelData && modelData.group ? modelData.group : ""]
-
-      Row {
-        spacing: 8
-        PrefsButton {
-          visible: !root.installed(modelData)
-          text: "Install…"
-          primary: true
-          enabled: !Omarchy.jobBusy && !!(modelData && modelData.install)
-          onClicked: root.askInstall(modelData)
-        }
-        PrefsButton {
-          visible: root.installed(modelData) && !!(modelData && modelData.remove)
-          text: "Remove…"
-          danger: true
-          enabled: !Omarchy.jobBusy && !!(modelData && modelData.remove)
-          onClicked: root.askRemove(modelData)
-        }
-        PrefsText {
-          visible: root.installed(modelData) && !(modelData && modelData.remove)
-          text: "Installed"
-          color: Theme.muted
-          font.family: Theme.fontFamily
-          font.pixelSize: Theme.captionSize
-        }
-      }
+      action: root.installed(modelData) ? "" : "Install…"
+      actionPrimary: !root.installed(modelData)
+      actionEnabled: !Omarchy.jobBusy && !!(modelData && modelData.install)
+      dangerAction: root.installed(modelData) && modelData && modelData.remove ? "Remove…" : ""
+      dangerEnabled: !Omarchy.jobBusy && !!(modelData && modelData.remove)
+      onActioned: root.askInstall(modelData)
+      onDangered: root.askRemove(modelData)
     }
   }
 }

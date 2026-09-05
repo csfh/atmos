@@ -36,7 +36,7 @@ PrefsPage {
     query: root.query
     detail: "The unlock animation before the desktop. A custom logo is a PNG tinted with the current theme. Preview renders it without applying it."
 
-    PrefsRow {
+    SettingRow {
       label: "Unlock theme"
       description: "The Plymouth theme used at unlock. Default is the stock Omarchy logo."
       hint: "omarchy plymouth set by theme"
@@ -54,7 +54,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: "Custom logo"
       description: "Pick a PNG for the unlock screen. Omarchy tints it with the current theme colors."
       hint: "omarchy plymouth set"
@@ -62,13 +62,13 @@ PrefsPage {
       keywords: ["logo", "png", "custom", "unlock"]
 
       PrefsButton {
-        text: "Choose logo…"
+        text: "Choose…"
         enabled: !Omarchy.jobBusy
         onClicked: plymouthDialog.open()
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: "Preview"
       description: "Render an unlock screen from a PNG so you can see it before you apply it."
       hint: "omarchy plymouth preview"
@@ -82,7 +82,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       available: Omarchy.plymouth !== "default"
       label: "Reset boot screen"
       description: "Put the stock Omarchy unlock theme and login screen back."
@@ -91,7 +91,7 @@ PrefsPage {
       keywords: ["default", "unlock", "sddm", "login"]
 
       PrefsButton {
-        text: "Reset"
+        text: "Reset…"
         danger: true
         enabled: !Omarchy.jobBusy && Omarchy.plymouth !== "default"
         onClicked: resetPlymouthConfirm.ask()
@@ -104,7 +104,7 @@ PrefsPage {
     query: Omarchy.directBootAvailable ? root.query : "."
     detail: "Direct boot adds an EFI entry for the Omarchy UKI. Snapshot picking then happens in firmware."
 
-    PrefsRow {
+    SettingRow {
       available: Omarchy.directBootAvailable
       label: "Direct EFI boot"
       description: Omarchy.directBoot

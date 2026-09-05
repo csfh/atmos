@@ -3,11 +3,22 @@
 var BEGIN = "-- atmos:windows begin";
 var END = "-- atmos:windows end";
 var REQUIRE_LINE = 'require("hypr.atmos")';
+var LAYOUT_REQUIRE = 'require("hypr.atmos_layout")';
+var OMARCHY_LINE = 'require("default.hypr.omarchy")';
 var TOGGLES = 'require("default.hypr.toggles")';
 var WINDOW_CLASS = "dev.csfh.atmos";
 
 function luaString(v) {
-  return '"' + String(v).replace(/\\/g, "\\\\").replace(/"/g, '\\"') + '"';
+  return (
+    '"' +
+    String(v)
+      .replace(/\\/g, "\\\\")
+      .replace(/\n/g, "\\n")
+      .replace(/\r/g, "\\r")
+      .replace(/\t/g, "\\t")
+      .replace(/"/g, '\\"') +
+    '"'
+  );
 }
 
 function sanitizeMatch(raw) {
@@ -33,8 +44,40 @@ function clampSize(raw) {
 }
 
 function skipWs(s, i) {
-  while (i < s.length && /[ \t\r\n]/.test(s.charAt(i))) i++;
+  // Lua -- comments. Only called outside strings.
+  while (i < s.length) {
+    while (i < s.length && /[ \t\r\n]/.test(s.charAt(i))) i++;
+    if (s.charAt(i) !== "-" || s.charAt(i + 1) !== "-") break;
+    var nl = s.indexOf("\n", i + 2);
+    i = nl === -1 ? s.length : nl + 1;
+  }
   return i;
+}
+
+function inLineComment(src, at) {
+  var lineStart = src.lastIndexOf("\n", at > 0 ? at - 1 : 0) + 1;
+  var i = lineStart;
+  var inStr = false;
+  while (i < at) {
+    var c = src.charAt(i);
+    if (inStr) {
+      if (c === "\\") {
+        i += 2;
+        continue;
+      }
+      if (c === '"') inStr = false;
+      i++;
+      continue;
+    }
+    if (c === '"') {
+      inStr = true;
+      i++;
+      continue;
+    }
+    if (c === "-" && src.charAt(i + 1) === "-") return true;
+    i++;
+  }
+  return false;
 }
 
 function identCont(s, i) {
@@ -49,7 +92,11 @@ function parseLuaString(s, i) {
     var c = s.charAt(i);
     if (c === "\\") {
       if (i + 1 >= s.length) return null;
-      out += s.charAt(i + 1);
+      var e = s.charAt(i + 1);
+      if (e === "n") out += "\n";
+      else if (e === "t") out += "\t";
+      else if (e === "r") out += "\r";
+      else out += e;
       i += 2;
       continue;
     }
@@ -146,6 +193,10 @@ function parseCalls(text) {
   while (i < src.length) {
     var at = src.indexOf("o.window(", i);
     if (at === -1) break;
+    if (inLineComment(src, at)) {
+      i = at + 9;
+      continue;
+    }
     var parsed = parseCallArgs(src, at + 9);
     if (!parsed) {
       i = at + 9;
@@ -296,6 +347,18 @@ function ensureRequire(text) {
   var at = src.indexOf(TOGGLES);
   if (at !== -1) return src.substring(0, at) + REQUIRE_LINE + "\n" + src.substring(at);
   return src.replace(/\s+$/, "") + "\n\n" + REQUIRE_LINE + "\n";
+}
+
+function ensureLayoutRequire(text) {
+  var src = String(text || "");
+  if (src.indexOf("hypr.atmos_layout") !== -1) return src;
+  var trimmed = src.replace(/^\s+|\s+$/g, "");
+  if (!trimmed) return src;
+  var at = src.indexOf(OMARCHY_LINE);
+  if (at !== -1) return src.substring(0, at) + LAYOUT_REQUIRE + "\n" + src.substring(at);
+  at = src.indexOf(REQUIRE_LINE);
+  if (at !== -1) return src.substring(0, at) + LAYOUT_REQUIRE + "\n" + src.substring(at);
+  return src.replace(/\s+$/, "") + "\n\n" + LAYOUT_REQUIRE + "\n";
 }
 
 function prefsSeed() {

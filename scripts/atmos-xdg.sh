@@ -169,6 +169,7 @@ atmos_link_xdg() {
   if [[ ! -f $HOME/.config/hypr/atmos.lua ]]; then
     cp "$dest/packaging/hypr-atmos.lua" "$HOME/.config/hypr/atmos.lua"
   fi
+  cp "$dest/packaging/hypr-atmos-layout.lua" "$HOME/.config/hypr/atmos_layout.lua"
   python3 "$dest/scripts/hypr-sentinel.py" require apply "$HOME/.config/hypr/hyprland.lua"
   atmos_strip_omarchy_menu
   if command -v hyprctl >/dev/null 2>&1; then

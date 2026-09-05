@@ -13,7 +13,7 @@ PrefsPage {
     query: root.query
     detail: "Screensaver and lock are separate timers in ~/.config/omarchy/shell.json. Zero on a slider skips that step."
 
-    PrefsRow {
+    SettingRow {
       stretchControl: true
       label: "Screensaver"
       description: "How long you can sit still before the screensaver starts. Zero skips the screensaver."
@@ -37,7 +37,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       stretchControl: true
       label: "Lock"
       description: "How long you can sit still before the session locks. Zero skips the lock."
@@ -65,11 +65,11 @@ PrefsPage {
   PrefsGroup {
     title: "Behavior"
     query: root.query
-    detail: "Stay awake skips the screensaver and lock timers. Allow screensaver and Allow suspend hide those actions when they are disabled."
+    detail: "Stay awake skips the screensaver and lock timers. Screensaver and Suspend menu stay available while these switches are on."
 
-    PrefsRow {
+    SettingRow {
       label: "Stay awake"
-      description: "Keep the screen awake and unlocked while Stay awake is enabled. Handy for a long compile or a movie."
+      description: "Keep the screen awake and unlocked."
       hint: "omarchy toggle idle"
       query: root.query
       keywords: ["caffeine", "inhibit", "awake", "sleep"]
@@ -80,12 +80,12 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
-      label: "Allow screensaver"
-      description: "Let the screensaver run after the idle timeout. Off keeps the desktop visible until lock."
+    SettingRow {
+      label: "Screensaver"
+      description: "The screensaver runs after the idle timeout."
       hint: "omarchy toggle screensaver"
       query: root.query
-      keywords: ["screensaver", "disable", "tte"]
+      keywords: ["screensaver", "allow", "disable", "tte"]
 
       PrefsToggle {
         checked: Omarchy.screensaverEnabled
@@ -93,12 +93,12 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
-      label: "Allow suspend"
-      description: "Keep Suspend in the system menu. Off hides that action."
+    SettingRow {
+      label: "Suspend menu"
+      description: "Suspend stays in the system menu."
       hint: "omarchy toggle suspend"
       query: root.query
-      keywords: ["sleep", "power", "system menu"]
+      keywords: ["sleep", "power", "system menu", "allow", "suspend"]
 
       PrefsToggle {
         checked: Omarchy.suspendEnabled
@@ -110,21 +110,21 @@ PrefsPage {
   PrefsGroup {
     title: "Branding"
     query: root.query
-    detail: "ASCII art on the screensaver. Image turns a picture into that art. Edit opens the text file if you want to write it yourself. Reset puts the Omarchy logo back."
+    detail: "ASCII art on the screensaver. Choose a picture to turn into that art. Edit opens the text file if you want to write it yourself. Reset puts the Omarchy logo back."
 
-    PrefsRow {
+    SettingRow {
       label: "Screensaver logo"
       description: Omarchy.screensaverBranded
         ? "You are using custom ASCII art on the screensaver."
-        : "The stock Omarchy logo. Image turns a picture into ASCII. Edit opens the text file."
+        : "The stock Omarchy logo. Choose a picture to turn into ASCII. Edit opens the text file."
       hint: "omarchy branding screensaver"
       query: root.query
       keywords: ["ascii", "logo", "branding", "tte"]
 
       Row {
-        spacing: 8
+        spacing: Theme.space
         PrefsButton {
-          text: "Image…"
+          text: "Choose…"
           onClicked: Omarchy.setScreensaverBranding("image")
         }
         PrefsButton {
@@ -145,20 +145,16 @@ PrefsPage {
   PrefsGroup {
     title: "Advanced"
     query: Omarchy.isLaptop ? root.query : "."
-    detail: "Lid close already locks when the machine is undocked. Omarchy runs that from logind, not from a switch here."
+    detail: "Lid close already locks when the machine is undocked. Omarchy runs that from logind, not from Atmos."
 
-    PrefsRow {
+    SettingRow {
       available: Omarchy.isLaptop
       label: "Lid close"
-      description: "Handled by logind (omarchy-system-lid-close), not a switch here. Closing the lid locks when undocked. A docked lid stays unlocked on the other screen."
+      description: "Closing the lid locks when undocked. A docked lid stays unlocked on the other screen. Change this in logind (omarchy-system-lid-close), not here."
       hint: "omarchy-system-lid-close"
       query: root.query
       keywords: ["lid", "clamshell", "lock", "close"]
-
-      PrefsToggle {
-        checked: true
-        enabled: false
-      }
+      valueText: "On"
     }
   }
 }

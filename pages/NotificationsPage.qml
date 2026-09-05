@@ -16,7 +16,7 @@ PrefsPage {
     query: root.query
     detail: "Do not disturb hides ordinary toasts. Critical alerts still get through."
 
-    PrefsRow {
+    SettingRow {
       label: "Do not disturb"
       description: "Hide ordinary notification toasts. Critical alerts still get through."
       hint: "omarchy toggle notification silencing"
@@ -35,7 +35,7 @@ PrefsPage {
     query: root.query
     detail: "These fire an Omarchy toast right now. Use Test if you want to see that notifications still land."
 
-    PrefsRow {
+    SettingRow {
       label: "Test toast"
       description: "Send a sample notification from Atmos."
       hint: "omarchy notification send"
@@ -48,7 +48,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: "Time"
       description: "Show the current time and date as a toast."
       hint: "omarchy notification time"
@@ -61,7 +61,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       available: Omarchy.batteryPresent
       label: "Battery"
       description: "Show the current battery toast."
@@ -76,7 +76,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       available: Omarchy.weatherPresent
       label: "Weather"
       description: "Show the current forecast toast."
@@ -93,12 +93,13 @@ PrefsPage {
   }
 
   PrefsGroup {
+    framed: true
     title: "Reminders"
     query: root.query
     detail: "A reminder is a systemd timer that sends an Omarchy toast. Clear drops every outstanding one."
     hint: "omarchy reminder"
 
-    PrefsRow {
+    SettingRow {
       label: "New reminder"
       description: "Minutes from now, and an optional message."
       hint: "omarchy reminder"
@@ -106,7 +107,7 @@ PrefsPage {
       keywords: ["reminder", "timer", "later", "minutes"]
 
       Row {
-        spacing: 8
+        spacing: Theme.space
         PrefsSpinBox {
           from: 1
           to: 1440
@@ -130,7 +131,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       available: Omarchy.reminderActive
       label: "Clear reminders"
       description: Omarchy.reminderCount === 1
@@ -141,7 +142,7 @@ PrefsPage {
       keywords: ["reminder", "clear", "cancel"]
 
       Row {
-        spacing: 8
+        spacing: Theme.space
         PrefsButton {
           text: "Show"
           enabled: Omarchy.reminderActive
@@ -156,25 +157,19 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       available: !Omarchy.reminderActive
       sectionHelp: false
       label: "Reminders"
-      description: "None waiting. Set minutes and a message above, then Set."
+      description: "No reminders waiting."
       query: root.query
       keywords: ["reminder", "empty"]
-
-      PrefsButton {
-        text: "Set"
-        primary: true
-        onClicked: Omarchy.setReminder(String(root.reminderMinutes), root.reminderMessage)
-      }
     }
 
     Repeater {
       model: Omarchy.reminders
 
-      PrefsRow {
+      SettingRow {
         required property var modelData
         sectionHelp: false
         label: modelData && modelData.label ? modelData.label : "Reminder"
@@ -186,7 +181,7 @@ PrefsPage {
         keywords: ["reminder", "timer"]
 
         Row {
-          spacing: 8
+          spacing: Theme.space
           PrefsButton {
             text: "Copy"
             enabled: RichUi.reminderCopyText(modelData).length > 0

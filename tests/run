@@ -205,7 +205,7 @@ if [[ -x scripts/snapshot.sh ]] && command -v omarchy >/dev/null 2>&1 && command
   fi
   echo "ok - snapshot.sh accounts emits users without disks"
   json=$(bash scripts/snapshot.sh)
-  echo "$json" | jq -e '.theme and .themes and has("extraThemes") and (.extraThemes | type == "array") and has("desktopApps") and (.desktopApps | type == "array") and has("tuiApps") and (.tuiApps | type == "array") and has("webApps") and (.webApps | type == "array") and .barPosition and .idleScreensaver and has("stayAwake") and has("nightlight") and has("nightlightTemperature") and has("screensaverEnabled") and has("barVisible") and has("dns") and has("bluetooth") and has("suspendEnabled") and has("powerProfile") and has("powerProfileAc") and has("powerProfileBattery") and (.powerProfiles | type == "array") and has("crashCapture") and has("plymouth") and (.plymouthThemes | type == "array") and has("doNotDisturb") and has("weatherLocation") and has("weatherCoords") and has("weatherAuto") and has("weatherPresent") and has("weatherUnit") and has("weatherRefreshMinutes") and has("reminderCount") and has("reminderActive") and has("reminders") and (.reminders | type == "array") and has("clockFormat") and has("clockFormatAlt") and has("clockWeekStart") and has("clockPresent") and has("clockBirthYear") and has("clockLifeExpectancy") and has("indicatorsPresent") and has("indicatorsAlwaysShow") and has("indicatorsItems") and (.indicatorsItems | type == "array") and has("agentsPresent") and has("agentsRefreshIntervalSec") and has("agentsSync") and has("agentsSyncDir") and has("agentsSyncFileName") and has("agentsSyncDeviceId") and has("spacerPresent") and has("spacerSize") and has("trayPresent") and has("trayHidden") and (.trayHidden | type == "array") and has("trayPinned") and (.trayPinned | type == "array") and has("powerPresent") and has("powerShowPercentage") and has("isLaptop") and has("batteryPresent") and has("monitors") and (.monitors | type == "array") and has("internalPresent") and has("internalEnabled") and has("externalPresent") and has("mirroring") and has("touchpadPresent") and has("touchpadEnabled") and has("touchscreenPresent") and has("touchscreenEnabled") and has("keyboardBacklightPresent") and has("keyboardBrightness") and has("wifiConnected") and has("wifiBandSelected") and (.wifiBands | type == "array") and has("wifiIface") and has("netKind") and has("netIface") and has("netIp") and has("wifiHw") and has("wifiRadio") and has("wifiConnections") and (.wifiConnections | type == "array") and has("bluetoothDevices") and (.bluetoothDevices | type == "array") and has("audioSinks") and (.audioSinks | type == "array") and has("audioSources") and (.audioSources | type == "array") and has("audioOutputVolume") and has("audioOutputMuted") and has("audioInputVolume") and has("audioInputMuted") and has("audioTuningMatch") and has("audioTuningOn") and has("disks") and (.disks | type == "array") and has("hardware") and (.hardware | type == "object") and has("luksDevices") and (.luksDevices | type == "array") and has("swapDevices") and (.swapDevices | type == "array") and has("snapperPresent") and has("snapperConfigs") and (.snapperConfigs | type == "array") and has("snapshots") and (.snapshots | type == "array") and has("hibernationAvailable") and has("hibernationSupported") and has("hibernationConfigured") and has("screensaverBranded") and has("aboutBranded") and has("timezone") and has("timezones") and (.timezones | type == "array") and has("hostname") and has("keyboardLayout") and has("keyboardLayouts") and (.keyboardLayouts | type == "array") and has("ntp") and has("ntpAvailable") and has("ntpSynchronized") and has("locale") and has("locales") and (.locales | type == "array") and has("parallelDownloads") and has("fullName") and has("currentUser") and has("avatarPath") and has("users") and (.users | type == "array") and has("groups") and (.groups | type == "array") and has("hyprLook") and has("hyprInput") and has("hyprLookManaged") and has("hyprNoGaps") and has("fingerprintAvailable") and has("sshdEnabled") and has("omarchyChannel") and has("updateAvailable") and has("plugins") and (.plugins | type == "array") and has("voxtypeInstalled") and has("fstrimEnabled") and has("directBootAvailable") and has("mimePdf") and has("picturesDir") and has("videosDir") and has("recordingActive") and has("webcamOverlay") and has("services") and has("gaming") and has("extras") and has("hooks") and (.hooks | type == "array") and has("autostart") and (.autostart | type == "array") and has("autostartManaged") and has("nightlightDay") and has("nightlightNight") and has("nightlightNightOn") and has("tailscalePeers") and (.tailscalePeers | type == "array") and (.hyprLook | has("cursorSize")) and (.hyprLook | has("activeOpacity")) and has("bindings") and (.bindings | type == "array") and has("bindingsManaged") and has("windowRules") and (.windowRules | type == "array") and has("windowRulesManaged") and has("keybindings") and (.keybindings | type == "array") and has("focusedClass") and has("cupsActive") and has("printerSetup") and has("hwNvidia") and has("hwVulkan") and has("hwIntel") and has("dmiProduct") and has("cpuStat") and has("memoryStat") and has("cpuIdentity") and has("gpuIdentity") and has("npuIdentity") and has("atmosRevision") and has("atmosChannel") and has("atmosInstalled")' >/dev/null
+  echo "$json" | jq -e '.theme and .themes and has("extraThemes") and (.extraThemes | type == "array") and has("desktopApps") and (.desktopApps | type == "array") and has("tuiApps") and (.tuiApps | type == "array") and has("webApps") and (.webApps | type == "array") and .barPosition and .idleScreensaver and has("stayAwake") and has("nightlight") and has("nightlightTemperature") and has("screensaverEnabled") and has("barVisible") and has("dns") and has("bluetooth") and has("suspendEnabled") and has("powerProfile") and has("powerProfileAc") and has("powerProfileBattery") and (.powerProfiles | type == "array") and has("crashCapture") and has("plymouth") and (.plymouthThemes | type == "array") and has("doNotDisturb") and has("weatherLocation") and has("weatherCoords") and has("weatherAuto") and has("weatherPresent") and has("weatherUnit") and has("weatherRefreshMinutes") and has("reminderCount") and has("reminderActive") and has("reminders") and (.reminders | type == "array") and has("clockFormat") and has("clockFormatAlt") and has("clockWeekStart") and has("clockPresent") and has("clockBirthYear") and has("clockLifeExpectancy") and has("indicatorsPresent") and has("indicatorsAlwaysShow") and has("indicatorsItems") and (.indicatorsItems | type == "array") and has("agentsPresent") and has("agentsRefreshIntervalSec") and has("agentsSync") and has("agentsSyncDir") and has("agentsSyncFileName") and has("agentsSyncDeviceId") and has("spacerPresent") and has("spacerSize") and has("trayPresent") and has("trayHidden") and (.trayHidden | type == "array") and has("trayPinned") and (.trayPinned | type == "array") and has("powerPresent") and has("powerShowPercentage") and has("isLaptop") and has("batteryPresent") and has("monitors") and (.monitors | type == "array") and has("internalPresent") and has("internalEnabled") and has("externalPresent") and has("mirroring") and has("touchpadPresent") and has("touchpadEnabled") and has("touchscreenPresent") and has("touchscreenEnabled") and has("keyboardBacklightPresent") and has("keyboardBrightness") and has("wifiConnected") and has("wifiBandSelected") and (.wifiBands | type == "array") and has("wifiIface") and has("netKind") and has("netIface") and has("netIp") and has("wifiHw") and has("wifiRadio") and has("wifiConnections") and (.wifiConnections | type == "array") and has("bluetoothDevices") and (.bluetoothDevices | type == "array") and has("audioSinks") and (.audioSinks | type == "array") and has("audioSources") and (.audioSources | type == "array") and has("audioOutputVolume") and has("audioOutputMuted") and has("audioInputVolume") and has("audioInputMuted") and has("audioTuningMatch") and has("audioTuningOn") and has("disks") and (.disks | type == "array") and has("hardware") and (.hardware | type == "object") and has("luksDevices") and (.luksDevices | type == "array") and has("swapDevices") and (.swapDevices | type == "array") and has("snapperPresent") and has("snapperConfigs") and (.snapperConfigs | type == "array") and has("snapshots") and (.snapshots | type == "array") and has("hibernationAvailable") and has("hibernationSupported") and has("hibernationConfigured") and has("screensaverBranded") and has("aboutBranded") and has("timezone") and has("timezones") and (.timezones | type == "array") and has("hostname") and has("keyboardLayout") and has("keyboardLayouts") and (.keyboardLayouts | type == "array") and has("ntp") and has("ntpAvailable") and has("ntpSynchronized") and has("locale") and has("locales") and (.locales | type == "array") and has("parallelDownloads") and has("fullName") and has("currentUser") and has("avatarPath") and has("users") and (.users | type == "array") and has("groups") and (.groups | type == "array") and has("hyprLook") and has("hyprInput") and has("hyprLookManaged") and has("hyprNoGaps") and has("fingerprintAvailable") and has("sshdEnabled") and has("omarchyChannel") and has("updateAvailable") and has("plugins") and (.plugins | type == "array") and has("voxtypeInstalled") and has("fstrimEnabled") and has("directBootAvailable") and has("mimePdf") and has("picturesDir") and has("videosDir") and has("recordingActive") and has("webcamOverlay") and has("services") and has("gaming") and has("extras") and has("hooks") and (.hooks | type == "array") and has("autostart") and (.autostart | type == "array") and has("autostartManaged") and has("nightlightDay") and has("nightlightNight") and has("nightlightNightOn") and has("tailscalePeers") and (.tailscalePeers | type == "array") and (.hyprLook | has("cursorSize")) and (.hyprLook | has("activeOpacity")) and (.hyprLook | has("inactiveOpacity")) and (.hyprInput | has("workspaceGesture")) and (.hyprInput | has("kbLayoutOverride")) and has("bindings") and (.bindings | type == "array") and has("bindingsManaged") and has("windowRules") and (.windowRules | type == "array") and has("windowRulesManaged") and has("keybindings") and (.keybindings | type == "array") and has("focusedClass") and has("cupsActive") and has("printerSetup") and has("hwNvidia") and has("hwVulkan") and has("hwIntel") and has("dmiProduct") and has("cpuStat") and has("memoryStat") and has("cpuIdentity") and has("gpuIdentity") and has("npuIdentity") and has("atmosRevision") and has("atmosChannel") and has("atmosInstalled")' >/dev/null
   echo "ok - snapshot.sh emits a usable JSON object"
 else
   echo "ok - skipping live snapshot (omarchy/jq not available)"
@@ -534,13 +534,21 @@ if [[ -x scripts/set-hypr-look.sh ]] && command -v python3 >/dev/null 2>&1; then
 -- keep this comment
 hl.config({ general = { gaps_in = 1 } })
 LUA
-  ATMOS_LOOK_FILE="$look_home/looknfeel.lua" ATMOS_SKIP_HYPR=1 \
+  cat >"$look_home/hyprland.lua" <<'LUA'
+require("default.hypr.omarchy")
+require("hypr.atmos")
+require("default.hypr.toggles")
+LUA
+  ATMOS_LOOK_FILE="$look_home/looknfeel.lua" ATMOS_HYPRLAND_FILE="$look_home/hyprland.lua" ATMOS_SKIP_HYPR=1 \
     bash scripts/set-hypr-look.sh '{"gapsIn":8,"gapsOut":12,"layout":"scrolling"}'
   grep -q -- '-- keep this comment' "$look_home/looknfeel.lua"
   grep -q -- '-- atmos:look begin' "$look_home/looknfeel.lua"
   grep -q 'gaps_in = 8' "$look_home/looknfeel.lua"
   grep -q 'layout = "scrolling"' "$look_home/looknfeel.lua"
-  ATMOS_LOOK_FILE="$look_home/looknfeel.lua" ATMOS_SKIP_HYPR=1 \
+  grep -q 'inactive_opacity = 1' "$look_home/looknfeel.lua"
+  grep -q 'require("hypr.atmos_layout")' "$look_home/hyprland.lua"
+  grep -q 'togglesplit' "$look_home/atmos_layout.lua"
+  ATMOS_LOOK_FILE="$look_home/looknfeel.lua" ATMOS_HYPRLAND_FILE="$look_home/hyprland.lua" ATMOS_SKIP_HYPR=1 \
     bash scripts/set-hypr-look.sh --reset
   if grep -q -- '-- atmos:look begin' "$look_home/looknfeel.lua"; then
     echo "not ok - set-hypr-look.sh --reset left the look block"
@@ -602,6 +610,52 @@ if [[ -x scripts/set-nightlight-temp.sh ]]; then
     exit 1
   fi
   echo "ok - set-nightlight-temp.sh rejects out-of-range kelvin"
+  if command -v python3 >/dev/null 2>&1; then
+    temp_home=$(mktemp -d)
+    cat >"$temp_home/hyprsunset.conf" <<'CONF'
+profile {
+    time = 07:00
+    identity = true
+}
+
+profile {
+    time = 20:00
+    temperature = 4000
+}
+CONF
+    ATMOS_HYPRSUNSET_FILE="$temp_home/hyprsunset.conf" ATMOS_SKIP_HYPR=1 \
+      bash scripts/set-nightlight-temp.sh 3500
+    grep -q 'temperature = 3500' "$temp_home/hyprsunset.conf"
+    grep -q 'time = 20:00' "$temp_home/hyprsunset.conf"
+    if grep -q 'temperature = 4000' "$temp_home/hyprsunset.conf"; then
+      echo "not ok - set-nightlight-temp.sh left the old night profile Kelvin"
+      rm -rf "$temp_home"
+      exit 1
+    fi
+    cat >"$temp_home/hyprsunset.conf" <<'CONF'
+profile {
+    time = 07:00
+    identity = true
+}
+
+# profile {
+#     time = 20:00
+#     temperature = 4000
+# }
+CONF
+    ATMOS_HYPRSUNSET_FILE="$temp_home/hyprsunset.conf" ATMOS_SKIP_HYPR=1 \
+      bash scripts/set-nightlight-temp.sh 3500
+    grep -q '#     temperature = 4000' "$temp_home/hyprsunset.conf"
+    if grep -q 'temperature = 3500' "$temp_home/hyprsunset.conf"; then
+      echo "not ok - set-nightlight-temp.sh enabled a commented night profile"
+      rm -rf "$temp_home"
+      exit 1
+    fi
+    rm -rf "$temp_home"
+    echo "ok - set-nightlight-temp.sh persists Kelvin into a live night profile"
+  else
+    echo "ok - skipping set-nightlight-temp.sh conf persist"
+  fi
 else
   echo "ok - skipping set-nightlight-temp.sh"
 fi
@@ -1136,6 +1190,176 @@ else
 fi
 
 if [[ -x scripts/apply-settings.sh ]] && command -v jq >/dev/null 2>&1; then
+  input_dir=$(mktemp -d)
+  cat >"$input_dir/snapshot.json" <<'JSON'
+{
+  "hyprInput": {
+    "naturalScroll": false,
+    "sensitivity": 0,
+    "scrollFactor": 0.4,
+    "workspaceGesture": true,
+    "kbLayoutOverride": "us,dk",
+    "kbVariantOverride": ",nodeadkeys",
+    "kbGroupToggle": true
+  }
+}
+JSON
+  cat >"$input_dir/plan.json" <<'JSON'
+{
+  "schema": 1,
+  "changes": [
+    { "key": "hyprInput.naturalScroll", "value": true, "from": false }
+  ]
+}
+JSON
+  out=$(bash scripts/apply-settings.sh --dry-run --snapshot "$input_dir/snapshot.json" \
+    --plan "$input_dir/plan.json")
+  inputs=$(grep -c 'set-hypr-input.sh' <<<"$out" || true)
+  if [[ $inputs -ne 1 ]]; then
+    echo "not ok - apply-settings.sh made $inputs input calls for one input change"
+    rm -rf "$input_dir"
+    exit 1
+  fi
+  grep -q '"naturalScroll":true' <<<"$out"
+  grep -q '"workspaceGesture":true' <<<"$out"
+  grep -q '"kbLayoutOverride":"us,dk"' <<<"$out"
+  grep -q '"scrollFactor":0.4' <<<"$out"
+  rm -rf "$input_dir"
+  echo "ok - apply-settings.sh keeps hyprInput layout override and workspace gesture"
+else
+  echo "ok - skipping apply-settings.sh hyprInput merge"
+fi
+
+if [[ -x scripts/apply-settings.sh ]] && command -v jq >/dev/null 2>&1; then
+  clock_dir=$(mktemp -d)
+  printf '{"barPosition":"top"}' >"$clock_dir/snapshot.json"
+  cat >"$clock_dir/plan.json" <<'JSON'
+{
+  "schema": 1,
+  "changes": [
+    { "key": "clockFormat", "value": "HH:mm", "from": "dddd HH:mm" },
+    { "key": "clockFormatAlt", "value": "yyyy-MM-dd HH:mm", "from": "d MMMM 'W'ww yyyy" }
+  ]
+}
+JSON
+  out=$(bash scripts/apply-settings.sh --dry-run --snapshot "$clock_dir/snapshot.json" \
+    --plan "$clock_dir/plan.json")
+  grep -q 'omarchy.clock format ' <<<"$out"
+  grep -q 'omarchy.clock formatAlt ' <<<"$out"
+  if grep -q verticalFormat <<<"$out"; then
+    echo "not ok - apply-settings.sh used a vertical clock key on a top bar"
+    rm -rf "$clock_dir"
+    exit 1
+  fi
+  printf '{"barPosition":"top"}' >"$clock_dir/snapshot.json"
+  cat >"$clock_dir/plan.json" <<'JSON'
+{
+  "schema": 1,
+  "changes": [
+    { "key": "barPosition", "value": "left", "from": "top" },
+    { "key": "clockFormat", "value": "HH\n—\nmm", "from": "dddd HH:mm" },
+    { "key": "clockFormatAlt", "value": "dd\nMMM", "from": "d MMMM 'W'ww yyyy" }
+  ]
+}
+JSON
+  out=$(bash scripts/apply-settings.sh --dry-run --snapshot "$clock_dir/snapshot.json" \
+    --plan "$clock_dir/plan.json")
+  grep -q 'omarchy.clock verticalFormat ' <<<"$out"
+  grep -q 'omarchy.clock verticalFormatAlt ' <<<"$out"
+  if grep -qE 'omarchy.clock format |omarchy.clock formatAlt ' <<<"$out"; then
+    echo "not ok - apply-settings.sh wrote a side-bar clock onto format"
+    rm -rf "$clock_dir"
+    exit 1
+  fi
+  printf '{"barPosition":"left"}' >"$clock_dir/snapshot.json"
+  cat >"$clock_dir/plan.json" <<'JSON'
+{
+  "schema": 1,
+  "changes": [
+    { "key": "clockFormat", "value": "HH\nmm", "from": "HH\n—\nmm" }
+  ]
+}
+JSON
+  out=$(bash scripts/apply-settings.sh --dry-run --snapshot "$clock_dir/snapshot.json" \
+    --plan "$clock_dir/plan.json")
+  grep -q 'omarchy.clock verticalFormat ' <<<"$out"
+  rm -rf "$clock_dir"
+  echo "ok - apply-settings.sh writes vertical clock keys on a side bar"
+else
+  echo "ok - skipping apply-settings.sh clock format keys"
+fi
+
+if [[ -x scripts/apply-settings.sh ]] && command -v jq >/dev/null 2>&1; then
+  nl_dir=$(mktemp -d)
+  cat >"$nl_dir/snapshot.json" <<'JSON'
+{
+  "nightlightDay": "07:00",
+  "nightlightNight": "20:00",
+  "nightlightNightOn": true,
+  "nightlightTemperature": 4000
+}
+JSON
+  cat >"$nl_dir/plan.json" <<'JSON'
+{
+  "schema": 1,
+  "changes": [
+    { "key": "nightlightDay", "value": "08:00", "from": "07:00" },
+    { "key": "nightlightTemperature", "value": 3500, "from": 4000 }
+  ]
+}
+JSON
+  out=$(bash scripts/apply-settings.sh --dry-run --snapshot "$nl_dir/snapshot.json" \
+    --plan "$nl_dir/plan.json")
+  grep -q 'set-hyprsunset.sh' <<<"$out"
+  # argv is shell-quoted, so the JSON looks like \"temperature\":3500.
+  grep -q 'temperature.*3500' <<<"$out"
+  if grep -q 'temperature.*4000' <<<"$out"; then
+    echo "not ok - apply-settings.sh wrote the old night light temperature into the schedule"
+    rm -rf "$nl_dir"
+    exit 1
+  fi
+  grep -q 'set-nightlight-temp.sh 3500' <<<"$out"
+  rm -rf "$nl_dir"
+  echo "ok - apply-settings.sh writes planned night light temperature into hyprsunset.conf"
+
+  nl_only=$(mktemp -d)
+  cat >"$nl_only/hyprsunset.conf" <<'CONF'
+profile {
+    time = 07:00
+    identity = true
+}
+profile {
+    time = 20:00
+    temperature = 4000
+}
+CONF
+  cat >"$nl_only/snapshot.json" <<'JSON'
+{
+  "nightlightDay": "07:00",
+  "nightlightNight": "20:00",
+  "nightlightNightOn": true,
+  "nightlightTemperature": 4000
+}
+JSON
+  cat >"$nl_only/plan.json" <<'JSON'
+{
+  "schema": 1,
+  "changes": [
+    { "key": "nightlightTemperature", "value": 3500, "from": 4000 }
+  ]
+}
+JSON
+  ATMOS_HYPRSUNSET_FILE="$nl_only/hyprsunset.conf" ATMOS_SKIP_HYPR=1 \
+    bash scripts/apply-settings.sh --no-backup --snapshot "$nl_only/snapshot.json" \
+    --plan "$nl_only/plan.json" >/dev/null
+  grep -q 'temperature = 3500' "$nl_only/hyprsunset.conf"
+  rm -rf "$nl_only"
+  echo "ok - apply-settings.sh persists a temperature-only import into hyprsunset.conf"
+else
+  echo "ok - skipping apply-settings.sh nightlight temperature merge"
+fi
+
+if [[ -x scripts/apply-settings.sh ]] && command -v jq >/dev/null 2>&1; then
   toggle_dir=$(mktemp -d)
   printf '{"hyprNoGaps":false,"hyprSquareAspect":true}' >"$toggle_dir/snapshot.json"
   cat >"$toggle_dir/plan.json" <<'JSON'
@@ -1159,6 +1383,42 @@ JSON
   echo "ok - apply-settings.sh sets hyprNoGaps and hyprSquareAspect on or off"
 else
   echo "ok - skipping apply-settings.sh toggle args"
+fi
+
+if [[ -x scripts/apply-settings.sh ]] && command -v jq >/dev/null 2>&1; then
+  wifi_dir=$(mktemp -d)
+  printf '{"wifiRadio":false,"bluetooth":true}' >"$wifi_dir/snapshot.json"
+  cat >"$wifi_dir/plan.json" <<'JSON'
+{
+  "schema": 1,
+  "changes": [
+    { "key": "wifiRadio", "value": true, "from": false },
+    { "key": "bluetooth", "value": true, "from": true }
+  ]
+}
+JSON
+  out=$(bash scripts/apply-settings.sh --dry-run --snapshot "$wifi_dir/snapshot.json" --plan "$wifi_dir/plan.json")
+  grep -q 'set-wifi-connection.sh radio on' <<<"$out"
+  if grep -q 'bluetooth power' <<<"$out"; then
+    echo "not ok - apply-settings.sh powered Bluetooth that was already on"
+    rm -rf "$wifi_dir"
+    exit 1
+  fi
+  cat >"$wifi_dir/plan.json" <<'JSON'
+{
+  "schema": 1,
+  "changes": [
+    { "key": "wifiRadio", "value": false, "from": true }
+  ]
+}
+JSON
+  printf '{"wifiRadio":true}' >"$wifi_dir/snapshot.json"
+  out=$(bash scripts/apply-settings.sh --dry-run --snapshot "$wifi_dir/snapshot.json" --plan "$wifi_dir/plan.json")
+  grep -q 'set-wifi-connection.sh radio off' <<<"$out"
+  rm -rf "$wifi_dir"
+  echo "ok - apply-settings.sh sets the Wi-Fi radio on or off and skips a settled Bluetooth radio"
+else
+  echo "ok - skipping apply-settings.sh wifi radio"
 fi
 
 if [[ -x scripts/apply-settings.sh ]] && command -v jq >/dev/null 2>&1; then

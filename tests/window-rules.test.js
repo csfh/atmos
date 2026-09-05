@@ -1,3 +1,7 @@
+const { spawnSync } = require("child_process");
+const fs = require("fs");
+const os = require("os");
+const path = require("path");
 const { load, assert, assertEqual } = require("./harness");
 
 const rules = load("services/WindowRules.js");
@@ -61,6 +65,59 @@ assert(
   "ensureRequire inserts before toggles",
 );
 assertEqual(rules.ensureRequire(""), "", "ensureRequire leaves an empty hyprland.lua alone");
+const withOmarchy = 'require("default.hypr.omarchy")\nrequire("hypr.bindings")\n';
+assert(
+  rules
+    .ensureLayoutRequire(withOmarchy)
+    .indexOf('require("hypr.atmos_layout")\nrequire("default.hypr.omarchy")') !== -1,
+  "ensureLayoutRequire inserts before Omarchy defaults so SUPER+J wrap is in place",
+);
+assertEqual(
+  rules.ensureLayoutRequire('require("hypr.atmos_layout")\nrequire("default.hypr.omarchy")\n'),
+  'require("hypr.atmos_layout")\nrequire("default.hypr.omarchy")\n',
+  "ensureLayoutRequire is a no-op when hypr.atmos_layout is present",
+);
+assertEqual(
+  rules.ensureLayoutRequire(""),
+  "",
+  "ensureLayoutRequire leaves an empty hyprland.lua alone",
+);
+const layoutLua = fs.readFileSync(
+  path.join(__dirname, "..", "packaging", "hypr-atmos-layout.lua"),
+  "utf8",
+);
+assert(
+  layoutLua.indexOf("tiled_layout") !== -1 && layoutLua.indexOf("togglesplit") !== -1,
+  "atmos_layout skips dwindle togglesplit on scrolling workspaces",
+);
+{
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "atmos-layout-"));
+  try {
+    const hyprland = path.join(dir, "hyprland.lua");
+    fs.writeFileSync(
+      hyprland,
+      'require("default.hypr.omarchy")\nrequire("hypr.atmos")\nrequire("default.hypr.toggles")\n',
+    );
+    const result = spawnSync(
+      "python3",
+      [path.join(__dirname, "..", "scripts", "hypr-sentinel.py"), "require", "apply", hyprland],
+      { encoding: "utf8" },
+    );
+    assertEqual(result.status, 0, "hypr-sentinel.py require apply exits 0");
+    const written = fs.readFileSync(hyprland, "utf8");
+    assert(
+      written.indexOf('require("hypr.atmos_layout")\nrequire("default.hypr.omarchy")') !== -1,
+      "hypr-sentinel.py require apply inserts atmos_layout before Omarchy defaults",
+    );
+    const layoutFile = fs.readFileSync(path.join(dir, "atmos_layout.lua"), "utf8");
+    assert(
+      layoutFile.indexOf("togglesplit") !== -1,
+      "hypr-sentinel.py require apply writes atmos_layout.lua",
+    );
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
 assertEqual(
   rules.describe({ placement: "float", center: true }).indexOf("float") !== -1,
   true,
@@ -124,3 +181,85 @@ assertEqual(
   "normalize reads a size array",
 );
 assertEqual(rules.normalize({ match: "ghost" }), null, "normalize drops a match with no effects");
+const commentedWindows = `-- o.window("firefox", { float = true })
+o.window("dev.csfh.atmos", { float = true }) -- keep
+`;
+const liveWindows = rules.parseFile(commentedWindows);
+assertEqual(liveWindows.length, 1, "parseFile skips a commented o.window example");
+assertEqual(liveWindows[0].match, "dev.csfh.atmos", "parseFile keeps a live window rule");
+
+function pythonList(kind, text) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "atmos-list-"));
+  const file = path.join(dir, kind + ".lua");
+  let parsed = [];
+  try {
+    fs.writeFileSync(file, text);
+    const result = spawnSync(
+      "python3",
+      [path.join(__dirname, "..", "scripts", "hypr-sentinel.py"), kind, "list", file],
+      { encoding: "utf8" },
+    );
+    assertEqual(result.status, 0, "hypr-sentinel.py " + kind + " list exits 0");
+    parsed = JSON.parse(result.stdout);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+  return parsed;
+}
+
+assertEqual(
+  JSON.stringify(pythonList("windows", commentedWindows)),
+  JSON.stringify(liveWindows),
+  "hypr-sentinel.py windows list matches parseFile on commented examples",
+);
+
+const innerCommentWindows = `
+o.window("firefox", {
+  -- float the browser
+  float = true,
+  center = true, -- yes
+})
+hint = "class -- match"; o.window("foot", { tile = true })
+`;
+const innerWindows = rules.parseFile(innerCommentWindows);
+assertEqual(innerWindows.length, 2, "parseFile keeps window rules with comments inside the call");
+assertEqual(innerWindows[0].match, "firefox", "parseFile skips a comment in a window table");
+assertEqual(innerWindows[0].center, true, "parseFile keeps fields after a table comment");
+assertEqual(
+  innerWindows[1].match,
+  "foot",
+  "parseFile keeps a window rule after -- inside a string",
+);
+assertEqual(
+  JSON.stringify(pythonList("windows", innerCommentWindows)),
+  JSON.stringify(innerWindows),
+  "hypr-sentinel.py windows list matches parseFile on comments inside calls",
+);
+
+assertEqual(
+  rules.parseCalls('o.window("foo\\nbar", { float = true })').length,
+  0,
+  "parseCalls drops a window match whose Lua \\n is a newline",
+);
+assertEqual(
+  rules.parseCalls('o.window("foo\\\\nbar", { float = true })')[0].match,
+  "foo\\nbar",
+  "parseCalls keeps a Lua \\\\n in the match as a literal backslash-n",
+);
+assertEqual(rules.luaString("a\tb\nc"), '"a\\tb\\nc"', "luaString escapes a tab and a newline");
+const luaEscapesWindows = `
+o.window("foo\\nbar", { float = true })
+o.window("foo\\\\nbar", { float = true })
+`;
+const luaEscapesWindowParsed = rules.parseFile(luaEscapesWindows);
+assertEqual(luaEscapesWindowParsed.length, 1, "parseFile drops a window match with a Lua newline");
+assertEqual(
+  luaEscapesWindowParsed[0].match,
+  "foo\\nbar",
+  "parseFile keeps a window match with a literal backslash-n",
+);
+assertEqual(
+  JSON.stringify(pythonList("windows", luaEscapesWindows)),
+  JSON.stringify(luaEscapesWindowParsed),
+  "hypr-sentinel.py windows list matches parseFile on Lua string escapes",
+);

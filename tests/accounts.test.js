@@ -20,6 +20,7 @@ assertEqual(accounts.isFullName("Christoffer Hallas"), true, "isFullName accepts
 assertEqual(accounts.isFullName("Last, First"), false, "isFullName rejects a comma");
 assertEqual(accounts.isFullName("bad:name"), false, "isFullName rejects a colon");
 assertEqual(accounts.isFullName("-flag"), false, "isFullName rejects a leading hyphen");
+assertEqual(accounts.isFullName(" --flag "), false, "isFullName trims before rejecting a flag");
 assertEqual(accounts.parseFullName("  Ada  "), "Ada", "parseFullName trims");
 assertEqual(accounts.parseFullName("Last, First"), "", "parseFullName rejects a comma");
 assertEqual(

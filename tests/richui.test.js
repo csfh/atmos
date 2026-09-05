@@ -198,6 +198,79 @@ assertEqual(
   "50%",
   "formatSliderCaption prefers an explicit tick string",
 );
+function assertTicks(actual, expected, description) {
+  assert(
+    actual.length === expected.length &&
+      actual.every(function (v, i) {
+        return Math.abs(v - expected[i]) < 1e-6;
+      }),
+    description,
+    "expected: " + expected.join(",") + "\nactual:   " + actual.join(","),
+  );
+}
+assertTicks(
+  ui.sliderTickValues(0, 100, 1),
+  [0, 25, 50, 75, 100],
+  "volume ticks are 0 25 50 75 100",
+);
+assertTicks(ui.sliderTickValues(0, 8, 1), [0, 2, 4, 6, 8], "border ticks are 0 2 4 6 8");
+assertTicks(
+  ui.sliderTickValues(0, 48, 1),
+  [0, 12, 24, 36, 48],
+  "outer gap ticks are 0 12 24 36 48",
+);
+assertTicks(ui.sliderTickValues(0, 32, 1), [0, 8, 16, 24, 32], "inner gap ticks are 0 8 16 24 32");
+assertTicks(ui.sliderTickValues(0, 24, 1), [0, 6, 12, 18, 24], "corner ticks are 0 6 12 18 24");
+assert(ui.sliderTickValues(0, 100, 1).indexOf(10) === -1, "volume ticks do not label every 10");
+assertEqual(ui.sliderTickValues(0, 100, 1)[0], 0, "tick labels keep the start");
+assertEqual(ui.sliderTickValues(0, 100, 1).pop(), 100, "tick labels keep the end");
+assertTicks(
+  ui.sliderTickValues(-1, 1, 0.02),
+  [-1, -0.5, 0, 0.5, 1],
+  "sensitivity ticks are -1 -0.5 0 0.5 1",
+);
+assertTicks(
+  ui.sliderTickValues(1, 100, 1),
+  [1, 25, 50, 75, 100],
+  "brightness ticks keep 1 and 100",
+);
+assertTicks(
+  ui.sliderTickValues(3000, 6500, 100),
+  [3000, 4000, 5000, 6000, 6500],
+  "night light ticks keep 3000 and 6500",
+);
+assertTicks(ui.sliderTickValues(0, 1, 0.05), [0, 0.25, 0.5, 0.75, 1], "dim ticks are quarters");
+assertTicks(
+  ui.sliderTickValues(0.2, 1, 0.05),
+  [0.2, 0.4, 0.6, 0.8, 1],
+  "opacity ticks are fifths from 0.2",
+);
+assert(
+  ui.sliderTickValues(0, 1800, 60).length <= 5 && ui.sliderTickValues(0, 1800, 60)[0] === 0,
+  "idle ticks stay sparse and keep zero",
+);
+const fittedWide = ui.sliderFitTicks(
+  [0, 25, 50, 75, 100],
+  0,
+  100,
+  400,
+  ["0", "25", "50", "75", "100"],
+  8,
+  8,
+);
+assertTicks(fittedWide, [0, 25, 50, 75, 100], "wide track keeps major volume ticks");
+const fittedNarrow = ui.sliderFitTicks(
+  [0, 25, 50, 75, 100],
+  0,
+  100,
+  80,
+  ["0", "25", "50", "75", "100"],
+  8,
+  8,
+);
+assertEqual(fittedNarrow[0], 0, "narrow track keeps the start tick");
+assertEqual(fittedNarrow[fittedNarrow.length - 1], 100, "narrow track keeps the end tick");
+assert(fittedNarrow.length < 5, "narrow track drops interior ticks that would collide");
 
 const live = ui.sliderLiveState(100);
 const firstLive = ui.sliderLivePush(live, 1000, 10);
@@ -266,6 +339,41 @@ assertEqual(
 assertEqual(ui.parseWebAppUrl("http://hey.com"), "http://hey.com", "parseWebAppUrl keeps http");
 assertEqual(ui.parseWebAppUrl("hey com"), "", "parseWebAppUrl rejects spaces");
 assertEqual(ui.parseWebAppUrl(""), "", "parseWebAppUrl empty");
+
+assertEqual(
+  ui.parseGitUrl("  https://github.com/org/omarchy-tokyo-night-theme.git  "),
+  "https://github.com/org/omarchy-tokyo-night-theme.git",
+  "parseGitUrl trims an https theme URL",
+);
+assertEqual(
+  ui.parseGitUrl("git@github.com:example/omarchy-example-theme.git"),
+  "git@github.com:example/omarchy-example-theme.git",
+  "parseGitUrl keeps an scp-style ssh URL",
+);
+assertEqual(
+  ui.parseGitUrl("HTTPS://github.com/org/omarchy-blue-theme.git"),
+  "https://github.com/org/omarchy-blue-theme.git",
+  "parseGitUrl lowercases the scheme",
+);
+assertEqual(
+  ui.gitThemeName("https://github.com/org/omarchy-tokyo-night-theme.git"),
+  "tokyo-night",
+  "gitThemeName strips omarchy- and -theme",
+);
+assertEqual(ui.parseGitUrl("ext::id"), "", "parseGitUrl rejects a git transport helper");
+assertEqual(ui.parseGitUrl("-uorigin"), "", "parseGitUrl rejects a git option");
+assertEqual(
+  ui.parseGitUrl("javascript://example/theme.git"),
+  "",
+  "parseGitUrl rejects a helper scheme",
+);
+assertEqual(ui.parseGitUrl("not-a-url"), "", "parseGitUrl rejects a bare name");
+assertEqual(
+  ui.parseGitUrl("https://github.com/org/..git"),
+  "",
+  "parseGitUrl rejects a theme named ..",
+);
+assertEqual(ui.parseGitUrl(""), "", "parseGitUrl empty");
 assert(ui.isTuiWindowStyle("float") === true, "isTuiWindowStyle accepts float");
 assert(ui.isTuiWindowStyle("tile") === true, "isTuiWindowStyle accepts tile");
 assert(ui.isTuiWindowStyle("stack") === false, "isTuiWindowStyle rejects other values");
@@ -351,6 +459,81 @@ assert(ui.isHostname("bad-") === false, "isHostname rejects a trailing hyphen");
 assert(ui.isHostname("has space") === false, "isHostname rejects spaces");
 assert(ui.parseHostname("--flag") === "", "parseHostname rejects flags");
 
+assertEqual(ui.parseWeatherLocation("  Copenhagen  "), "Copenhagen", "parseWeatherLocation trims");
+assertEqual(
+  ui.parseWeatherLocation("Washington, DC"),
+  "Washington, DC",
+  "parseWeatherLocation keeps a comma in a city name",
+);
+assertEqual(ui.parseWeatherLocation("--set"), "", "parseWeatherLocation rejects flags");
+assertEqual(
+  ui.parseWeatherLocation("Copenhagen\nMalmo"),
+  "",
+  "parseWeatherLocation rejects a newline",
+);
+assertEqual(ui.parseWeatherLocation(""), "", "parseWeatherLocation empty");
+assertEqual(
+  ui.parseWeatherLocation("x".repeat(129)),
+  "",
+  "parseWeatherLocation rejects a name over 128 characters",
+);
+
+assertEqual(
+  ui.parseWeatherCoords("37.7749,-122.4194"),
+  "37.7749,-122.4194",
+  "parseWeatherCoords keeps a compact pair",
+);
+assertEqual(
+  ui.parseWeatherCoords("  37.7749 , -122.4194  "),
+  "37.7749,-122.4194",
+  "parseWeatherCoords allows spaces around the comma",
+);
+assertEqual(
+  ui.parseWeatherCoords("+51.5,+0.12"),
+  "51.5,0.12",
+  "parseWeatherCoords strips a leading plus",
+);
+assertEqual(ui.parseWeatherCoords("90,180"), "90,180", "parseWeatherCoords accepts the poles");
+assertEqual(
+  ui.parseWeatherCoords("-90,-180"),
+  "-90,-180",
+  "parseWeatherCoords accepts the west bound",
+);
+assertEqual(ui.parseWeatherCoords("91,0"), "", "parseWeatherCoords rejects a latitude above 90");
+assertEqual(ui.parseWeatherCoords("0,181"), "", "parseWeatherCoords rejects a longitude above 180");
+assertEqual(
+  ui.parseWeatherCoords("37.77 -122.42"),
+  "",
+  "parseWeatherCoords rejects a missing comma",
+);
+assertEqual(ui.parseWeatherCoords("--1,0"), "", "parseWeatherCoords rejects flags");
+assertEqual(ui.parseWeatherCoords(""), "", "parseWeatherCoords empty");
+
+const sshKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPlaceholderDataForAtmosTests1234 user@host";
+assertEqual(ui.parseSshPublicKey("  " + sshKey + "  "), sshKey, "parseSshPublicKey trims");
+assert(ui.isSshKeyType("ssh-ed25519") === true, "isSshKeyType accepts ssh-ed25519");
+assert(
+  ui.isSshKeyType("sk-ssh-ed25519@openssh.com") === true,
+  "isSshKeyType accepts a security-key type",
+);
+assert(ui.isSshKeyType("ecdsa-sha2-nistp256") === true, "isSshKeyType accepts ecdsa");
+assert(ui.isSshKeyType("--ssh-ed25519") === false, "isSshKeyType rejects flags");
+assertEqual(ui.parseSshPublicKey("ssh-ed25519 AAAA"), "", "parseSshPublicKey rejects a short blob");
+assertEqual(
+  ui.parseSshPublicKey(
+    "-----BEGIN OPENSSH PRIVATE KEY-----\nAAAA\n-----END OPENSSH PRIVATE KEY-----",
+  ),
+  "",
+  "parseSshPublicKey rejects a private key",
+);
+assertEqual(
+  ui.parseSshPublicKey(sshKey.replace(" ", "\n")),
+  "",
+  "parseSshPublicKey rejects a newline",
+);
+assertEqual(ui.parseSshPublicKey("--key=" + sshKey), "", "parseSshPublicKey rejects flags");
+assertEqual(ui.parseSshPublicKey(""), "", "parseSshPublicKey empty");
+
 assert(ui.isKeyboardLayoutId("us") === true, "isKeyboardLayoutId accepts us");
 assert(ui.isKeyboardLayoutId("gb") === true, "isKeyboardLayoutId accepts gb");
 assert(ui.parseKeyboardLayoutId("us,ru") === "us", "parseKeyboardLayoutId takes the first layout");
@@ -393,6 +576,7 @@ assert(ui.parseFullName("  Jean-Luc  ") === "Jean-Luc", "parseFullName trims");
 assert(ui.isFullName("bad:name") === false, "isFullName rejects a colon");
 assert(ui.isFullName("Last, First") === false, "isFullName rejects a comma");
 assert(ui.parseFullName("--flag") === "", "parseFullName rejects flags");
+assert(ui.isFullName(" --flag ") === false, "isFullName trims before rejecting a flag");
 
 assertEqual(
   ui.parseParallelDownloads("ParallelDownloads = 5\n"),
@@ -415,3 +599,15 @@ assertEqual(
   0,
   "parseParallelDownloads rejects zero",
 );
+
+assert(ui.confirmIsDestructive("Remove") === true, "confirmIsDestructive Remove");
+assert(ui.confirmIsDestructive("forget") === true, "confirmIsDestructive forget");
+assert(ui.confirmIsDestructive("Roll back") === true, "confirmIsDestructive Roll back");
+assert(ui.confirmIsDestructive("Turn off") === true, "confirmIsDestructive Turn off");
+assert(ui.confirmIsDestructive("Restore") === true, "confirmIsDestructive Restore");
+assert(ui.confirmIsDestructive("Install") === false, "confirmIsDestructive Install");
+assert(ui.confirmIsDestructive("Apply") === false, "confirmIsDestructive Apply");
+assert(ui.confirmIsDestructive("Update") === false, "confirmIsDestructive Update");
+assert(ui.confirmIsDestructive("Set up") === false, "confirmIsDestructive Set up");
+assert(ui.confirmIsDestructive("Create") === false, "confirmIsDestructive Create");
+assert(ui.confirmIsDestructive("") === false, "confirmIsDestructive empty");

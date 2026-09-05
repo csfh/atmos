@@ -23,8 +23,25 @@ QtObject {
   property var userShellValues: ({})
   property var shellValues: ({})
 
-  readonly property int fontSize: Math.max(9, Math.round(ThemeJs.numberToken(root.shellValues, "font.base-size", 12)))
+  // Visual language. Monospace, grayscale chrome, 1px hairlines, radius 0,
+  // dense native controls, a capped content column, a persistent sidebar.
+  // Tokens record the live look. Do not round cards, add shadows, or grow
+  // the column because the window is wide.
+
   readonly property string fontFamily: "monospace"
+  readonly property int fontSize: Math.max(9, Math.round(ThemeJs.numberToken(root.shellValues, "font.base-size", 12)))
+  readonly property int titleSize: Math.max(fontSize + 6, Math.round(fontSize * 1.4))
+  readonly property int captionSize: Math.max(11, fontSize - 2)
+  readonly property int pageTitleSize: titleSize
+  readonly property int pageDescriptionSize: fontSize
+  readonly property int embedTitleSize: fontSize + 2
+  readonly property int sectionSize: captionSize
+  readonly property int labelSize: fontSize
+  readonly property int descriptionSize: captionSize
+  readonly property int metaSize: captionSize
+  readonly property real sectionTracking: 1.2
+  readonly property real metaOpacity: 0.7
+
   // Remix Icon names under icons/<name>.svg.
   readonly property string iconChevronLeft: "arrow-left-s-line"
   readonly property string iconChevronRight: "arrow-right-s-line"
@@ -34,24 +51,68 @@ QtObject {
   readonly property real hoverFill: ThemeJs.numberToken(root.shellValues, "controls.hover-cursor-fill-alpha", 0.08)
   readonly property real selectedFill: ThemeJs.numberToken(root.shellValues, "controls.selected-fill-alpha", 0.18)
   readonly property real borderAlpha: ThemeJs.numberToken(root.shellValues, "controls.normal-border-alpha", 0.4)
+  readonly property real primaryFill: 0.22
+  readonly property real toggleOffFill: 0.12
+  readonly property real scrimAlpha: 0.55
+
   readonly property int pad: Math.max(8, Math.round(fontSize * 0.9))
   readonly property int gap: Math.max(6, Math.round(fontSize * 0.6))
   readonly property int space: 8
   readonly property int spaceMd: 12
   readonly property int spaceLg: 20
   readonly property int rowPad: 10
+  // Shared left edge for page title, section heading, and setting label.
+  readonly property int copyInset: rowPad
+  readonly property int pageMargin: spaceLg
+  readonly property int sectionSpacing: spaceLg * 2
+  readonly property int headingGap: space
+  readonly property int titleGap: 4
+  readonly property int labelGap: 4
+  readonly property int stackGap: 6
+  readonly property int controlGap: space
+  readonly property int sidebarItemSpacing: 2
+  readonly property int sidebarGroupSpacing: spaceMd
+
   readonly property int rowHeight: Math.max(36, fontSize + spaceMd * 2)
   readonly property int controlHeight: Math.max(28, rowHeight - 8)
+  readonly property int toggleWidth: 44
+  readonly property int toggleHeight: 24
+  readonly property int toggleThumb: 16
+  readonly property int checkSize: 16
+  readonly property int radioSize: 16
+  readonly property int sliderTrack: 22
+  readonly property int sliderBar: 4
+  readonly property int sliderHandle: 14
+  readonly property int sliderTickGap: 4
+  readonly property int sliderCompactWidth: 162
+  readonly property int fieldInset: 10
+  readonly property int fieldWidth: 200
+  readonly property int spinWidth: 108
+  readonly property int helpHit: 22
+  readonly property int helpIcon: 16
+  readonly property int navIconSize: fontSize + 2
+  readonly property int railWidth: 3
+  readonly property int borderWidth: 1
+  readonly property real disabledOpacity: 0.45
+  readonly property int motionFast: 90
+  readonly property int motionMed: 120
+  readonly property int motionNav: 180
+
   readonly property int sidebarWidth: 220
   readonly property int contentMaxWidth: 1000
   readonly property int controlColumnWidth: 280
-  readonly property int titleSize: Math.max(fontSize + 6, Math.round(fontSize * 1.4))
-  readonly property int captionSize: Math.max(11, fontSize - 2)
+  readonly property int dialogWidth: 520
+  readonly property int confirmWidth: 420
+  readonly property int overlayInset: 48
+
+  function controlOpacity(on) {
+    return on ? 1 : disabledOpacity
+  }
 
   function contentColumnWidth(avail) {
     var w = Number(avail)
     if (!isFinite(w)) w = 0
-    return Math.max(240, Math.min(contentMaxWidth, w - spaceLg * 2))
+    return Math.max(240, Math.min(contentMaxWidth, w - pageMargin * 2))
   }
 
   function contentColumnX(avail, colWidth) {
@@ -59,7 +120,7 @@ QtObject {
     var inner = Number(colWidth)
     if (!isFinite(outer)) outer = 0
     if (!isFinite(inner)) inner = 0
-    return Math.max(spaceLg, Math.round((outer - inner) / 2))
+    return Math.max(pageMargin, Math.round((outer - inner) / 2))
   }
 
   function fill(alpha) {

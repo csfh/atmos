@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import "../services"
+import "../services/Layout.js" as LayoutJs
 
 Item {
   id: root
@@ -12,9 +13,17 @@ Item {
 
   readonly property bool hasTopics: topics && topics.length > 0
   readonly property bool hasContent: body.length > 0 || command.length > 0 || hasTopics
+  readonly property string accessibleName: LayoutJs.helpAccessibleName(title)
+  readonly property string tooltipText: {
+    if (root.body.length > 0) return root.body
+    if (root.hasTopics && root.topics[0] && root.topics[0].body)
+      return String(root.topics[0].body)
+    if (root.command.length > 0) return root.command
+    return root.accessibleName
+  }
 
-  implicitWidth: visible ? 22 : 0
-  implicitHeight: 22
+  implicitWidth: visible ? Theme.helpHit : 0
+  implicitHeight: Theme.helpHit
   visible: hasContent
   width: implicitWidth
   height: implicitHeight
@@ -22,7 +31,7 @@ Item {
   activeFocusOnTab: visible
 
   Accessible.role: Accessible.Button
-  Accessible.name: "About " + title
+  Accessible.name: root.accessibleName
   Accessible.onPressAction: popup.open()
 
   Keys.onReturnPressed: popup.open()
@@ -31,11 +40,11 @@ Item {
   PrefsIcon {
     anchors.centerIn: parent
     name: Theme.iconInfo
-    size: 16
+    size: Theme.helpIcon
     color: helpMouse.containsMouse || root.activeFocus ? Theme.foreground : Theme.muted
 
     Behavior on color {
-      ColorAnimation { duration: 90 }
+      ColorAnimation { duration: Theme.motionFast }
     }
   }
 
@@ -47,6 +56,21 @@ Item {
     onClicked: popup.open()
   }
 
+  ToolTip {
+    visible: root.hasContent && helpMouse.containsMouse && !popup.visible
+    delay: 400
+    timeout: 8000
+    text: root.tooltipText
+    contentItem: Text {
+      width: 360
+      text: root.tooltipText
+      wrapMode: Text.Wrap
+      color: Theme.foreground
+      font.family: Theme.fontFamily
+      font.pixelSize: Theme.captionSize
+    }
+  }
+
   component CommandBox: Rectangle {
     property string command: ""
 
@@ -55,7 +79,7 @@ Item {
     implicitHeight: visible ? commandText.implicitHeight + 16 : 0
     height: implicitHeight
     color: Theme.fill(0.08)
-    border.width: 1
+    border.width: Theme.borderWidth
     border.color: Theme.borderColor()
     radius: Theme.radius
 
@@ -82,9 +106,17 @@ Item {
     anchors.centerIn: Overlay.overlay
     width: Math.min(480, Overlay.overlay ? Overlay.overlay.width - 48 : 480)
 
+    // The "?" sits in the group header inside PrefsFlickable. Reparent onto
+    // Overlay so clip cannot crop the modal when the header is near an edge.
+    onAboutToShow: {
+      var overlay = Overlay.overlay
+      if (overlay)
+        parent = overlay
+    }
+
     background: Rectangle {
       color: Theme.background
-      border.width: 1
+      border.width: Theme.borderWidth
       border.color: Theme.borderColor()
       radius: Theme.radius
     }

@@ -3,6 +3,8 @@ import QtQuick.Controls
 import "../services"
 import "../services/RichUi.js" as RichUi
 
+// Full-width: ticks on the track, current value on the SettingRow label line
+// (stretchControl). Compact: showTicks false, pair with PrefsSpinBox.
 Item {
   id: root
 
@@ -12,7 +14,7 @@ Item {
   property real stepSize: 1
   property string valueText: ""
   property bool enabled: true
-  property bool showValue: true
+  property bool showValue: false
   property bool showTicks: true
   property bool live: false
   property int liveInterval: 100
@@ -28,29 +30,7 @@ Item {
   property var liveState: RichUi.sliderLiveState(liveInterval)
 
   function rebuildTicks() {
-    var n = 0
-    if (to > from)
-      n = Math.round((to - from) / _step)
-    var every = 1
-    if (n > 0) {
-      var candidates = [1, 2, 3, 4, 5, 6, 10, 12, 15, 20, 24, 30, 60]
-      every = Math.max(1, Math.ceil(n / 12))
-      for (var c = 0; c < candidates.length; c++) {
-        if (n / candidates[c] <= 12) {
-          every = candidates[c]
-          break
-        }
-      }
-    }
-    var list = []
-    if (n > 0) {
-      for (var i = 0; i <= n; i++) {
-        if (i !== 0 && i !== n && i % every !== 0)
-          continue
-        list.push(from + i * _step)
-      }
-    }
-    ticks = list
+    ticks = RichUi.sliderTickValues(from, to, _step)
   }
 
   onFromChanged: rebuildTicks()
@@ -64,20 +44,25 @@ Item {
       _holding = false
   }
 
-  readonly property int valueLineHeight: showValue ? Theme.captionSize : 0
-  readonly property int trackBoxHeight: 22
-  readonly property int tickLineHeight: showTicks ? Math.max(10, Theme.captionSize - 2) + 8 : 0
+  readonly property int valueLineHeight: showValue ? Theme.metaSize : 0
+  readonly property int trackBoxHeight: Theme.sliderTrack
+  readonly property int tickLineHeight: showTicks ? Math.max(10, Theme.captionSize - 2) + Theme.sliderTickGap : 0
 
   implicitWidth: 260
-  implicitHeight: valueLineHeight + (showValue ? 2 : 0) + trackBoxHeight + tickLineHeight
+  implicitHeight: valueLineHeight + (showValue ? Theme.sliderTickGap : 0) + trackBoxHeight + tickLineHeight
   width: implicitWidth
   height: implicitHeight
-  opacity: enabled ? 1 : 0.45
+  opacity: Theme.controlOpacity(enabled)
 
   Accessible.role: Accessible.Slider
-  Accessible.name: slider.pressed || root._holding
-    ? captionFor(slider.value)
-    : (valueText.length > 0 ? valueText : formatValue(value))
+  Accessible.name: displayValue
+
+  readonly property string displayValue: {
+    if (slider.pressed || root._holding)
+      return root.captionFor(slider.value)
+    if (root.valueText.length > 0) return root.valueText
+    return root.formatValue(root.value)
+  }
 
   function snapValue(v) {
     var n = Math.round((v - from) / _step)
@@ -115,23 +100,37 @@ Item {
     var t = span === 0 ? 0 : (v - from) / span
     if (t < 0) t = 0
     if (t > 1) t = 1
-    var hw = 14
+    var hw = Theme.sliderHandle
     return slider.leftPadding + t * (slider.availableWidth - hw) + hw / 2
+  }
+
+  readonly property var fittedTicks: {
+    var all = root.ticks
+    if (!root.showTicks || !all || all.length === 0) return []
+    var labels = []
+    for (var i = 0; i < all.length; i++) labels.push(root.formatValue(all[i]))
+    return RichUi.sliderFitTicks(
+      all,
+      root.from,
+      root.to,
+      root.width,
+      labels,
+      Math.max(6, Theme.captionSize * 0.55),
+      Theme.space
+    )
   }
 
   Column {
     anchors.fill: parent
-    spacing: root.showValue ? 2 : 0
+    spacing: root.showValue ? Theme.sliderTickGap : 0
 
     Text {
       visible: root.showValue
       height: visible ? implicitHeight : 0
-      text: slider.pressed || root._holding
-        ? root.captionFor(slider.value)
-        : (root.valueText.length > 0 ? root.valueText : root.formatValue(root.value))
+      text: root.displayValue
       color: Theme.foreground
       font.family: Theme.fontFamily
-      font.pixelSize: Theme.captionSize
+      font.pixelSize: Theme.metaSize
     }
 
     Item {
@@ -143,7 +142,7 @@ Item {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
-        height: 22
+        height: Theme.sliderTrack
         from: root.from
         to: root.to
         stepSize: root._step
@@ -172,15 +171,15 @@ Item {
 
         background: Item {
           x: slider.leftPadding
-          y: slider.topPadding + slider.availableHeight / 2 - 2
+          y: slider.topPadding + slider.availableHeight / 2 - Theme.sliderBar / 2
           implicitWidth: 200
-          implicitHeight: 4
+          implicitHeight: Theme.sliderBar
           width: slider.availableWidth
-          height: 4
+          height: Theme.sliderBar
 
           Rectangle {
             anchors.fill: parent
-            radius: 2
+            radius: Theme.radius
             color: Theme.fill(0.2)
           }
 
@@ -188,28 +187,28 @@ Item {
             width: slider.visualPosition * parent.width
             height: parent.height
             color: Theme.accent
-            radius: 2
+            radius: Theme.radius
           }
         }
 
         handle: Rectangle {
           x: slider.leftPadding + slider.visualPosition * (slider.availableWidth - width)
           y: slider.topPadding + slider.availableHeight / 2 - height / 2
-          implicitWidth: 14
-          implicitHeight: 14
-          radius: 7
+          implicitWidth: Theme.sliderHandle
+          implicitHeight: Theme.sliderHandle
+          radius: Theme.sliderHandle / 2
           color: Theme.foreground
           border.color: Theme.accent
           scale: slider.hovered || slider.pressed ? 1.12 : 1
 
           Behavior on scale {
-            NumberAnimation { duration: 90; easing.type: Easing.OutCubic }
+            NumberAnimation { duration: Theme.motionFast; easing.type: Easing.OutCubic }
           }
         }
       }
 
       Repeater {
-        model: root.showTicks ? root.ticks : []
+        model: root.fittedTicks
 
         Item {
           width: 1
@@ -227,7 +226,7 @@ Item {
 
           Text {
             anchors.horizontalCenter: parent.horizontalCenter
-            y: slider.height + 4
+            y: slider.height + Theme.sliderTickGap
             text: root.formatValue(modelData)
             color: Theme.muted
             font.family: Theme.fontFamily

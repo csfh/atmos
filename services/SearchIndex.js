@@ -174,11 +174,35 @@ const FILE_HUB = {
   "HooksPage.qml": "hooks",
   "SystemPage.qml": "system",
   "ExportPage.qml": "export",
+  "appearance/BackgroundPage.qml": "appearance/background",
+  "appearance/BootPage.qml": "appearance/boot",
+  "network/WifiPage.qml": "network/wifi",
+  "network/BluetoothPage.qml": "network/bluetooth",
+  "network/SpeedtestPage.qml": "network/speedtest",
+  "windows/BindingsPage.qml": "windows/bindings",
+  "windows/RulesPage.qml": "windows/rules",
 };
 
+const PAGE_TITLE = {
+  "appearance/background": "Background",
+  "appearance/boot": "Boot screen",
+  "network/wifi": "Wi-Fi",
+  "network/bluetooth": "Bluetooth",
+  "network/speedtest": "Speed test",
+  "windows/bindings": "Keybindings",
+  "windows/rules": "Window rules",
+};
+
+function rootHub(hub) {
+  return String(hub || "").split("/")[0];
+}
+
 function hubTitle(hub) {
+  const key = String(hub || "");
+  if (PAGE_TITLE[key]) return PAGE_TITLE[key];
+  const id = rootHub(key);
   for (let i = 0; i < HUBS.length; i++) {
-    if (HUBS[i].id === hub) return HUBS[i].title;
+    if (HUBS[i].id === id) return HUBS[i].title;
   }
   return hub;
 }
@@ -234,6 +258,11 @@ function rowHaystack(row) {
   const list = row.keywords || [];
   for (let i = 0; i < list.length; i++) parts.push(list[i]);
   return shellConfig().joinSearchHaystack(parts);
+}
+
+function replaceRows(db, rows) {
+  db.exec("DELETE FROM rows");
+  ingestRows(db, rows);
 }
 
 function ingestRows(db, rows) {
@@ -412,12 +441,15 @@ function namedBlocks(src, name) {
   return out;
 }
 
+// Search hits navigate to this path. Subpages use hub/id so openPage can
+// push Bindings, Wi-Fi, and the other extra pages instead of the parent hub.
 function hubForPage(rel) {
   const base = String(rel || "").replace(/\\/g, "/");
+  if (FILE_HUB[base]) return FILE_HUB[base];
   if (base.indexOf("appearance/") === 0) return "appearance";
   if (base.indexOf("network/") === 0) return "network";
   if (base.indexOf("windows/") === 0) return "windows";
-  return FILE_HUB[base] || "";
+  return "";
 }
 
 function slug(text) {
@@ -432,7 +464,7 @@ function slug(text) {
 function rowsFromQml(src, hub) {
   const title = hubTitle(hub);
   const out = [];
-  const kinds = ["PrefsRow", "PrefsLink", "PrefsGroup"];
+  const kinds = ["CollectionRow", "SettingRow", "PrefsRow", "PrefsLink", "PrefsGroup"];
   for (let k = 0; k < kinds.length; k++) {
     const blocks = namedBlocks(src, kinds[k]);
     for (let i = 0; i < blocks.length; i++) {
@@ -473,7 +505,7 @@ function expandSharedRows(src, hub, pagesDir) {
   let m;
   const rowsDir = path.join(pagesDir, "rows");
   while ((m = re.exec(src))) {
-    if (m[1] === "PrefsRow") continue;
+    if (m[1] === "PrefsRow" || m[1] === "SettingRow" || m[1] === "CollectionRow") continue;
     const full = path.join(rowsDir, m[1] + ".qml");
     if (!fs.existsSync(full)) continue;
     out.push.apply(out, rowsFromQml(fs.readFileSync(full, "utf8"), hub));
@@ -545,8 +577,8 @@ function handleServeLine(db, line) {
 
 function serve(args) {
   const db = openIndex(indexPath());
-  if (args.rows) ingestRows(db, readJsonFile(args.rows));
-  else ingestRows(db, defaultCatalog(args.root));
+  if (args.rows) replaceRows(db, readJsonFile(args.rows));
+  else replaceRows(db, defaultCatalog(args.root));
   if (args.snapshot) ingestSnapshot(db, readJsonFile(args.snapshot));
   const readline = require("readline");
   const rl = readline.createInterface({ input: process.stdin, crlfDelay: Infinity });
@@ -577,8 +609,8 @@ function main(argv) {
   }
   const db = openIndex(indexPath());
   try {
-    if (args.rows) ingestRows(db, readJsonFile(args.rows));
-    else ingestRows(db, defaultCatalog(args.root));
+    if (args.rows) replaceRows(db, readJsonFile(args.rows));
+    else replaceRows(db, defaultCatalog(args.root));
     if (args.snapshot) ingestSnapshot(db, readJsonFile(args.snapshot));
     if (args.cmd === "query") {
       process.stdout.write(JSON.stringify(queryRows(db, args.query)) + "\n");
@@ -596,6 +628,7 @@ module.exports = {
   indexPath,
   openIndex,
   ingestRows,
+  replaceRows,
   ingestSnapshot,
   getState,
   queryRows,

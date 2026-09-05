@@ -25,6 +25,119 @@ assertEqual(strayCatalogSection, "", "every s_catalog entry lands in a known sec
 
 const byKey = settings.catalogByKey(s_catalog);
 assertEqual(byKey.theme.tier, "look", "theme is a look setting");
+assertEqual(byKey["hyprLook.inactiveOpacity"].type, "number", "inactive opacity is a look number");
+assertEqual(byKey["hyprLook.blur"].type, "boolean", "blur is a look boolean");
+assertEqual(
+  byKey["hyprLook.layout"].choices.join(","),
+  "dwindle,scrolling",
+  "tiling layout names the two layouts clampLook accepts",
+);
+assertEqual(
+  byKey.barPosition.choices.join(","),
+  "top,bottom,left,right",
+  "bar position names the four edges",
+);
+assertEqual(
+  byKey["hyprInput.accelProfile"].choices.join(","),
+  ",flat,adaptive",
+  "acceleration includes the empty Hyprland default",
+);
+assertEqual(byKey.nightlightDay.format, "time", "day starts is a 24-hour time");
+assertEqual(byKey.nightlightNight.format, "time", "night starts is a 24-hour time");
+assertEqual(byKey.weatherUnit.choices.join(","), "auto,metric,imperial", "weather units are named");
+assert(
+  byKey.clockWeekStart.choices.indexOf("") !== -1 &&
+    byKey.clockWeekStart.choices.indexOf("monday") !== -1,
+  "week start includes locale default and monday",
+);
+let badChoice = "";
+let badFormat = "";
+for (const item of s_catalog) {
+  if (item.format && item.format !== "time") badFormat = item.key + ":" + item.format;
+  if (!item.choices) continue;
+  for (const choice of item.choices) {
+    if (!settings.typeMatches(item.type, choice) && choice !== "") badChoice = item.key;
+  }
+}
+assertEqual(badFormat, "", "catalog formats are only time");
+assertEqual(badChoice, "", "every catalog choice matches the setting type");
+assertEqual(
+  byKey["hyprLook.preserveSplit"].tier,
+  "behavior",
+  "preserve split is a behavior setting",
+);
+const hypr = load("services/HyprPrefs.js");
+assertEqual(
+  hypr.clampLook({ layout: "scrolling" }).layout,
+  "scrolling",
+  "clampLook keeps a catalog layout choice",
+);
+assertEqual(
+  hypr.clampLook({ layout: "niri" }).layout,
+  "dwindle",
+  "clampLook would coerce an unknown layout, so planImport must refuse it",
+);
+assertEqual(
+  hypr.clampInput({ accelProfile: "flat" }).accelProfile,
+  "flat",
+  "clampInput keeps a catalog acceleration choice",
+);
+assertEqual(
+  hypr.clampInput({ accelProfile: "linear" }).accelProfile,
+  "",
+  "clampInput would drop an unknown acceleration, so planImport must refuse it",
+);
+const lookDefaults = hypr.defaultLook();
+const lookLua = hypr.serializeLook({});
+let missingLook = "";
+for (const item of s_catalog) {
+  if (item.key.indexOf("hyprLook.") !== 0) continue;
+  const field = item.key.slice("hyprLook.".length);
+  if (!Object.prototype.hasOwnProperty.call(lookDefaults, field)) missingLook = item.key;
+}
+assertEqual(missingLook, "", "every hyprLook catalog key exists on defaultLook");
+let missingLookCatalog = "";
+for (const field of Object.keys(lookDefaults)) {
+  if (!byKey["hyprLook." + field]) missingLookCatalog = field;
+}
+assertEqual(missingLookCatalog, "", "every defaultLook field is in the settings catalog");
+assert(
+  lookLua.indexOf("inactive_opacity") !== -1,
+  "serializeLook writes the catalog inactive opacity key",
+);
+const inputDefaults = hypr.defaultInput();
+let missingInput = "";
+for (const item of s_catalog) {
+  if (item.key.indexOf("hyprInput.") !== 0) continue;
+  const field = item.key.slice("hyprInput.".length);
+  if (!Object.prototype.hasOwnProperty.call(inputDefaults, field)) missingInput = item.key;
+}
+assertEqual(missingInput, "", "every hyprInput catalog key exists on defaultInput");
+let missingInputCatalog = "";
+for (const field of Object.keys(inputDefaults)) {
+  if (!byKey["hyprInput." + field]) missingInputCatalog = field;
+}
+assertEqual(missingInputCatalog, "", "every defaultInput field is in the settings catalog");
+assertEqual(
+  byKey["hyprInput.workspaceGesture"].type,
+  "boolean",
+  "workspace gesture is a catalog boolean",
+);
+assertEqual(byKey["hyprInput.repeatRate"].type, "integer", "repeat rate is a portable integer");
+assertEqual(
+  byKey["hyprInput.kbLayoutOverride"].hostBound,
+  true,
+  "Hyprland layout override is device-tuned",
+);
+assertEqual(byKey.agentsSyncDeviceId.hostBound, true, "agents device id is host-bound");
+assertEqual(
+  byKey.agentsSyncDeviceId.section,
+  "bar",
+  "agents device id lives with the other sync keys",
+);
+assertEqual(byKey.wifiRadio.hostBound, true, "wifi radio is host-bound");
+assertEqual(byKey.wifiRadio.section, "network", "wifi radio lives with bluetooth");
+assertEqual(byKey.wifiRadio.type, "boolean", "wifi radio is a boolean");
 assertEqual(byKey.hostname.tier, "identity", "hostname is an identity setting");
 assertEqual(byKey.fullName.needsRoot, true, "fullName needs root because as-root.sh writes it");
 assertEqual(byKey.plymouth.needsRoot, true, "plymouth needs root like the Boot page");
@@ -59,10 +172,29 @@ assert(
   portablePreset.indexOf("hyprInput.sensitivity") === -1,
   "the portable preset drops device-tuned input",
 );
+assert(
+  portablePreset.indexOf("hyprInput.workspaceGesture") === -1,
+  "the portable preset drops the touchpad workspace gesture",
+);
+assert(
+  portablePreset.indexOf("hyprInput.repeatRate") !== -1,
+  "the portable preset takes keyboard repeat",
+);
+assert(
+  portablePreset.indexOf("agentsSyncDeviceId") === -1,
+  "the portable preset drops the agents device id",
+);
+assert(portablePreset.indexOf("wifiRadio") === -1, "the portable preset drops the Wi-Fi radio");
+assert(portablePreset.indexOf("bluetooth") === -1, "the portable preset drops the Bluetooth radio");
 
 const fullPreset = settings.presetKeys("full", s_catalog);
 assert(fullPreset.indexOf("hostname") !== -1, "the full preset takes the hostname");
 assert(fullPreset.indexOf("sshdEnabled") === -1, "even the full preset refuses security settings");
+assert(
+  fullPreset.indexOf("agentsSyncDeviceId") !== -1,
+  "the full preset takes the agents device id",
+);
+assert(fullPreset.indexOf("wifiRadio") !== -1, "the full preset takes the Wi-Fi radio");
 
 assertEqual(
   settings.readValue({ hyprLook: { gapsIn: 8 } }, "hyprLook.gapsIn"),
@@ -86,21 +218,35 @@ const s_snapshot = {
   idleLock: 300,
   stayAwake: false,
   hyprLook: { gapsIn: 4, activeOpacity: 1 },
-  hyprInput: { naturalScroll: false, sensitivity: 0 },
+  hyprInput: {
+    naturalScroll: false,
+    sensitivity: 0,
+    workspaceGesture: true,
+    kbLayoutOverride: "us,dk",
+    repeatRate: 40,
+  },
   sshdEnabled: true,
   passwordlessSudo: true,
   timezone: "America/New_York",
   timezones: ["America/New_York", "Europe/Berlin"],
 };
 
-const exported = settings.exportMarkdown(s_snapshot, ["theme", "browser", "hyprLook.gapsIn"], {
-  exported: "2026-09-03T00:00:00Z",
-  hardware: "abc123",
-});
+const exported = settings.exportMarkdown(
+  s_snapshot,
+  ["theme", "browser", "hyprLook.gapsIn", "hyprInput.workspaceGesture"],
+  {
+    exported: "2026-09-03T00:00:00Z",
+    hardware: "abc123",
+  },
+);
 assert(exported.indexOf("# Atmos settings") === 0, "exportMarkdown opens with a heading");
 assert(exported.indexOf("```toml atmos:meta") !== -1, "exportMarkdown writes a meta block");
 assert(exported.indexOf('theme = "tokyo-night"') !== -1, "exportMarkdown writes a selected string");
 assert(exported.indexOf("hyprLook.gapsIn = 4") !== -1, "exportMarkdown writes a dotted key");
+assert(
+  exported.indexOf("hyprInput.workspaceGesture = true") !== -1,
+  "exportMarkdown writes the snapshot workspace gesture",
+);
 assert(exported.indexOf("barPosition") === -1, "exportMarkdown leaves out unselected keys");
 assert(
   exported.indexOf("- SSH server: on") !== -1,
@@ -120,6 +266,11 @@ assertEqual(
   round.sections.windows["hyprLook.gapsIn"],
   4,
   "parseSettingsMarkdown reads a dotted key",
+);
+assertEqual(
+  round.sections.input["hyprInput.workspaceGesture"],
+  true,
+  "parseSettingsMarkdown reads the workspace gesture",
 );
 assertEqual(round.sections.security, undefined, "the reported security prose is not a block");
 
@@ -149,6 +300,36 @@ assertEqual(
   'a "b" c',
   "parseTomlValue unescapes a quoted string",
 );
+assertEqual(
+  settings.parseTomlValue('"HH\\n—\\nmm"'),
+  "HH\n—\nmm",
+  "parseTomlValue unescapes a newline in a quoted string",
+);
+assertEqual(
+  settings.tomlValue("HH\n—\nmm"),
+  '"HH\\n—\\nmm"',
+  "tomlValue keeps a newline on one TOML line",
+);
+assertEqual(
+  settings.parseTomlValue(settings.tomlValue("a\tb\r\nc")),
+  "a\tb\r\nc",
+  "tomlValue and parseTomlValue round-trip whitespace",
+);
+assertEqual(
+  settings.parseTomlValue('"ok" # note'),
+  "ok",
+  "parseTomlValue allows a comment after a quoted string",
+);
+assertEqual(
+  settings.parseTomlValue('"foo" extra'),
+  undefined,
+  "parseTomlValue refuses trailing text after a quoted string",
+);
+assertEqual(
+  settings.parseTomlValue('"bad\\x"'),
+  undefined,
+  "parseTomlValue refuses an unknown escape",
+);
 assertEqual(settings.parseTomlValue("[]").length, 0, "parseTomlValue reads an empty list");
 assertEqual(
   settings.parseTomlValue('["a", "b"]')[1],
@@ -156,6 +337,87 @@ assertEqual(
   "parseTomlValue reads a list of strings",
 );
 assertEqual(settings.parseTomlValue("bare"), undefined, "parseTomlValue refuses a bare word");
+assertEqual(
+  settings.parseTomlValue("true # keep"),
+  true,
+  "parseTomlValue allows a comment after a boolean",
+);
+assertEqual(
+  settings.parseTomlValue("300 # seconds"),
+  300,
+  "parseTomlValue allows a comment after an integer",
+);
+assertEqual(
+  settings.parseTomlValue("0.5 # factor"),
+  0.5,
+  "parseTomlValue allows a comment after a float",
+);
+assertEqual(
+  settings.parseTomlValue("false extra"),
+  undefined,
+  "parseTomlValue refuses trailing text after a boolean",
+);
+assertEqual(
+  settings.parseTomlValue('["a, b", "c#d"]')[0],
+  "a, b",
+  "parseTomlValue keeps a comma inside a list string",
+);
+assertEqual(
+  settings.parseTomlValue('["a, b", "c#d"]')[1],
+  "c#d",
+  "parseTomlValue keeps a hash inside a list string",
+);
+assertEqual(
+  settings.parseTomlValue("[1, 2] # items")[1],
+  2,
+  "parseTomlValue allows a comment after a list",
+);
+assertEqual(
+  settings.parseTomlValue("[1, 2] extra"),
+  undefined,
+  "parseTomlValue refuses trailing text after a list",
+);
+assertEqual(
+  settings.parseTomlValue("[1,]")[0],
+  1,
+  "parseTomlValue allows a trailing comma in a list",
+);
+
+const commentedMd = settings.parseSettingsMarkdown(
+  "```toml atmos:idle\nidleLock = 900 # seconds\nstayAwake = false # leave off\n```\n",
+);
+assertEqual(commentedMd.errors.length, 0, "a commented settings block reads back without errors");
+assertEqual(
+  commentedMd.sections.idle.idleLock,
+  900,
+  "parseSettingsMarkdown reads a commented integer",
+);
+assertEqual(
+  commentedMd.sections.idle.stayAwake,
+  false,
+  "parseSettingsMarkdown reads a commented boolean",
+);
+
+const clockMd = settings.exportMarkdown({ clockFormat: "HH\n—\nmm", clockFormatAlt: "dd\nMMM" }, [
+  "clockFormat",
+  "clockFormatAlt",
+]);
+assert(
+  clockMd.indexOf('clockFormat = "HH\\n—\\nmm"') !== -1,
+  "exportMarkdown escapes newlines in a vertical clock format",
+);
+const clockBack = settings.parseSettingsMarkdown(clockMd);
+assertEqual(clockBack.errors.length, 0, "a vertical clock format reads back without errors");
+assertEqual(
+  clockBack.sections.bar.clockFormat,
+  "HH\n—\nmm",
+  "parseSettingsMarkdown restores newlines in clockFormat",
+);
+assertEqual(
+  clockBack.sections.bar.clockFormatAlt,
+  "dd\nMMM",
+  "parseSettingsMarkdown restores newlines in clockFormatAlt",
+);
 
 function planFor(body, keys, options) {
   return settings.planImport(settings.parseSettingsMarkdown(body), s_snapshot, keys, options);
@@ -204,6 +466,96 @@ assert(
   "the block names the expected type",
 );
 
+const unknownLayout = planFor('```toml atmos:windows\nhyprLook.layout = "niri"\n```\n');
+assertEqual(unknownLayout.changes.length, 0, "an unknown tiling layout is not a change");
+assertEqual(unknownLayout.blocked.length, 1, "an unknown tiling layout is blocked");
+assert(
+  unknownLayout.blocked[0].reason.indexOf("not a valid tiling layout") !== -1,
+  "the block names the tiling layout",
+);
+
+const scrollingLayout = planFor('```toml atmos:windows\nhyprLook.layout = "scrolling"\n```\n');
+assertEqual(scrollingLayout.changes.length, 1, "a known tiling layout is a change");
+assertEqual(scrollingLayout.changes[0].to, "scrolling", "the change keeps scrolling");
+
+const unknownEdge = planFor('```toml atmos:bar\nbarPosition = "side"\n```\n');
+assertEqual(unknownEdge.changes.length, 0, "an unknown bar edge is not a change");
+assert(
+  unknownEdge.blocked[0].reason.indexOf("not a valid bar position") !== -1,
+  "the block names the bar position",
+);
+
+const leftBar = planFor('```toml atmos:bar\nbarPosition = "left"\n```\n');
+assertEqual(leftBar.changes.length, 1, "a known bar edge is a change");
+assertEqual(leftBar.changes[0].to, "left", "the change keeps left");
+
+const unknownAccel = planFor('```toml atmos:input\nhyprInput.accelProfile = "linear"\n```\n');
+assertEqual(unknownAccel.changes.length, 0, "an unknown acceleration is not a change");
+assert(
+  unknownAccel.blocked[0].reason.indexOf("not a valid acceleration") !== -1,
+  "the block names the acceleration",
+);
+
+const flatAccel = planFor('```toml atmos:input\nhyprInput.accelProfile = "flat"\n```\n');
+assertEqual(flatAccel.changes.length, 1, "a known acceleration is a change");
+assertEqual(flatAccel.changes[0].to, "flat", "the change keeps flat");
+
+const defaultAccel = planFor('```toml atmos:input\nhyprInput.accelProfile = ""\n```\n');
+assertEqual(defaultAccel.changes.length, 1, "the empty acceleration default is a change");
+assertEqual(defaultAccel.changes[0].to, "", "the change keeps the empty profile");
+
+const unknownWeek = planFor('```toml atmos:bar\nclockWeekStart = "weekend"\n```\n');
+assertEqual(unknownWeek.changes.length, 0, "an unknown week start is not a change");
+assert(
+  unknownWeek.blocked[0].reason.indexOf("not a valid week starts on") !== -1,
+  "the block names the week start",
+);
+
+const localeWeek = planFor('```toml atmos:bar\nclockWeekStart = ""\n```\n');
+assertEqual(localeWeek.changes.length, 1, "the locale default week start is a change");
+assertEqual(localeWeek.changes[0].to, "", "the change keeps the empty week start");
+
+const unknownUnit = planFor('```toml atmos:bar\nweatherUnit = "kelvin"\n```\n');
+assertEqual(unknownUnit.changes.length, 0, "an unknown weather unit is not a change");
+assert(
+  unknownUnit.blocked[0].reason.indexOf("not a valid weather unit") !== -1,
+  "the block names the weather unit",
+);
+
+const badDay = planFor('```toml atmos:idle\nnightlightDay = "whenever"\n```\n');
+assertEqual(badDay.changes.length, 0, "a night-light time that is not a clock is not a change");
+assert(
+  badDay.blocked[0].reason.indexOf("24-hour time") !== -1,
+  "the block asks for a 24-hour time",
+);
+
+const pastMidnight = planFor('```toml atmos:idle\nnightlightDay = "25:00"\n```\n');
+assertEqual(pastMidnight.blocked.length, 1, "25:00 is not a 24-hour time");
+
+const unpaddedDay = planFor('```toml atmos:idle\nnightlightDay = "7:00"\n```\n');
+assertEqual(unpaddedDay.changes.length, 1, "an unpadded hour is still a 24-hour time");
+assertEqual(unpaddedDay.changes[0].to, "7:00", "the change keeps the unpadded time");
+
+const holdsOwnLayout = settings.planImport(
+  settings.parseSettingsMarkdown(
+    "```toml atmos:meta\nschema = 1\n```\n" +
+      '```toml atmos:windows\nhyprLook.layout = "niri"\n```\n',
+  ),
+  { hyprLook: { layout: "niri" } },
+  null,
+  {},
+);
+assertEqual(
+  holdsOwnLayout.blocked.length,
+  0,
+  "a layout the machine already holds is never blocked",
+);
+assertEqual(
+  holdsOwnLayout.unchanged[0],
+  "hyprLook.layout",
+  "a layout the machine already holds is unchanged even if it is not a choice",
+);
+
 const unknownKey = planFor('```toml atmos:appearance\nmadeUpSetting = "x"\n```\n');
 assertEqual(unknownKey.warnings.length, 2, "an unknown key warns, alongside the missing schema");
 assert(
@@ -249,6 +601,29 @@ assertEqual(
   "different hardware warns once for the file and once for the setting",
 );
 
+const otherDeviceId = planFor(
+  '```toml atmos:meta\nschema = 1\nhardware = "aaa"\n```\n' +
+    '```toml atmos:bar\nagentsSyncDeviceId = "laptop"\n```\n',
+  null,
+  { hardware: "bbb" },
+);
+assertEqual(otherDeviceId.changes.length, 0, "agents device id is held back on other hardware");
+assert(
+  otherDeviceId.warnings.some(function (item) {
+    return String(item.message || "").indexOf("tied to this machine") !== -1;
+  }),
+  "the held-back agents device id names the hardware tie",
+);
+
+const sameDeviceId = planFor(
+  '```toml atmos:meta\nschema = 1\nhardware = "aaa"\n```\n' +
+    '```toml atmos:bar\nagentsSyncDeviceId = "laptop"\n```\n',
+  null,
+  { hardware: "aaa" },
+);
+assertEqual(sameDeviceId.changes.length, 1, "agents device id applies on the same hardware");
+assertEqual(sameDeviceId.changes[0].key, "agentsSyncDeviceId", "the change names the device id");
+
 const sameMachine = planFor(
   '```toml atmos:meta\nschema = 1\nhardware = "aaa"\n```\n' +
     "```toml atmos:input\nhyprInput.sensitivity = 0.4\n```\n",
@@ -256,6 +631,21 @@ const sameMachine = planFor(
   { hardware: "aaa" },
 );
 assertEqual(sameMachine.changes.length, 1, "the same hardware keeps device-tuned settings");
+
+const gestureStay = planFor(
+  "```toml atmos:meta\nschema = 1\n```\n" +
+    "```toml atmos:input\nhyprInput.workspaceGesture = true\n```\n",
+);
+assertEqual(
+  gestureStay.changes.length,
+  0,
+  "a snapshot workspace gesture that already matches is unchanged",
+);
+assertEqual(
+  gestureStay.unchanged[0],
+  "hyprInput.workspaceGesture",
+  "planImport reads workspaceGesture from hyprInput, not a top-level key",
+);
 
 const selected = planFor(
   "```toml atmos:meta\nschema = 1\n```\n" +
@@ -356,6 +746,31 @@ assertEqual(
 const listReplay = settings.planImport(listBack, listSnapshot, null, { hardware: "aaa" });
 assertEqual(listReplay.changes.length, 0, "exporting a list and replaying it changes nothing");
 assertEqual(listReplay.unchanged.length, 2, "both lists already match");
+assert(listMd.indexOf("managed") === -1, "exportMarkdown leaves managed off a list row");
+
+const managedOmitted = settings.planImport(
+  settings.parseSettingsMarkdown(
+    "```toml atmos:meta\nschema = 1\n```\n" +
+      '```json atmos:bindings\n[{"command":"kitty","keys":"SUPER + RETURN","label":"Terminal","unbind":false}]\n```\n',
+  ),
+  {
+    bindings: [
+      { keys: "SUPER + RETURN", label: "Terminal", command: "kitty", unbind: false, managed: true },
+    ],
+  },
+  null,
+  {},
+);
+assertEqual(
+  managedOmitted.changes.length,
+  0,
+  "a list without managed matches the live managed row",
+);
+assertEqual(
+  managedOmitted.unchanged[0],
+  "bindings",
+  "reordered keys without managed are already settled",
+);
 
 const listChanged = settings.planImport(
   settings.parseSettingsMarkdown(
@@ -367,7 +782,16 @@ const listChanged = settings.planImport(
   {},
 );
 assertEqual(listChanged.changes.length, 1, "a different list is one change");
-assertEqual(listChanged.changes[0].from.length, 2, "the change carries the list being replaced");
+assertEqual(
+  listChanged.changes[0].from.length,
+  1,
+  "the change's from is the Atmos block, not hand-written rows",
+);
+assertEqual(
+  listChanged.changes[0].from[0].keys,
+  "SUPER + RETURN",
+  "the change keeps the managed binding being replaced",
+);
 assertEqual(listChanged.changes[0].to.length, 1, "the change carries the incoming list");
 assertEqual(settings.displayValue(listChanged.changes[0].to), "1 entry", "a list reads as a count");
 const listDiff = settings.changeLines(listChanged);
@@ -378,6 +802,10 @@ assert(
 assert(
   listDiff.indexOf("SUPER + RETURN → kitty") !== -1,
   "changeLines shows the binding being replaced",
+);
+assert(
+  listDiff.indexOf("SUPER + J") === -1,
+  "changeLines does not list a hand-written binding as removed",
 );
 assert(settings.hasCommandImport(listChanged), "replacing bindings is a command import");
 assertEqual(
@@ -443,6 +871,135 @@ const listWrongType = settings.planImport(
 );
 assertEqual(listWrongType.blocked.length, 1, "a list setting given a string is blocked");
 
+const stringBindings = settings.planImport(
+  settings.parseSettingsMarkdown(
+    "```toml atmos:meta\nschema = 1\n```\n" + '```json atmos:bindings\n["kitty"]\n```\n',
+  ),
+  { bindings: [] },
+  null,
+  {},
+);
+assertEqual(stringBindings.changes.length, 0, "a list of strings is not a bindings change");
+assertEqual(stringBindings.blocked.length, 1, "a list of strings is blocked");
+assert(
+  stringBindings.blocked[0].reason.indexOf("is not a binding") !== -1,
+  "the block says the row is not a binding",
+);
+
+const commandless = settings.planImport(
+  settings.parseSettingsMarkdown(
+    "```toml atmos:meta\nschema = 1\n```\n" +
+      '```json atmos:bindings\n[{"keys":"SUPER + T"}]\n```\n',
+  ),
+  { bindings: [] },
+  null,
+  {},
+);
+assertEqual(commandless.changes.length, 0, "a binding with no command is not a change");
+assert(
+  commandless.blocked[0].reason.indexOf("needs a command or an unbind") !== -1,
+  "the block says the row needs a command or an unbind",
+);
+
+const extraField = settings.planImport(
+  settings.parseSettingsMarkdown(
+    "```toml atmos:meta\nschema = 1\n```\n" +
+      '```json atmos:bindings\n[{"keys":"SUPER + RETURN","label":"Terminal","command":"kitty","unbind":false,"extra":1}]\n```\n',
+  ),
+  {
+    bindings: [
+      { keys: "SUPER + RETURN", label: "Terminal", command: "kitty", unbind: false, managed: true },
+    ],
+  },
+  null,
+  {},
+);
+assertEqual(extraField.changes.length, 0, "an extra field on a binding is not a dirty change");
+assertEqual(extraField.unchanged[0], "bindings", "the extra field is dropped and the row matches");
+
+const emptyRule = settings.planImport(
+  settings.parseSettingsMarkdown(
+    "```toml atmos:meta\nschema = 1\n```\n" +
+      '```json atmos:windowRules\n[{"match":"firefox"}]\n```\n',
+  ),
+  { windowRules: [] },
+  null,
+  {},
+);
+assertEqual(emptyRule.changes.length, 0, "a window rule with no effect is not a change");
+assert(
+  emptyRule.blocked[0].reason.indexOf("does nothing") !== -1,
+  "the block says the rule does nothing",
+);
+
+const unknownIndicator = settings.planImport(
+  settings.parseSettingsMarkdown(
+    "```toml atmos:meta\nschema = 1\n```\n" + '```json atmos:indicatorsItems\n["Nope"]\n```\n',
+  ),
+  { indicatorsItems: [] },
+  null,
+  {},
+);
+assertEqual(unknownIndicator.changes.length, 0, "an unknown indicator is not a change");
+assert(
+  unknownIndicator.blocked[0].reason.indexOf("not a known indicator") !== -1,
+  "the block says the indicator is unknown",
+);
+
+const allIndicators = settings.planImport(
+  settings.parseSettingsMarkdown(
+    "```toml atmos:meta\nschema = 1\n```\n" +
+      '```json atmos:indicatorsItems\n["Dictation","ScreenRecording","Reminder","NightLight","Dnd","StayAwake"]\n```\n',
+  ),
+  { indicatorsItems: [] },
+  null,
+  {},
+);
+assertEqual(
+  allIndicators.changes.length,
+  0,
+  "every indicator listed is the same as an empty list, which means show all",
+);
+
+const indicatorOrder = settings.planImport(
+  settings.parseSettingsMarkdown(
+    "```toml atmos:meta\nschema = 1\n```\n" +
+      '```json atmos:indicatorsItems\n["Dnd","NightLight"]\n```\n',
+  ),
+  { indicatorsItems: ["NightLight", "Dnd"] },
+  null,
+  {},
+);
+assertEqual(indicatorOrder.changes.length, 0, "indicator order is not a dirty change");
+
+const stringAutostart = settings.planImport(
+  settings.parseSettingsMarkdown(
+    "```toml atmos:meta\nschema = 1\n```\n" + '```json atmos:autostart\n["hyprsunset"]\n```\n',
+  ),
+  { autostart: [] },
+  null,
+  {},
+);
+assertEqual(stringAutostart.changes.length, 0, "a list of strings is not an autostart change");
+assert(
+  stringAutostart.blocked[0].reason.indexOf("is not a startup program") !== -1,
+  "the block says the row is not a startup program",
+);
+
+const emptyTray = settings.planImport(
+  settings.parseSettingsMarkdown(
+    "```toml atmos:meta\nschema = 1\n```\n" + '```json atmos:trayHidden\n[""]\n```\n',
+  ),
+  { trayHidden: [] },
+  null,
+  {},
+);
+assertEqual(emptyTray.changes.length, 0, "an empty tray id is not a change");
+assert(
+  emptyTray.blocked[0].reason.indexOf("is not a tray id") !== -1,
+  "the block says the row is not a tray id",
+);
+
 // Sections, for a UI that offers sections rather than one switch per setting.
 const appearanceKeys = settings.sectionKeys("appearance", s_catalog);
 assert(appearanceKeys.indexOf("theme") !== -1, "sectionKeys finds the theme in appearance");
@@ -505,6 +1062,16 @@ const shadowPlan = settings.planImport(
   {},
 );
 assertEqual(shadowPlan.changes.length, 1, "replacing hand-written bindings is still one change");
+assertEqual(
+  shadowPlan.changes[0].from.length,
+  0,
+  "undo restores an empty Atmos block when every live row is hand-written",
+);
+assertEqual(
+  JSON.parse(settings.planToJson(shadowPlan)).changes[0].from.length,
+  0,
+  "the apply payload's from omits hand-written rows so undo cannot copy them into the sentinel",
+);
 assertEqual(shadowPlan.warnings.length, 1, "replacing hand-written bindings warns");
 assert(
   shadowPlan.warnings[0].message.indexOf("2 rows") === 0,
@@ -525,6 +1092,39 @@ const alreadyManaged = settings.planImport(
   {},
 );
 assertEqual(alreadyManaged.warnings.length, 0, "rows Atmos already owns need no warning");
+
+const trayPlan = settings.planImport(
+  settings.parseSettingsMarkdown(
+    "```toml atmos:meta\nschema = 1\n```\n" + '```json atmos:trayHidden\n["app.two"]\n```\n',
+  ),
+  { trayHidden: ["app.one"] },
+  null,
+  {},
+);
+assertEqual(trayPlan.changes.length, 1, "a different tray list is one change");
+assertEqual(trayPlan.changes[0].from.length, 1, "a string list has no managed flag to drop");
+assertEqual(trayPlan.changes[0].from[0], "app.one", "a string list keeps the live rows as from");
+
+const autoFrom = settings.planImport(
+  settings.parseSettingsMarkdown(
+    "```toml atmos:meta\nschema = 1\n```\n" +
+      '```json atmos:autostart\n[{"command":"hyprsunset"}]\n```\n',
+  ),
+  {
+    autostart: [
+      { command: "waybar", managed: false },
+      { command: "hypridle", managed: true },
+    ],
+  },
+  null,
+  {},
+);
+assertEqual(autoFrom.changes[0].from.length, 1, "autostart from is the Atmos block");
+assertEqual(
+  autoFrom.changes[0].from[0].command,
+  "hypridle",
+  "autostart from keeps the managed row",
+);
 
 // Plan rendering lives in the service so the wording stays under test.
 const renderPlan = settings.planImport(
@@ -553,7 +1153,7 @@ assertEqual(settings.shownValue(null), "not set", "a missing value reads as not 
 assertEqual(settings.shownValue(false), "off", "false reads as off, not as missing");
 assertEqual(settings.shownValue(0), "0", "zero reads as zero, not as missing");
 
-// PrefsRow's control slot takes its size from children[0], so a second
+// SettingRow's control slot takes its size from children[0], so a second
 // direct child is drawn on top of the first. Wrap them in a Row instead.
 function overlappingControlRows() {
   const found = [];
@@ -564,7 +1164,7 @@ function overlappingControlRows() {
       if (!name.endsWith(".qml")) continue;
       const lines = fs.readFileSync(path.join(full, name), "utf8").split("\n");
       for (let i = 0; i < lines.length; i++) {
-        if (!/^\s*PrefsRow\s*\{/.test(lines[i])) continue;
+        if (!/^\s*(PrefsRow|SettingRow|CollectionRow)\s*\{/.test(lines[i])) continue;
         const base = lines[i].length - lines[i].trimStart().length;
         let depth = 1;
         const kids = [];

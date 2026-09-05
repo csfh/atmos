@@ -6,6 +6,8 @@ import "Accounts.js" as AccountsJs
 import "AtmosUpdate.js" as AtmosUpdate
 import "Hardware.js" as HardwareJs
 import "Hooks.js" as HooksJs
+import "HyprPrefs.js" as HyprPrefs
+import "HyprSunset.js" as HyprSunset
 import "RichUi.js" as RichUi
 import "Snapshot.js" as SnapshotJs
 import "Theme.js" as ThemeJs
@@ -55,6 +57,10 @@ QtObject {
   readonly property string setHookSampleScript: shellDir + "/scripts/set-hook-sample.sh"
   readonly property string looknfeelLuaFile: Quickshell.env("HOME") + "/.config/hypr/looknfeel.lua"
   readonly property string inputLuaFile: Quickshell.env("HOME") + "/.config/hypr/input.lua"
+  readonly property string autostartLuaFile: Quickshell.env("HOME") + "/.config/hypr/autostart.lua"
+  readonly property string bindingsLuaFile: Quickshell.env("HOME") + "/.config/hypr/bindings.lua"
+  readonly property string windowsLuaFile: Quickshell.env("HOME") + "/.config/hypr/atmos.lua"
+  readonly property string hyprsunsetConfFile: Quickshell.env("HOME") + "/.config/hypr/hyprsunset.conf"
   readonly property string pacmanConfFile: "/etc/pacman.conf"
   readonly property string localtimeFile: "/etc/localtime"
   readonly property string hostnameFile: "/etc/hostname"
@@ -264,6 +270,7 @@ QtObject {
   property bool hyprAllowTearing: false
   property bool hyprResizeOnBorder: false
   property real hyprActiveOpacity: 1
+  property real hyprInactiveOpacity: 1
   property bool hyprPreserveSplit: false
   property bool hyprFocusOnActivate: false
   property bool hyprLookManaged: false
@@ -543,8 +550,7 @@ QtObject {
     crashCapture = data.crashCapture !== false
     doNotDisturb = data.doNotDisturb === true
     weatherLocation = String(data.weatherLocation || "")
-    weatherCoords = String(data.weatherCoords || "")
-    if (!/^-?[0-9]+(\.[0-9]+)?,-?[0-9]+(\.[0-9]+)?$/.test(weatherCoords)) weatherCoords = ""
+    weatherCoords = RichUi.parseWeatherCoords(data.weatherCoords)
     weatherAuto = data.weatherAuto !== false
     weatherPresent = data.weatherPresent === true
     weatherUnit = String(data.weatherUnit || "auto")
@@ -665,10 +671,8 @@ QtObject {
     focusedClass = String(data.focusedClass || "")
     cupsActive = data.cupsActive === true
     printerSetup = data.printerSetup === true
-    nightlightDay = String(data.nightlightDay || "07:00")
-    if (!/^[0-2]?\d:[0-5]\d$/.test(nightlightDay)) nightlightDay = "07:00"
-    nightlightNight = String(data.nightlightNight || "20:00")
-    if (!/^[0-2]?\d:[0-5]\d$/.test(nightlightNight)) nightlightNight = "20:00"
+    nightlightDay = HyprSunset.parseTime(data.nightlightDay) || "07:00"
+    nightlightNight = HyprSunset.parseTime(data.nightlightNight) || "20:00"
     nightlightNightOn = data.nightlightNightOn === true
     tailscalePeers = adoptArray(tailscalePeers, data.tailscalePeers)
     var opts = String(data.hyprInput && data.hyprInput.kbOptions || "")
@@ -695,14 +699,10 @@ QtObject {
     if ("aboutBranded" in parsed) aboutBranded = parsed.aboutBranded === true
     if ("plymouth" in parsed) plymouth = String(parsed.plymouth || "")
     if ("plymouthThemes" in parsed) plymouthThemes = adoptArray(plymouthThemes, parsed.plymouthThemes)
-    if ("nightlightDay" in parsed) {
-      nightlightDay = String(parsed.nightlightDay || "07:00")
-      if (!/^[0-2]?\d:[0-5]\d$/.test(nightlightDay)) nightlightDay = "07:00"
-    }
-    if ("nightlightNight" in parsed) {
-      nightlightNight = String(parsed.nightlightNight || "20:00")
-      if (!/^[0-2]?\d:[0-5]\d$/.test(nightlightNight)) nightlightNight = "20:00"
-    }
+    if ("nightlightDay" in parsed)
+      nightlightDay = HyprSunset.parseTime(parsed.nightlightDay) || "07:00"
+    if ("nightlightNight" in parsed)
+      nightlightNight = HyprSunset.parseTime(parsed.nightlightNight) || "20:00"
     if ("nightlightNightOn" in parsed) nightlightNightOn = parsed.nightlightNightOn === true
     if ("monitors" in parsed) monitors = adoptArray(monitors, parsed.monitors)
     if ("keyboardBrightness" in parsed) {
@@ -911,10 +911,8 @@ QtObject {
     if ("doNotDisturb" in parsed) doNotDisturb = parsed.doNotDisturb === true
     if ("weatherLocation" in parsed) weatherLocation = String(parsed.weatherLocation || "")
     if ("weatherAuto" in parsed) weatherAuto = parsed.weatherAuto !== false
-    if ("weatherCoords" in parsed) {
-      weatherCoords = String(parsed.weatherCoords || "")
-      if (!/^-?[0-9]+(\.[0-9]+)?,-?[0-9]+(\.[0-9]+)?$/.test(weatherCoords)) weatherCoords = ""
-    }
+    if ("weatherCoords" in parsed)
+      weatherCoords = RichUi.parseWeatherCoords(parsed.weatherCoords)
     if ("weatherUnit" in parsed) {
       weatherUnit = String(parsed.weatherUnit || "auto")
       if (weatherUnit !== "metric" && weatherUnit !== "imperial") weatherUnit = "auto"
@@ -1062,6 +1060,10 @@ QtObject {
     if (!isFinite(hyprActiveOpacity)) hyprActiveOpacity = 1
     if (hyprActiveOpacity < 0.2) hyprActiveOpacity = 0.2
     if (hyprActiveOpacity > 1) hyprActiveOpacity = 1
+    hyprInactiveOpacity = Number(look.inactiveOpacity)
+    if (!isFinite(hyprInactiveOpacity)) hyprInactiveOpacity = 1
+    if (hyprInactiveOpacity < 0.2) hyprInactiveOpacity = 0.2
+    if (hyprInactiveOpacity > 1) hyprInactiveOpacity = 1
     hyprPreserveSplit = look.preserveSplit === true
     hyprFocusOnActivate = look.focusOnActivate === true
   }
@@ -1127,6 +1129,7 @@ QtObject {
       allowTearing: hyprAllowTearing,
       resizeOnBorder: hyprResizeOnBorder,
       activeOpacity: hyprActiveOpacity,
+      inactiveOpacity: hyprInactiveOpacity,
       preserveSplit: hyprPreserveSplit,
       focusOnActivate: hyprFocusOnActivate
     }
@@ -1322,7 +1325,7 @@ QtObject {
     runCommand(["bash", "-c", "dir=$(omarchy theme dir \"$1\") && [[ -d \"$dir\" ]] && xdg-open \"$dir\" >/dev/null 2>&1 &", "theme-dir", theme])
   }
   function installTheme(url) {
-    url = String(url || "").replace(/^\s+|\s+$/g, "")
+    url = RichUi.parseGitUrl(url)
     if (!url) return
     runJob(["omarchy", "theme", "install", url], "", "theme-install")
   }
@@ -1919,10 +1922,8 @@ QtObject {
   }
 
   function setHostname(name) {
-    name = String(name || "").replace(/^\s+|\s+$/g, "")
+    name = RichUi.parseHostname(name)
     if (!name || name === hostname) return
-    if (name.length > 253) return
-    if (!/^[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*$/.test(name)) return
     runCommand(["bash", setHostnameScript, name], {
       key: "hostname",
       apply: { hostname: name },
@@ -2124,6 +2125,11 @@ QtObject {
     if (!isFinite(n) || n < 0.2 || n > 1 || n === hyprActiveOpacity) return
     writeHyprLook({ activeOpacity: n })
   }
+  function setHyprInactiveOpacity(n) {
+    n = Math.round(Number(n) * 100) / 100
+    if (!isFinite(n) || n < 0.2 || n > 1 || n === hyprInactiveOpacity) return
+    writeHyprLook({ inactiveOpacity: n })
+  }
   function setHyprPreserveSplit(on) {
     if (on === hyprPreserveSplit) return
     writeHyprLook({ preserveSplit: on })
@@ -2236,13 +2242,18 @@ QtObject {
     writeHyprInput({ mouseMoveDpms: on })
   }
   function setHyprKbOverride(layouts, variants, groupToggle) {
-    layouts = String(layouts || "").replace(/^\s+|\s+$/g, "").toLowerCase()
-    variants = String(variants || "").replace(/^\s+|\s+$/g, "")
-    if (layouts && !/^[a-z0-9]{1,8}(,[a-z0-9]{1,8})*$/.test(layouts)) return
+    var rawLayouts = String(layouts || "").replace(/^\s+|\s+$/g, "")
+    layouts = HyprPrefs.sanitizeLayoutList(layouts)
+    if (rawLayouts && !layouts) return
+    var rawVariants = String(variants || "").replace(/^\s+|\s+$/g, "")
+    variants = layouts ? HyprPrefs.sanitizeVariantList(variants, layouts.split(",").length) : ""
+    if (rawVariants && layouts && !variants) return
+    groupToggle = groupToggle === true
+    if (layouts === hyprKbLayout && variants === hyprKbVariant && groupToggle === hyprKbGroupToggle) return
     writeHyprInput({
       kbLayoutOverride: layouts,
-      kbVariantOverride: layouts ? variants : "",
-      kbGroupToggle: groupToggle === true
+      kbVariantOverride: variants,
+      kbGroupToggle: groupToggle
     })
   }
   function setHyprWorkspaceGesture(on) {
@@ -2284,9 +2295,8 @@ QtObject {
     runGumJob(["omarchy", "remove", "security", "fido2"], "security-fido2-remove", { sudo: true })
   }
   function setupSshd(key) {
-    key = String(key || "").replace(/^\s+|\s+$/g, "")
-    if (!key || key.length > 8192) return
-    if (key.indexOf("\n") !== -1) return
+    key = RichUi.parseSshPublicKey(key)
+    if (!key) return
     runGumJob(["omarchy", "setup", "security", "sshd", "--key=" + key], "security-sshd", { sudo: true })
   }
   function disableSshd() {
@@ -2868,12 +2878,14 @@ QtObject {
   }
 
   function setWeatherLocation(name) {
-    name = String(name || "").replace(/^\s+|\s+$/g, "")
+    name = RichUi.parseWeatherLocation(name)
     if (!name) return
     if (!weatherAuto && name === weatherLocation) return
+    // --set name rewrites weather.json without lat/lon. Drop the previous
+    // pin so Set on Coordinates cannot apply the old city to the new one.
     runCommand(["omarchy", "weather", "location", "--set", name], {
       key: "weatherLocation",
-      apply: { weatherLocation: name, weatherAuto: false },
+      apply: { weatherLocation: name, weatherAuto: false, weatherCoords: "" },
       refresh: "none"
     })
   }
@@ -2882,15 +2894,15 @@ QtObject {
     if (weatherAuto) return
     runCommand(["omarchy", "weather", "location", "--clear"], {
       key: "weatherLocation",
-      apply: { weatherLocation: "", weatherAuto: true },
+      apply: { weatherLocation: "", weatherAuto: true, weatherCoords: "" },
       refresh: "none"
     })
   }
 
   function setWeatherCoordinates(coords) {
-    coords = String(coords || "").replace(/^\s+|\s+$/g, "")
-    if (!/^-?[0-9]+(\.[0-9]+)?,-?[0-9]+(\.[0-9]+)?$/.test(coords)) return
-    var name = String(weatherLocation || "").replace(/^\s+|\s+$/g, "")
+    coords = RichUi.parseWeatherCoords(coords)
+    if (!coords) return
+    var name = RichUi.parseWeatherLocation(weatherLocation)
     if (!name || weatherAuto) return
     if (coords === weatherCoords) return
     runCommand(["omarchy", "weather", "location", "--set", name, coords], {
@@ -3170,9 +3182,9 @@ QtObject {
   }
 
   function setNightlightSchedule(day, night, nightOn) {
-    day = String(day || "").replace(/^\s+|\s+$/g, "")
-    night = String(night || "").replace(/^\s+|\s+$/g, "")
-    if (!/^[0-2]?\d:[0-5]\d$/.test(day) || !/^[0-2]?\d:[0-5]\d$/.test(night)) return
+    day = HyprSunset.parseTime(day)
+    night = HyprSunset.parseTime(night)
+    if (!day || !night) return
     var temp = nightlightTemperature > 0 ? nightlightTemperature : 4000
     runCommand(["bash", setHyprsunsetScript, JSON.stringify({
       day: day,
@@ -3453,6 +3465,7 @@ QtObject {
     { path: indicatorsDir, group: "look" },
     { path: reminderDir, group: "look" },
     { path: looknfeelLuaFile, group: "look" },
+    { path: hyprsunsetConfFile, group: "look" },
     { path: monitorsLuaFile, group: "look" },
     { path: hyprTogglesDir, group: "look" },
     { path: touchpadDisabledFile, group: "look" },
@@ -3470,6 +3483,9 @@ QtObject {
     { path: bluetoothRfkillDir, group: "rest" },
     { path: networkManagerDevicesDir, group: "rest" },
     { path: inputLuaFile, group: "rest" },
+    { path: autostartLuaFile, group: "rest" },
+    { path: bindingsLuaFile, group: "rest" },
+    { path: windowsLuaFile, group: "rest" },
     { path: localtimeFile, group: "rest" },
     { path: vconsoleFile, group: "rest" },
     { path: localeConfFile, group: "rest" },

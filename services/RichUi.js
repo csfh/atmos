@@ -637,7 +637,7 @@ function parseLocaleId(raw) {
 }
 
 function isFullName(name) {
-  var text = String(name || "");
+  var text = String(name || "").replace(/^\s+|\s+$/g, "");
   if (text.length > 256) return false;
   if (text.charAt(0) === "-") return false;
   if (/[:\n\r,]/.test(text)) return false;
@@ -667,6 +667,60 @@ function parseWebAppUrl(raw) {
   if (!url || /\s/.test(url)) return "";
   if (!/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(url)) url = "https://" + url;
   return /^https?:\/\//i.test(url) ? url : "";
+}
+
+// Transports omarchy-git-url-check clones. ext:: and fd:: stay out because
+// git would run a helper instead of fetching a repository.
+var GIT_URL_TRANSPORTS = {
+  ssh: true,
+  git: true,
+  "git+ssh": true,
+  "ssh+git": true,
+  http: true,
+  https: true,
+  ftp: true,
+  ftps: true,
+  file: true,
+};
+
+function gitThemeName(url) {
+  var path = String(url || "");
+  var colon = path.indexOf(":");
+  if (path.indexOf("://") === -1 && colon !== -1 && path.substring(0, colon).indexOf("/") === -1)
+    path = path.substring(colon + 1);
+  var i = path.lastIndexOf("/");
+  var base = i === -1 ? path : path.substring(i + 1);
+  if (base.length > 4 && base.substring(base.length - 4) === ".git")
+    base = base.substring(0, base.length - 4);
+  if (base.indexOf("omarchy-") === 0) base = base.substring(8);
+  if (base.length >= 6 && base.substring(base.length - 6) === "-theme")
+    base = base.substring(0, base.length - 6);
+  base = base.toLowerCase();
+  if (!base || !/^[a-z0-9_][a-z0-9._+-]*$/.test(base)) return "";
+  return base;
+}
+
+// omarchy-theme-install runs omarchy-git-url-check, then names the
+// directory from the URL. Flags, helpers, and unknown schemes stay here.
+function parseGitUrl(raw) {
+  var url = String(raw || "").replace(/^\s+|\s+$/g, "");
+  if (!url || url.length > 2048) return "";
+  if (/[\s\r\n]/.test(url)) return "";
+  if (url.charAt(0) === "-") return "";
+  if (/^[A-Za-z0-9][A-Za-z0-9+.-]*::/.test(url)) return "";
+  var schemeM = url.match(/^([A-Za-z0-9][A-Za-z0-9+.-]*):\/\//);
+  if (schemeM) {
+    var scheme = schemeM[1].toLowerCase();
+    if (!GIT_URL_TRANSPORTS[scheme]) return "";
+    if (scheme !== schemeM[1]) url = scheme + url.substring(schemeM[1].length);
+  } else {
+    var colon = url.indexOf(":");
+    var slash = url.indexOf("/");
+    if (colon <= 0) return "";
+    if (slash !== -1 && slash < colon) return "";
+  }
+  if (!gitThemeName(url)) return "";
+  return url;
 }
 
 function isTuiWindowStyle(style) {
@@ -705,6 +759,61 @@ function parseHostname(raw) {
   return isHostname(text) ? text : "";
 }
 
+// omarchy-weather-location --set <name> [lat,lon]. A leading hyphen would
+// look like a flag if a caller ever concatenates; newlines cannot live in
+// weather.json as a single-line city.
+function parseWeatherLocation(raw) {
+  var text = String(raw || "").replace(/^\s+|\s+$/g, "");
+  if (!text || text.length > 128) return "";
+  if (text.charAt(0) === "-") return "";
+  if (/[\r\n]/.test(text)) return "";
+  return text;
+}
+
+function coordToken(raw) {
+  var text = String(raw || "");
+  if (text.charAt(0) === "+") text = text.substring(1);
+  return text;
+}
+
+// omarchy-weather-location --set name lat,lon. Spaces around the comma are
+// usual; the CLI pattern does not allow them, so we strip to that form.
+function parseWeatherCoords(raw) {
+  var text = String(raw || "").replace(/^\s+|\s+$/g, "");
+  if (!text) return "";
+  var m = text.match(/^([+-]?[0-9]+(?:\.[0-9]+)?)\s*,\s*([+-]?[0-9]+(?:\.[0-9]+)?)$/);
+  if (!m) return "";
+  var lat = Number(m[1]);
+  var lon = Number(m[2]);
+  if (!isFinite(lat) || !isFinite(lon)) return "";
+  if (lat < -90 || lat > 90 || lon < -180 || lon > 180) return "";
+  return coordToken(m[1]) + "," + coordToken(m[2]);
+}
+
+function isSshKeyType(type) {
+  var text = String(type || "");
+  if (!text || text.length > 80 || text.charAt(0) === "-") return false;
+  return /^(?:sk-)?(?:ssh-[a-z0-9]+|ecdsa-sha2-nistp(?:256|384|521))(?:-cert-v01@openssh\.com|@openssh\.com)?$/.test(
+    text,
+  );
+}
+
+// One authorized_keys line. omarchy-setup-security-sshd starts sshd before
+// it checks the key, so junk must not leave this function.
+function parseSshPublicKey(raw) {
+  var text = String(raw || "").replace(/^\s+|\s+$/g, "");
+  if (!text || text.length > 8192) return "";
+  if (/[\r\n]/.test(text) || text.indexOf("-----") !== -1) return "";
+  if (text.charAt(0) === "-") return "";
+  var parts = text.split(/\s+/);
+  if (parts.length < 2) return "";
+  if (!isSshKeyType(parts[0])) return "";
+  if (!/^[A-Za-z0-9+/]{32,}={0,2}$/.test(parts[1])) return "";
+  var blobAt = text.indexOf(parts[1]);
+  var comment = text.substring(blobAt + parts[1].length).replace(/^\s+/, "");
+  return comment ? parts[0] + " " + parts[1] + " " + comment : parts[0] + " " + parts[1];
+}
+
 function isKeyboardLayoutId(id) {
   var text = String(id || "");
   return /^[a-z0-9]{1,8}$/.test(text);
@@ -732,6 +841,131 @@ function formatSliderNumber(v) {
 function formatSliderCaption(v, valueText, tickText) {
   if (tickText) return String(tickText);
   return formatSliderNumber(v) + sliderValueUnit(valueText);
+}
+
+function sliderTickNear(a, b) {
+  return Math.abs(Number(a) - Number(b)) <= 1e-8;
+}
+
+function sliderTickClean(v) {
+  return Math.round(Number(v) * 1e10) / 1e10;
+}
+
+function sliderTickUnique(list) {
+  var out = [];
+  for (var i = 0; i < list.length; i++) {
+    var v = sliderTickClean(list[i]);
+    if (!out.length || !sliderTickNear(out[out.length - 1], v)) out.push(v);
+  }
+  return out;
+}
+
+function sliderEvenSplitTicks(from, to, step, parts) {
+  var span = to - from;
+  var steps = Math.round(span / step);
+  if (parts < 1 || steps % parts !== 0) return null;
+  var every = steps / parts;
+  var ticks = [];
+  for (var i = 0; i <= parts; i++) ticks.push(sliderTickClean(from + every * i * step));
+  return ticks;
+}
+
+function sliderNiceInterval(raw, step) {
+  var units = raw / step;
+  if (!(units > 0) || !isFinite(units)) return step;
+  var mag = Math.pow(10, Math.floor(Math.log(units) / Math.LN10));
+  var r = units / mag;
+  var niceU;
+  if (r <= 1.5) niceU = 1;
+  else if (r <= 2.25) niceU = 2;
+  else if (r <= 3.5) niceU = 2.5;
+  else if (r <= 7.5) niceU = 5;
+  else niceU = 10;
+  return niceU * mag * step;
+}
+
+function sliderNiceGridTicks(from, to, step, parts) {
+  var nice = sliderNiceInterval((to - from) / parts, step);
+  if (!(nice > 0)) nice = step;
+  var ticks = [from];
+  var start = Math.ceil((from + nice * 0.01) / nice) * nice;
+  for (var v = start; v < to - nice * 0.01; v += nice) {
+    var snapped = from + Math.round((v - from) / step) * step;
+    if (snapped > from + step * 0.5 && snapped < to - step * 0.5) ticks.push(snapped);
+  }
+  ticks.push(to);
+  return sliderTickUnique(ticks);
+}
+
+// Major tick values for a full-width slider. Always includes the endpoints.
+// The slider itself keeps `step`; this only picks labels.
+function sliderTickValues(from, to, step) {
+  from = Number(from);
+  to = Number(to);
+  step = Number(step);
+  if (!isFinite(from)) from = 0;
+  if (!isFinite(to)) to = 0;
+  if (!(step > 0) || !isFinite(step)) step = 1;
+  if (!(to > from)) return [from];
+  var n = Math.round((to - from) / step);
+  if (n <= 4) {
+    var all = [];
+    for (var i = 0; i <= n; i++) all.push(sliderTickClean(from + i * step));
+    return all;
+  }
+  var four = sliderEvenSplitTicks(from, to, step, 4);
+  if (four) return four;
+  var grid = sliderNiceGridTicks(from, to, step, 4);
+  if (grid.length > 5) grid = sliderNiceGridTicks(from, to, step, 2);
+  if (grid.length >= 3 && grid.length <= 5) return grid;
+  var two = sliderEvenSplitTicks(from, to, step, 2);
+  if (two) return two;
+  var three = sliderEvenSplitTicks(from, to, step, 3);
+  if (three) return three;
+  if (grid.length >= 3) return grid;
+  return [from, to];
+}
+
+function sliderTickTextWidth(text, charWidth) {
+  return String(text || "").length * charWidth;
+}
+
+// Drop interior labels that would overlap at the current track width.
+// Endpoints stay.
+function sliderFitTicks(ticks, from, to, trackWidth, labels, charWidth, minGap) {
+  var list = Array.isArray(ticks) ? ticks : [];
+  if (list.length <= 2) return list.slice();
+  var span = Number(to) - Number(from);
+  var width = Number(trackWidth);
+  if (!(span > 0) || !(width > 0)) return [list[0], list[list.length - 1]];
+  var cw = Number(charWidth);
+  if (!(cw > 0)) cw = 8;
+  var gap = Number(minGap);
+  if (!(gap > 0)) gap = 8;
+  var names = Array.isArray(labels) ? labels : [];
+
+  function half(i) {
+    var text = i < names.length ? names[i] : formatSliderNumber(list[i]);
+    return sliderTickTextWidth(text, cw) / 2;
+  }
+  function xOf(v) {
+    return ((v - from) / span) * width;
+  }
+
+  var last = list.length - 1;
+  var lastLeft = xOf(list[last]) - half(last);
+  var kept = [list[0]];
+  var prevRight = xOf(list[0]) + half(0);
+  for (var i = 1; i < last; i++) {
+    var x = xOf(list[i]);
+    var h = half(i);
+    if (x - h < prevRight + gap) continue;
+    if (x + h + gap > lastLeft) continue;
+    kept.push(list[i]);
+    prevRight = x + h;
+  }
+  kept.push(list[last]);
+  return kept;
 }
 
 function sliderLiveState(intervalMs) {
@@ -769,6 +1003,25 @@ function agentErrorPrompt(err) {
   var text = clipboardPayload(err, { maxLength: 8192 });
   if (!text) return "";
   return "Atmos hit an error and I want help fixing it.\n\nThe error:\n" + text + "\n";
+}
+
+function confirmIsDestructive(text) {
+  var t = String(text || "")
+    .replace(/^\s+|\s+$/g, "")
+    .toLowerCase();
+  if (!t) return false;
+  if (
+    t === "remove" ||
+    t === "forget" ||
+    t === "clear" ||
+    t === "reset" ||
+    t === "undo" ||
+    t === "prune" ||
+    t === "restore" ||
+    t === "turn off"
+  )
+    return true;
+  return t.indexOf("roll back") !== -1;
 }
 
 function clipboardPayload(text, opts) {

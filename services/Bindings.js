@@ -4,7 +4,16 @@ var BEGIN = "-- atmos:bindings begin";
 var END = "-- atmos:bindings end";
 
 function luaString(v) {
-  return '"' + String(v).replace(/\\/g, "\\\\").replace(/"/g, '\\"') + '"';
+  return (
+    '"' +
+    String(v)
+      .replace(/\\/g, "\\\\")
+      .replace(/\n/g, "\\n")
+      .replace(/\r/g, "\\r")
+      .replace(/\t/g, "\\t")
+      .replace(/"/g, '\\"') +
+    '"'
+  );
 }
 
 function sanitizeKeys(raw) {
@@ -32,8 +41,40 @@ function sanitizeCommand(raw) {
 }
 
 function skipWs(s, i) {
-  while (i < s.length && /[ \t\r\n]/.test(s.charAt(i))) i++;
+  // Lua -- comments. Only called outside strings.
+  while (i < s.length) {
+    while (i < s.length && /[ \t\r\n]/.test(s.charAt(i))) i++;
+    if (s.charAt(i) !== "-" || s.charAt(i + 1) !== "-") break;
+    var nl = s.indexOf("\n", i + 2);
+    i = nl === -1 ? s.length : nl + 1;
+  }
   return i;
+}
+
+function inLineComment(src, at) {
+  var lineStart = src.lastIndexOf("\n", at > 0 ? at - 1 : 0) + 1;
+  var i = lineStart;
+  var inStr = false;
+  while (i < at) {
+    var c = src.charAt(i);
+    if (inStr) {
+      if (c === "\\") {
+        i += 2;
+        continue;
+      }
+      if (c === '"') inStr = false;
+      i++;
+      continue;
+    }
+    if (c === '"') {
+      inStr = true;
+      i++;
+      continue;
+    }
+    if (c === "-" && src.charAt(i + 1) === "-") return true;
+    i++;
+  }
+  return false;
 }
 
 function identCont(s, i) {
@@ -48,7 +89,11 @@ function parseLuaString(s, i) {
     var c = s.charAt(i);
     if (c === "\\") {
       if (i + 1 >= s.length) return null;
-      out += s.charAt(i + 1);
+      var e = s.charAt(i + 1);
+      if (e === "n") out += "\n";
+      else if (e === "t") out += "\t";
+      else if (e === "r") out += "\r";
+      else out += e;
       i += 2;
       continue;
     }
@@ -118,9 +163,41 @@ function parseCallArgs(s, i) {
   return { args: args, next: i + 1 };
 }
 
-function commandFromArg(arg) {
+// POSIX single quotes, same as o.shell_quote in Omarchy helpers.lua.
+function shellQuote(value) {
+  return "'" + String(value).replace(/'/g, "'\\''") + "'";
+}
+
+// Expand o.bind's third argument the way command_from does: a string, or a
+// table with omarchy / launch / webapp / tui (and optional focus).
+function commandFromArg(arg, description) {
   if (typeof arg === "string") return sanitizeCommand(arg);
-  if (arg && typeof arg === "object" && arg.launch) return sanitizeCommand(arg.launch);
+  if (!arg || typeof arg !== "object") return "";
+  if (arg.omarchy) return sanitizeCommand("omarchy-launch-" + String(arg.omarchy));
+  if (arg.launch && arg.focus) {
+    return sanitizeCommand(
+      "omarchy-launch-or-focus " +
+        shellQuote(arg.focus) +
+        " " +
+        shellQuote("uwsm-app -- " + arg.launch),
+    );
+  }
+  if (arg.launch) return sanitizeCommand("uwsm-app -- " + arg.launch);
+  if (arg.webapp) {
+    if (arg.focus) {
+      return sanitizeCommand(
+        "omarchy-launch-or-focus-webapp " +
+          shellQuote(description == null ? "" : description) +
+          " " +
+          shellQuote(arg.webapp),
+      );
+    }
+    return sanitizeCommand("omarchy-launch-webapp " + shellQuote(arg.webapp));
+  }
+  if (arg.tui) {
+    if (arg.focus) return sanitizeCommand("omarchy-launch-or-focus-tui " + shellQuote(arg.tui));
+    return sanitizeCommand("omarchy-launch-tui " + shellQuote(arg.tui));
+  }
   return "";
 }
 
@@ -133,6 +210,10 @@ function parseEvents(text) {
     var b = src.indexOf("o.bind(", i);
     if (u === -1 && b === -1) break;
     if (u !== -1 && (b === -1 || u < b)) {
+      if (inLineComment(src, u)) {
+        i = u + 10;
+        continue;
+      }
       var unbind = parseCallArgs(src, u + 10);
       if (!unbind) {
         i = u + 10;
@@ -142,6 +223,10 @@ function parseEvents(text) {
       if (unbindKeys) events.push({ kind: "unbind", keys: unbindKeys });
       i = unbind.next;
     } else {
+      if (inLineComment(src, b)) {
+        i = b + 7;
+        continue;
+      }
       var bind = parseCallArgs(src, b + 7);
       if (!bind) {
         i = b + 7;
@@ -149,7 +234,7 @@ function parseEvents(text) {
       }
       var keys = sanitizeKeys(bind.args[0]);
       var label = bind.args[1] == null ? "" : sanitizeLabel(bind.args[1]);
-      var command = commandFromArg(bind.args[2]);
+      var command = commandFromArg(bind.args[2], bind.args[1] == null ? "" : bind.args[1]);
       if (keys) events.push({ kind: "bind", keys: keys, label: label, command: command });
       i = bind.next;
     }

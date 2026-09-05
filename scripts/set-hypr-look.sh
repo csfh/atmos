@@ -7,6 +7,7 @@ ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 source "$ROOT/atmos-env.sh"
 
 atmos_hypr_apply look "$ATMOS_LOOK_FILE" "$@"
+python3 "$ROOT/hypr-sentinel.py" require apply "$ATMOS_HYPRLAND_FILE"
 atmos_hypr_reload set-hypr-look.sh errors
 
 json=$ATMOS_HYPR_JSON

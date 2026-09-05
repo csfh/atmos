@@ -13,8 +13,8 @@ Item {
 
   signal toggled()
 
-  implicitWidth: Theme.toggleWidth
-  implicitHeight: Theme.toggleHeight
+  implicitWidth: Theme.checkSize
+  implicitHeight: Theme.checkSize
   width: implicitWidth
   height: implicitHeight
   opacity: Theme.controlOpacity(enabled)
@@ -29,16 +29,16 @@ Item {
   Keys.onSpacePressed: if (enabled) root.emitToggle()
 
   HoverHandler {
-    id: toggleHover
+    id: checkHover
     enabled: root.enabled
   }
 
-  readonly property bool highlight: toggleHover.hovered || root.activeFocus
+  readonly property bool highlight: checkHover.hovered || root.activeFocus
 
   Rectangle {
     anchors.fill: parent
-    radius: height / 2
-    color: root.shownChecked ? Theme.accentFill(root.highlight ? 1 : 0.85) : Theme.fill(root.highlight ? Theme.hoverFill : Theme.toggleOffFill)
+    radius: Theme.radius
+    color: root.highlight ? Theme.fill(Theme.hoverFill) : "transparent"
     border.width: Theme.borderWidth
     border.color: root.shownChecked || root.highlight ? Theme.accent : Theme.borderColor()
 
@@ -49,15 +49,14 @@ Item {
       ColorAnimation { duration: Theme.motionFast }
     }
 
-    Rectangle {
-      width: Theme.toggleThumb
-      height: Theme.toggleThumb
-      radius: Theme.toggleThumb / 2
-      anchors.verticalCenter: parent.verticalCenter
-      x: root.shownChecked ? parent.width - width - 4 : 4
+    Text {
+      anchors.centerIn: parent
+      visible: root.shownChecked
+      text: "✓"
       color: Theme.foreground
-
-      Behavior on x { NumberAnimation { duration: Theme.motionMed } }
+      font.family: Theme.fontFamily
+      font.pixelSize: Theme.labelSize
+      font.bold: true
     }
   }
 

@@ -15,7 +15,7 @@ Item {
   width: parent ? parent.width : 640
   implicitWidth: width
   implicitHeight: root.embed
-    ? (root.hasSections ? pageColumn.implicitHeight + (root.query.length > 0 ? 0 : Theme.spaceLg) : 0)
+    ? (root.hasSections ? pageColumn.implicitHeight + (root.query.length > 0 ? 0 : Theme.pageMargin) : 0)
     : 0
   height: root.embed ? implicitHeight : (parent ? parent.height : 400)
   visible: !root.embed || root.hasSections
@@ -25,18 +25,19 @@ Item {
     anchors.fill: parent
     clip: !root.embed
     interactive: !root.embed && contentHeight > height
-    contentHeight: pageColumn.implicitHeight + (root.embed ? 0 : Theme.spaceLg * 2)
+    contentHeight: pageColumn.implicitHeight + (root.embed ? 0 : Theme.pageMargin * 2)
 
     Column {
       id: pageColumn
       width: Theme.contentColumnWidth(flick.width)
       x: Theme.contentColumnX(flick.width, width)
-      y: root.embed ? 0 : Theme.spaceLg
+      y: root.embed ? 0 : Theme.pageMargin
       spacing: Theme.spaceLg
 
       Column {
-        width: parent.width
-        spacing: 4
+        width: parent.width - Theme.copyInset * 2
+        x: Theme.copyInset
+        spacing: Theme.titleGap
         visible: (root.title.length > 0 || root.description.length > 0) && (root.query.length === 0 || root.hasSections)
 
         PrefsText {
@@ -45,7 +46,7 @@ Item {
           text: root.title
           color: Theme.foreground
           font.family: Theme.fontFamily
-          font.pixelSize: root.embed ? Theme.fontSize + 2 : Theme.titleSize
+          font.pixelSize: root.embed ? Theme.embedTitleSize : Theme.pageTitleSize
           font.bold: true
         }
 
@@ -55,14 +56,14 @@ Item {
           text: root.description
           color: Theme.muted
           font.family: Theme.fontFamily
-          font.pixelSize: Theme.fontSize
+          font.pixelSize: Theme.pageDescriptionSize
         }
       }
 
       Column {
         id: sections
         width: parent.width
-        spacing: Theme.spaceLg
+        spacing: Theme.sectionSpacing
       }
     }
   }

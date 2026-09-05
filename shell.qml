@@ -17,6 +17,7 @@ ShellRoot {
   property string launchPath: Quickshell.env("ATMOS_PAGE") || "appearance"
   property string currentPage: "appearance"
   property string query: ""
+  onQueryChanged: if (query.length > 0) placeNavHighlight(null)
 
   readonly property string profileTitle: AccountsJs.profileTitle(Omarchy.fullName, Omarchy.currentUser)
   readonly property string profileHost: AccountsJs.profileHost(Omarchy.currentUser, Omarchy.hostname)
@@ -86,6 +87,21 @@ ShellRoot {
     if (pageStack.depth > 0)
       pageStack.clear(StackView.Immediate)
     pageStack.push(pageComponent(id), {}, StackView.Immediate)
+  }
+
+  function placeNavHighlight(item) {
+    if (!item || root.query.length > 0) {
+      navHighlight.visible = false
+      return
+    }
+    var pos = item.mapToItem(navContent, 0, 0)
+    if (pos.y !== pos.y) return
+    navHighlight.height = item.height
+    var slide = highlightSlide.enabled && navHighlight.visible
+    if (!slide) highlightSlide.enabled = false
+    navHighlight.y = pos.y
+    navHighlight.visible = true
+    if (!slide) highlightSlide.enabled = true
   }
 
   function openPage(id) {
@@ -340,7 +356,7 @@ ShellRoot {
               anchors.fill: parent
               radius: width / 2
               color: "transparent"
-              border.width: avatarMouse.containsMouse ? 1 : 0
+              border.width: avatarMouse.containsMouse ? Theme.borderWidth : 0
               border.color: Theme.accent
             }
 
@@ -430,14 +446,14 @@ ShellRoot {
           height: Theme.controlHeight
           radius: Theme.radius
           color: searchField.activeFocus || searchHover.hovered ? Theme.fill(Theme.hoverFill) : Theme.fill(Theme.normalFill)
-          border.width: 1
+          border.width: Theme.borderWidth
           border.color: searchField.activeFocus || searchHover.hovered ? Theme.accent : Theme.borderColor()
 
           Behavior on color {
-            ColorAnimation { duration: 90 }
+            ColorAnimation { duration: Theme.motionFast }
           }
           Behavior on border.color {
-            ColorAnimation { duration: 90 }
+            ColorAnimation { duration: Theme.motionFast }
           }
 
           HoverHandler {
@@ -447,8 +463,8 @@ ShellRoot {
           TextInput {
             id: searchField
             anchors.fill: parent
-            anchors.leftMargin: 10
-            anchors.rightMargin: 10
+            anchors.leftMargin: Theme.fieldInset
+            anchors.rightMargin: Theme.fieldInset
             color: Theme.foreground
             font.family: Theme.fontFamily
             font.pixelSize: Theme.fontSize
@@ -486,9 +502,32 @@ ShellRoot {
           clip: true
           contentHeight: navColumn.implicitHeight
 
+          Item {
+            id: navContent
+            width: navFlick.width
+            height: navColumn.implicitHeight
+
+            Rectangle {
+              id: navHighlight
+              width: Theme.railWidth
+              height: Theme.rowHeight
+              x: 0
+              y: 0
+              z: 2
+              visible: false
+              color: Theme.accent
+
+              Behavior on y {
+                id: highlightSlide
+                enabled: false
+                NumberAnimation { duration: Theme.motionNav; easing.type: Easing.OutCubic }
+              }
+            }
+
           Column {
             id: navColumn
-            width: navFlick.width
+            width: parent.width
+            z: 1
             spacing: 0
 
             Repeater {
@@ -498,13 +537,13 @@ ShellRoot {
                 required property var modelData
                 required property int index
                 width: navColumn.width
-                spacing: 2
-                topPadding: index > 0 ? Theme.spaceMd : 0
+                spacing: Theme.sidebarItemSpacing
+                topPadding: index > 0 ? Theme.sidebarGroupSpacing : 0
 
                 Item {
                   width: navColumn.width
                   visible: !!(navGroup.modelData && navGroup.modelData.title)
-                  height: groupLabel.implicitHeight + 4
+                  height: groupLabel.implicitHeight + Theme.titleGap
 
                   Text {
                     id: groupLabel
@@ -516,7 +555,7 @@ ShellRoot {
                     text: navGroup.modelData && navGroup.modelData.title ? navGroup.modelData.title : ""
                     color: Theme.muted
                     font.family: Theme.fontFamily
-                    font.pixelSize: Theme.captionSize
+                    font.pixelSize: Theme.sectionSize
                     font.bold: true
                     elide: Text.ElideRight
                   }
@@ -525,13 +564,32 @@ ShellRoot {
                 Repeater {
                   model: navGroup.modelData && navGroup.modelData.pages ? navGroup.modelData.pages : []
                   delegate: Rectangle {
+                    id: navItem
                     required property var modelData
                     width: navColumn.width
                     height: Theme.rowHeight
                     radius: Theme.radius
-                    color: root.query.length === 0 && root.currentPage === modelData.id
-                      ? Theme.fill(Theme.selectedFill)
-                      : (navMouse.containsMouse ? Theme.fill(Theme.hoverFill) : "transparent")
+                    readonly property bool selected: root.query.length === 0 && root.currentPage === modelData.id
+                    readonly property bool hovered: navMouse.containsMouse
+                    activeFocusOnTab: true
+                    color: (navItem.hovered || navItem.activeFocus) ? Theme.fill(Theme.hoverFill) : "transparent"
+
+                    Accessible.role: Accessible.Button
+                    Accessible.name: modelData && modelData.title ? modelData.title : ""
+                    Accessible.checkable: true
+                    Accessible.checked: navItem.selected
+                    Accessible.onPressAction: navItem.activate()
+                    Keys.onReturnPressed: navItem.activate()
+                    Keys.onSpacePressed: navItem.activate()
+
+                    function activate() {
+                      root.currentPage = modelData.id
+                      if (searchField.text.length > 0) searchField.text = ""
+                      else root.loadHub(modelData.id)
+                    }
+
+                    onSelectedChanged: if (selected) root.placeNavHighlight(navItem)
+                    Component.onCompleted: if (selected) Qt.callLater(function() { root.placeNavHighlight(navItem) })
 
                     PrefsIcon {
                       id: navIcon
@@ -539,23 +597,23 @@ ShellRoot {
                       anchors.leftMargin: Theme.pad
                       anchors.verticalCenter: parent.verticalCenter
                       name: modelData && modelData.icon ? modelData.icon : ""
-                      size: Theme.fontSize + 2
-                      color: root.query.length === 0 && root.currentPage === modelData.id
+                      size: Theme.navIconSize
+                      color: navItem.selected || navItem.hovered || navItem.activeFocus
                         ? Theme.foreground
-                        : (navMouse.containsMouse ? Theme.foreground : Theme.muted)
+                        : Theme.muted
                     }
 
                     Text {
                       anchors.left: navIcon.right
                       anchors.right: parent.right
                       anchors.verticalCenter: parent.verticalCenter
-                      anchors.leftMargin: 8
+                      anchors.leftMargin: Theme.space
                       anchors.rightMargin: Theme.pad
                       text: modelData.title
                       color: Theme.foreground
                       font.family: Theme.fontFamily
-                      font.pixelSize: Theme.fontSize
-                      font.bold: root.query.length === 0 && root.currentPage === modelData.id
+                      font.pixelSize: Theme.labelSize
+                      font.bold: navItem.selected
                       elide: Text.ElideRight
                     }
 
@@ -565,15 +623,15 @@ ShellRoot {
                       hoverEnabled: true
                       cursorShape: Qt.PointingHandCursor
                       onClicked: {
-                        root.currentPage = modelData.id
-                        if (searchField.text.length > 0) searchField.text = ""
-                        else root.loadHub(modelData.id)
+                        navItem.forceActiveFocus()
+                        navItem.activate()
                       }
                     }
                   }
                 }
               }
             }
+          }
           }
         }
       }

@@ -11,11 +11,11 @@ Item {
   signal submitted(string value)
   signal edited(string value)
 
-  implicitWidth: 200
+  implicitWidth: Theme.fieldWidth
   implicitHeight: Theme.controlHeight
   width: implicitWidth
   height: implicitHeight
-  opacity: enabled ? 1 : 0.45
+  opacity: Theme.controlOpacity(enabled)
 
   function currentText() {
     return field.text
@@ -55,21 +55,21 @@ Item {
     anchors.fill: parent
     radius: Theme.radius
     color: field.activeFocus || fieldHover.hovered ? Theme.fill(Theme.hoverFill) : Theme.fill(Theme.normalFill)
-    border.width: 1
+    border.width: Theme.borderWidth
     border.color: field.activeFocus || fieldHover.hovered ? Theme.accent : Theme.borderColor()
 
     Behavior on color {
-      ColorAnimation { duration: 90 }
+      ColorAnimation { duration: Theme.motionFast }
     }
     Behavior on border.color {
-      ColorAnimation { duration: 90 }
+      ColorAnimation { duration: Theme.motionFast }
     }
 
     TextInput {
       id: field
       anchors.fill: parent
-      anchors.leftMargin: 10
-      anchors.rightMargin: 10
+      anchors.leftMargin: Theme.fieldInset
+      anchors.rightMargin: Theme.fieldInset
       color: Theme.foreground
       font.family: Theme.fontFamily
       font.pixelSize: Theme.fontSize

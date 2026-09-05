@@ -24,6 +24,31 @@ assertEqual(
   "look",
   "looknfeel.lua watch is look",
 );
+assertEqual(
+  queue.snapshotGroupForWatchPath("/home/x/.config/hypr/hyprsunset.conf"),
+  "look",
+  "hyprsunset.conf watch is look",
+);
+assertEqual(
+  queue.snapshotGroupForWatchPath("/home/x/.config/hypr/input.lua"),
+  "rest",
+  "input.lua watch is rest",
+);
+assertEqual(
+  queue.snapshotGroupForWatchPath("/home/x/.config/hypr/autostart.lua"),
+  "rest",
+  "autostart.lua watch is rest",
+);
+assertEqual(
+  queue.snapshotGroupForWatchPath("/home/x/.config/hypr/bindings.lua"),
+  "rest",
+  "bindings.lua watch is rest",
+);
+assertEqual(
+  queue.snapshotGroupForWatchPath("/home/x/.config/hypr/atmos.lua"),
+  "rest",
+  "atmos.lua watch is rest",
+);
 assertEqual(queue.snapshotGroupForWatchPath("/etc/hostname"), "rest", "hostname watch is rest");
 assertEqual(queue.snapshotGroupForWatchPath("/home/x/.face.icon"), "rest", "face watch is rest");
 assertEqual(

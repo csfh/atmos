@@ -63,7 +63,7 @@ PrefsPage {
     query: root.query
     detail: "Omarchy writes these as the XDG defaults. Only programs that are installed show up in the lists."
 
-    PrefsRow {
+    SettingRow {
       label: "Browser"
       description: "The browser that opens links and web apps. Only installed browsers show up."
       hint: "omarchy default browser"
@@ -77,7 +77,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: "Terminal"
       description: "The terminal other apps launch when they need a console. Only installed terminals show up."
       hint: "omarchy default terminal"
@@ -91,7 +91,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: "Editor"
       description: "The editor Omarchy opens when you ask to edit a file. Only installed editors show up."
       hint: "omarchy default editor"
@@ -123,7 +123,7 @@ PrefsPage {
     query: root.query
     detail: "The coding agent Omarchy treats as the default. If it is missing, Omarchy offers to install it."
 
-    PrefsRow {
+    SettingRow {
       label: "Coding agent"
       description: "Which coding agent Omarchy opens. If it is missing, it offers to install it."
       hint: "omarchy default agent"
@@ -143,7 +143,7 @@ PrefsPage {
     query: root.query
     detail: "XDG defaults for PDFs, images, and video. Browser, terminal, and editor stay in the group above."
 
-    PrefsRow {
+    SettingRow {
       label: "PDF"
       description: "The program that opens PDF files."
       hint: "xdg-mime default application/pdf"
@@ -160,7 +160,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: "Images"
       description: "The program that opens pictures."
       hint: "xdg-mime default image/png"
@@ -177,7 +177,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: "Video"
       description: "The program that opens videos."
       hint: "xdg-mime default video/mp4"

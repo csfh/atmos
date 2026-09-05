@@ -21,7 +21,7 @@ PrefsPage {
     query: root.query
     detail: "These pictures belong to the current theme. Next walks the set. Choose an image if you want a file from disk. Extra files in the theme folder join the cycle."
 
-    PrefsRow {
+    SettingRow {
       label: Omarchy.background.length ? RichUi.fileBasename(Omarchy.background) : "Current wallpaper"
       description: Omarchy.background.length
         ? Omarchy.background
@@ -31,7 +31,7 @@ PrefsPage {
       keywords: ["wallpaper", "image", "path"]
 
       Row {
-        spacing: 8
+        spacing: Theme.space
 
         Image {
           visible: Omarchy.background.length > 0
@@ -50,7 +50,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: "Next wallpaper"
       description: "Move to the next image this theme ships. Keep pressing if you want to browse the set."
       hint: "omarchy theme bg next"
@@ -63,7 +63,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: "Choose an image"
       description: "Use a JPG, PNG, WebP, or similar file from disk as the wallpaper."
       hint: "omarchy theme bg set"
@@ -71,12 +71,12 @@ PrefsPage {
       keywords: ["wallpaper", "file", "image", "path"]
 
       PrefsButton {
-        text: "Choose file…"
+        text: "Choose…"
         onClicked: wallpaperDialog.open()
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: "Theme wallpaper folder"
       description: "Drop extra images in this theme's folder if you want them in the cycle."
       hint: "omarchy theme bg install"
@@ -89,7 +89,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: "Rebuild thumbnails"
       description: "Regenerate the small previews the wallpaper switcher shows for this theme."
       hint: "omarchy theme bg cache"
@@ -97,12 +97,12 @@ PrefsPage {
       keywords: ["cache", "thumbnail", "preview", "wallpaper"]
 
       PrefsButton {
-        text: "Cache"
+        text: "Rebuild"
         onClicked: Omarchy.cacheBackgrounds()
       }
     }
 
-    PrefsRow {
+    SettingRow {
       available: Omarchy.hasAether
       label: "Aether"
       description: "Open Aether if you want to pull a palette from the current wallpaper."

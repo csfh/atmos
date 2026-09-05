@@ -16,14 +16,14 @@ Rectangle {
   width: implicitWidth
   height: implicitHeight
   radius: Theme.radius
-  opacity: enabled ? 1 : 0.45
+  opacity: Theme.controlOpacity(enabled)
   activeFocusOnTab: enabled
   color: {
     if ((mouse.containsMouse || root.activeFocus) && enabled) return Theme.fill(Theme.hoverFill)
-    if (primary) return Theme.accentFill(0.22)
+    if (primary) return Theme.accentFill(Theme.primaryFill)
     return Theme.fill(Theme.normalFill)
   }
-  border.width: 1
+  border.width: Theme.borderWidth
   border.color: {
     if (danger) return Theme.urgent
     if (primary || ((mouse.containsMouse || root.activeFocus) && enabled)) return Theme.accent
@@ -34,10 +34,10 @@ Rectangle {
   Keys.onSpacePressed: if (enabled) root.clicked()
 
   Behavior on color {
-    ColorAnimation { duration: 90 }
+    ColorAnimation { duration: Theme.motionFast }
   }
   Behavior on border.color {
-    ColorAnimation { duration: 90 }
+    ColorAnimation { duration: Theme.motionFast }
   }
 
   Accessible.role: Accessible.Button
@@ -50,7 +50,7 @@ Rectangle {
     text: root.text
     color: Theme.foreground
     font.family: Theme.fontFamily
-    font.pixelSize: Theme.fontSize
+    font.pixelSize: Theme.labelSize
   }
 
   MouseArea {

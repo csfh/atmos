@@ -30,7 +30,7 @@ PrefsPage {
     query: root.query
     detail: "These are power-profiles-daemon modes. Performance uses more power. Power saver stretches battery. On a laptop, AC and battery each remember their own pick."
 
-    PrefsRow {
+    SettingRow {
       label: "Power profile"
       description: Omarchy.isLaptop
         ? "How hard the machine works right now. On a laptop this follows the AC or battery pick below."
@@ -49,7 +49,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       available: Omarchy.isLaptop
       label: "On AC"
       description: "The profile to use while the charger is plugged in."
@@ -67,7 +67,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       available: Omarchy.isLaptop
       label: "On battery"
       description: "The profile to use while you are on battery."
@@ -92,7 +92,7 @@ PrefsPage {
     query: (Omarchy.batteryPresent || (Omarchy.powerPresent && Omarchy.isLaptop)) ? root.query : "."
     detail: "A one-shot notification with charge and draw. The percentage toggle is the number next to the bar's power icon."
 
-    PrefsRow {
+    SettingRow {
       available: Omarchy.batteryPresent
       label: "Battery status"
       description: "Pop a notification with the current charge and how much power you are drawing."
@@ -101,16 +101,16 @@ PrefsPage {
       keywords: ["charge", "notify", "draw", "capacity"]
 
       PrefsButton {
-        text: "Show"
+        text: "Show battery"
         enabled: Omarchy.batteryPresent
         onClicked: Omarchy.showBatteryNotification()
       }
     }
 
-    PrefsRow {
+    SettingRow {
       available: Omarchy.powerPresent && Omarchy.isLaptop
       label: "Battery percentage"
-      description: "Show the charge number next to the power icon on the bar."
+      description: "The charge number next to the power icon on the bar."
       hint: "omarchy bar set omarchy.power showPercentage"
       query: root.query
       keywords: ["battery", "percent", "charge", "laptop"]

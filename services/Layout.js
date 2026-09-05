@@ -30,8 +30,70 @@ function splitBeforeVisible(items) {
   return flags;
 }
 
-// Topics for the section "?" modal. Each row is
-// { label, description, detail, hint }. Longer `detail` wins over `description`.
+function helpNormalize(s) {
+  return String(s || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9.]+/g, " ")
+    .replace(/^\s+|\s+$/g, "")
+    .replace(/\s+/g, " ");
+}
+
+var HELP_STOP = {
+  about: true,
+  also: true,
+  back: true,
+  been: true,
+  does: true,
+  each: true,
+  from: true,
+  have: true,
+  here: true,
+  into: true,
+  just: true,
+  only: true,
+  onto: true,
+  over: true,
+  than: true,
+  that: true,
+  them: true,
+  this: true,
+  used: true,
+  uses: true,
+  what: true,
+  when: true,
+  with: true,
+  your: true,
+};
+
+function helpContentWords(s) {
+  var parts = helpNormalize(s).split(" ");
+  var out = [];
+  for (var i = 0; i < parts.length; i++) {
+    var w = parts[i];
+    if (w.length < 4 || HELP_STOP[w]) continue;
+    out.push(w);
+  }
+  return out;
+}
+
+// True when `help` says something the already-visible copy does not.
+function helpTextIsExtra(help, visibleParts) {
+  var h = helpNormalize(help);
+  if (!h) return false;
+  var vis = helpNormalize((visibleParts || []).join(" "));
+  if (!vis) return true;
+  if (vis.indexOf(h) !== -1) return false;
+  var words = helpContentWords(h);
+  if (words.length === 0) return false;
+  var hits = 0;
+  for (var i = 0; i < words.length; i++) {
+    if (vis.indexOf(words[i]) !== -1) hits++;
+  }
+  return hits / words.length < 0.6;
+}
+
+// Topics for the section help popover. A row is included only when its
+// `detail` adds context beyond the visible description.
 function sectionHelpTopics(rows) {
   var list = Array.isArray(rows) ? rows : [];
   var out = [];
@@ -41,12 +103,43 @@ function sectionHelpTopics(rows) {
     var title = String(row.label || "");
     var detail = String(row.detail || "");
     var description = String(row.description || "");
-    var command = String(row.hint || "");
-    var body = detail.length > 0 ? detail : description;
-    if (!title && !body && !command) continue;
-    out.push({ title: title, body: body, command: command });
+    if (!detail || helpNormalize(detail) === helpNormalize(description)) continue;
+    if (!helpTextIsExtra(detail, [description])) continue;
+    out.push({
+      title: title,
+      body: detail,
+      command: String(row.hint || ""),
+    });
   }
   return out;
+}
+
+function sectionHelpPayload(detail, hint, rows) {
+  var list = Array.isArray(rows) ? rows : [];
+  var visible = [];
+  for (var i = 0; i < list.length; i++) {
+    if (!list[i]) continue;
+    if (list[i].label) visible.push(String(list[i].label));
+    if (list[i].description) visible.push(String(list[i].description));
+  }
+  var topics = sectionHelpTopics(list);
+  var body = helpTextIsExtra(detail, visible) ? String(detail || "") : "";
+  var command = body || topics.length ? String(hint || "") : "";
+  return { body: body, command: command, topics: topics };
+}
+
+function sectionHelpOpen(payload) {
+  if (!payload) return false;
+  if (payload.body && String(payload.body).length) return true;
+  if (payload.command && String(payload.command).length) return true;
+  return !!(payload.topics && payload.topics.length);
+}
+
+function helpAccessibleName(title) {
+  var t = String(title || "").replace(/^\s+|\s+$/g, "");
+  if (!t) return "About this section";
+  if (/settings$/i.test(t)) return "About " + t;
+  return "About " + t + " settings";
 }
 
 var NAV_GROUP_LABELS = {

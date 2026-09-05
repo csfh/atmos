@@ -222,18 +222,18 @@ PrefsPage {
   PrefsGroup {
     title: "Adapter"
     query: root.query
-    detail: "Turns the Wi-Fi radio on or off through NetworkManager. Off is like airplane mode for Wi-Fi only."
+    detail: "The radio NetworkManager uses to scan and join. Off is like airplane mode for Wi-Fi only."
     hint: "nmcli radio wifi"
 
-    PrefsRow {
+    SettingRow {
       label: "Wi-Fi radio"
       description: !Omarchy.wifiHw
-        ? "NetworkManager does not see a Wi-Fi adapter. The switch stays off until the kernel exposes one (driver or rfkill)."
+        ? "No Wi-Fi adapter."
         : (Omarchy.wifiRadio
           ? (Omarchy.netKind === "wifi" && Omarchy.netSsid.length
             ? "Connected to " + Omarchy.netSsid + ". Nearby networks stay below."
             : "Scanning for access points below.")
-          : "The radio is stopped. Turn it on to scan nearby networks.")
+          : "Scan and join nearby networks.")
       hint: "nmcli radio wifi"
       query: root.query
       keywords: ["wlan", "rfkill", "airplane", "radio"]
@@ -247,22 +247,23 @@ PrefsPage {
   }
 
   PrefsGroup {
+    framed: true
     title: "Networks"
     query: root.query
     detail: "Nearby and saved access points from a NetworkManager scan. The list refreshes while this page is open. Join a known network, or type a password. Enterprise networks also ask for an identity. Forget drops a saved connection."
     hint: "nmcli"
 
-    PrefsRow {
+    SettingRow {
       available: root.wifiRows.length === 0
       sectionHelp: false
       label: "Nearby networks"
       description: !Omarchy.wifiHw
-        ? "No adapter. Refresh stays disabled until NetworkManager sees Wi-Fi hardware."
+        ? "No Wi-Fi adapter."
         : (Omarchy.wifiRadio
-          ? "Looking for access points nearby."
-          : "Turn the radio on above, then refresh to scan.")
+          ? "No networks nearby."
+          : "No networks. Turn the radio on above.")
       query: root.query
-      keywords: ["scan", "ssid"]
+      keywords: ["scan", "ssid", "empty"]
 
       PrefsButton {
         text: "Refresh"
@@ -277,7 +278,7 @@ PrefsPage {
     Repeater {
       model: root.wifiRows
 
-      PrefsRow {
+      SettingRow {
         required property var modelData
         available: Omarchy.wifiRadio
         sectionHelp: false
@@ -296,10 +297,10 @@ PrefsPage {
         keywords: ["ssid", "scan", "join", "psk"]
 
         Column {
-          spacing: 8
+          spacing: Theme.space
 
           Row {
-            spacing: 8
+            spacing: Theme.space
             PrefsButton {
               text: modelData && modelData.connected ? "Disconnect" : (root.actionSsid === modelData.ssid ? "Joining…" : "Join")
               primary: !(modelData && modelData.connected)
@@ -311,7 +312,7 @@ PrefsPage {
             }
             PrefsButton {
               visible: !!(modelData && modelData.known && !modelData.connected)
-              text: "Forget"
+              text: "Forget…"
               danger: true
               enabled: modelData
               onClicked: {
@@ -323,7 +324,7 @@ PrefsPage {
 
           Column {
             visible: root.passwordSsid === (modelData ? modelData.ssid : "")
-            spacing: 8
+            spacing: Theme.space
 
             PrefsField {
               id: identityField
@@ -351,7 +352,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       available: root.wifiError.length > 0
       sectionHelp: false
       label: "Could not join"
@@ -372,7 +373,7 @@ PrefsPage {
     query: root.query
     detail: "Band pins the active network to 2.4, 5, or 6 GHz. The QR code is a scannable copy of the network you are on."
 
-    PrefsRow {
+    SettingRow {
       available: Omarchy.wifiConnected
       label: "Band"
       description: Omarchy.wifiBand.length
@@ -392,7 +393,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       available: Omarchy.wifiConnected
       stretchControl: true
       label: "QR code"
@@ -403,12 +404,12 @@ PrefsPage {
 
       Column {
         width: parent.width
-        spacing: 8
+        spacing: Theme.space
 
         Row {
-          spacing: 8
+          spacing: Theme.space
           PrefsButton {
-            text: root.qrLoading ? "Building…" : "Show"
+            text: root.qrLoading ? "Building…" : "Show QR"
             enabled: !root.qrLoading && Omarchy.wifiConnected
             onClicked: root.startQr()
           }
@@ -450,7 +451,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: "Restart Wi-Fi"
       description: "Unblock rfkill and restart NetworkManager's Wi-Fi. Try this if the radio looks stuck."
       hint: "omarchy restart wifi"

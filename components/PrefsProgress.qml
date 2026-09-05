@@ -18,14 +18,14 @@ Item {
 
   Column {
     anchors.fill: parent
-    spacing: 4
+    spacing: Theme.labelGap
 
     Text {
       visible: root.valueText.length > 0
       text: root.valueText
       color: Theme.foreground
       font.family: Theme.fontFamily
-      font.pixelSize: Theme.captionSize
+      font.pixelSize: Theme.metaSize
     }
 
     ProgressBar {

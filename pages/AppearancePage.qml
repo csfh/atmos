@@ -1,6 +1,7 @@
 import QtQuick
 import "../components"
 import "../services"
+import "../services/HyprSunset.js" as HyprSunset
 import "../services/RichUi.js" as RichUi
 import "appearance" as Look
 import "rows"
@@ -13,8 +14,26 @@ PrefsPage {
   property var stack: null
   property var navigator: null
   property string extraToRemove: ""
+  property string themeUrlDraft: ""
+  readonly property string themeUrlParsed: RichUi.parseGitUrl(root.themeUrlDraft)
+  readonly property bool themeUrlValid: root.themeUrlParsed.length > 0
   property string dayDraft: Omarchy.nightlightDay
   property string nightDraft: Omarchy.nightlightNight
+  readonly property string dayParsed: HyprSunset.parseTime(root.dayDraft)
+  readonly property string nightParsed: HyprSunset.parseTime(root.nightDraft)
+  readonly property bool nightTimesValid: root.dayParsed.length > 0 && root.nightParsed.length > 0
+
+  function openAddTheme() {
+    root.themeUrlDraft = ""
+    themeUrlField.setText("")
+    addThemeDialog.open()
+  }
+
+  function submitAddTheme() {
+    if (!root.themeUrlValid || Omarchy.jobBusy) return
+    Omarchy.installTheme(root.themeUrlParsed)
+    addThemeDialog.close()
+  }
 
   function openSubpage(id) {
     if (id === "theme") return
@@ -73,7 +92,9 @@ PrefsPage {
       width: parent.width
       text: Omarchy.jobKind === "theme-install" && Omarchy.jobBusy
         ? "Cloning the repository and switching to it…"
-        : "Paste a git URL for an Omarchy theme. Install clones it into ~/.config/omarchy/themes and switches to it."
+        : (root.themeUrlDraft.length > 0 && !root.themeUrlValid
+          ? "Need an https, ssh, or git@host:path URL whose last segment can name a theme. Install stays off until it parses."
+          : "Paste a git URL for an Omarchy theme. Install clones it into ~/.config/omarchy/themes and switches to it.")
       color: Theme.muted
       font.family: Theme.fontFamily
       font.pixelSize: Theme.captionSize
@@ -82,11 +103,14 @@ PrefsPage {
     PrefsField {
       id: themeUrlField
       width: parent.width
+      value: root.themeUrlDraft
       placeholder: "https://github.com/org/omarchy-theme.git"
       enabled: !Omarchy.jobBusy
+      invalid: root.themeUrlDraft.length > 0 && !root.themeUrlValid
+      onEdited: function(value) { root.themeUrlDraft = value }
       onSubmitted: function(value) {
-        Omarchy.installTheme(value)
-        addThemeDialog.close()
+        root.themeUrlDraft = value
+        root.submitAddTheme()
       }
     }
 
@@ -102,11 +126,8 @@ PrefsPage {
       PrefsButton {
         text: "Install"
         primary: true
-        enabled: !Omarchy.jobBusy
-        onClicked: {
-          Omarchy.installTheme(themeUrlField.currentText())
-          addThemeDialog.close()
-        }
+        enabled: !Omarchy.jobBusy && root.themeUrlValid
+        onClicked: root.submitAddTheme()
       }
     }
   }
@@ -117,7 +138,7 @@ PrefsPage {
     detail: "A theme is a named palette plus the templates Omarchy writes into the shell, terminals, and a few related apps. Switching themes rewrites those configs from the theme's files. Stock themes live in the Omarchy package. If you edit them in place, the next update puts the packaged copies back."
     hint: "omarchy theme set"
 
-    PrefsRow {
+    SettingRow {
       label: "Current theme"
       description: "The palette in use right now. The shell and themed apps follow this."
       hint: "omarchy theme set"
@@ -132,7 +153,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: "Theme files"
       description: "The files behind the current theme. Open the folder if you want to tweak colors or templates by hand."
       hint: "omarchy theme dir"
@@ -146,7 +167,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: "Refresh"
       description: "Rewrite the current theme from its templates. Handy after you edit theme files."
       hint: "omarchy theme refresh"
@@ -166,35 +187,16 @@ PrefsPage {
     detail: "Extra themes are git clones in ~/.config/omarchy/themes. Add clones a repository and switches to it. Update all pulls the latest commit on each one. Remove deletes a theme you installed."
     hint: "omarchy theme install"
 
-    PrefsRow {
+    SettingRow {
       available: Omarchy.extraThemes.length === 0
       label: "Installed themes"
-      description: "None installed yet. Add a git URL below. Update all and Remove stay disabled until a clone exists."
+      description: "No extra themes installed."
       hint: "omarchy theme extras"
       query: root.query
-      keywords: ["git", "extra", "clone"]
-
-      Row {
-        spacing: Theme.space
-        PrefsButton {
-          text: "Add"
-          primary: true
-          enabled: !Omarchy.jobBusy
-          onClicked: addThemeDialog.open()
-        }
-        PrefsButton {
-          text: "Update all"
-          enabled: false
-        }
-        PrefsButton {
-          text: "Remove"
-          danger: true
-          enabled: false
-        }
-      }
+      keywords: ["git", "extra", "clone", "empty"]
     }
 
-    PrefsRow {
+    SettingRow {
       available: Omarchy.extraThemes.length > 0
       label: "Installed themes"
       description: root.extraCountText() + " Pick one to remove, or pull the latest commit on all of them."
@@ -225,7 +227,7 @@ PrefsPage {
           }
 
           PrefsButton {
-            text: "Remove"
+            text: "Remove…"
             danger: true
             enabled: root.extraToRemove.length > 0
             onClicked: removeThemeConfirm.ask()
@@ -234,7 +236,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: "Add a theme"
       description: Omarchy.jobKind === "theme-install" && Omarchy.jobBusy
         ? "Cloning the repository and switching to it…"
@@ -244,10 +246,10 @@ PrefsPage {
       keywords: ["git", "extra", "clone", "download", "install"]
 
       PrefsButton {
-        text: "Add"
+        text: "Add…"
         primary: true
         enabled: !Omarchy.jobBusy
-        onClicked: addThemeDialog.open()
+        onClicked: root.openAddTheme()
       }
     }
   }
@@ -257,22 +259,22 @@ PrefsPage {
     query: root.query
     detail: "Background is the desktop picture for this theme. Boot screen is the Plymouth unlock animation and logo you see before you log in."
 
-    PrefsRow {
+    SettingRow {
       label: "Background"
       description: Omarchy.background.length
-        ? ("Current file: " + RichUi.fileBasename(Omarchy.background) + ". Cycle images or pick a file on the next page.")
-        : "No wallpaper is set for this theme yet. Open the next page to pick a file or cycle the theme set."
+        ? ("Current file: " + RichUi.fileBasename(Omarchy.background) + ".")
+        : "No wallpaper is set for this theme yet."
       hint: "omarchy theme bg"
       query: root.query
       keywords: ["wallpaper", "image", "file", "aether", "palette", "cache"]
 
       PrefsButton {
-        text: "Open"
+        text: "Choose…"
         onClicked: root.openSubpage("background")
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: "Boot screen"
       description: Omarchy.plymouth.length
         ? ("Unlock theme: " + Omarchy.plymouth + ". Logo and preview are on the next page.")
@@ -282,7 +284,7 @@ PrefsPage {
       keywords: ["plymouth", "sddm", "login", "unlock", "logo", "png"]
 
       PrefsButton {
-        text: "Open"
+        text: "Configure…"
         onClicked: root.openSubpage("boot")
       }
     }
@@ -293,7 +295,7 @@ PrefsPage {
     query: root.query
     detail: "Font and size apply together to the shell, GTK apps, and terminals. Reset puts size back to 12 pixels."
 
-    PrefsRow {
+    SettingRow {
       label: "Font"
       description: "The monospace face used by the shell and terminals."
       hint: "omarchy font set"
@@ -310,7 +312,7 @@ PrefsPage {
 
     TextSizeRow { query: root.query }
 
-    PrefsRow {
+    SettingRow {
       available: Omarchy.textSize !== 12
       label: "Reset text size"
       description: "Put type back to 12 pixels everywhere Omarchy sets it."
@@ -331,11 +333,11 @@ PrefsPage {
     query: root.query
     detail: "Night light shifts the screen toward amber. Warmth in Kelvin is under Advanced."
 
-    PrefsRow {
+    SettingRow {
       label: "Night light"
       description: Omarchy.nightlightTemperature > 0
-        ? ("Shift the colors toward amber so late work is easier on your eyes. Right now that is " + Omarchy.nightlightTemperature + " K.")
-        : "Shift the colors toward amber so late work is easier on your eyes."
+        ? ("Shift colors toward amber at night. Right now that is " + Omarchy.nightlightTemperature + " K.")
+        : "Shift colors toward amber at night."
       hint: "omarchy toggle nightlight"
       query: root.query
       keywords: ["nightlight", "warmth", "temperature", "blue light", "kelvin"]
@@ -352,13 +354,13 @@ PrefsPage {
     query: root.query
     detail: "Warmth is Kelvin. 6500 is daylight. Lower numbers go amber. This talks to hyprsunset the same way the toggle does."
 
-    PrefsRow {
+    SettingRow {
       stretchControl: true
       label: "Night light warmth"
       description: Omarchy.nightlightTemperature > 0
         ? ("The screen is at " + Omarchy.nightlightTemperature + " K. 4000 is the usual amber. 6500 is daylight.")
         : "Pick a color temperature. 4000 is amber. 6500 is daylight."
-      hint: "hyprctl hyprsunset temperature"
+      hint: "hyprctl hyprsunset temperature · ~/.config/hypr/hyprsunset.conf"
       query: root.query
       keywords: ["kelvin", "warmth", "temperature", "amber", "blue light"]
 
@@ -377,19 +379,22 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: "Night light schedule"
-      description: "Left is the hour the day profile starts. Right is when night starts. Apply writes ~/.config/hypr/hyprsunset.conf and restarts hyprsunset."
+      description: root.nightTimesValid
+        ? "Left is the hour the day profile starts. Right is when night starts. Apply writes ~/.config/hypr/hyprsunset.conf and restarts hyprsunset."
+        : "Times need to look like 07:00 and 20:00 (hours 0–23). Apply and the night profile stay off until both are valid."
       hint: "~/.config/hypr/hyprsunset.conf"
       query: root.query
       keywords: ["nightlight", "schedule", "hyprsunset", "sunset", "sunrise"]
 
       Row {
-        spacing: 8
+        spacing: Theme.space
         PrefsField {
           width: 72
           value: root.dayDraft
           placeholder: "07:00"
+          invalid: root.dayDraft.length > 0 && root.dayParsed.length === 0
           onEdited: function(value) { root.dayDraft = value }
           onSubmitted: function(value) { root.dayDraft = value }
         }
@@ -397,28 +402,31 @@ PrefsPage {
           width: 72
           value: root.nightDraft
           placeholder: "20:00"
+          invalid: root.nightDraft.length > 0 && root.nightParsed.length === 0
           onEdited: function(value) { root.nightDraft = value }
           onSubmitted: function(value) { root.nightDraft = value }
         }
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: "Automatic night profile"
-      description: "Write a night profile at the time on the right. Off leaves only the daytime identity profile."
+      description: "A night color profile starts at the time on the right."
       hint: "~/.config/hypr/hyprsunset.conf"
       query: root.query
       keywords: ["nightlight", "schedule", "automatic", "hyprsunset"]
 
       Row {
-        spacing: 8
+        spacing: Theme.space
         PrefsToggle {
           checked: Omarchy.nightlightNightOn
-          onToggled: Omarchy.setNightlightSchedule(root.dayDraft, root.nightDraft, !Omarchy.nightlightNightOn)
+          enabled: root.nightTimesValid
+          onToggled: Omarchy.setNightlightSchedule(root.dayParsed, root.nightParsed, !Omarchy.nightlightNightOn)
         }
         PrefsButton {
-          text: "Apply times"
-          onClicked: Omarchy.setNightlightSchedule(root.dayDraft, root.nightDraft, Omarchy.nightlightNightOn)
+          text: "Set"
+          enabled: root.nightTimesValid
+          onClicked: Omarchy.setNightlightSchedule(root.dayParsed, root.nightParsed, Omarchy.nightlightNightOn)
         }
       }
     }

@@ -66,7 +66,7 @@ Item {
     radius: Theme.radius
 
     Behavior on color {
-      ColorAnimation { duration: 90 }
+      ColorAnimation { duration: Theme.motionFast }
     }
   }
 
@@ -81,14 +81,14 @@ Item {
       anchors.right: trail.left
       anchors.rightMargin: Theme.spaceMd
       anchors.verticalCenter: parent.verticalCenter
-      spacing: 4
+      spacing: Theme.labelGap
 
       PrefsText {
         width: parent.width
         text: root.label
         color: Theme.foreground
         font.family: Theme.fontFamily
-        font.pixelSize: Theme.fontSize
+        font.pixelSize: Theme.labelSize
         font.bold: true
         horizontalAlignment: Text.AlignLeft
       }
@@ -99,7 +99,7 @@ Item {
         text: root.description
         color: Theme.muted
         font.family: Theme.fontFamily
-        font.pixelSize: Theme.captionSize
+        font.pixelSize: Theme.descriptionSize
         horizontalAlignment: Text.AlignLeft
       }
     }
@@ -127,7 +127,7 @@ Item {
         horizontalAlignment: Text.AlignRight
 
         Behavior on color {
-          ColorAnimation { duration: 90 }
+          ColorAnimation { duration: Theme.motionFast }
         }
       }
 
@@ -141,10 +141,10 @@ Item {
         scale: root.highlight ? 1.08 : 1
 
         Behavior on color {
-          ColorAnimation { duration: 90 }
+          ColorAnimation { duration: Theme.motionFast }
         }
         Behavior on scale {
-          NumberAnimation { duration: 90; easing.type: Easing.OutCubic }
+          NumberAnimation { duration: Theme.motionFast; easing.type: Easing.OutCubic }
         }
       }
     }

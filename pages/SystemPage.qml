@@ -1,6 +1,7 @@
 import QtQuick
 import "../components"
 import "../services"
+import "../services/RichUi.js" as RichUi
 
 PrefsPage {
   id: root
@@ -82,6 +83,15 @@ PrefsPage {
   }
 
   property string pendingChannel: ""
+  property string hostnameDraft: Omarchy.hostname
+  readonly property string hostnameParsed: RichUi.parseHostname(root.hostnameDraft)
+  readonly property bool hostnameValid: root.hostnameParsed.length > 0
+  property string weatherLocationDraft: Omarchy.weatherAuto ? "" : Omarchy.weatherLocation
+  readonly property string weatherLocationParsed: RichUi.parseWeatherLocation(root.weatherLocationDraft)
+  readonly property bool weatherLocationValid: root.weatherLocationParsed.length > 0
+  property string weatherCoordsDraft: Omarchy.weatherCoords
+  readonly property string weatherCoordsParsed: RichUi.parseWeatherCoords(root.weatherCoordsDraft)
+  readonly property bool weatherCoordsValid: root.weatherCoordsParsed.length > 0
 
   Component.onCompleted: {
     channelConfirm.parent = root.prefsOverlay
@@ -95,15 +105,29 @@ PrefsPage {
     resetAtmosConfirm.parent = root.prefsOverlay
   }
 
+  Connections {
+    target: Omarchy
+    function onHostnameChanged() { root.hostnameDraft = Omarchy.hostname }
+    function onWeatherLocationChanged() {
+      if (!Omarchy.weatherAuto) root.weatherLocationDraft = Omarchy.weatherLocation
+    }
+    function onWeatherAutoChanged() {
+      root.weatherLocationDraft = Omarchy.weatherAuto ? "" : Omarchy.weatherLocation
+    }
+    function onWeatherCoordsChanged() { root.weatherCoordsDraft = Omarchy.weatherCoords }
+  }
+
   PrefsGroup {
     title: "Machine"
     query: root.query
     detail: "Hostname is how this computer shows up on the network and in prompts."
 
-    PrefsRow {
+    SettingRow {
       stretchControl: true
       label: "Hostname"
-      description: "How this computer shows up on the network and in your shell prompt."
+      description: root.hostnameValid || root.hostnameDraft.length === 0
+        ? "How this computer shows up on the network and in your shell prompt."
+        : "Letters, digits, and hyphens only (labels 1–63 characters). Set stays off until the name is valid."
       hint: "hostnamectl set-hostname"
       query: root.query
       keywords: ["hostname", "computer", "machine", "device", "name"]
@@ -115,16 +139,22 @@ PrefsPage {
         PrefsField {
           id: hostnameField
           width: parent.width - hostnameSetBtn.width - parent.spacing
-          value: Omarchy.hostname
+          value: root.hostnameDraft
           placeholder: "hostname"
-          onSubmitted: function(value) { Omarchy.setHostname(value) }
+          invalid: root.hostnameDraft.length > 0 && !root.hostnameValid
+          onEdited: function(value) { root.hostnameDraft = value }
+          onSubmitted: function(value) {
+            root.hostnameDraft = value
+            if (root.hostnameValid) Omarchy.setHostname(root.hostnameParsed)
+          }
         }
 
         PrefsButton {
           id: hostnameSetBtn
           text: "Set"
           primary: true
-          onClicked: Omarchy.setHostname(hostnameField.currentText())
+          enabled: root.hostnameValid && root.hostnameParsed !== Omarchy.hostname
+          onClicked: Omarchy.setHostname(root.hostnameParsed)
         }
       }
     }
@@ -135,7 +165,7 @@ PrefsPage {
     query: root.query
     detail: "XKB layout for typing. Hyprland reads it from vconsole.conf after you change it."
 
-    PrefsRow {
+    SettingRow {
       label: "Layout"
       description: "Key positions for typing. Hyprland picks this up from vconsole.conf."
       hint: "localectl set-x11-keymap"
@@ -159,7 +189,7 @@ PrefsPage {
     query: root.query
     detail: "The locale apps and the system use for language, dates, and number formats. New sessions pick this up."
 
-    PrefsRow {
+    SettingRow {
       label: "Locale"
       description: "Language for the system and apps. Open a new session after you change it."
       hint: "localectl set-locale"
@@ -183,7 +213,7 @@ PrefsPage {
     query: root.query
     detail: "Timezone is what the clock, logs, and timestamps use. Network time keeps that clock honest over NTP."
 
-    PrefsRow {
+    SettingRow {
       label: "Timezone"
       description: "The zone the clock, logs, and timestamps use."
       hint: "timedatectl set-timezone"
@@ -201,7 +231,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       available: Omarchy.ntpAvailable
       label: "Network time"
       description: Omarchy.ntp && Omarchy.ntpSynchronized
@@ -224,7 +254,7 @@ PrefsPage {
     query: root.query
     detail: "Channel picks which Omarchy package stream you follow. Update runs the usual omarchy update job."
 
-    PrefsRow {
+    SettingRow {
       label: Omarchy.omarchyVersion.length ? ("Omarchy " + Omarchy.omarchyVersion) : "Omarchy"
       description: Omarchy.omarchyVersion.length
         ? (Omarchy.omarchyChannel
@@ -242,7 +272,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: "Channel"
       description: "Stable is the usual stream. rc and edge move faster. Dev is a source checkout."
       hint: "omarchy channel set"
@@ -266,7 +296,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: "Updates"
       description: Omarchy.jobKind === "omarchy-update" && Omarchy.jobBusy
         ? "Updating…"
@@ -278,7 +308,7 @@ PrefsPage {
       keywords: ["update", "upgrade", "pacman", "check"]
 
       Row {
-        spacing: 8
+        spacing: Theme.space
         PrefsButton {
           text: "Check"
           enabled: !Omarchy.jobBusy
@@ -299,7 +329,7 @@ PrefsPage {
     query: root.query
     detail: "Installed files live under ~/.local/share/atmos. Channel is the git branch Check and Update follow. Only alpha exists yet."
 
-    PrefsRow {
+    SettingRow {
       label: Omarchy.atmosRevision.length ? Omarchy.atmosRevision : "Atmos"
       description: Omarchy.atmosRevision.length
         ? "Installed revision under ~/.local/share/atmos. Copy if you need it in a report."
@@ -317,7 +347,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: "Channel"
       description: "Alpha tracks the alpha branch. Other channels are not available yet."
       hint: "~/.config/atmos/channel"
@@ -334,7 +364,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: "Updates"
       description: Omarchy.jobKind === "atmos-update" && Omarchy.jobBusy
         ? "Updating…"
@@ -347,7 +377,7 @@ PrefsPage {
       keywords: ["atmos", "update", "upgrade", "git", "pull", "alpha"]
 
       Row {
-        spacing: 8
+        spacing: Theme.space
         PrefsButton {
           text: "Check"
           enabled: !Omarchy.jobBusy
@@ -362,7 +392,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: "Reset"
       description: Omarchy.jobKind === "reset-atmos" && Omarchy.jobBusy
         ? "Resetting Atmos…"
@@ -381,11 +411,12 @@ PrefsPage {
   }
 
   PrefsGroup {
+    framed: true
     title: "Advanced"
     query: root.query
     detail: "Firmware through fwupd, leftover packages, the pacman download cache, and restore for Hyprland Lua or shell.json."
 
-    PrefsRow {
+    SettingRow {
       label: "Firmware"
       description: Omarchy.jobKind === "update-firmware" && Omarchy.jobBusy
         ? "Updating firmware…"
@@ -401,7 +432,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: "Orphan packages"
       description: "Remove packages that nothing else depends on."
       hint: "omarchy update orphan pkgs"
@@ -416,7 +447,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: "Package cache"
       description: "Delete old downloaded packages to free disk."
       hint: "omarchy update pkg prune"
@@ -430,7 +461,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: "Restart shell"
       description: "Reload the bar and notifications without touching shell.json."
       hint: "omarchy restart shell"
@@ -444,7 +475,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: "Restore Hyprland"
       description: Omarchy.jobKind === "refresh-hyprland" && Omarchy.jobBusy
         ? "Restoring Hyprland Lua…"
@@ -461,7 +492,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: "Restore shell"
       description: "Put the shipped shell.json back. Your copy is backed up. The bar restarts."
       hint: "omarchy refresh shell"
@@ -480,26 +511,26 @@ PrefsPage {
   PrefsGroup {
     title: "Printers"
     query: root.query
-    detail: "CUPS is the print service on this machine. Setup opens the usual printer window. The web UI is the CUPS admin page on this computer."
+    detail: "CUPS is the print service on this machine. Set up opens the usual printer window. The web UI is the CUPS admin page on this computer."
 
-    PrefsRow {
+    SettingRow {
       label: "Printers"
       description: Omarchy.cupsActive
-        ? "CUPS is running. Setup opens the printer window. The web UI is http://127.0.0.1:631."
+        ? "CUPS is running. Set up opens the printer window. The web UI is http://127.0.0.1:631."
         : "CUPS is not running. You can still open the admin page if you start the service."
       hint: "system-config-printer"
       query: root.query
       keywords: ["printer", "cups", "print", "ipp"]
 
       Row {
-        spacing: 8
+        spacing: Theme.space
         PrefsButton {
-          text: "Setup"
+          text: "Set up…"
           primary: true
           onClicked: Omarchy.openPrinters()
         }
         PrefsButton {
-          text: "CUPS"
+          text: "Open CUPS"
           onClicked: Omarchy.openCupsAdmin()
         }
       }
@@ -511,7 +542,7 @@ PrefsPage {
     query: root.query
     detail: "How many packages pacman fetches at once. Higher can finish a big upgrade sooner on a fast link."
 
-    PrefsRow {
+    SettingRow {
       label: "Parallel downloads"
       description: "How many packages pacman fetches at once. Bump this if updates feel slow on a good connection."
       hint: "/etc/pacman.conf · ParallelDownloads"
@@ -532,21 +563,21 @@ PrefsPage {
   PrefsGroup {
     title: "Branding"
     query: root.query
-    detail: "ASCII art on the About screen. Image turns a picture into that art. Edit opens the text file if you want to write it yourself. Reset puts the Omarchy icon back."
+    detail: "ASCII art on the About screen. Choose a picture to turn into that art. Edit opens the text file if you want to write it yourself. Reset puts the Omarchy icon back."
 
-    PrefsRow {
+    SettingRow {
       label: "About logo"
       description: Omarchy.aboutBranded
         ? "You are using custom ASCII art on the About screen."
-        : "The stock Omarchy icon. Image turns a picture into ASCII. Edit opens the text file."
+        : "The stock Omarchy icon. Choose a picture to turn into ASCII. Edit opens the text file."
       hint: "omarchy branding about"
       query: root.query
       keywords: ["ascii", "logo", "fastfetch", "about"]
 
       Row {
-        spacing: 8
+        spacing: Theme.space
         PrefsButton {
-          text: "Image…"
+          text: "Choose…"
           onClicked: Omarchy.setAboutBranding("image")
         }
         PrefsButton {
@@ -569,12 +600,14 @@ PrefsPage {
     query: root.query
     detail: "The city the weather widget and notifications use. Auto guesses from your IP. Coordinates pin the forecast when a city name is ambiguous."
 
-    PrefsRow {
+    SettingRow {
       stretchControl: true
       label: "Location"
-      description: Omarchy.weatherAuto
-        ? "Guessing the city from your IP for the weather widget and notifications."
-        : "The city the weather widget and notifications use."
+      description: root.weatherLocationValid || root.weatherLocationDraft.length === 0
+        ? (Omarchy.weatherAuto
+          ? "Guessing the city from your IP for the weather widget and notifications."
+          : "The city the weather widget and notifications use.")
+        : "A city name, not a flag or a blank line. Set stays off until the name is valid."
       hint: "omarchy weather location"
       query: root.query
       keywords: ["weather", "city", "forecast", "wttr"]
@@ -586,16 +619,22 @@ PrefsPage {
         PrefsField {
           id: weatherField
           width: parent.width - weatherSetBtn.width - weatherAutoBtn.width - parent.spacing * 2
-          value: Omarchy.weatherAuto ? "" : Omarchy.weatherLocation
+          value: root.weatherLocationDraft
           placeholder: "City name"
-          onSubmitted: function(value) { Omarchy.setWeatherLocation(value) }
+          invalid: root.weatherLocationDraft.length > 0 && !root.weatherLocationValid
+          onEdited: function(value) { root.weatherLocationDraft = value }
+          onSubmitted: function(value) {
+            root.weatherLocationDraft = value
+            if (root.weatherLocationValid) Omarchy.setWeatherLocation(root.weatherLocationParsed)
+          }
         }
 
         PrefsButton {
           id: weatherSetBtn
           text: "Set"
           primary: true
-          onClicked: Omarchy.setWeatherLocation(weatherField.currentText())
+          enabled: root.weatherLocationValid && (Omarchy.weatherAuto || root.weatherLocationParsed !== Omarchy.weatherLocation)
+          onClicked: Omarchy.setWeatherLocation(root.weatherLocationParsed)
         }
 
         PrefsButton {
@@ -607,11 +646,13 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       available: !Omarchy.weatherAuto && Omarchy.weatherLocation.length > 0
       stretchControl: true
       label: "Coordinates"
-      description: "Optional latitude and longitude if the city name is ambiguous. Use lat,lon."
+      description: root.weatherCoordsValid || root.weatherCoordsDraft.length === 0
+        ? "Optional latitude and longitude if the city name is ambiguous. Use lat,lon."
+        : "Latitude -90 to 90 and longitude -180 to 180, as lat,lon. Spaces around the comma are fine. Set stays off until the pair is valid."
       hint: "omarchy weather location --set name lat,lon"
       query: root.query
       keywords: ["latitude", "longitude", "gps", "coords"]
@@ -623,21 +664,27 @@ PrefsPage {
         PrefsField {
           id: weatherCoordsField
           width: parent.width - weatherCoordsSetBtn.width - parent.spacing
-          value: Omarchy.weatherCoords
+          value: root.weatherCoordsDraft
           placeholder: "lat,lon"
-          onSubmitted: function(value) { Omarchy.setWeatherCoordinates(value) }
+          invalid: root.weatherCoordsDraft.length > 0 && !root.weatherCoordsValid
+          onEdited: function(value) { root.weatherCoordsDraft = value }
+          onSubmitted: function(value) {
+            root.weatherCoordsDraft = value
+            if (root.weatherCoordsValid) Omarchy.setWeatherCoordinates(root.weatherCoordsParsed)
+          }
         }
 
         PrefsButton {
           id: weatherCoordsSetBtn
           text: "Set"
           primary: true
-          onClicked: Omarchy.setWeatherCoordinates(weatherCoordsField.currentText())
+          enabled: root.weatherCoordsValid && root.weatherCoordsParsed !== Omarchy.weatherCoords
+          onClicked: Omarchy.setWeatherCoordinates(root.weatherCoordsParsed)
         }
       }
     }
 
-    PrefsRow {
+    SettingRow {
       available: Omarchy.weatherPresent
       label: "Units"
       description: "Temperature and wind in the weather widget. Auto follows the location you set above."
@@ -659,7 +706,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       available: Omarchy.weatherPresent
       stretchControl: true
       label: "Refresh"
@@ -691,9 +738,9 @@ PrefsPage {
     query: root.query
     detail: "When a process dumps core, Omarchy can notify you so a coding agent can look at the crash."
 
-    PrefsRow {
+    SettingRow {
       label: "Crash capture"
-      description: "Notify you when a process crashes, so a coding agent can look at the dump."
+      description: "A notification when a process crashes, so a coding agent can look at the dump."
       hint: "omarchy toggle crash capture"
       query: root.query
       keywords: ["crash", "coredump", "agent", "watch"]
@@ -711,7 +758,7 @@ PrefsPage {
     query: root.query
     detail: "Not in Find a setting. Show error opens the error dialog so you can try Copy and Dismiss without failing a real command."
 
-    PrefsRow {
+    SettingRow {
       catalog: false
       label: "Error dialog"
       description: "Set lastError without running a failing command. Copy and Dismiss are on the dialog."
@@ -719,7 +766,7 @@ PrefsPage {
       sectionHelp: false
 
       PrefsButton {
-        text: "Show error"
+        text: "Show error…"
         onClicked: Omarchy.showDebugError()
       }
     }

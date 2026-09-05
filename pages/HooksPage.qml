@@ -137,7 +137,7 @@ PrefsPage {
     detail: "Add copies a file you already have, or writes a one-line script, into ~/.config/omarchy/hooks/<event>.d/. Enable a sample by dropping .sample from its name. Disable puts .sample back so the runner skips it."
     hint: "omarchy hook install"
 
-    PrefsRow {
+    SettingRow {
       label: "Add a hook"
       description: "Pick the event, then copy a file or write a one-line command."
       hint: "omarchy hook install"
@@ -156,6 +156,7 @@ PrefsPage {
     model: root.hookTypes
 
     PrefsGroup {
+    framed: true
       required property var modelData
       readonly property string hookId: modelData && modelData.id ? modelData.id : ""
       title: modelData && modelData.label ? modelData.label : hookId
@@ -163,7 +164,7 @@ PrefsPage {
       detail: HookJs.eventBlurb(hookId)
       hint: "omarchy hook " + hookId
 
-      PrefsRow {
+      SettingRow {
         stretchControl: true
         label: "This event"
         description: HookJs.eventBlurb(hookId) + " " + root.runHint(hookId)
@@ -172,7 +173,7 @@ PrefsPage {
         keywords: ["hook", hookId, modelData && modelData.label ? modelData.label : ""]
 
         Row {
-          spacing: 8
+          spacing: Theme.space
           PrefsButton {
             text: "Add…"
             onClicked: root.openAdd(hookId)
@@ -182,68 +183,46 @@ PrefsPage {
             onClicked: Omarchy.runHook(hookId, root.runArg(hookId))
           }
           PrefsButton {
-            text: "Folder"
+            text: "Open folder"
             onClicked: Omarchy.openHookFolder(hookId)
           }
         }
       }
 
-      PrefsRow {
+      SettingRow {
         available: root.itemsFor(hookId).length === 0
         sectionHelp: false
         label: "Scripts"
-        description: "No scripts in ~/.config/omarchy/hooks/" + hookId + ".d/."
+        description: "No scripts."
         query: root.query
         keywords: ["hook", "empty", hookId]
-
-        PrefsButton {
-          text: "Add…"
-          primary: true
-          onClicked: root.openAdd(hookId)
-        }
       }
 
       Repeater {
         model: root.itemsFor(hookId)
 
-        PrefsRow {
+        CollectionRow {
           required property var modelData
-          stretchControl: true
-          sectionHelp: false
+          stretchControl: false
           label: modelData && modelData.name ? modelData.name : "hook"
           description: root.describeItem(modelData)
           hint: modelData && modelData.path ? modelData.path : ""
           query: root.query
           keywords: ["hook", "script", modelData && modelData.type ? modelData.type : ""]
-
-          Row {
-            spacing: 8
-            PrefsButton {
-              visible: !!(modelData && modelData.sample)
-              text: "Enable"
-              primary: true
-              enabled: modelData && modelData.path
-              onClicked: Omarchy.setHookSample(modelData.path, true)
-            }
-            PrefsButton {
-              visible: !!(modelData && !modelData.sample && !modelData.flat)
-              text: "Disable"
-              enabled: modelData && modelData.path
-              onClicked: Omarchy.setHookSample(modelData.path, false)
-            }
-            PrefsButton {
-              text: "Edit"
-              enabled: modelData && modelData.path
-              onClicked: Omarchy.editHook(modelData.path)
-            }
-            PrefsButton {
-              visible: !!(modelData && !modelData.sample)
-              text: "Remove"
-              danger: true
-              enabled: modelData && modelData.path
-              onClicked: root.askRemove(modelData)
-            }
+          action: modelData && modelData.sample ? "Enable" : (modelData && modelData.flat ? "Edit" : "Disable")
+          actionPrimary: !!(modelData && modelData.sample)
+          actionEnabled: !!(modelData && modelData.path)
+          extraAction: modelData && !modelData.sample && !modelData.flat ? "Edit" : ""
+          extraEnabled: !!(modelData && modelData.path)
+          dangerAction: modelData && !modelData.sample ? "Remove…" : ""
+          dangerEnabled: !!(modelData && modelData.path)
+          onActioned: {
+            if (modelData && modelData.sample) Omarchy.setHookSample(modelData.path, true)
+            else if (modelData && modelData.flat) Omarchy.editHook(modelData.path)
+            else Omarchy.setHookSample(modelData.path, false)
           }
+          onExtraActioned: Omarchy.editHook(modelData.path)
+          onDangered: root.askRemove(modelData)
         }
       }
     }
@@ -278,7 +257,7 @@ PrefsPage {
 
     PrefsButton {
       visible: root.installMode === "file"
-      text: root.installFile ? ("File: " + RichUi.fileBasename(root.installFile)) : "Choose file…"
+      text: root.installFile ? ("File: " + RichUi.fileBasename(root.installFile)) : "Choose…"
       onClicked: hookFileDialog.open()
     }
 

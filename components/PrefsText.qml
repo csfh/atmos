@@ -13,9 +13,18 @@ Item {
   property alias lineCount: label.lineCount
   property string wrapStyle: "pretty"
 
-  implicitWidth: width
+  // Natural text width so a Row can host a short label. Block copy still
+  // sets width: parent.width and wraps. implicitWidth: width hid those
+  // labels at 0px.
+  implicitWidth: Math.max(1, Math.ceil(fullMetrics.advanceWidth > 0 ? fullMetrics.advanceWidth : fullMetrics.width))
   implicitHeight: label.implicitHeight
   height: implicitHeight
+
+  TextMetrics {
+    id: fullMetrics
+    font: label.font
+    text: root.text
+  }
 
   TextMetrics {
     id: metrics

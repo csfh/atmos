@@ -31,7 +31,7 @@ PrefsPage {
   PrefsGroup {
     title: "Touch"
     query: root.query
-    detail: "This is the same touchscreen switch as Displays. The switch stays off when Hyprland has not reported a touch device."
+    detail: "This is the same touchscreen switch as Displays."
 
     TouchscreenRow { query: root.query }
   }
@@ -41,17 +41,17 @@ PrefsPage {
     query: root.query
     detail: "Herdr is a screen reader Omarchy can launch in a terminal when the package is present."
 
-    PrefsRow {
+    SettingRow {
       label: "Herdr"
       description: Omarchy.extras && Omarchy.extras.herdr === true
-        ? "Open the Herdr screen reader in a terminal."
-        : "Not installed. Open stays disabled until you install Herdr on Software."
+        ? "Launch the Herdr screen reader in a terminal."
+        : "Not installed. Launch stays disabled until you install Herdr on Software."
       hint: "omarchy launch terminal herdr"
       query: root.query
       keywords: ["herdr", "screen reader", "a11y", "tts"]
 
       PrefsButton {
-        text: "Open"
+        text: "Launch"
         enabled: Omarchy.extras && Omarchy.extras.herdr === true
         onClicked: Omarchy.launchHerdr()
       }

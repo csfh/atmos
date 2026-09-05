@@ -4,13 +4,36 @@ var BEGIN = "-- atmos:autostart begin";
 var END = "-- atmos:autostart end";
 
 function luaString(v) {
-  return '"' + String(v).replace(/\\/g, "\\\\").replace(/"/g, '\\"') + '"';
+  return (
+    '"' +
+    String(v)
+      .replace(/\\/g, "\\\\")
+      .replace(/\n/g, "\\n")
+      .replace(/\r/g, "\\r")
+      .replace(/\t/g, "\\t")
+      .replace(/"/g, '\\"') +
+    '"'
+  );
 }
 
 function unescapeLua(v) {
-  return String(v || "")
-    .replace(/\\"/g, '"')
-    .replace(/\\\\/g, "\\");
+  var src = String(v || "");
+  var out = "";
+  var i = 0;
+  while (i < src.length) {
+    if (src.charAt(i) === "\\" && i + 1 < src.length) {
+      var e = src.charAt(i + 1);
+      if (e === "n") out += "\n";
+      else if (e === "t") out += "\t";
+      else if (e === "r") out += "\r";
+      else out += e;
+      i += 2;
+      continue;
+    }
+    out += src.charAt(i);
+    i++;
+  }
+  return out;
 }
 
 function sanitizeCommand(raw) {
@@ -20,12 +43,39 @@ function sanitizeCommand(raw) {
   return text;
 }
 
+function inLineComment(src, at) {
+  var lineStart = src.lastIndexOf("\n", at > 0 ? at - 1 : 0) + 1;
+  var i = lineStart;
+  var inStr = false;
+  while (i < at) {
+    var c = src.charAt(i);
+    if (inStr) {
+      if (c === "\\") {
+        i += 2;
+        continue;
+      }
+      if (c === '"') inStr = false;
+      i++;
+      continue;
+    }
+    if (c === '"') {
+      inStr = true;
+      i++;
+      continue;
+    }
+    if (c === "-" && src.charAt(i + 1) === "-") return true;
+    i++;
+  }
+  return false;
+}
+
 function parseCalls(text) {
   var src = String(text || "");
   var out = [];
   var re = /o\.launch_on_start\(\s*"((?:\\.|[^"\\])*)"\s*\)/g;
   var m;
   while ((m = re.exec(src))) {
+    if (inLineComment(src, m.index)) continue;
     var cmd = sanitizeCommand(unescapeLua(m[1]));
     if (cmd) out.push(cmd);
   }

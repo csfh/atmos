@@ -52,7 +52,7 @@ PrefsPage {
 
   readonly property var sectionList: SettingsJs.selectableSections()
 
-  // Reads root.sections so the binding re-runs when a switch moves. A
+  // Reads root.sections so the binding re-runs when a box is checked. A
   // function call on its own would not be tracked.
   readonly property var chosenKeys: {
     var chosen = root.sections
@@ -309,18 +309,19 @@ PrefsPage {
   // ---- export ------------------------------------------------------------
 
   PrefsGroup {
+    framed: true
     title: "Export"
     query: root.query
     detail: "Atmos writes a Markdown file. The settings live in fenced blocks, so you can read the file, edit it, and hand it to someone without it being able to do anything you cannot see. Security settings are written down for you to read but Atmos will never import them."
 
-    PrefsRow {
+    SettingRow {
       label: "Sections"
       description: root.chosenKeys.length + " settings across " + root.chosenSectionCount + " sections."
       query: root.query
       keywords: ["all", "none", "select", "sections", "choose"]
 
       Row {
-        spacing: 8
+        spacing: Theme.space
 
         PrefsButton {
           text: "All"
@@ -339,14 +340,17 @@ PrefsPage {
     Repeater {
       model: root.sectionList
 
-      PrefsRow {
+      SettingRow {
         required property var modelData
+        interactive: !root.working
         label: modelData.title
-        description: modelData.note + "  (" + modelData.count + " settings)"
+        description: modelData.note
+        caption: modelData.count + " settings"
         query: root.query
         keywords: [modelData.id, "section", "include", "export"]
+        onActivated: root.setSection(modelData.id, !root.sections[modelData.id])
 
-        PrefsToggle {
+        leading: PrefsCheck {
           checked: !!root.sections[modelData.id]
           enabled: !root.working
           onToggled: root.setSection(modelData.id, !root.sections[modelData.id])
@@ -354,7 +358,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: "Where to write it"
       description: root.exportPath
       query: root.query
@@ -367,16 +371,16 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: "Write the file"
       description: root.exportStatus.length > 0
         ? root.exportStatus
-        : "Writes the sections switched on above."
+        : "Writes the sections selected above."
       query: root.query
       keywords: ["export", "save", "write", "backup", "open"]
 
       Row {
-        spacing: 8
+        spacing: Theme.space
 
         PrefsButton {
           text: "Export"
@@ -386,7 +390,7 @@ PrefsPage {
         }
 
         PrefsButton {
-          text: "Open"
+          text: "Open file"
           enabled: !root.working && root.writtenPath.length > 0
           onClicked: root.openFile(root.writtenPath)
         }
@@ -397,11 +401,12 @@ PrefsPage {
   // ---- import ------------------------------------------------------------
 
   PrefsGroup {
+    framed: true
     title: "Import"
     query: root.query
     detail: "Nothing is applied until you have read the plan. Atmos compares the file against this machine, shows every change with what it will do, and writes a way back before it touches anything."
 
-    PrefsRow {
+    SettingRow {
       label: "File to read"
       // Left empty rather than guessed: a suggested name here would point
       // at a file that does not exist.
@@ -410,13 +415,13 @@ PrefsPage {
       keywords: ["path", "file", "import", "load", "browse", "open"]
 
       PrefsButton {
-        text: "Browse…"
+        text: "Choose…"
         enabled: !root.working
         onClicked: importFileDialog.open()
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: "See what it would do"
       description: root.importStatus.length > 0
         ? root.importStatus
@@ -431,7 +436,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: "This file"
       description: "Where it came from."
       query: root.query
@@ -449,7 +454,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: "Changes"
       description: root.planSummary
       query: root.query
@@ -467,7 +472,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: "Worth knowing"
       description: "These still happen."
       query: root.query
@@ -485,7 +490,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: "Blocked"
       description: "Atmos will not do these."
       query: root.query
@@ -503,7 +508,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: "Apply the plan you just read"
       description: root.plan ? SettingsJs.applyForecast(root.plan) : "Runs exactly the changes listed above."
       query: root.query
@@ -511,14 +516,14 @@ PrefsPage {
       keywords: ["apply", "import", "run", "password"]
 
       PrefsButton {
-        text: "Apply"
+        text: "Apply…"
         danger: true
         enabled: !root.working
         onClicked: applyConfirm.ask()
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: "Applying"
       description: root.stepKey.length > 0
         ? root.stepKey + "  (" + root.stepNow + " of " + root.stepTotal + ")"
@@ -538,7 +543,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: "Put it back"
       description: root.appliedCount > 0
         ? "Restores the " + root.appliedCount + " values that import replaced. Try the machine first."
@@ -548,7 +553,7 @@ PrefsPage {
       keywords: ["undo", "revert", "restore", "back", "put back"]
 
       PrefsButton {
-        text: "Put it back"
+        text: "Put it back…"
         primary: root.appliedCount > 0
         enabled: !root.working && root.lastBackupDir.length > 0
         onClicked: undoConfirm.ask()

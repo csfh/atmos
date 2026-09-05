@@ -2,15 +2,13 @@ import QtQuick
 import "../../components"
 import "../../services"
 
-PrefsRow {
-  stretchControl: true
+SettingRow {
   label: "Cursor size"
   description: "How large the pointer is."
   hint: "~/.config/hypr/looknfeel.lua · HYPRCURSOR_SIZE"
   keywords: ["cursor", "pointer", "size", "a11y"]
 
-  PrefsSlider {
-    width: parent.width
+  PrefsSliderStepper {
     from: 8
     to: 64
     stepSize: 2

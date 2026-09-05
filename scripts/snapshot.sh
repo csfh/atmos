@@ -30,6 +30,58 @@ hypr_opt() {
   fi
 }
 
+# HyprSunset.parseConf, for the look snapshot. Commented profile { blocks
+# (Omarchy ships the night example that way) are not live.
+parse_hyprsunset_conf() {
+  nightlight_day=07:00
+  nightlight_night=20:00
+  nightlight_night_on=false
+  local file=${ATMOS_HYPRSUNSET_FILE:-"$HOME/.config/hypr/hyprsunset.conf"}
+  local parsed parsed_day parsed_night parsed_night_on parsed_temp
+  [[ -f $file ]] || return 0
+  parsed=$(python3 - "$file" <<'PY' 2>/dev/null || true
+import re, sys
+from pathlib import Path
+text = "\n".join(line.split("#", 1)[0] for line in Path(sys.argv[1]).read_text().splitlines())
+day = ""
+night = ""
+night_on = False
+temp = 0
+
+def parse_time(raw):
+    match = re.fullmatch(r"([01]?\d|2[0-3]):([0-5]\d)", str(raw or "").strip())
+    if not match:
+        return ""
+    return f"{int(match.group(1)):02d}:{int(match.group(2)):02d}"
+
+blocks = re.split(r"profile\s*\{", text)
+for block in blocks[1:]:
+    body = block.split("}", 1)[0]
+    time_m = re.search(r'time\s*=\s*"?([0-2]?\d:[0-5]\d)"?', body)
+    if not time_m:
+        continue
+    time = parse_time(time_m.group(1))
+    if not time:
+        continue
+    if re.search(r"\bidentity\s*=\s*true\b", body):
+        day = time
+        continue
+    temp_m = re.search(r"temperature\s*=\s*([0-9]+)", body)
+    if temp_m:
+        night = time
+        night_on = True
+        temp = int(temp_m.group(1))
+print(f"{day}\t{night}\t{str(night_on).lower()}\t{temp}")
+PY
+  )
+  [[ -n ${parsed:-} ]] || return 0
+  IFS=$'\t' read -r parsed_day parsed_night parsed_night_on parsed_temp <<<"$parsed"
+  [[ $parsed_day =~ ^([01]?\d|2[0-3]):[0-5]\d$ ]] && nightlight_day=$parsed_day
+  [[ $parsed_night =~ ^([01]?\d|2[0-3]):[0-5]\d$ ]] && nightlight_night=$parsed_night
+  [[ $parsed_night_on == true ]] && nightlight_night_on=true
+  return 0
+}
+
 # Bar, idle, Hypr look, and monitors for the fast look snapshot. Sets globals.
 fill_look_surface() {
   local shell_file clock_json indicators_json agents_json spacer_json tray_json
@@ -223,6 +275,7 @@ fill_look_surface() {
     --argjson allowTearing "$(hypr_opt general:allow_tearing)" \
     --argjson resizeOnBorder "$(hypr_opt general:resize_on_border)" \
     --argjson activeOpacity "$(hypr_opt decoration:active_opacity)" \
+    --argjson inactiveOpacity "$(hypr_opt decoration:inactive_opacity)" \
     --argjson preserveSplit "$(hypr_opt dwindle:preserve_split)" \
     --argjson focusOnActivate "$(hypr_opt misc:focus_on_activate)" \
     '
@@ -252,6 +305,7 @@ fill_look_surface() {
       allowTearing: flag($allowTearing; false),
       resizeOnBorder: flag($resizeOnBorder; false),
       activeOpacity: num($activeOpacity; 1),
+      inactiveOpacity: num($inactiveOpacity; 1),
       preserveSplit: flag($preserveSplit; false),
       focusOnActivate: flag($focusOnActivate; false)
     }
@@ -384,7 +438,6 @@ emit_look_snapshot() {
   local themes_json extra_themes_json fonts_json
   local plymouth plymouth_themes_json
   local nightlight_day nightlight_night nightlight_night_on
-  local hyprsunset_file hyprsunset_parsed parsed_day parsed_night parsed_night_on parsed_temp
   local brand_file default_brand about_file default_about
   theme=$(omarchy_out theme current)
   theme=${theme%$'\n'}
@@ -427,44 +480,7 @@ emit_look_snapshot() {
   plymouth=$(omarchy_out plymouth current)
   plymouth=${plymouth%$'\n'}
   plymouth_themes_json=$(omarchy_out plymouth list | lines_json)
-  hyprsunset_file=${ATMOS_HYPRSUNSET_FILE:-"$HOME/.config/hypr/hyprsunset.conf"}
-  nightlight_day=07:00
-  nightlight_night=20:00
-  nightlight_night_on=false
-  if [[ -f $hyprsunset_file ]]; then
-    hyprsunset_parsed=$(python3 - "$hyprsunset_file" <<'PY' 2>/dev/null || true
-import re, sys
-from pathlib import Path
-text = Path(sys.argv[1]).read_text()
-day = ""
-night = ""
-night_on = False
-temp = 0
-blocks = re.split(r"profile\s*\{", text)
-for block in blocks[1:]:
-    body = block.split("}", 1)[0]
-    time_m = re.search(r'time\s*=\s*"?([0-2]?\d:[0-5]\d)"?', body)
-    if not time_m:
-        continue
-    time = time_m.group(1)
-    if re.search(r"\bidentity\s*=\s*true\b", body):
-        day = time
-        continue
-    temp_m = re.search(r"temperature\s*=\s*([0-9]+)", body)
-    if temp_m:
-        night = time
-        night_on = True
-        temp = int(temp_m.group(1))
-print(f"{day}\t{night}\t{str(night_on).lower()}\t{temp}")
-PY
-    )
-    if [[ -n ${hyprsunset_parsed:-} ]]; then
-      IFS=$'\t' read -r parsed_day parsed_night parsed_night_on parsed_temp <<<"$hyprsunset_parsed"
-      [[ $parsed_day =~ ^[0-2]?\d:[0-5]\d$ ]] && nightlight_day=$parsed_day
-      [[ $parsed_night =~ ^[0-2]?\d:[0-5]\d$ ]] && nightlight_night=$parsed_night
-      [[ $parsed_night_on == true ]] && nightlight_night_on=true
-    fi
-  fi
+  parse_hyprsunset_conf
   fill_look_surface
   jq -n \
     --arg theme "$theme" \
@@ -1917,6 +1933,7 @@ hypr_look_json=$(jq -n \
   --argjson allowTearing "$(hypr_opt general:allow_tearing)" \
   --argjson resizeOnBorder "$(hypr_opt general:resize_on_border)" \
   --argjson activeOpacity "$(hypr_opt decoration:active_opacity)" \
+  --argjson inactiveOpacity "$(hypr_opt decoration:inactive_opacity)" \
   --argjson preserveSplit "$(hypr_opt dwindle:preserve_split)" \
   --argjson focusOnActivate "$(hypr_opt misc:focus_on_activate)" \
   '
@@ -1946,6 +1963,7 @@ hypr_look_json=$(jq -n \
     allowTearing: flag($allowTearing; false),
     resizeOnBorder: flag($resizeOnBorder; false),
     activeOpacity: num($activeOpacity; 1),
+    inactiveOpacity: num($inactiveOpacity; 1),
     preserveSplit: flag($preserveSplit; false),
     focusOnActivate: flag($focusOnActivate; false)
   }
@@ -2004,14 +2022,30 @@ hypr_look_managed=false
 if [[ -f $HOME/.config/hypr/looknfeel.lua ]] && grep -q -- '-- atmos:look begin' "$HOME/.config/hypr/looknfeel.lua"; then
   hypr_look_managed=true
 fi
+input_file=${ATMOS_INPUT_FILE:-"$HOME/.config/hypr/input.lua"}
 hypr_input_managed=false
-if [[ -f $HOME/.config/hypr/input.lua ]] && grep -q -- '-- atmos:input begin' "$HOME/.config/hypr/input.lua"; then
+if [[ -f $input_file ]] && grep -q -- '-- atmos:input begin' "$input_file"; then
   hypr_input_managed=true
 fi
+# Only a live hl.gesture in the managed input sentinel. A commented Omarchy
+# example or an unmanaged line elsewhere would stick the toggle on.
 hypr_workspace_gesture=false
-if [[ -f $HOME/.config/hypr/input.lua ]] && grep -q -- '-- atmos:input begin' "$HOME/.config/hypr/input.lua" && grep -q 'action = "workspace"' "$HOME/.config/hypr/input.lua"; then
-  hypr_workspace_gesture=true
+if [[ -f $input_file ]] && present python3; then
+  parsed=$(python3 "$SNAP_DIR/hypr-sentinel.py" input list "$input_file" 2>/dev/null || true)
+  [[ $parsed == true ]] && hypr_workspace_gesture=true
 fi
+# Writer field names live next to the hyprctl names applyHyprInput reads.
+# merged_group hands this object to set-hypr-input.sh; without kbLayoutOverride
+# and workspaceGesture, importing any other input key would drop them.
+hypr_input_json=$(jq -c --argjson workspaceGesture "$hypr_workspace_gesture" '
+  . + {
+    kbLayoutOverride: (.kbLayout // ""),
+    kbVariantOverride: (.kbVariant // ""),
+    kbGroupToggle: ((.kbOptions // "") | tostring | contains("grp:alts_toggle")),
+    workspaceGesture: $workspaceGesture
+  }
+' <<<"$hypr_input_json")
+[[ -n $hypr_input_json ]] || hypr_input_json='{}'
 
 hypr_no_gaps=false
 [[ -f $HOME/.local/state/omarchy/toggles/hypr/window-no-gaps.lua ]] && hypr_no_gaps=true
@@ -2434,43 +2468,11 @@ if present system-config-printer; then
   printer_setup=true
 fi
 
-hyprsunset_file=${ATMOS_HYPRSUNSET_FILE:-"$HOME/.config/hypr/hyprsunset.conf"}
 nightlight_day=07:00
 nightlight_night=20:00
 nightlight_night_on=false
-if [[ $GROUP != rest && -f $hyprsunset_file ]]; then
-  hyprsunset_parsed=$(python3 - "$hyprsunset_file" <<'PY' 2>/dev/null || true
-import re, sys
-from pathlib import Path
-text = Path(sys.argv[1]).read_text()
-day = ""
-night = ""
-night_on = False
-temp = 0
-blocks = re.split(r"profile\s*\{", text)
-for block in blocks[1:]:
-    body = block.split("}", 1)[0]
-    time_m = re.search(r'time\s*=\s*"?([0-2]?\d:[0-5]\d)"?', body)
-    if not time_m:
-        continue
-    time = time_m.group(1)
-    if re.search(r"\bidentity\s*=\s*true\b", body):
-        day = time
-        continue
-    temp_m = re.search(r"temperature\s*=\s*([0-9]+)", body)
-    if temp_m:
-        night = time
-        night_on = True
-        temp = int(temp_m.group(1))
-print(f"{day}\t{night}\t{str(night_on).lower()}\t{temp}")
-PY
-  )
-  if [[ -n ${hyprsunset_parsed:-} ]]; then
-    IFS=$'\t' read -r parsed_day parsed_night parsed_night_on parsed_temp <<<"$hyprsunset_parsed"
-    [[ $parsed_day =~ ^[0-2]?\d:[0-5]\d$ ]] && nightlight_day=$parsed_day
-    [[ $parsed_night =~ ^[0-2]?\d:[0-5]\d$ ]] && nightlight_night=$parsed_night
-    [[ $parsed_night_on == true ]] && nightlight_night_on=true
-  fi
+if [[ $GROUP != rest ]]; then
+  parse_hyprsunset_conf
 fi
 
 tailscale_peers_json='[]'

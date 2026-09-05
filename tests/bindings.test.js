@@ -1,3 +1,7 @@
+const { spawnSync } = require("child_process");
+const fs = require("fs");
+const os = require("os");
+const path = require("path");
 const { load, assert, assertEqual } = require("./harness");
 
 const binds = load("services/Bindings.js");
@@ -94,10 +98,46 @@ assertEqual(managedBinds.length, 1, "managedItems drops unmanaged and commandles
 assertEqual(managedBinds[0].keys, "SUPER + F", "managedItems keeps a managed bind");
 assertEqual(
   binds.commandFromArg({ launch: "foot" }),
-  "foot",
-  "commandFromArg reads a launch table",
+  "uwsm-app -- foot",
+  "commandFromArg wraps launch with uwsm-app",
 );
 assertEqual(binds.commandFromArg({ launch: "bad\ncmd" }), "", "commandFromArg sanitizes launch");
+assertEqual(
+  binds.commandFromArg({ omarchy: "browser" }),
+  "omarchy-launch-browser",
+  "commandFromArg expands an omarchy table",
+);
+assertEqual(
+  binds.commandFromArg({ tui: "btop" }),
+  "omarchy-launch-tui 'btop'",
+  "commandFromArg expands a tui table",
+);
+assertEqual(
+  binds.commandFromArg({ tui: "cliamp", focus: true }),
+  "omarchy-launch-or-focus-tui 'cliamp'",
+  "commandFromArg expands a focused tui table",
+);
+assertEqual(
+  binds.commandFromArg({ webapp: "https://x.com/" }),
+  "omarchy-launch-webapp 'https://x.com/'",
+  "commandFromArg expands a webapp table",
+);
+assertEqual(
+  binds.commandFromArg({ webapp: "https://web.whatsapp.com/", focus: true }, "WhatsApp"),
+  "omarchy-launch-or-focus-webapp 'WhatsApp' 'https://web.whatsapp.com/'",
+  "commandFromArg expands a focused webapp with the bind label",
+);
+assertEqual(
+  binds.commandFromArg({ launch: "obsidian", focus: "^obsidian$" }),
+  "omarchy-launch-or-focus '^obsidian$' 'uwsm-app -- obsidian'",
+  "commandFromArg expands launch-or-focus",
+);
+assertEqual(
+  binds.commandFromArg({ omarchy: "terminal", launch: "foot" }),
+  "omarchy-launch-terminal",
+  "commandFromArg prefers omarchy over launch",
+);
+assertEqual(binds.shellQuote("it's"), "'it'\\''s'", "shellQuote POSIX-quotes an apostrophe");
 const folded = binds.foldEvents([
   { kind: "unbind", keys: "SUPER + Q" },
   { kind: "bind", keys: "SUPER + Q", label: "Quit", command: "kill" },
@@ -108,6 +148,168 @@ assertEqual(folded[0].command, "kill", "foldEvents keeps the replacement command
 assertEqual(folded[1].command, "", "foldEvents keeps a lone unbind");
 assertEqual(
   binds.parseCalls('o.bind("SUPER + T", nil, { launch = "foot" })')[0].command,
-  "foot",
+  "uwsm-app -- foot",
   "parseCalls reads a launch table bind",
+);
+const omarchyBindings = `
+o.bind("SUPER + D", "Desks", "omarchy-shell shell toggle com.mdtrr.omadesk")
+
+-- Add a new binding.
+-- o.bind("SUPER + SHIFT + R", "SSH", "alacritty -e ssh your-server")
+
+-- hl.unbind("SUPER + SPACE")
+-- o.bind("SUPER + SPACE", "Omarchy menu", "omarchy-menu toggle root")
+
+-- hl.unbind("SUPER + SHIFT + B")
+o.bind("SUPER + T", "Term", "kitty") -- live
+`;
+const liveBinds = binds.parseFile(omarchyBindings);
+assertEqual(liveBinds.length, 2, "parseFile skips Omarchy's commented binding examples");
+assertEqual(liveBinds[0].keys, "SUPER + D", "parseFile keeps a live bind before comments");
+assertEqual(liveBinds[1].keys, "SUPER + T", "parseFile keeps a bind with a trailing comment");
+assertEqual(
+  liveBinds.filter(function (row) {
+    return row.keys === "SUPER + SPACE" || row.keys === "SUPER + SHIFT + R";
+  }).length,
+  0,
+  "parseFile ignores commented o.bind and hl.unbind examples",
+);
+
+function pythonList(kind, text) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "atmos-list-"));
+  const file = path.join(dir, kind + ".lua");
+  let parsed = [];
+  try {
+    fs.writeFileSync(file, text);
+    const result = spawnSync(
+      "python3",
+      [path.join(__dirname, "..", "scripts", "hypr-sentinel.py"), kind, "list", file],
+      { encoding: "utf8" },
+    );
+    assertEqual(result.status, 0, "hypr-sentinel.py " + kind + " list exits 0");
+    parsed = JSON.parse(result.stdout);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+  return parsed;
+}
+
+assertEqual(
+  JSON.stringify(pythonList("bindings", omarchyBindings)),
+  JSON.stringify(liveBinds),
+  "hypr-sentinel.py bindings list matches parseFile on commented examples",
+);
+
+const tableBinds = `
+o.bind("SUPER + RETURN", "Terminal", { omarchy = "terminal" })
+o.bind("SUPER + SHIFT + O", "Obsidian", { launch = "obsidian", focus = "^obsidian$" })
+o.bind("SUPER + SHIFT + A", "ChatGPT", { webapp = "https://chatgpt.com" })
+o.bind("SUPER + SHIFT + ALT + G", "WhatsApp", { webapp = "https://web.whatsapp.com/", focus = true })
+o.bind("SUPER + CTRL + T", "Activity", { tui = "btop" })
+o.bind("SUPER + SHIFT + ALT + M", "Music TUI", { tui = "cliamp", focus = true })
+`;
+const tableParsed = binds.parseFile(tableBinds);
+assertEqual(tableParsed.length, 6, "parseFile reads Omarchy table-form binds");
+assertEqual(tableParsed[0].command, "omarchy-launch-terminal", "parseFile expands { omarchy }");
+assertEqual(
+  tableParsed[1].command,
+  "omarchy-launch-or-focus '^obsidian$' 'uwsm-app -- obsidian'",
+  "parseFile expands { launch, focus }",
+);
+assertEqual(
+  tableParsed[2].command,
+  "omarchy-launch-webapp 'https://chatgpt.com'",
+  "parseFile expands { webapp }",
+);
+assertEqual(
+  tableParsed[3].command,
+  "omarchy-launch-or-focus-webapp 'WhatsApp' 'https://web.whatsapp.com/'",
+  "parseFile expands { webapp, focus } with the label",
+);
+assertEqual(tableParsed[4].command, "omarchy-launch-tui 'btop'", "parseFile expands { tui }");
+assertEqual(
+  tableParsed[5].command,
+  "omarchy-launch-or-focus-tui 'cliamp'",
+  "parseFile expands { tui, focus }",
+);
+assertEqual(
+  JSON.stringify(pythonList("bindings", tableBinds)),
+  JSON.stringify(tableParsed),
+  "hypr-sentinel.py bindings list matches parseFile on table-form binds",
+);
+
+const innerCommentBinds = `
+o.bind("SUPER + RETURN", "Terminal", {
+  -- Omarchy helper
+  omarchy = "terminal"
+})
+o.bind(
+  "SUPER + T", -- chord
+  "Term",
+  "kitty"
+)
+hint = "flags --help"; o.bind("SUPER + H", "Help", "man")
+`;
+const innerParsed = binds.parseFile(innerCommentBinds);
+assertEqual(innerParsed.length, 3, "parseFile keeps binds with comments inside the call");
+assertEqual(
+  innerParsed[0].command,
+  "omarchy-launch-terminal",
+  "parseFile skips a comment in a bind table",
+);
+assertEqual(innerParsed[1].keys, "SUPER + T", "parseFile skips a comment between bind args");
+assertEqual(innerParsed[2].keys, "SUPER + H", "parseFile keeps a bind after -- inside a string");
+assertEqual(
+  JSON.stringify(pythonList("bindings", innerCommentBinds)),
+  JSON.stringify(innerParsed),
+  "hypr-sentinel.py bindings list matches parseFile on comments inside calls",
+);
+
+assertEqual(
+  binds.parseCalls('o.bind("SUPER + T", "Term", "printf hello\\nworld")')[0].command,
+  "",
+  "parseCalls treats a Lua \\n in the command as a newline and drops it",
+);
+assertEqual(
+  binds.parseCalls('o.bind("SUPER + T", "Term", "printf hello\\\\nworld")')[0].command,
+  "printf hello\\nworld",
+  "parseCalls keeps a Lua \\\\n as a literal backslash-n",
+);
+assertEqual(
+  binds.parseCalls('o.bind("SUPER + T", "Term", "printf a\\tb")')[0].command,
+  "printf a\tb",
+  "parseCalls turns a Lua \\t in the command into a tab",
+);
+assertEqual(binds.luaString("a\tb\nc"), '"a\\tb\\nc"', "luaString escapes a tab and a newline");
+const luaEscapesBinds = `
+o.bind("SUPER + N", "Bad", "printf hello\\nworld")
+o.bind("SUPER + T", "Term", "printf hello\\\\nworld")
+o.bind("SUPER + B", "Tab", "printf a\\tb")
+`;
+const luaEscapesBindParsed = binds.parseFile(luaEscapesBinds);
+assertEqual(
+  luaEscapesBindParsed.filter(function (row) {
+    return row.command;
+  }).length,
+  2,
+  "parseFile drops a bind whose Lua \\n is a newline",
+);
+assertEqual(
+  luaEscapesBindParsed.filter(function (row) {
+    return row.keys === "SUPER + T";
+  })[0].command,
+  "printf hello\\nworld",
+  "parseFile keeps a bind with a literal backslash-n",
+);
+assertEqual(
+  luaEscapesBindParsed.filter(function (row) {
+    return row.keys === "SUPER + B";
+  })[0].command,
+  "printf a\tb",
+  "parseFile keeps a bind with a Lua tab",
+);
+assertEqual(
+  JSON.stringify(pythonList("bindings", luaEscapesBinds)),
+  JSON.stringify(luaEscapesBindParsed),
+  "hypr-sentinel.py bindings list matches parseFile on Lua string escapes",
 );

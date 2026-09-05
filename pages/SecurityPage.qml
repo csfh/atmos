@@ -1,11 +1,16 @@
 import QtQuick
 import "../components"
 import "../services"
+import "../services/RichUi.js" as RichUi
 
 PrefsPage {
   id: root
   title: "Security"
   description: "Fingerprint, a security key, and whether this machine accepts SSH. Passwordless sudo is under Advanced."
+
+  property string sshKeyDraft: ""
+  readonly property string sshKeyParsed: RichUi.parseSshPublicKey(root.sshKeyDraft)
+  readonly property bool sshKeyValid: root.sshKeyParsed.length > 0
 
   PrefsConfirm {
     id: fingerprintSetupConfirm
@@ -79,7 +84,9 @@ PrefsPage {
       width: parent.width
       text: Omarchy.jobKind === "security-sshd" && Omarchy.jobBusy
         ? "Installing and starting OpenSSH…"
-        : "Paste a public key. Omarchy starts sshd, opens the firewall, and adds that key to authorized_keys."
+        : (root.sshKeyDraft.length > 0 && !root.sshKeyValid
+          ? "Paste one public key line (ssh-ed25519 or ssh-rsa). Turn on stays off until it looks valid."
+          : "Paste a public key. Omarchy starts sshd, opens the firewall, and adds that key to authorized_keys.")
       color: Theme.muted
       font.family: Theme.fontFamily
       font.pixelSize: Theme.captionSize
@@ -88,16 +95,25 @@ PrefsPage {
     PrefsField {
       id: sshKeyField
       width: parent.width
+      value: root.sshKeyDraft
       placeholder: "ssh-ed25519 AAAA… comment"
       enabled: !Omarchy.jobBusy
+      invalid: root.sshKeyDraft.length > 0 && !root.sshKeyValid
+      onEdited: function(value) { root.sshKeyDraft = value }
+      onSubmitted: function(value) {
+        root.sshKeyDraft = value
+        if (!root.sshKeyValid || Omarchy.jobBusy) return
+        Omarchy.setupSshd(root.sshKeyParsed)
+        sshdDialog.close()
+      }
     }
 
     PrefsButton {
       text: "Turn on"
       primary: true
-      enabled: !Omarchy.jobBusy && sshKeyField.currentText().length > 20
+      enabled: !Omarchy.jobBusy && root.sshKeyValid
       onClicked: {
-        Omarchy.setupSshd(sshKeyField.currentText())
+        Omarchy.setupSshd(root.sshKeyParsed)
         sshdDialog.close()
       }
     }
@@ -118,20 +134,20 @@ PrefsPage {
   PrefsGroup {
     title: "Login"
     query: root.query
-    detail: "Fingerprint and FIDO2 change PAM for sudo, polkit, and the lock screen. Setup talks to the reader or key."
+    detail: "Fingerprint and FIDO2 change PAM for sudo, polkit, and the lock screen. Set up talks to the reader or key."
 
-    PrefsRow {
+    SettingRow {
       available: Omarchy.fingerprintAvailable
       label: "Fingerprint"
       description: Omarchy.fingerprintConfigured
         ? "The reader can unlock sudo, polkit, and the lock screen."
-        : "This machine has a reader. Setup enrolls a print and turns it on for sudo, polkit, and lock."
+        : "This machine has a reader. Set up enrolls a print and turns it on for sudo, polkit, and lock."
       hint: "omarchy setup security fingerprint"
       query: root.query
       keywords: ["fingerprint", "fprintd", "biometric", "lock"]
 
       Row {
-        spacing: 8
+        spacing: Theme.space
         PrefsButton {
           visible: !Omarchy.fingerprintConfigured
           text: "Set up…"
@@ -149,7 +165,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: "Security key"
       description: Omarchy.fido2Configured
         ? "A FIDO2 key can stand in for a password on sudo and polkit."
@@ -159,7 +175,7 @@ PrefsPage {
       keywords: ["fido2", "yubikey", "webauthn", "u2f"]
 
       Row {
-        spacing: 8
+        spacing: Theme.space
         PrefsButton {
           visible: !Omarchy.fido2Configured
           text: "Set up…"
@@ -183,7 +199,7 @@ PrefsPage {
     query: root.query
     detail: "OpenSSH on this machine. Turning it on needs a public key. Turning it off leaves authorized_keys alone."
 
-    PrefsRow {
+    SettingRow {
       label: "SSH server"
       description: Omarchy.sshdActive
         ? "sshd is running. Other machines can log in with an authorized key."
@@ -195,13 +211,17 @@ PrefsPage {
       keywords: ["ssh", "sshd", "openssh", "remote"]
 
       Row {
-        spacing: 8
+        spacing: Theme.space
         PrefsButton {
           visible: !Omarchy.sshdEnabled && !Omarchy.sshdActive
           text: "Turn on…"
           primary: true
           enabled: !Omarchy.jobBusy && !Omarchy.sshdEnabled && !Omarchy.sshdActive
-          onClicked: sshdDialog.open()
+          onClicked: {
+            root.sshKeyDraft = ""
+            sshKeyField.clear()
+            sshdDialog.open()
+          }
         }
         PrefsButton {
           visible: Omarchy.sshdEnabled || Omarchy.sshdActive
@@ -219,7 +239,7 @@ PrefsPage {
     query: root.query
     detail: "Passwordless sudo is timed. Sudoless Docker puts this account in the docker group."
 
-    PrefsRow {
+    SettingRow {
       stretchControl: true
       label: "Passwordless minutes"
       description: "How long passwordless sudo stays on when you enable it."
@@ -238,7 +258,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: "Passwordless sudo"
       description: Omarchy.passwordlessSudo
         ? "Sudo is not asking for a password right now. Turn it off early if you are done."
@@ -248,10 +268,10 @@ PrefsPage {
       keywords: ["sudo", "nopasswd", "passwordless", "agent"]
 
       Row {
-        spacing: 8
+        spacing: Theme.space
         PrefsButton {
           visible: !Omarchy.passwordlessSudo
-          text: "Enable…"
+          text: "Turn on…"
           enabled: !Omarchy.jobBusy && !Omarchy.passwordlessSudo
           onClicked: Omarchy.requestSudoMode()
         }
@@ -265,7 +285,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: "Sudoless Docker"
       description: Omarchy.sudolessDocker
         ? "This account is in the docker group."
@@ -275,7 +295,7 @@ PrefsPage {
       keywords: ["docker", "group", "sudoless"]
 
       Row {
-        spacing: 8
+        spacing: Theme.space
         PrefsButton {
           visible: !Omarchy.sudolessDocker
           text: "Set up…"

@@ -23,6 +23,8 @@ BINDINGS_END = "-- atmos:bindings end"
 WINDOWS_BEGIN = "-- atmos:windows begin"
 WINDOWS_END = "-- atmos:windows end"
 REQUIRE_LINE = 'require("hypr.atmos")'
+LAYOUT_REQUIRE = 'require("hypr.atmos_layout")'
+OMARCHY_LINE = 'require("default.hypr.omarchy")'
 TOGGLES_LINE = 'require("default.hypr.toggles")'
 WINDOW_CLASS = "dev.csfh.atmos"
 PREFS_WINDOW_SEED = "\n".join(
@@ -47,8 +49,39 @@ def lua_bool(v: bool) -> str:
     return "true" if v else "false"
 
 
+def unescape_lua(raw: str) -> str:
+    src = raw or ""
+    out = []
+    i = 0
+    while i < len(src):
+        if src[i] == "\\" and i + 1 < len(src):
+            nxt = src[i + 1]
+            if nxt == "n":
+                out.append("\n")
+            elif nxt == "t":
+                out.append("\t")
+            elif nxt == "r":
+                out.append("\r")
+            else:
+                out.append(nxt)
+            i += 2
+            continue
+        out.append(src[i])
+        i += 1
+    return "".join(out)
+
+
 def lua_string(v: str) -> str:
-    return '"' + str(v).replace("\\", "\\\\").replace('"', '\\"') + '"'
+    return (
+        '"'
+        + str(v)
+        .replace("\\", "\\\\")
+        .replace("\n", "\\n")
+        .replace("\r", "\\r")
+        .replace("\t", "\\t")
+        .replace('"', '\\"')
+        + '"'
+    )
 
 
 def clamp_int(raw, lo, hi, fallback):
@@ -101,6 +134,7 @@ def serialize_look(raw: dict) -> str:
         "allowTearing": as_bool(src.get("allowTearing"), False),
         "resizeOnBorder": as_bool(src.get("resizeOnBorder"), False),
         "activeOpacity": clamp_float(src.get("activeOpacity"), 0.2, 1, 1),
+        "inactiveOpacity": clamp_float(src.get("inactiveOpacity"), 0.2, 1, 1),
         "preserveSplit": as_bool(src.get("preserveSplit"), False),
         "focusOnActivate": as_bool(src.get("focusOnActivate"), False),
     }
@@ -127,6 +161,7 @@ def serialize_look(raw: dict) -> str:
             f"    dim_inactive = {lua_bool(s['dimInactive'])},",
             f"    dim_strength = {lua_number(s['dimStrength'])},",
             f"    active_opacity = {lua_number(s['activeOpacity'])},",
+            f"    inactive_opacity = {lua_number(s['inactiveOpacity'])},",
             "  },",
             "  animations = {",
             f"    enabled = {lua_bool(s['animations'])},",
@@ -293,10 +328,66 @@ def sanitize_command(raw) -> str:
     return text
 
 
+def in_line_comment(src: str, at: int) -> bool:
+    line_start = src.rfind("\n", 0, at) + 1
+    i = line_start
+    in_str = False
+    while i < at:
+        ch = src[i]
+        if in_str:
+            if ch == "\\":
+                i += 2
+                continue
+            if ch == '"':
+                in_str = False
+            i += 1
+            continue
+        if ch == '"':
+            in_str = True
+            i += 1
+            continue
+        if ch == "-" and i + 1 < len(src) and src[i + 1] == "-":
+            return True
+        i += 1
+    return False
+
+
+def sentinel_has_workspace_gesture(src: str) -> bool:
+    text = src or ""
+    i = 0
+    while i < len(text):
+        at = text.find("hl.gesture(", i)
+        if at < 0:
+            return False
+        if in_line_comment(text, at):
+            i = at + 11
+            continue
+        end = text.find(")", at)
+        body = text[at : end + 1 if end >= 0 else len(text)]
+        if re.search(r"""action\s*=\s*["']workspace["']""", body):
+            return True
+        i = at + 11
+    return False
+
+
+def input_has_workspace_gesture(text: str) -> bool:
+    src = text or ""
+    bounds = sentinel_bounds(src, INPUT_BEGIN, INPUT_END)
+    if bounds:
+        return sentinel_has_workspace_gesture(src[bounds[0] : bounds[1]])
+    bounds = sentinel_bounds(src, LEGACY_INPUT_BEGIN, LEGACY_INPUT_END)
+    if bounds:
+        return sentinel_has_workspace_gesture(src[bounds[0] : bounds[1]])
+    return False
+
+
 def parse_launch_calls(text: str) -> list[str]:
+    src = text or ""
     out = []
-    for match in re.finditer(r'o\.launch_on_start\(\s*"((?:\\.|[^"\\])*)"\s*\)', text or ""):
-        cmd = sanitize_command(match.group(1).replace('\\"', '"').replace("\\\\", "\\"))
+    for match in re.finditer(r'o\.launch_on_start\(\s*"((?:\\.|[^"\\])*)"\s*\)', src):
+        if in_line_comment(src, match.start()):
+            continue
+        cmd = sanitize_command(unescape_lua(match.group(1)))
         if cmd:
             out.append(cmd)
     return out
@@ -331,8 +422,14 @@ def parse_autostart(text: str) -> list[dict]:
 
 
 def skip_ws(text: str, i: int) -> int:
-    while i < len(text) and text[i] in " \t\r\n":
-        i += 1
+    # Lua -- comments. Only called outside strings.
+    while i < len(text):
+        while i < len(text) and text[i] in " \t\r\n":
+            i += 1
+        if i + 1 >= len(text) or text[i : i + 2] != "--":
+            break
+        nl = text.find("\n", i + 2)
+        i = len(text) if nl < 0 else nl + 1
     return i
 
 
@@ -350,7 +447,15 @@ def parse_lua_string(text: str, i: int):
         if ch == "\\":
             if i + 1 >= len(text):
                 return None
-            out.append(text[i + 1])
+            nxt = text[i + 1]
+            if nxt == "n":
+                out.append("\n")
+            elif nxt == "t":
+                out.append("\t")
+            elif nxt == "r":
+                out.append("\r")
+            else:
+                out.append(nxt)
             i += 2
             continue
         if ch == '"':
@@ -457,11 +562,51 @@ def sanitize_label(raw) -> str:
     return text
 
 
-def command_from_arg(arg) -> str:
+def lua_stringish(value) -> str:
+    if value is True:
+        return "true"
+    if value is False:
+        return "false"
+    if value is None:
+        return ""
+    return str(value)
+
+
+def shell_quote(value) -> str:
+    return "'" + lua_stringish(value).replace("'", "'\\''") + "'"
+
+
+def command_from_arg(arg, description="") -> str:
     if isinstance(arg, str):
         return sanitize_command(arg)
-    if isinstance(arg, dict) and arg.get("launch"):
-        return sanitize_command(arg.get("launch"))
+    if not isinstance(arg, dict):
+        return ""
+    if arg.get("omarchy"):
+        return sanitize_command("omarchy-launch-" + lua_stringish(arg.get("omarchy")))
+    launch = arg.get("launch")
+    focus = arg.get("focus")
+    if launch and focus:
+        wrapped = "uwsm-app -- " + lua_stringish(launch)
+        return sanitize_command(
+            "omarchy-launch-or-focus " + shell_quote(focus) + " " + shell_quote(wrapped)
+        )
+    if launch:
+        return sanitize_command("uwsm-app -- " + lua_stringish(launch))
+    webapp = arg.get("webapp")
+    if webapp:
+        if focus:
+            return sanitize_command(
+                "omarchy-launch-or-focus-webapp "
+                + shell_quote(description)
+                + " "
+                + shell_quote(webapp)
+            )
+        return sanitize_command("omarchy-launch-webapp " + shell_quote(webapp))
+    tui = arg.get("tui")
+    if tui:
+        if focus:
+            return sanitize_command("omarchy-launch-or-focus-tui " + shell_quote(tui))
+        return sanitize_command("omarchy-launch-tui " + shell_quote(tui))
     return ""
 
 
@@ -489,6 +634,9 @@ def parse_binding_events(text: str) -> list[dict]:
         if unbind_at < 0 and bind_at < 0:
             break
         if unbind_at >= 0 and (bind_at < 0 or unbind_at < bind_at):
+            if in_line_comment(src, unbind_at):
+                i = unbind_at + 10
+                continue
             parsed = parse_call_args(src, unbind_at + 10)
             if not parsed:
                 i = unbind_at + 10
@@ -498,14 +646,18 @@ def parse_binding_events(text: str) -> list[dict]:
                 events.append({"kind": "unbind", "keys": keys})
             i = parsed[1]
         else:
+            if in_line_comment(src, bind_at):
+                i = bind_at + 7
+                continue
             parsed = parse_call_args(src, bind_at + 7)
             if not parsed:
                 i = bind_at + 7
                 continue
             args = parsed[0]
             keys = sanitize_keys(args[0] if args else "")
+            raw_label = args[1] if len(args) > 1 and args[1] is not None else ""
             label = "" if (len(args) < 2 or args[1] is None) else sanitize_label(args[1])
-            command = command_from_arg(args[2] if len(args) > 2 else "")
+            command = command_from_arg(args[2] if len(args) > 2 else "", raw_label)
             if keys:
                 events.append({"kind": "bind", "keys": keys, "label": label, "command": command})
             i = parsed[1]
@@ -678,6 +830,9 @@ def parse_window_calls(text: str) -> list[dict]:
         at = src.find("o.window(", i)
         if at < 0:
             break
+        if in_line_comment(src, at):
+            i = at + 9
+            continue
         parsed = parse_call_args(src, at + 9)
         if not parsed:
             i = at + 9
@@ -748,6 +903,35 @@ def ensure_atmos_require(text: str) -> str:
     return text.rstrip() + "\n\n" + REQUIRE_LINE + "\n"
 
 
+def layout_lua() -> str:
+    path = Path(__file__).resolve().parent.parent / "packaging" / "hypr-atmos-layout.lua"
+    return path.read_text()
+
+
+def ensure_layout_file(dest: Path) -> None:
+    body = layout_lua()
+    if not body.endswith("\n"):
+        body += "\n"
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    if dest.exists() and dest.read_text() == body:
+        return
+    dest.write_text(body)
+
+
+def ensure_layout_require(text: str) -> str:
+    if "hypr.atmos_layout" in text:
+        return text
+    if not text.strip():
+        return text
+    at = text.find(OMARCHY_LINE)
+    if at >= 0:
+        return text[:at] + LAYOUT_REQUIRE + "\n" + text[at:]
+    at = text.find(REQUIRE_LINE)
+    if at >= 0:
+        return text[:at] + LAYOUT_REQUIRE + "\n" + text[at:]
+    return text.rstrip() + "\n\n" + LAYOUT_REQUIRE + "\n"
+
+
 def apply(kind: str, path: Path, payload: dict | None, reset: bool) -> str:
     text = path.read_text() if path.exists() else ""
     if kind == "windows" and not text.strip():
@@ -793,7 +977,9 @@ def main() -> int:
         text = dest.read_text()
         if not text.strip():
             return 0
+        ensure_layout_file(dest.parent / "atmos_layout.lua")
         updated = ensure_atmos_require(text)
+        updated = ensure_layout_require(updated)
         dest.write_text(updated if updated.endswith("\n") or not updated else updated + "\n")
         return 0
     if action == "list":
@@ -802,8 +988,16 @@ def main() -> int:
             print(json.dumps(parse_bindings(text)))
         elif kind == "windows":
             print(json.dumps(parse_windows(text)))
-        else:
+        elif kind == "autostart":
             print(json.dumps(parse_autostart(text)))
+        elif kind == "input":
+            print(json.dumps(input_has_workspace_gesture(text)))
+        else:
+            print(
+                "hypr-sentinel.py: list is for autostart|bindings|windows|input",
+                file=sys.stderr,
+            )
+            return 2
         return 0
     payload = {}
     if action == "apply":

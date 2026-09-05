@@ -1,4 +1,4 @@
-const { load, assertEqual } = require("./harness");
+const { load, assert, assertEqual } = require("./harness");
 
 const layout = load("services/Layout.js");
 
@@ -67,18 +67,89 @@ const helpTopics = layout.sectionHelpTopics([
     hint: "omarchy theme set",
   },
   { label: "Font", description: "Monospace family.", hint: "omarchy font set" },
+  { label: "Same", description: "Visible copy.", detail: "Visible copy.", hint: "omarchy x" },
   { label: "", description: "", detail: "", hint: "" },
   null,
 ]);
-assertEqual(helpTopics.length, 2, "sectionHelpTopics skips empty rows");
+assertEqual(helpTopics.length, 1, "sectionHelpTopics keeps only extra row detail");
 assertEqual(
   helpTopics[0].body,
   "A named palette plus templates.",
-  "sectionHelpTopics prefers detail",
+  "sectionHelpTopics uses extra detail",
 );
-assertEqual(helpTopics[1].body, "Monospace family.", "sectionHelpTopics falls back to description");
-assertEqual(helpTopics[1].command, "omarchy font set", "sectionHelpTopics keeps the command");
+assertEqual(helpTopics[0].command, "omarchy theme set", "sectionHelpTopics keeps the command");
 assertEqual(layout.sectionHelpTopics(null).length, 0, "sectionHelpTopics ignores a non-array");
+assertEqual(
+  layout.helpAccessibleName("DNS"),
+  "About DNS settings",
+  "helpAccessibleName names the section",
+);
+assertEqual(
+  layout.helpAccessibleName("Power settings"),
+  "About Power settings",
+  "helpAccessibleName does not double settings",
+);
+assert(
+  layout.helpTextIsExtra(
+    "This writes NetworkManager and systemd-resolved so lookups go through the same resolvers. Cloudflare is 1.1.1.1 and 1.0.0.1.",
+    ["Who answers name lookups for this machine."],
+  ),
+  "DNS section copy is extra help",
+);
+assertEqual(
+  layout.helpTextIsExtra(
+    "Font and size apply together to the shell, GTK apps, and terminals. Reset puts size back to 12 pixels.",
+    [
+      "Font",
+      "The monospace face used by the shell and terminals.",
+      "Text size",
+      "How large type is in the shell, GTK apps, and terminals. You can pick 9 to 20 pixels.",
+      "Reset text size",
+      "Put type back to 12 pixels everywhere Omarchy sets it.",
+    ],
+  ),
+  false,
+  "Text section copy is already on the rows",
+);
+const textPayload = layout.sectionHelpPayload(
+  "Font and size apply together to the shell, GTK apps, and terminals. Reset puts size back to 12 pixels.",
+  "omarchy font set",
+  [
+    {
+      label: "Font",
+      description: "The monospace face used by the shell and terminals.",
+      hint: "omarchy font set",
+    },
+    {
+      label: "Text size",
+      description:
+        "How large type is in the shell, GTK apps, and terminals. You can pick 9 to 20 pixels.",
+    },
+    {
+      label: "Reset text size",
+      description: "Put type back to 12 pixels everywhere Omarchy sets it.",
+    },
+  ],
+);
+assertEqual(layout.sectionHelpOpen(textPayload), false, "redundant section help stays closed");
+const dnsPayload = layout.sectionHelpPayload(
+  "This writes NetworkManager and systemd-resolved so lookups go through the same resolvers. Cloudflare is 1.1.1.1 and 1.0.0.1. A VPN can still win for that connection.",
+  "omarchy dns",
+  [{ label: "DNS provider", description: "Who answers name lookups for this machine." }],
+);
+assert(layout.sectionHelpOpen(dnsPayload), "extra section help opens the icon");
+assertEqual(dnsPayload.command, "omarchy dns", "extra section help still keeps the command");
+const rowExtra = layout.sectionHelpPayload("Scale is the usual slider.", "", [
+  {
+    label: "Scale",
+    description: "How large the interface looks on the focused monitor.",
+    detail:
+      "Scale is Hyprland's factor of UI pixels over physical pixels. 200% on a 4K panel makes chrome and text about the size they would be at 1080p.",
+    hint: "omarchy hyprland monitor scaling",
+  },
+]);
+assert(layout.sectionHelpOpen(rowExtra), "extra row detail opens the icon");
+assertEqual(rowExtra.topics.length, 1, "extra row detail is a help topic");
 assertEqual(layout.clusterByGroup(null).length, 0, "clusterByGroup ignores a non-array");
 assertEqual(layout.clusterByGroup([]).length, 0, "clusterByGroup empty list");
 assertEqual(layout.navGroupLabel("look"), "Desktop", "navGroupLabel names look");

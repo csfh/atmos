@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import "../services"
+import "../services/RichUi.js" as RichUi
 
 Popup {
   id: root
@@ -9,7 +10,9 @@ Popup {
   property string message: ""
   property string confirmText: "Confirm"
   property string cancelText: "Cancel"
-  property bool destructive: true
+  // Install/Apply/Update stay primary. Remove/Forget/Reset keep the urgent
+  // border. Pages can still set this explicitly.
+  property bool destructive: RichUi.confirmIsDestructive(confirmText)
 
   signal confirmed()
   signal canceled()
@@ -21,24 +24,34 @@ Popup {
   padding: Theme.pad * 1.5
   closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
   anchors.centerIn: Overlay.overlay
-  width: Math.min(420, Overlay.overlay ? Overlay.overlay.width - 48 : 420)
+  width: Math.min(Theme.confirmWidth, Overlay.overlay ? Overlay.overlay.width - Theme.overlayInset : Theme.confirmWidth)
 
   background: Rectangle {
     color: Theme.background
-    border.width: 1
+    border.width: Theme.borderWidth
     border.color: Theme.borderColor()
     radius: Theme.radius
   }
 
   Overlay.modal: Rectangle {
-    color: Qt.rgba(0, 0, 0, 0.55)
+    color: Qt.rgba(0, 0, 0, Theme.scrimAlpha)
+  }
+
+  // Declared inside PrefsPage's Flickable. Live on Overlay so clip cannot
+  // crop Forget/Remove/LUKS dialogs that never reparent themselves.
+  function attachOverlay() {
+    var overlay = Overlay.overlay
+    if (overlay)
+      parent = overlay
   }
 
   function ask() {
     _accepted = false
+    attachOverlay()
     open()
   }
 
+  onAboutToShow: attachOverlay()
   onClosed: if (!_accepted) root.canceled()
 
   Column {
@@ -65,7 +78,7 @@ Popup {
 
     Row {
       anchors.right: parent.right
-      spacing: 8
+      spacing: Theme.space
 
       PrefsButton {
         text: root.cancelText

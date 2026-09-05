@@ -33,5 +33,6 @@ if [[ -f $seed ]]; then
   fi
 fi
 
+cp "$(cd -- "$ROOT/.." && pwd)/packaging/hypr-atmos-layout.lua" "$(dirname "$ATMOS_WINDOWS_FILE")/atmos_layout.lua"
 python3 "$ROOT/hypr-sentinel.py" require apply "$ATMOS_HYPRLAND_FILE"
 atmos_hypr_reload reset-atmos.sh errors

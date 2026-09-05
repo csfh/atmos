@@ -1,3 +1,7 @@
+const { spawnSync } = require("child_process");
+const fs = require("fs");
+const os = require("os");
+const path = require("path");
 const { load, assert, assertEqual } = require("./harness");
 
 const hypr = load("services/HyprPrefs.js");
@@ -33,6 +37,10 @@ assert(
   "serializeLook writes default cursor size",
 );
 assert(lookLua.indexOf("active_opacity = 1") !== -1, "serializeLook writes default active opacity");
+assert(
+  lookLua.indexOf("inactive_opacity = 1") !== -1,
+  "serializeLook writes default inactive opacity",
+);
 assert(lookLua.indexOf("preserve_split = false") !== -1, "serializeLook writes preserve_split");
 assert(
   lookLua.indexOf("focus_on_activate = false") !== -1,
@@ -42,6 +50,7 @@ assert(
 const lookExtras = hypr.serializeLook({
   cursorSize: 40,
   activeOpacity: 0.8,
+  inactiveOpacity: 0.7,
   preserveSplit: true,
   focusOnActivate: true,
 });
@@ -55,6 +64,10 @@ assert(
 );
 assert(lookExtras.indexOf("active_opacity = 0.8") !== -1, "serializeLook writes active opacity");
 assert(
+  lookExtras.indexOf("inactive_opacity = 0.7") !== -1,
+  "serializeLook writes inactive opacity",
+);
+assert(
   lookExtras.indexOf("preserve_split = true") !== -1,
   "serializeLook writes preserve_split on",
 );
@@ -63,6 +76,16 @@ assertEqual(
   hypr.clampLook({ activeOpacity: 0.05 }).activeOpacity,
   0.2,
   "clampLook floors active opacity",
+);
+assertEqual(
+  hypr.clampLook({ inactiveOpacity: 0.05 }).inactiveOpacity,
+  0.2,
+  "clampLook floors inactive opacity",
+);
+assertEqual(
+  hypr.lookFromHyprOptions({ inactiveOpacity: 0.85 }).inactiveOpacity,
+  0.85,
+  "lookFromHyprOptions keeps inactive opacity",
 );
 assertEqual(hypr.luaNumber(8), "8", "luaNumber writes an integer");
 assertEqual(hypr.luaNumber(0.97), "0.97", "luaNumber trims trailing zeros");
@@ -184,6 +207,16 @@ assertEqual(
   "sanitizeVariantList keeps matching variants",
 );
 assertEqual(
+  hypr.sanitizeVariantList("intl, nodeadkeys", 2),
+  "intl,nodeadkeys",
+  "sanitizeVariantList trims spaces around tokens",
+);
+assertEqual(
+  hypr.sanitizeVariantList(" ,nodeadkeys", 2),
+  ",nodeadkeys",
+  "sanitizeVariantList keeps an empty first variant",
+);
+assertEqual(
   hypr.sanitizeVariantList("intl", 2),
   "",
   "sanitizeVariantList rejects a count mismatch",
@@ -255,4 +288,250 @@ assert(
     .resetLookFile("-- omarchy-prefs:look begin\nhl.config({})\n-- omarchy-prefs:look end\n")
     .indexOf("omarchy-prefs") === -1,
   "resetLookFile strips a leftover omarchy-prefs look block",
+);
+
+// The live writer is hypr-sentinel.py. JS serializeLook/serializeInput is
+// what Node tests. They drifted once (scroll inertia). Fail if they do again.
+function pythonSentinel(kind, payload) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "atmos-sentinel-"));
+  const file = path.join(dir, kind + ".lua");
+  let status = 1;
+  let text = "";
+  try {
+    fs.writeFileSync(file, "");
+    const result = spawnSync(
+      "python3",
+      [path.join(__dirname, "..", "scripts", "hypr-sentinel.py"), kind, "apply", file],
+      { input: JSON.stringify(payload), encoding: "utf8" },
+    );
+    status = result.status;
+    if (status === 0) text = fs.readFileSync(file, "utf8").replace(/\s+$/, "");
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+  assertEqual(status, 0, "hypr-sentinel.py " + kind + " apply exits 0");
+  return text;
+}
+
+const lookLock = {
+  gapsIn: 8,
+  gapsOut: 12,
+  borderSize: 3,
+  rounding: 6,
+  blur: true,
+  shadow: false,
+  layout: "scrolling",
+  columnWidth: 0.97,
+  dimInactive: true,
+  dimStrength: 0.15,
+  animations: false,
+  cursorHideOnKey: false,
+  cursorWarp: true,
+  cursorSize: 40,
+  allowTearing: true,
+  resizeOnBorder: false,
+  activeOpacity: 0.8,
+  inactiveOpacity: 0.7,
+  preserveSplit: true,
+  focusOnActivate: true,
+};
+assertEqual(
+  pythonSentinel("look", lookLock),
+  hypr.serializeLook(lookLock),
+  "hypr-sentinel.py look matches serializeLook",
+);
+
+const inputLock = {
+  sensitivity: -0.64,
+  accelProfile: "flat",
+  emulateDiscreteScroll: 0,
+  naturalScroll: true,
+  scrollFactor: 0.8,
+  clickfinger: false,
+  disableWhileTyping: false,
+  drag3fg: 1,
+  repeatRate: 50,
+  repeatDelay: 300,
+  numlock: false,
+  followMouse: 2,
+  keyPressDpms: false,
+  mouseMoveDpms: false,
+  kbLayoutOverride: "us,dk",
+  kbVariantOverride: "intl,nodeadkeys",
+  kbGroupToggle: true,
+  workspaceGesture: true,
+};
+assertEqual(
+  pythonSentinel("input", inputLock),
+  hypr.serializeInput(inputLock),
+  "hypr-sentinel.py input matches serializeInput",
+);
+
+const spacedInput = Object.assign({}, inputLock, {
+  kbLayoutOverride: "us, dk",
+  kbVariantOverride: "intl, nodeadkeys",
+});
+assertEqual(
+  pythonSentinel("input", spacedInput),
+  hypr.serializeInput(spacedInput),
+  "hypr-sentinel.py input matches serializeInput with spaced layout lists",
+);
+assert(
+  hypr.serializeInput(spacedInput).indexOf('kb_layout = "us,dk"') !== -1,
+  "serializeInput strips spaces in layout lists",
+);
+assert(
+  hypr.serializeInput(spacedInput).indexOf('kb_variant = "intl,nodeadkeys"') !== -1,
+  "serializeInput strips spaces in variant lists",
+);
+
+function pythonInputGesture(text) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "atmos-gesture-"));
+  const file = path.join(dir, "input.lua");
+  let parsed = false;
+  try {
+    fs.writeFileSync(file, text);
+    const result = spawnSync(
+      "python3",
+      [path.join(__dirname, "..", "scripts", "hypr-sentinel.py"), "input", "list", file],
+      { encoding: "utf8" },
+    );
+    assertEqual(result.status, 0, "hypr-sentinel.py input list exits 0");
+    parsed = String(result.stdout || "").replace(/^\s+|\s+$/g, "") === "true";
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+  return parsed;
+}
+
+const liveGesture = hypr.serializeInput({ workspaceGesture: true });
+assertEqual(
+  hypr.inputHasWorkspaceGesture(liveGesture),
+  true,
+  "inputHasWorkspaceGesture sees a live managed gesture",
+);
+assertEqual(
+  pythonInputGesture(liveGesture),
+  true,
+  "hypr-sentinel.py input list sees a live managed gesture",
+);
+assertEqual(
+  hypr.inputHasWorkspaceGesture(hypr.serializeInput({ workspaceGesture: false })),
+  false,
+  "inputHasWorkspaceGesture misses a managed block with no gesture",
+);
+
+const commentedGesture = `-- atmos:input begin
+hl.config({
+  input = { sensitivity = 0 },
+})
+-- hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })
+-- atmos:input end
+`;
+assertEqual(
+  hypr.inputHasWorkspaceGesture(commentedGesture),
+  false,
+  "inputHasWorkspaceGesture skips a commented gesture in the sentinel",
+);
+assertEqual(
+  pythonInputGesture(commentedGesture),
+  false,
+  "hypr-sentinel.py input list skips a commented gesture in the sentinel",
+);
+
+const trailingGesture = `-- atmos:input begin
+hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" }) -- keep
+-- atmos:input end
+`;
+assertEqual(
+  hypr.inputHasWorkspaceGesture(trailingGesture),
+  true,
+  "inputHasWorkspaceGesture keeps a live gesture with a trailing comment",
+);
+assertEqual(
+  pythonInputGesture(trailingGesture),
+  true,
+  "hypr-sentinel.py input list keeps a live gesture with a trailing comment",
+);
+
+const stringDashGesture = `-- atmos:input begin
+hint = "flags --help"; hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })
+-- atmos:input end
+`;
+assertEqual(
+  hypr.inputHasWorkspaceGesture(stringDashGesture),
+  true,
+  "inputHasWorkspaceGesture keeps a gesture after -- inside a string",
+);
+assertEqual(
+  pythonInputGesture(stringDashGesture),
+  true,
+  "hypr-sentinel.py input list keeps a gesture after -- inside a string",
+);
+
+const unmanagedGesture = `hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })
+-- atmos:input begin
+hl.config({
+  input = { sensitivity = 0 },
+})
+-- atmos:input end
+`;
+assertEqual(
+  hypr.inputHasWorkspaceGesture(unmanagedGesture),
+  false,
+  "inputHasWorkspaceGesture ignores an unmanaged gesture outside the sentinel",
+);
+assertEqual(
+  pythonInputGesture(unmanagedGesture),
+  false,
+  "hypr-sentinel.py input list ignores an unmanaged gesture outside the sentinel",
+);
+
+const legacyGesture = `-- omarchy-prefs:input begin
+hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })
+-- omarchy-prefs:input end
+`;
+assertEqual(
+  hypr.inputHasWorkspaceGesture(legacyGesture),
+  true,
+  "inputHasWorkspaceGesture reads a leftover omarchy-prefs input gesture",
+);
+assertEqual(
+  pythonInputGesture(legacyGesture),
+  true,
+  "hypr-sentinel.py input list reads a leftover omarchy-prefs input gesture",
+);
+
+const leftoverAtmosOff = [
+  "-- omarchy-prefs:input begin",
+  'hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })',
+  "-- omarchy-prefs:input end",
+  "-- atmos:input begin",
+  "hl.config({",
+  "  input = { sensitivity = 0 },",
+  "})",
+  "-- atmos:input end",
+  "",
+].join("\n");
+assertEqual(
+  hypr.inputHasWorkspaceGesture(leftoverAtmosOff),
+  false,
+  "inputHasWorkspaceGesture prefers the atmos sentinel over a leftover gesture",
+);
+assertEqual(
+  pythonInputGesture(leftoverAtmosOff),
+  false,
+  "hypr-sentinel.py input list prefers the atmos sentinel over a leftover gesture",
+);
+assertEqual(
+  hypr.inputHasWorkspaceGesture(""),
+  false,
+  "inputHasWorkspaceGesture misses an empty file",
+);
+assertEqual(
+  hypr.inputHasWorkspaceGesture(
+    'hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })\n',
+  ),
+  false,
+  "inputHasWorkspaceGesture misses a gesture with no sentinel",
 );

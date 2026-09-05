@@ -225,7 +225,7 @@ PrefsPage {
     }
 
     Row {
-      spacing: 8
+      spacing: Theme.space
       PrefsButton {
         text: "Cancel"
         onClicked: luksDialog.close()
@@ -260,13 +260,14 @@ PrefsPage {
     model: Omarchy.disks
 
     PrefsGroup {
+    framed: true
       required property var modelData
       title: root.diskTitle(modelData)
       query: root.query
       detail: "Usage bars come from df on each mount. Speed test reads for about eight seconds, then writes for about eight, on this disk."
       hint: "df"
 
-      PrefsRow {
+      SettingRow {
         label: "Drive"
         description: String((modelData && modelData.info) || "")
         hint: "omarchy drive info"
@@ -283,7 +284,7 @@ PrefsPage {
       Repeater {
         model: modelData && modelData.mounts
 
-        PrefsRow {
+        SettingRow {
           required property var modelData
           stretchControl: true
           sectionHelp: false
@@ -302,7 +303,7 @@ PrefsPage {
         }
       }
 
-      PrefsRow {
+      SettingRow {
         stretchControl: true
         label: "Speed test"
         description: {
@@ -325,11 +326,11 @@ PrefsPage {
 
         Column {
           width: parent.width
-          spacing: 8
+          spacing: Theme.space
           Row {
-            spacing: 8
+            spacing: Theme.space
             PrefsButton {
-              text: root.diskRunning && root.diskTarget === root.speedtestDir(modelData) ? "Cancel" : "Run"
+              text: root.diskRunning && root.diskTarget === root.speedtestDir(modelData) ? "Cancel" : "Run now"
               onClicked: {
                 var dir = root.speedtestDir(modelData)
                 if (root.diskRunning && root.diskTarget === dir) root.stopDiskSpeedtest()
@@ -384,6 +385,7 @@ PrefsPage {
   }
 
   PrefsGroup {
+    framed: true
     title: "Encryption"
     query: Omarchy.luksDevices.length > 0 ? root.query : "."
     detail: "LUKS volumes on this machine. Change the passphrase here. You will need the current one."
@@ -391,7 +393,7 @@ PrefsPage {
     Repeater {
       model: Omarchy.luksDevices
 
-      PrefsRow {
+      SettingRow {
         required property var modelData
         available: true
         label: String(modelData || "LUKS")
@@ -413,12 +415,13 @@ PrefsPage {
   }
 
   PrefsGroup {
+    framed: true
     title: "Snapshots"
     query: Omarchy.snapperPresent ? root.query : "."
     detail: "Each listed snapshot can become the new Snapper default. Rollback asks first. Reboot after it finishes."
     hint: "snapper rollback"
 
-    PrefsRow {
+    SettingRow {
       available: Omarchy.snapperPresent
       label: "Snapper"
       description: root.snapperSummary()
@@ -433,7 +436,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       available: Omarchy.snapperPresent
       label: "Create snapshot"
       description: Omarchy.jobKind === "snapshot-create" && Omarchy.jobBusy
@@ -451,10 +454,19 @@ PrefsPage {
       }
     }
 
+    SettingRow {
+      available: Omarchy.snapperPresent && Omarchy.snapshots.length === 0
+      sectionHelp: false
+      label: "Snapshots"
+      description: "No snapshots."
+      query: root.query
+      keywords: ["empty", "snapshot"]
+    }
+
     Repeater {
       model: Omarchy.snapshots
 
-      PrefsRow {
+      SettingRow {
         required property var modelData
         available: Omarchy.snapperPresent
         sectionHelp: false
@@ -481,23 +493,23 @@ PrefsPage {
   PrefsGroup {
     title: "Hibernation"
     query: root.query
-    detail: "Hibernation writes RAM to a swap file and resumes from it on the next boot. Setup needs sudo."
+    detail: "Hibernation writes RAM to a swap file and resumes from it on the next boot. Set up needs sudo."
 
-    PrefsRow {
+    SettingRow {
       label: "Hibernation"
       description: (Omarchy.jobKind === "hibernation-setup" || Omarchy.jobKind === "hibernation-remove") && Omarchy.jobBusy
         ? (Omarchy.jobKind === "hibernation-remove" ? "Removing hibernation…" : "Setting up hibernation…")
         : (Omarchy.hibernationConfigured
           ? "Set up. Remove deletes the swap file and the boot resume settings."
           : (Omarchy.hibernationSupported
-            ? "This machine can hibernate. Setup writes a swap file and the boot resume settings."
-            : "Not available on this machine. Setup stays disabled."))
+            ? "This machine can hibernate. Set up writes a swap file and the boot resume settings."
+            : "Not available on this machine. Set up stays disabled."))
       hint: "omarchy hibernation available"
       query: root.query
       keywords: ["sleep", "swap", "resume"]
 
       PrefsButton {
-        text: Omarchy.hibernationConfigured ? "Remove…" : "Setup…"
+        text: Omarchy.hibernationConfigured ? "Remove…" : "Set up…"
         primary: !Omarchy.hibernationConfigured && Omarchy.hibernationSupported
         danger: Omarchy.hibernationConfigured
         enabled: !Omarchy.jobBusy && (Omarchy.hibernationConfigured || Omarchy.hibernationSupported)
@@ -516,17 +528,15 @@ PrefsPage {
     query: root.query
     detail: "How many Snapper snapshots to keep, whether hourly snapshots run, and weekly SSD TRIM."
 
-    PrefsRow {
+    SettingRow {
       available: Omarchy.snapperPresent
-      stretchControl: true
       label: "Keep snapshots"
       description: "How many numbered Snapper snapshots the root config keeps before cleanup."
       hint: "/etc/snapper/configs/root · NUMBER_LIMIT"
       query: root.query
       keywords: ["snapper", "retention", "limit", "number"]
 
-      PrefsSlider {
-        width: parent.width
+      PrefsSliderStepper {
         from: 1
         to: 20
         stepSize: 1
@@ -541,10 +551,10 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       available: Omarchy.snapperPresent
       label: "Timeline snapshots"
-      description: "Take hourly snapshots and clean them on a timer. That uses disk quickly."
+      description: "Hourly snapshots, cleaned on a timer. That uses disk quickly."
       hint: "/etc/snapper/configs/root · TIMELINE_CREATE"
       query: root.query
       keywords: ["snapper", "timeline", "hourly", "timer"]
@@ -556,9 +566,9 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: "Weekly TRIM"
-      description: "Tell the SSD to reclaim unused blocks once a week."
+      description: "The SSD reclaims unused blocks once a week."
       hint: "systemctl enable fstrim.timer"
       query: root.query
       keywords: ["fstrim", "trim", "ssd", "discard"]
@@ -571,6 +581,7 @@ PrefsPage {
   }
 
   PrefsGroup {
+    framed: true
     title: "Swap"
     query: Omarchy.swapDevices.length > 0 ? root.query : "."
     detail: "Swap devices this machine is using, including zram when the kernel has it loaded."
@@ -578,7 +589,7 @@ PrefsPage {
     Repeater {
       model: Omarchy.swapDevices
 
-      PrefsRow {
+      SettingRow {
         required property var modelData
         label: String((modelData && (modelData.label || modelData.name)) || "swap")
         description: modelData && modelData.path

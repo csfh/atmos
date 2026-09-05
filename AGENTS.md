@@ -15,8 +15,8 @@ Atmos is a standalone Quickshell preferences app for Omarchy. Do not import `qs.
 
 - Mutations go through `omarchy` commands, `scripts/set-idle.sh` which sources `omarchy-shell-config`, or the Hyprland sentinel writers `scripts/set-hypr-look.sh`, `scripts/set-hypr-input.sh`, `scripts/set-hypr-autostart.sh`, `scripts/set-hypr-bindings.sh`, `scripts/set-hypr-windows.sh`, and `scripts/set-hyprsunset.sh`.
 - Do not write a private prefs store.
-- Hyprland drop-in is `~/.config/hypr/atmos.lua` required as `hypr.atmos` next to `hypr.omafetch`, before `default.hypr.toggles`. Sentinel blocks are `-- atmos:look|input|autostart|bindings|windows begin/end`.
+- Hyprland drop-in is `~/.config/hypr/atmos.lua` required as `hypr.atmos` next to `hypr.omafetch`, before `default.hypr.toggles`. `hypr.atmos_layout` wraps dwindle `layoutmsg` so scrolling workspaces do not throw. Sentinel blocks are `-- atmos:look|input|autostart|bindings|windows begin/end`.
 - Theme colors come from `~/.local/state/omarchy/current/theme/{colors,shell}.toml` and `~/.config/omarchy/shell.toml`.
 - Keep parsers in `services/*.js` so Node can test them without Quickshell.
-- Do not import `qs.Ui`. Restyle Qt Quick Controls through `Prefs*` wrappers.
+- Do not import `qs.Ui`. Restyle Qt Quick Controls through `Prefs*` wrappers. Visual language lives in `services/Theme.qml`; use those tokens instead of one-off sizes.
 - Do not launch floating terminals for settings work. Long jobs use `Omarchy.runJob` or an in-page `Process`.

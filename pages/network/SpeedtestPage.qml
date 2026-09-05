@@ -165,7 +165,7 @@ PrefsPage {
     query: root.query
     detail: "Runs a download sample, then an upload sample. Each direction is about five seconds. Results are megabits per second on the default route. Opening this page starts a run."
 
-    PrefsRow {
+    SettingRow {
       label: "Speed test"
       description: root.phaseLabel()
       hint: "omarchy network speedtest"
@@ -174,7 +174,7 @@ PrefsPage {
       keywords: ["bandwidth", "ping", "speedtest"]
 
       PrefsButton {
-        text: root.speedRunning ? "Cancel" : "Run"
+        text: root.speedRunning ? "Cancel" : "Run now"
         primary: !root.speedRunning
         danger: root.speedRunning
         enabled: root.speedRunning || Omarchy.netKind !== "disconnected"
@@ -182,7 +182,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       stretchControl: true
       label: "Progress"
       description: root.progressDescription()
@@ -198,7 +198,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       available: root.speedError.length > 0
       label: "Could not run"
       description: root.speedError
@@ -218,7 +218,7 @@ PrefsPage {
     query: root.query
     detail: "Inbound and outbound rates from the last run on this page. They are megabits per second on the default route."
 
-    PrefsRow {
+    SettingRow {
       label: "Download"
       description: root.downloadDescription()
       hint: "omarchy network speedtest down"
@@ -226,7 +226,7 @@ PrefsPage {
       keywords: ["down", "mbps"]
 
       Row {
-        spacing: 8
+        spacing: Theme.space
         Text {
           text: root.rateText(root.downloadMbps)
           color: root.downloadMbps.length > 0 ? Theme.foreground : Theme.muted
@@ -244,7 +244,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: "Upload"
       description: root.uploadDescription()
       hint: "omarchy network speedtest up"
@@ -252,7 +252,7 @@ PrefsPage {
       keywords: ["up", "mbps"]
 
       Row {
-        spacing: 8
+        spacing: Theme.space
         Text {
           text: root.rateText(root.uploadMbps)
           color: root.uploadMbps.length > 0 ? Theme.foreground : Theme.muted

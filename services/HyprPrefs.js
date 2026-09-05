@@ -29,6 +29,7 @@ function defaultLook() {
     allowTearing: false,
     resizeOnBorder: false,
     activeOpacity: 1,
+    inactiveOpacity: 1,
     preserveSplit: false,
     focusOnActivate: false,
   };
@@ -103,6 +104,7 @@ function clampLook(raw) {
     allowTearing: asBool(src.allowTearing, base.allowTearing),
     resizeOnBorder: asBool(src.resizeOnBorder, base.resizeOnBorder),
     activeOpacity: clampFloat(src.activeOpacity, 0.2, 1, base.activeOpacity),
+    inactiveOpacity: clampFloat(src.inactiveOpacity, 0.2, 1, base.inactiveOpacity),
     preserveSplit: asBool(src.preserveSplit, base.preserveSplit),
     focusOnActivate: asBool(src.focusOnActivate, base.focusOnActivate),
   };
@@ -128,11 +130,13 @@ function sanitizeVariantList(raw, layoutCount) {
   if (!text) return "";
   var parts = text.split(",");
   if (layoutCount > 0 && parts.length !== layoutCount) return "";
+  var out = [];
   for (var i = 0; i < parts.length; i++) {
     var id = parts[i].replace(/^\s+|\s+$/g, "");
     if (id && !/^[A-Za-z0-9_-]{1,32}$/.test(id)) return "";
+    out.push(id);
   }
-  return parts.join(",");
+  return out.join(",");
 }
 
 function clampInput(raw) {
@@ -178,7 +182,16 @@ function luaBool(v) {
 }
 
 function luaString(v) {
-  return '"' + String(v).replace(/\\/g, "\\\\").replace(/"/g, '\\"') + '"';
+  return (
+    '"' +
+    String(v)
+      .replace(/\\/g, "\\\\")
+      .replace(/\n/g, "\\n")
+      .replace(/\r/g, "\\r")
+      .replace(/\t/g, "\\t")
+      .replace(/"/g, '\\"') +
+    '"'
+  );
 }
 
 function serializeLook(raw) {
@@ -205,6 +218,7 @@ function serializeLook(raw) {
     "    dim_inactive = " + luaBool(s.dimInactive) + ",",
     "    dim_strength = " + luaNumber(s.dimStrength) + ",",
     "    active_opacity = " + luaNumber(s.activeOpacity) + ",",
+    "    inactive_opacity = " + luaNumber(s.inactiveOpacity) + ",",
     "  },",
     "  animations = {",
     "    enabled = " + luaBool(s.animations) + ",",
@@ -405,7 +419,62 @@ function lookFromHyprOptions(opts) {
     allowTearing: pick("allowTearing", base.allowTearing),
     resizeOnBorder: pick("resizeOnBorder", base.resizeOnBorder),
     activeOpacity: pick("activeOpacity", base.activeOpacity),
+    inactiveOpacity: pick("inactiveOpacity", base.inactiveOpacity),
     preserveSplit: pick("preserveSplit", base.preserveSplit),
     focusOnActivate: pick("focusOnActivate", base.focusOnActivate),
   });
+}
+
+function inLineComment(src, at) {
+  var lineStart = src.lastIndexOf("\n", at > 0 ? at - 1 : 0) + 1;
+  var i = lineStart;
+  var inStr = false;
+  while (i < at) {
+    var c = src.charAt(i);
+    if (inStr) {
+      if (c === "\\") {
+        i += 2;
+        continue;
+      }
+      if (c === '"') inStr = false;
+      i++;
+      continue;
+    }
+    if (c === '"') {
+      inStr = true;
+      i++;
+      continue;
+    }
+    if (c === "-" && src.charAt(i + 1) === "-") return true;
+    i++;
+  }
+  return false;
+}
+
+function sentinelHasWorkspaceGesture(src) {
+  var text = String(src || "");
+  var i = 0;
+  while (i < text.length) {
+    var at = text.indexOf("hl.gesture(", i);
+    if (at === -1) return false;
+    if (inLineComment(text, at)) {
+      i = at + 11;
+      continue;
+    }
+    var end = text.indexOf(")", at);
+    var body = text.substring(at, end === -1 ? text.length : end + 1);
+    if (/action\s*=\s*["']workspace["']/.test(body)) return true;
+    i = at + 11;
+  }
+  return false;
+}
+
+// Live hl.gesture in the managed input block. A commented example or an
+// unmanaged line elsewhere in input.lua is not the Atmos toggle.
+function inputHasWorkspaceGesture(text) {
+  var src = extractSentinel(text, INPUT_BEGIN, INPUT_END);
+  if (src) return sentinelHasWorkspaceGesture(src);
+  src = extractSentinel(text, LEGACY_INPUT_BEGIN, LEGACY_INPUT_END);
+  if (src) return sentinelHasWorkspaceGesture(src);
+  return false;
 }

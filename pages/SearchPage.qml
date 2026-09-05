@@ -129,6 +129,7 @@ Item {
           detail: modelData.detail || ""
           valueText: modelData.hubTitle || modelData.hub || ""
           onClicked: {
+            // hub is a hub id or a hub/subpage path such as windows/bindings.
             if (root.navigator && root.navigator.go)
               root.navigator.go(modelData.hub)
           }

@@ -119,7 +119,7 @@ backup_for() {
     bindings) printf '%s\n' "$HOME/.config/hypr/bindings.lua" ;;
     autostart) printf '%s\n' "$HOME/.config/hypr/autostart.lua" ;;
     windowRules) printf '%s\n' "$HOME/.config/hypr/atmos.lua" ;;
-    nightlightSchedule) printf '%s\n' "$HOME/.config/hypr/hyprsunset.conf" ;;
+    nightlightSchedule | nightlightTemp) printf '%s\n' "${ATMOS_HYPRSUNSET_FILE:-$HOME/.config/hypr/hyprsunset.conf}" ;;
     clock | barLayout) printf '%s\n' "$HOME/.config/omarchy/shell.json" ;;
     *) : ;;
   esac
@@ -191,8 +191,20 @@ while IFS= read -r key; do
     barVisible)
       toggle_needed "$key" && queue "$key" "" omarchy toggle bar "$([[ $value == true ]] && echo on || echo off)"
       ;;
-    clockFormat) queue "$key" clock omarchy bar set omarchy.clock format "$value" ;;
-    clockFormatAlt) queue "$key" clock omarchy bar set omarchy.clock formatAlt "$value" ;;
+    # Omarchy.setClockFormat writes verticalFormat when the bar is on a
+    # side. Importing onto format there would leave the live clock unchanged.
+    clockFormat)
+      fmt_key=format
+      pos=$(plan_or_snapshot barPosition)
+      [[ $pos == left || $pos == right ]] && fmt_key=verticalFormat
+      queue "$key" clock omarchy bar set omarchy.clock "$fmt_key" "$value"
+      ;;
+    clockFormatAlt)
+      fmt_key=formatAlt
+      pos=$(plan_or_snapshot barPosition)
+      [[ $pos == left || $pos == right ]] && fmt_key=verticalFormatAlt
+      queue "$key" clock omarchy bar set omarchy.clock "$fmt_key" "$value"
+      ;;
     clockWeekStart) queue "$key" clock omarchy bar set omarchy.clock weekStartDay "$value" ;;
 
     browser | terminal | editor | agent) queue "$key" "" omarchy default "$key" "$value" ;;
@@ -219,13 +231,16 @@ while IFS= read -r key; do
     nightlight)
       toggle_needed "$key" && queue "$key" "" omarchy toggle nightlight
       ;;
-    nightlightTemperature) queue "$key" "" bash "$ROOT/set-nightlight-temp.sh" "$value" ;;
+    nightlightTemperature) queue "$key" nightlightTemp bash "$ROOT/set-nightlight-temp.sh" "$value" ;;
     nightlightDay | nightlightNight | nightlightNightOn)
       if ! seen_group nightlightSchedule; then
         day=$(plan_or_snapshot nightlightDay)
         night=$(plan_or_snapshot nightlightNight)
         on=$(plan_or_snapshot nightlightNightOn)
-        temp=$(snap_value nightlightTemperature)
+        # set-hyprsunset.sh rewrites the whole conf, including temperature.
+        # A plan that also changes warmth has to land there, not only in the
+        # live hyprsunset process, or a restart puts the old Kelvin back.
+        temp=$(plan_or_snapshot nightlightTemperature)
         queue "$key" nightlightSchedule bash "$ROOT/set-hyprsunset.sh" \
           "$(jq -nc --arg d "$day" --arg n "$night" --argjson o "${on:-false}" --argjson t "${temp:-0}" \
             '{day:$d, night:$n, nightOn:$o, temperature:$t}')"
@@ -289,6 +304,7 @@ while IFS= read -r key; do
     agentsSync) queue "$key" clock omarchy bar set omarchy.agents syncMode "$([[ $value == true ]] && echo On || echo Off)" ;;
     agentsSyncDir) queue "$key" clock omarchy bar set omarchy.agents syncDir "$value" ;;
     agentsSyncFileName) queue "$key" clock omarchy bar set omarchy.agents syncFileName "$value" ;;
+    agentsSyncDeviceId) queue "$key" clock omarchy bar set omarchy.agents syncDeviceId "$value" ;;
 
     indicatorsItems)
       queue "$key" clock bash "$ROOT/set-bar-widget.sh" omarchy.indicators items "$(plan_list "$key")"
@@ -310,6 +326,9 @@ while IFS= read -r key; do
       ;;
     bluetooth)
       toggle_needed "$key" && queue "$key" "" omarchy bluetooth power "$([[ $value == true ]] && echo on || echo off)"
+      ;;
+    wifiRadio)
+      toggle_needed "$key" && queue "$key" "" bash "$ROOT/set-wifi-connection.sh" radio "$([[ $value == true ]] && echo on || echo off)"
       ;;
 
     hostname) queue "$key" "" bash "$ROOT/set-hostname.sh" "$value" ;;

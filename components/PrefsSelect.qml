@@ -23,7 +23,7 @@ Item {
   implicitHeight: Theme.controlHeight
   width: implicitWidth
   height: implicitHeight
-  opacity: enabled ? 1 : 0.45
+  opacity: Theme.controlOpacity(enabled)
 
   Accessible.role: Accessible.ComboBox
   Accessible.name: displayLabel
@@ -89,19 +89,46 @@ Item {
     pickValue(optionValue(shownOptions[list.currentIndex]))
   }
 
+  // Popup lives on Overlay so PrefsFlickable clip cannot crop it. y on the
+  // declaring item would also be wrong after that reparent, so map the
+  // trigger into overlay coordinates and flip above when the list would
+  // run off the bottom of the window.
+  function placePopup() {
+    var gap = 4
+    var overlay = Overlay.overlay
+    popup.width = trigger.width
+    if (!overlay) {
+      popup.x = 0
+      popup.y = trigger.height + gap
+      return
+    }
+    popup.parent = overlay
+    var pos = trigger.mapToItem(overlay, 0, 0)
+    var x = pos.x
+    if (x + popup.width > overlay.width) x = overlay.width - popup.width
+    if (x < 0) x = 0
+    popup.x = x
+    var h = popup.height > 0 ? popup.height : 280
+    var below = pos.y + trigger.height + gap
+    if (h > overlay.height - below && pos.y - gap - h >= 0)
+      popup.y = pos.y - gap - h
+    else
+      popup.y = Math.max(0, below)
+  }
+
   Rectangle {
     id: trigger
     anchors.fill: parent
     radius: Theme.radius
     color: triggerHover.containsMouse || trigger.focus ? Theme.fill(Theme.hoverFill) : Theme.fill(Theme.normalFill)
-    border.width: 1
+    border.width: Theme.borderWidth
     border.color: trigger.focus || triggerHover.containsMouse ? Theme.accent : Theme.borderColor()
 
     Behavior on color {
-      ColorAnimation { duration: 90 }
+      ColorAnimation { duration: Theme.motionFast }
     }
     Behavior on border.color {
-      ColorAnimation { duration: 90 }
+      ColorAnimation { duration: Theme.motionFast }
     }
 
     activeFocusOnTab: root.enabled
@@ -113,7 +140,7 @@ Item {
       anchors.left: parent.left
       anchors.right: chevron.left
       anchors.verticalCenter: parent.verticalCenter
-      anchors.leftMargin: 10
+      anchors.leftMargin: Theme.fieldInset
       anchors.rightMargin: 8
       text: root.displayLabel
       color: Theme.foreground
@@ -125,7 +152,7 @@ Item {
     Text {
       id: chevron
       anchors.right: parent.right
-      anchors.rightMargin: 10
+      anchors.rightMargin: Theme.fieldInset
       anchors.verticalCenter: parent.verticalCenter
       text: "▾"
       color: Theme.muted
@@ -156,12 +183,13 @@ Item {
       list.currentIndex = currentIndexOfValue()
       if (root.useSearch) searchField.forceActiveFocus()
       else list.forceActiveFocus()
+      Qt.callLater(root.placePopup)
     }
     onClosed: root.filter = ""
 
     background: Rectangle {
       color: Theme.background
-      border.width: 1
+      border.width: Theme.borderWidth
       border.color: Theme.borderColor()
       radius: Theme.radius
     }
@@ -178,8 +206,8 @@ Item {
         TextInput {
           id: searchField
           anchors.fill: parent
-          anchors.leftMargin: 10
-          anchors.rightMargin: 10
+          anchors.leftMargin: Theme.fieldInset
+          anchors.rightMargin: Theme.fieldInset
           color: Theme.foreground
           font.family: Theme.fontFamily
           font.pixelSize: Theme.fontSize
@@ -212,11 +240,36 @@ Item {
         width: parent.width
         implicitHeight: Math.min(280, Math.max(36, contentHeight))
         model: root.shownOptions
+        flickableDirection: Flickable.VerticalFlick
         boundsBehavior: Flickable.StopAtBounds
+        interactive: contentHeight > height
         keyNavigationEnabled: true
         highlightFollowsCurrentItem: true
         Keys.onReturnPressed: root.pickCurrent()
         Keys.onSpacePressed: root.pickCurrent()
+
+        // Same viewport wheel handler as PrefsFlickable. Delegate MouseAreas
+        // swallow the wheel, and a WheelHandler on this ListView never fires.
+        MouseArea {
+          parent: list
+          width: list.width
+          height: list.height
+          acceptedButtons: Qt.NoButton
+
+          onWheel: function(wheel) {
+            var max = Math.max(0, list.contentHeight - list.height)
+            var dy = wheel.pixelDelta.y
+            if (wheel.pixelDelta.y === 0)
+              dy = (wheel.angleDelta.y / 120) * Theme.rowHeight * 3
+            if (max > 0 && dy !== 0) {
+              list.cancelFlick()
+              list.contentY = Math.max(0, Math.min(max, list.contentY - dy))
+            }
+            // Consume even when the list already fits, so the page behind
+            // the open popup does not move.
+            wheel.accepted = true
+          }
+        }
         delegate: Rectangle {
           required property var modelData
           required property int index
@@ -228,8 +281,8 @@ Item {
 
           Text {
             anchors.fill: parent
-            anchors.leftMargin: 10
-            anchors.rightMargin: 10
+            anchors.leftMargin: Theme.fieldInset
+            anchors.rightMargin: Theme.fieldInset
             verticalAlignment: Text.AlignVCenter
             text: root.optionLabel(modelData)
             color: Theme.foreground

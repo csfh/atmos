@@ -23,7 +23,7 @@ PrefsPage {
     query: root.query
     detail: "These talk to PipeWire through omarchy audio. Volume is the default sink. Switching the output moves playing streams with it."
 
-    PrefsRow {
+    SettingRow {
       stretchControl: true
       label: "Volume"
       description: Omarchy.audioOutputMuted ? "Output is muted. Drag the slider to unmute and set a level." : "How loud speakers and headphones are. This is the default output."
@@ -48,9 +48,9 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: "Mute output"
-      description: "Silence the speakers and headphones. The on-screen volume popup still appears when you change it."
+      description: "Silence speakers and headphones while this is on."
       hint: "omarchy audio output volume mute-toggle"
       query: root.query
       keywords: ["mute", "silent"]
@@ -62,7 +62,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: "Output device"
       description: "Where sound comes out. Playing audio follows this device."
       hint: "omarchy audio output set default"
@@ -80,7 +80,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       available: Omarchy.audioSinks.length > 1
       label: "Next output"
       description: "Jump to the next output, the same way the bar audio control does."
@@ -101,7 +101,7 @@ PrefsPage {
     query: root.query
     detail: "Capture level and mute for the default microphone. Laptops with a mic-mute LED follow the mute toggle."
 
-    PrefsRow {
+    SettingRow {
       stretchControl: true
       label: "Capture volume"
       description: Omarchy.audioInputMuted ? "The microphone is muted. Drag the slider to unmute and set a level." : "How loud the default microphone is."
@@ -126,9 +126,9 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: "Mute microphone"
-      description: "Cut the microphone. On many laptops the mute LED follows this switch."
+      description: "Cut microphone input while this is on."
       hint: "omarchy audio input mute"
       query: root.query
       keywords: ["mic", "mute", "led"]
@@ -140,7 +140,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: "Input device"
       description: "Which microphone or other capture device is the default."
       hint: "omarchy audio input set default"
@@ -162,12 +162,12 @@ PrefsPage {
   PrefsGroup {
     title: "Tuning"
     query: Omarchy.audioTuningMatch ? root.query : "."
-    detail: "A filter Omarchy ships for this laptop's speakers. Turn it on if the built-in sound is thin or tinny."
+    detail: "A filter Omarchy ships for this laptop's speakers when the built-in sound is thin or tinny."
 
-    PrefsRow {
+    SettingRow {
       available: Omarchy.audioTuningMatch
       label: "Speaker tuning"
-      description: "A filter Omarchy ships for this laptop's speakers. Turn it on if the built-in sound is thin or tinny."
+      description: "A filter Omarchy ships for this laptop's speakers."
       hint: "omarchy audio tuning"
       query: root.query
       keywords: ["eq", "dsp", "easyeffects", "laptop"]
@@ -185,7 +185,7 @@ PrefsPage {
     query: root.query
     detail: "Restarts PipeWire and WirePlumber. Use this when a USB headset or DAC stops showing up."
 
-    PrefsRow {
+    SettingRow {
       label: "Restart audio"
       description: "Restart PipeWire. That often brings a stuck USB headset or DAC back."
       hint: "omarchy restart audio"
@@ -204,7 +204,7 @@ PrefsPage {
     query: root.query
     detail: "Voxtype is Omarchy's dictation tool. Install pulls the package and a model. Hold F9 after it is ready."
 
-    PrefsRow {
+    SettingRow {
       label: "Dictation"
       description: Omarchy.voxtypeInstalled
         ? "Voxtype is installed. Hold F9 to dictate, or Super+Ctrl+X to toggle it."
@@ -214,7 +214,7 @@ PrefsPage {
       keywords: ["voxtype", "dictation", "speech", "whisper"]
 
       Row {
-        spacing: 8
+        spacing: Theme.space
         PrefsButton {
           visible: !Omarchy.voxtypeInstalled
           text: "Install…"

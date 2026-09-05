@@ -18,18 +18,9 @@ PrefsPage {
   property string addGroupError: ""
   property string passwordError: ""
   property bool addUserAdmin: false
-
-  readonly property string effectiveGroup: {
-    var groups = Omarchy.accountGroups || []
-    var i
-    for (i = 0; i < groups.length; i++) {
-      if (groups[i] && groups[i].name === root.selectedGroup)
-        return groups[i].name
-    }
-    if (groups.length && groups[0] && groups[0].name)
-      return groups[0].name
-    return ""
-  }
+  property string fullNameDraft: Omarchy.fullName
+  readonly property string fullNameParsed: AccountsJs.parseFullName(root.fullNameDraft)
+  readonly property bool fullNameValid: AccountsJs.isFullName(root.fullNameDraft)
 
   function groupByName(name) {
     var groups = Omarchy.accountGroups || []
@@ -57,6 +48,15 @@ PrefsPage {
 
   function userInGroup(groupName, userName) {
     return AccountsJs.groupHasMember(root.groupByName(groupName), userName)
+  }
+
+  function memberLocked(groupName, row) {
+    return !!(
+      groupName === "wheel"
+      && row
+      && row.current
+      && root.userInGroup("wheel", row.name)
+    )
   }
 
   function userBlurb(row) {
@@ -141,6 +141,12 @@ PrefsPage {
     passwordDialog.close()
   }
 
+  function openManageGroup(name) {
+    root.selectedGroup = name || ""
+    if (!root.selectedGroup) return
+    manageGroupDialog.open()
+  }
+
   function openAddGroup() {
     root.addGroupError = ""
     addGroupName.clear()
@@ -178,7 +184,13 @@ PrefsPage {
     clearAvatarConfirm.parent = root.prefsOverlay
     addUserDialog.parent = root.prefsOverlay
     addGroupDialog.parent = root.prefsOverlay
+    manageGroupDialog.parent = root.prefsOverlay
     passwordDialog.parent = root.prefsOverlay
+  }
+
+  Connections {
+    target: Omarchy
+    function onFullNameChanged() { root.fullNameDraft = Omarchy.fullName }
   }
 
   FileDialog {
@@ -220,7 +232,7 @@ PrefsPage {
       width: parent.width
       text: Omarchy.jobKind === "account-add" && Omarchy.jobBusy
         ? "Creating the login…"
-        : "A local login with a home from /etc/skel. Admin puts them in wheel."
+        : "A local login with a home from /etc/skel."
       color: Theme.muted
       font.family: Theme.fontFamily
       font.pixelSize: Theme.captionSize
@@ -258,19 +270,43 @@ PrefsPage {
       onSubmitted: function() { root.submitAddUser() }
     }
 
-    Row {
-      spacing: Theme.space
+    Item {
+      width: parent.width
+      implicitHeight: Math.max(adminCopy.implicitHeight, Theme.toggleHeight)
+      height: implicitHeight
+
       PrefsToggle {
+        x: 0
+        y: Math.round((parent.height - height) / 2)
         checked: root.addUserAdmin
         enabled: !Omarchy.jobBusy
+        Accessible.name: "Admin"
         onToggled: root.addUserAdmin = !root.addUserAdmin
       }
-      PrefsText {
-        text: "Admin (wheel)"
-        color: Theme.foreground
-        font.family: Theme.fontFamily
-        font.pixelSize: Theme.fontSize
+
+      Column {
+        id: adminCopy
+        width: parent.width - Theme.toggleWidth - Theme.spaceMd
+        x: Theme.toggleWidth + Theme.spaceMd
         anchors.verticalCenter: parent.verticalCenter
+        spacing: Theme.labelGap
+
+        PrefsText {
+          width: parent.width
+          text: "Admin"
+          color: Theme.foreground
+          font.family: Theme.fontFamily
+          font.pixelSize: Theme.labelSize
+          font.bold: true
+        }
+
+        PrefsText {
+          width: parent.width
+          text: "Puts this login in wheel."
+          color: Theme.muted
+          font.family: Theme.fontFamily
+          font.pixelSize: Theme.descriptionSize
+        }
       }
     }
 
@@ -403,12 +439,122 @@ PrefsPage {
     }
   }
 
+  PrefsDialog {
+    id: manageGroupDialog
+    title: "Manage " + root.selectedGroup
+    onClosed: root.selectedGroup = ""
+
+    PrefsText {
+      width: parent.width
+      text: root.selectedGroup === "wheel"
+        ? "Add or remove logins in wheel. This session has to stay."
+        : "Add or remove logins in this group."
+      color: Theme.muted
+      font.family: Theme.fontFamily
+      font.pixelSize: Theme.captionSize
+    }
+
+    PrefsText {
+      width: parent.width
+      visible: Omarchy.accountUsers.length === 0
+      text: "No human logins to add."
+      color: Theme.muted
+      font.family: Theme.fontFamily
+      font.pixelSize: Theme.captionSize
+    }
+
+    Column {
+      id: memberCol
+      width: parent.width
+      visible: Omarchy.accountUsers.length > 0
+
+      Repeater {
+        model: Omarchy.accountUsers
+
+        Column {
+          required property var modelData
+          required property int index
+          width: parent ? parent.width : 0
+          spacing: Theme.labelGap
+
+          Rectangle {
+            width: parent.width
+            height: 1
+            visible: index > 0
+            color: Theme.splitColor()
+          }
+
+          Item {
+            width: parent.width
+            implicitHeight: Math.max(memberCopy.implicitHeight, Theme.toggleHeight)
+            height: implicitHeight
+
+            Column {
+              id: memberCopy
+              width: parent.width - Theme.toggleWidth - Theme.spaceMd
+              anchors.left: parent.left
+              anchors.verticalCenter: parent.verticalCenter
+              spacing: Theme.labelGap
+
+              PrefsText {
+                width: parent.width
+                text: modelData && modelData.name ? modelData.name : "user"
+                color: Theme.foreground
+                font.family: Theme.fontFamily
+                font.pixelSize: Theme.labelSize
+                font.bold: true
+              }
+
+              PrefsText {
+                width: parent.width
+                text: root.memberLocked(root.selectedGroup, modelData)
+                  ? "This session has to stay in wheel."
+                  : root.userBlurb(modelData)
+                color: Theme.muted
+                font.family: Theme.fontFamily
+                font.pixelSize: Theme.descriptionSize
+              }
+            }
+
+            PrefsToggle {
+              x: parent.width - width
+              y: Math.round((parent.height - height) / 2)
+              checked: root.userInGroup(root.selectedGroup, modelData && modelData.name ? modelData.name : "")
+              enabled: !Omarchy.jobBusy && !!(modelData && modelData.name) && !root.memberLocked(root.selectedGroup, modelData)
+              onToggled: {
+                var name = modelData && modelData.name ? modelData.name : ""
+                if (!name || !root.selectedGroup) return
+                Omarchy.setGroupMember(root.selectedGroup, name, !root.userInGroup(root.selectedGroup, name))
+              }
+            }
+          }
+        }
+      }
+    }
+
+    Item {
+      width: parent.width
+      height: Theme.space
+    }
+
+    Row {
+      anchors.right: parent.right
+      spacing: Theme.space
+
+      PrefsButton {
+        text: "Done"
+        primary: true
+        onClicked: manageGroupDialog.close()
+      }
+    }
+  }
+
   PrefsGroup {
     title: "This account"
     query: root.query
     detail: "Face is a PNG or JPEG copied to ~/.face.icon and AccountsService. Full name is the GECOS real name. Password changes this login."
 
-    PrefsRow {
+    SettingRow {
       label: Omarchy.currentUser.length ? Omarchy.currentUser : "Face"
       description: AccountsJs.faceRowDescription(Omarchy.avatarPath)
       hint: "~/.face.icon"
@@ -416,7 +562,7 @@ PrefsPage {
       keywords: ["avatar", "face", "icon", "picture", "sddm", "accountsservice"]
 
       Row {
-        spacing: 8
+        spacing: Theme.space
 
         Image {
           visible: Omarchy.avatarPath.length > 0
@@ -444,10 +590,12 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       stretchControl: true
       label: "Full name"
-      description: "The name on this account. Login screens and user lists show it."
+      description: root.fullNameValid || root.fullNameDraft.length === 0
+        ? "The name on this account. Login screens and user lists show it."
+        : "No colon, comma, or leading hyphen (GECOS splits on comma). Set stays off until the name is valid."
       hint: "chfn --full-name"
       query: root.query
       keywords: ["user", "gecos", "real name", "display name", "account"]
@@ -459,21 +607,28 @@ PrefsPage {
         PrefsField {
           id: fullNameField
           width: parent.width - fullNameSetBtn.width - parent.spacing
-          value: Omarchy.fullName
+          value: root.fullNameDraft
           placeholder: "Your name"
-          onSubmitted: function(value) { Omarchy.setFullName(value) }
+          invalid: root.fullNameDraft.length > 0 && !root.fullNameValid
+          onEdited: function(value) { root.fullNameDraft = value }
+          onSubmitted: function(value) {
+            root.fullNameDraft = value
+            if (root.fullNameValid && root.fullNameParsed !== Omarchy.fullName)
+              Omarchy.setFullName(root.fullNameParsed)
+          }
         }
 
         PrefsButton {
           id: fullNameSetBtn
           text: "Set"
           primary: true
-          onClicked: Omarchy.setFullName(fullNameField.currentText())
+          enabled: root.fullNameValid && root.fullNameParsed !== Omarchy.fullName
+          onClicked: Omarchy.setFullName(root.fullNameParsed)
         }
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: "Password"
       description: "Change the password for this login."
       hint: "chpasswd"
@@ -489,11 +644,12 @@ PrefsPage {
   }
 
   PrefsGroup {
+    framed: true
     title: "Users"
     query: root.query
     detail: "Human logins (UID 1000 and up) plus this session. Add copies /etc/skel. Remove deletes the home directory. You cannot remove the login you are using."
 
-    PrefsRow {
+    SettingRow {
       label: "Add a user"
       description: "Create a local login. Admin adds them to wheel."
       hint: "useradd -m"
@@ -508,11 +664,11 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       available: Omarchy.accountUsers.length === 0
       sectionHelp: false
       label: "Logins"
-      description: "No human logins were readable from /etc/passwd."
+      description: "No human logins."
       query: root.query
       keywords: ["user", "empty"]
     }
@@ -520,41 +676,32 @@ PrefsPage {
     Repeater {
       model: Omarchy.accountUsers
 
-      PrefsRow {
+      CollectionRow {
         required property var modelData
-        sectionHelp: false
         label: modelData && modelData.name ? modelData.name : "user"
         description: root.userBlurb(modelData)
         hint: modelData && modelData.home ? modelData.home : "/etc/passwd"
         query: root.query
         keywords: ["user", "login", "wheel", modelData && modelData.name ? modelData.name : ""]
-
-        Row {
-          spacing: 8
-          PrefsButton {
-            text: "Password…"
-            enabled: !Omarchy.jobBusy && modelData && modelData.name
-            onClicked: root.openPassword(modelData.name)
-          }
-          PrefsButton {
-            text: "Remove…"
-            danger: true
-            enabled: !Omarchy.jobBusy && modelData && modelData.name && !modelData.current
-            onClicked: root.askRemoveUser(modelData.name)
-          }
-        }
+        action: "Password…"
+        actionEnabled: !Omarchy.jobBusy && !!(modelData && modelData.name)
+        dangerAction: modelData && modelData.current ? "" : "Remove…"
+        dangerEnabled: !Omarchy.jobBusy && !!(modelData && modelData.name && !modelData.current)
+        onActioned: root.openPassword(modelData.name)
+        onDangered: root.askRemoveUser(modelData.name)
       }
     }
   }
 
   PrefsGroup {
+    framed: true
     title: "Groups"
     query: root.query
-    detail: "wheel and docker always show. Extra groups are ones with a human member or a GID of 1000 or more. Select a group, then toggle membership. You cannot drop this session from wheel or remove wheel and docker."
+    detail: "wheel and docker always show. Extra groups are ones with a human member or a GID of 1000 or more. Manage opens a group so you can add or remove logins. You cannot drop this session from wheel or remove wheel and docker."
 
-    PrefsRow {
+    SettingRow {
       label: "Add a group"
-      description: "Create a local group, then toggle members below."
+      description: "Create a local group, then add members from Manage…"
       hint: "groupadd"
       query: root.query
       keywords: ["groupadd", "add", "create", "group"]
@@ -567,11 +714,11 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       available: Omarchy.accountGroups.length === 0
       sectionHelp: false
       label: "Groups"
-      description: "No groups were readable from /etc/group."
+      description: "No groups."
       query: root.query
       keywords: ["group", "empty"]
     }
@@ -579,62 +726,19 @@ PrefsPage {
     Repeater {
       model: Omarchy.accountGroups
 
-      PrefsRow {
+      CollectionRow {
         required property var modelData
-        sectionHelp: false
         label: modelData && modelData.name ? modelData.name : "group"
-        description: (modelData && modelData.name === root.effectiveGroup ? "Selected. " : "") + root.groupBlurb(modelData)
+        description: root.groupBlurb(modelData)
         hint: "/etc/group"
         query: root.query
-        keywords: ["group", "wheel", "docker", modelData && modelData.name ? modelData.name : ""]
-
-        Row {
-          spacing: 8
-          PrefsButton {
-            text: modelData && modelData.name === root.effectiveGroup ? "Selected" : "Select"
-            enabled: !!(modelData && modelData.name && modelData.name !== root.effectiveGroup)
-            onClicked: root.selectedGroup = modelData.name
-          }
-          PrefsButton {
-            visible: !!(modelData && AccountsJs.isRemovableGid(modelData.gid, modelData.name))
-            text: "Remove…"
-            danger: true
-            enabled: !Omarchy.jobBusy && modelData && AccountsJs.isRemovableGid(modelData.gid, modelData.name)
-            onClicked: root.askRemoveGroup(modelData.name)
-          }
-        }
-      }
-    }
-
-    Repeater {
-      model: Omarchy.accountUsers
-
-      PrefsRow {
-        required property var modelData
-        available: root.effectiveGroup.length > 0
-        stretchControl: false
-        sectionHelp: false
-        label: modelData && modelData.name ? modelData.name : "user"
-        description: root.userInGroup(root.effectiveGroup, modelData && modelData.name ? modelData.name : "")
-          ? "In " + root.effectiveGroup + "."
-          : "Not in " + root.effectiveGroup + "."
-        hint: "usermod -aG · gpasswd -d"
-        query: root.query
-        keywords: ["group", "member", "wheel", "docker", root.effectiveGroup]
-
-        PrefsToggle {
-          checked: root.userInGroup(root.effectiveGroup, modelData && modelData.name ? modelData.name : "")
-          enabled: !Omarchy.jobBusy && modelData && modelData.name && !(
-            root.effectiveGroup === "wheel"
-            && modelData.current
-            && root.userInGroup("wheel", modelData.name)
-          )
-          onToggled: {
-            var name = modelData && modelData.name ? modelData.name : ""
-            if (!name || !root.effectiveGroup) return
-            Omarchy.setGroupMember(root.effectiveGroup, name, !root.userInGroup(root.effectiveGroup, name))
-          }
-        }
+        keywords: ["group", "member", "wheel", "docker", modelData && modelData.name ? modelData.name : ""]
+        action: "Manage…"
+        actionEnabled: !!(modelData && modelData.name)
+        dangerAction: modelData && AccountsJs.isRemovableGid(modelData.gid, modelData.name) ? "Remove…" : ""
+        dangerEnabled: !Omarchy.jobBusy && !!(modelData && AccountsJs.isRemovableGid(modelData.gid, modelData.name))
+        onActioned: root.openManageGroup(modelData.name)
+        onDangered: root.askRemoveGroup(modelData.name)
       }
     }
   }

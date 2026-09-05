@@ -50,10 +50,43 @@ function settingsCatalog() {
     entry("hyprLook.borderSize", "windows", "Border width", "look", { type: "integer" }),
     entry("hyprLook.activeOpacity", "windows", "Active opacity", "look", { type: "number" }),
     entry("hyprLook.inactiveOpacity", "windows", "Inactive opacity", "look", { type: "number" }),
+    entry("hyprLook.blur", "windows", "Blur", "look", { type: "boolean" }),
+    entry("hyprLook.shadow", "windows", "Shadow", "look", { type: "boolean" }),
+    entry("hyprLook.dimInactive", "windows", "Dim others", "look", { type: "boolean" }),
+    entry("hyprLook.dimStrength", "windows", "Dim strength", "look", { type: "number" }),
+    entry("hyprLook.animations", "windows", "Animations", "look", { type: "boolean" }),
+    entry("hyprLook.columnWidth", "windows", "Column width", "look", { type: "number" }),
+    entry("hyprLook.cursorHideOnKey", "windows", "Hide cursor while typing", "look", {
+      type: "boolean",
+    }),
+    entry("hyprLook.cursorWarp", "windows", "Warp cursor on workspace", "look", {
+      type: "boolean",
+    }),
+    entry("hyprLook.resizeOnBorder", "windows", "Resize on border", "behavior", {
+      type: "boolean",
+      consequence:
+        "You can drag a window edge to resize it without a modifier. Easy to catch by accident on a thin border.",
+    }),
+    entry("hyprLook.allowTearing", "windows", "Allow tearing", "behavior", {
+      type: "boolean",
+      consequence:
+        "A game or other window can tear if it asks. That can cut input lag, and it can also show a torn frame.",
+    }),
     entry("hyprLook.layout", "windows", "Tiling layout", "behavior", {
       type: "string",
+      choices: ["dwindle", "scrolling"],
       consequence:
         "Open windows re-tile. A scrolling layout moves windows off screen instead of shrinking them.",
+    }),
+    entry("hyprLook.preserveSplit", "windows", "Preserve split", "behavior", {
+      type: "boolean",
+      consequence:
+        "The dwindle split stays after the last window in a branch closes. New windows then open in that leftover split.",
+    }),
+    entry("hyprLook.focusOnActivate", "windows", "Focus on activate", "behavior", {
+      type: "boolean",
+      consequence:
+        "A window steals focus when another client asks Hyprland to activate it. A chat or mail window can jump in front of what you are typing.",
     }),
     entry("hyprNoGaps", "windows", "No gaps when alone", "look", { type: "boolean" }),
     entry("hyprSquareAspect", "windows", "Square single window", "look", { type: "boolean" }),
@@ -61,6 +94,7 @@ function settingsCatalog() {
     // Bar
     entry("barPosition", "bar", "Bar position", "look", {
       type: "string",
+      choices: ["top", "bottom", "left", "right"],
       consequence: "Moving the bar changes which screen edge your windows stop at.",
     }),
     entry("barTransparent", "bar", "Transparent bar", "look", { type: "boolean" }),
@@ -71,7 +105,11 @@ function settingsCatalog() {
     }),
     entry("clockFormat", "bar", "Clock format", "look", { type: "string" }),
     entry("clockFormatAlt", "bar", "Alternate clock format", "look", { type: "string" }),
-    entry("clockWeekStart", "bar", "Week starts on", "look", { type: "string" }),
+    entry("clockWeekStart", "bar", "Week starts on", "look", {
+      type: "string",
+      // Empty is the locale default the calendar popup already uses.
+      choices: ["", "sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"],
+    }),
 
     // Defaults
     entry("browser", "defaults", "Browser", "behavior", {
@@ -129,8 +167,8 @@ function settingsCatalog() {
     }),
     entry("nightlight", "idle", "Night light", "look", { type: "boolean" }),
     entry("nightlightTemperature", "idle", "Night light warmth", "look", { type: "integer" }),
-    entry("nightlightDay", "idle", "Day starts", "look", { type: "string" }),
-    entry("nightlightNight", "idle", "Night starts", "look", { type: "string" }),
+    entry("nightlightDay", "idle", "Day starts", "look", { type: "string", format: "time" }),
+    entry("nightlightNight", "idle", "Night starts", "look", { type: "string", format: "time" }),
     entry("nightlightNightOn", "idle", "Schedule night light", "look", { type: "boolean" }),
     entry("doNotDisturb", "idle", "Do not disturb", "behavior", {
       type: "boolean",
@@ -146,11 +184,78 @@ function settingsCatalog() {
     }),
     entry("hyprInput.accelProfile", "input", "Acceleration", "behavior", {
       type: "string",
+      // Empty keeps Hyprland's default profile. clampInput refuses anything else.
+      choices: ["", "flat", "adaptive"],
       hostBound: true,
+    }),
+    entry("hyprInput.emulateDiscreteScroll", "input", "Scroll inertia", "behavior", {
+      type: "integer",
+      hostBound: true,
+      consequence:
+        "How a high-resolution or free-spin wheel is turned into scroll events. Tuned per mouse.",
     }),
     entry("hyprInput.naturalScroll", "input", "Natural scrolling", "behavior", {
       type: "boolean",
       consequence: "Scrolling reverses direction. This is the change people notice most.",
+    }),
+    entry("hyprInput.scrollFactor", "input", "Scroll speed", "behavior", {
+      type: "number",
+      hostBound: true,
+    }),
+    entry("hyprInput.clickfinger", "input", "Two-finger click", "behavior", {
+      type: "boolean",
+      hostBound: true,
+    }),
+    entry("hyprInput.disableWhileTyping", "input", "Ignore while typing", "behavior", {
+      type: "boolean",
+      hostBound: true,
+    }),
+    entry("hyprInput.drag3fg", "input", "Three-finger drag", "behavior", {
+      type: "integer",
+      hostBound: true,
+    }),
+    entry("hyprInput.repeatRate", "input", "Repeat rate", "behavior", {
+      type: "integer",
+      consequence:
+        "Held keys repeat at this rate. A high value races through a line; a low one feels sticky.",
+    }),
+    entry("hyprInput.repeatDelay", "input", "Repeat delay", "behavior", {
+      type: "integer",
+      consequence:
+        "How long you hold a key before it repeats. A short delay repeats while you are still deciding.",
+    }),
+    entry("hyprInput.numlock", "input", "Numlock on boot", "behavior", {
+      type: "boolean",
+      consequence: "The number pad turns on or off when Hyprland starts.",
+    }),
+    entry("hyprInput.followMouse", "input", "Follow mouse", "behavior", {
+      type: "integer",
+      consequence:
+        "The pointer picks which window is focused. Click-to-focus stops a hover from stealing keys.",
+    }),
+    entry("hyprInput.keyPressDpms", "input", "Wake on key", "behavior", {
+      type: "boolean",
+      consequence: "A key press wakes the screen after it has gone dark.",
+    }),
+    entry("hyprInput.mouseMoveDpms", "input", "Wake on mouse", "behavior", {
+      type: "boolean",
+      consequence: "Moving the pointer wakes the screen after it has gone dark.",
+    }),
+    entry("hyprInput.kbLayoutOverride", "input", "Hyprland layouts", "behavior", {
+      type: "string",
+      hostBound: true,
+      consequence:
+        "Hyprland remaps keys to this layout list. A layout you cannot type on is hard to undo with the keyboard.",
+    }),
+    entry("hyprInput.kbVariantOverride", "input", "Variants", "behavior", {
+      type: "string",
+      hostBound: true,
+    }),
+    entry("hyprInput.kbGroupToggle", "input", "Alt+Alt layout switch", "behavior", {
+      type: "boolean",
+      hostBound: true,
+      consequence:
+        "Left Alt and Right Alt together cycle the Hyprland layouts. Needs those layouts set.",
     }),
     entry("hyprInput.workspaceGesture", "input", "Workspace gesture", "behavior", {
       type: "boolean",
@@ -253,7 +358,10 @@ function settingsCatalog() {
       consequence:
         "The bar reports weather for the exported town, which is rarely the one you are in.",
     }),
-    entry("weatherUnit", "bar", "Weather unit", "look", { type: "string" }),
+    entry("weatherUnit", "bar", "Weather unit", "look", {
+      type: "string",
+      choices: ["auto", "metric", "imperial"],
+    }),
     entry("weatherRefreshMinutes", "bar", "Weather refresh", "look", { type: "integer" }),
     entry("agentsRefreshIntervalSec", "bar", "Agents refresh", "look", { type: "integer" }),
     entry("agentsSync", "bar", "Sync agents", "behavior", {
@@ -266,6 +374,12 @@ function settingsCatalog() {
       consequence: "A folder from another machine will not exist here.",
     }),
     entry("agentsSyncFileName", "bar", "Agents sync file", "look", { type: "string" }),
+    entry("agentsSyncDeviceId", "bar", "Agents device id", "behavior", {
+      type: "string",
+      hostBound: true,
+      consequence:
+        "How this machine is named inside the synced agent-usage snapshots. Two machines with the same id overwrite each other.",
+    }),
 
     // Appearance and boot
     entry("plymouth", "appearance", "Boot theme", "look", {
@@ -294,6 +408,12 @@ function settingsCatalog() {
       hostBound: true,
       consequence:
         "Turning the radio off drops every connected device, including a mouse or headset.",
+    }),
+    entry("wifiRadio", "network", "Wi-Fi radio", "behavior", {
+      type: "boolean",
+      hostBound: true,
+      consequence:
+        "Turning the radio off drops Wi-Fi. A laptop with no ethernet then has no network until you turn it back on.",
     }),
 
     // Lists. A whole list is replaced at once, because these are the
@@ -349,6 +469,10 @@ function entry(key, section, label, tier, opts) {
     kind: String(o.kind || "scalar"),
     type: String(o.type || "string"),
     options: String(o.options || ""),
+    // Fixed values the writer will accept. Distinct from `options`, which is
+    // a snapshot key for what this machine currently has installed.
+    choices: Array.isArray(o.choices) && o.choices.length > 0 ? o.choices.slice() : null,
+    format: String(o.format || ""),
     hostBound: o.hostBound === true,
     // Written by a script that raises privileges (as-root.sh or sudo), so
     // applying it goes through Atmos sudo mode.
@@ -412,7 +536,7 @@ function settingsSections() {
     {
       id: "network",
       title: "Network",
-      note: "Resolver choice. Wi-Fi passwords are never exported.",
+      note: "Resolver choice and radios. Wi-Fi passwords are never exported.",
     },
     {
       id: "sound",
@@ -586,7 +710,8 @@ function exportMarkdown(snapshot, keys, meta) {
       if (!selected[item.key]) continue;
       if (item.kind === "list") {
         if (!Array.isArray(value)) continue;
-        listBlocks.push({ key: item.key, value: value });
+        // `managed` is where a row lives on this machine, not a setting.
+        listBlocks.push({ key: item.key, value: exportList(value) });
         continue;
       }
       body.push(tomlLine(item.key, value));
@@ -738,29 +863,70 @@ function parseTomlLite(lines, section, errors) {
 function parseTomlValue(raw) {
   var text = String(raw || "").replace(/\s+$/, "");
   if (!text) return undefined;
+  if (text.charAt(0) === '"') return parseTomlString(text);
+  if (text.charAt(0) === "[") return parseTomlArray(text);
+  // Same trailing-comment rule parseTomlString already applies after a quote.
+  var hash = text.indexOf("#");
+  if (hash !== -1) {
+    text = text.slice(0, hash).replace(/\s+$/, "");
+    if (!text) return undefined;
+  }
   if (text === "true") return true;
   if (text === "false") return false;
   if (/^-?[0-9]+$/.test(text)) return parseInt(text, 10);
   if (/^-?[0-9]*\.[0-9]+$/.test(text)) return parseFloat(text);
-  if (text.charAt(0) === '"') {
-    var closing = text.lastIndexOf('"');
-    if (closing <= 0) return undefined;
-    var body = text.slice(1, closing);
-    if (/[^\\]"/.test(body) || body.indexOf('"') === 0) return undefined;
-    return body.replace(/\\"/g, '"').replace(/\\\\/g, "\\");
-  }
-  if (text.charAt(0) === "[") {
-    if (text.charAt(text.length - 1) !== "]") return undefined;
-    var inner = text.slice(1, -1).replace(/^\s+|\s+$/g, "");
-    if (!inner) return [];
-    var parts = inner.split(",");
-    var out = [];
-    for (var i = 0; i < parts.length; i++) {
-      var item = parseTomlValue(parts[i].replace(/^\s+|\s+$/g, ""));
-      if (item === undefined) return undefined;
-      out.push(item);
+  return undefined;
+}
+
+// Split on commas that are not inside quotes, so a clock-format list or a
+// hex colour is not cut in half, and a comment after ] is not part of the
+// last item.
+function parseTomlArray(text) {
+  if (text.charAt(0) !== "[") return undefined;
+  var items = [];
+  var buf = "";
+  var inString = false;
+  var escape = false;
+  var i = 1;
+  while (i < text.length) {
+    var c = text.charAt(i);
+    if (inString) {
+      buf += c;
+      if (escape) escape = false;
+      else if (c === "\\") escape = true;
+      else if (c === '"') inString = false;
+      i++;
+      continue;
     }
-    return out;
+    if (c === '"') {
+      inString = true;
+      buf += c;
+      i++;
+      continue;
+    }
+    if (c === ",") {
+      var piece = buf.replace(/^\s+|\s+$/g, "");
+      if (!piece) return undefined;
+      var item = parseTomlValue(piece);
+      if (item === undefined) return undefined;
+      items.push(item);
+      buf = "";
+      i++;
+      continue;
+    }
+    if (c === "]") {
+      var last = buf.replace(/^\s+|\s+$/g, "");
+      if (last) {
+        var tail = parseTomlValue(last);
+        if (tail === undefined) return undefined;
+        items.push(tail);
+      }
+      var rest = text.slice(i + 1).replace(/^\s+/, "");
+      if (rest && rest.charAt(0) !== "#") return undefined;
+      return items;
+    }
+    buf += c;
+    i++;
   }
   return undefined;
 }
@@ -778,13 +944,47 @@ function tomlValue(value) {
     for (var i = 0; i < value.length; i++) parts.push(tomlValue(value[i]));
     return "[" + parts.join(", ") + "]";
   }
-  return (
-    '"' +
-    String(value === null || value === undefined ? "" : value)
-      .replace(/\\/g, "\\\\")
-      .replace(/"/g, '\\"') +
-    '"'
-  );
+  return '"' + escapeTomlString(value) + '"';
+}
+
+// Vertical clock formats (and anything else with a tab or CR) have to stay
+// one TOML line or parseTomlLite splits them and the value is lost.
+function escapeTomlString(value) {
+  return String(value === null || value === undefined ? "" : value)
+    .replace(/\\/g, "\\\\")
+    .replace(/"/g, '\\"')
+    .replace(/\n/g, "\\n")
+    .replace(/\r/g, "\\r")
+    .replace(/\t/g, "\\t");
+}
+
+function parseTomlString(text) {
+  var out = "";
+  var i = 1;
+  while (i < text.length) {
+    var c = text.charAt(i);
+    if (c === '"') {
+      var rest = text.slice(i + 1).replace(/^\s+/, "");
+      if (rest && rest.charAt(0) !== "#") return undefined;
+      return out;
+    }
+    if (c === "\\") {
+      if (i + 1 >= text.length) return undefined;
+      var n = text.charAt(i + 1);
+      i += 2;
+      if (n === "n") out += "\n";
+      else if (n === "t") out += "\t";
+      else if (n === "r") out += "\r";
+      else if (n === '"') out += '"';
+      else if (n === "\\") out += "\\";
+      else return undefined;
+      continue;
+    }
+    if (c === "\n" || c === "\r") return undefined;
+    out += c;
+    i++;
+  }
+  return undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -893,6 +1093,25 @@ function planImport(doc, snapshot, keys, options) {
         });
         continue;
       }
+      // Sentinel writers drop a row they cannot write. One bad binding in a
+      // list would empty the Atmos block while the review still showed it.
+      if (item.kind === "list") {
+        var canonTo = canonicalizeList(item, to);
+        if (canonTo.error) {
+          blocked.push({ key: key, reason: canonTo.error });
+          continue;
+        }
+        to = canonTo.value;
+        var fromCmp = from;
+        if (Array.isArray(from)) {
+          var canonFrom = canonicalizeList(item, from);
+          if (!canonFrom.error) fromCmp = canonFrom.value;
+        }
+        if (sameValue(fromCmp, to)) {
+          unchanged.push(key);
+          continue;
+        }
+      }
       if (item.options) {
         var allowed = readValue(snap, item.options);
         if (Array.isArray(allowed) && allowed.length > 0) {
@@ -918,6 +1137,22 @@ function planImport(doc, snapshot, keys, options) {
           });
         }
       }
+      // Writers clamp or drop anything outside this list, so the plan has
+      // to refuse it rather than show a value that will not land.
+      if (item.choices && item.choices.length > 0 && !allowedContains(item.choices, to)) {
+        blocked.push({
+          key: key,
+          reason: choiceReason(item, to),
+        });
+        continue;
+      }
+      if (item.format === "time" && !isClockTime(to)) {
+        blocked.push({
+          key: key,
+          reason: item.label + " expects a 24-hour time such as 07:00.",
+        });
+        continue;
+      }
       if (item.hostBound && differentHardware) {
         warnings.push({
           key: key,
@@ -941,12 +1176,18 @@ function planImport(doc, snapshot, keys, options) {
             "so they stay in the file with the imported ones taking effect.",
         });
       }
+      // Undo is this change with from and value swapped. The writer replaces
+      // the Atmos block, so from has to be that block, not the hand-written
+      // rows that stay in the file. Sending those too would copy them into
+      // the sentinel and leave the originals, two of each.
+      var planFrom = from;
+      if (item.kind === "list" && Array.isArray(from)) planFrom = managedRows(from);
       changes.push({
         key: key,
         section: item.section,
         label: item.label,
         tier: item.tier,
-        from: from === undefined ? null : from,
+        from: planFrom === undefined ? null : planFrom,
         to: to,
         consequence: item.consequence,
       });
@@ -1121,6 +1362,17 @@ function allowedContains(list, value) {
   return false;
 }
 
+function choiceReason(item, value) {
+  var shown = shownValue(value);
+  return shown + " is not a valid " + String(item.label || "value").toLowerCase() + ".";
+}
+
+// Same 24-hour clock HyprSunset.parseTime accepts, so a file that would
+// fall back to 07:00 is blocked instead of silently rewriting the schedule.
+function isClockTime(value) {
+  return typeof value === "string" && /^([01]?\d|2[0-3]):([0-5]\d)$/.test(value);
+}
+
 // Rows the snapshot says live outside the block Atmos manages.
 function unmanagedCount(value) {
   if (!Array.isArray(value)) return 0;
@@ -1132,9 +1384,209 @@ function unmanagedCount(value) {
   return n;
 }
 
+// The Atmos-managed rows of a live list. String lists have no managed flag
+// and pass through. A missing managed is treated as managed: the file we
+// export never carries the flag, and a row without it is still the block.
+function managedRows(value) {
+  if (!Array.isArray(value)) return [];
+  var out = [];
+  for (var i = 0; i < value.length; i++) {
+    var row = value[i];
+    if (row && typeof row === "object" && row.managed === false) continue;
+    out.push(row);
+  }
+  return out;
+}
+
+// The shape the writer will actually apply. Extra fields, key order, and
+// indicator order are not settings; a row the writer would drop is blocked
+// so the review cannot show a list that will not land.
+function canonicalizeList(item, value) {
+  if (!Array.isArray(value)) return { error: item.label + " expects a list." };
+  var out = [];
+  var i;
+  for (i = 0; i < value.length; i++) {
+    var row = canonicalizeListRow(item, value[i], i);
+    if (row.error) return { error: row.error };
+    out.push(row.value);
+  }
+  if (item.key === "indicatorsItems") {
+    var all = indicatorIds();
+    var next = [];
+    for (i = 0; i < all.length; i++) {
+      if (out.indexOf(all[i]) !== -1) next.push(all[i]);
+    }
+    out = next.length === all.length ? [] : next;
+  }
+  return { value: out };
+}
+
+function canonicalizeListRow(item, row, index) {
+  var n = index + 1;
+  var key = item.key;
+  if (key === "bindings") return canonicalizeBindingRow(row, n, item.label);
+  if (key === "autostart") return canonicalizeAutostartRow(row, n, item.label);
+  if (key === "windowRules") return canonicalizeWindowRuleRow(row, n, item.label);
+  if (key === "indicatorsItems") return canonicalizeIndicatorRow(row, n, item.label);
+  if (key === "trayHidden" || key === "trayPinned")
+    return canonicalizeStringIdRow(row, n, item.label);
+  return { value: normalizeListRow(row) };
+}
+
+function listRowPrefix(label, n) {
+  return label + " row " + n + " ";
+}
+
+function sanitizeBindingKeys(raw) {
+  var text = String(raw || "");
+  if (text.indexOf("\n") !== -1 || text.indexOf("\r") !== -1) return "";
+  text = text.replace(/^\s+|\s+$/g, "").replace(/\s+/g, " ");
+  if (!text || text.length > 64) return "";
+  if (!/^[A-Za-z0-9_ +.:-]+$/.test(text)) return "";
+  return text;
+}
+
+function sanitizeBindingLabel(raw) {
+  var text = String(raw || "");
+  if (text.indexOf("\n") !== -1 || text.indexOf("\r") !== -1) return "";
+  text = text.replace(/^\s+|\s+$/g, "");
+  if (!text || text.length > 64) return "";
+  return text;
+}
+
+function sanitizeListCommand(raw) {
+  var text = String(raw || "").replace(/^\s+|\s+$/g, "");
+  if (!text || text.length > 256) return "";
+  if (text.indexOf("\n") !== -1 || text.indexOf("\r") !== -1) return "";
+  return text;
+}
+
+function sanitizeWindowMatch(raw) {
+  var text = String(raw || "");
+  if (text.indexOf("\n") !== -1 || text.indexOf("\r") !== -1) return "";
+  text = text.replace(/^\s+|\s+$/g, "");
+  if (!text || text.length > 128) return "";
+  if (text.indexOf("]]") !== -1) return "";
+  return text;
+}
+
+function sanitizeWindowWorkspace(raw) {
+  var text = String(raw || "").replace(/^\s+|\s+$/g, "");
+  if (!text) return "";
+  if (!/^[A-Za-z0-9:_-]{1,32}$/.test(text)) return "";
+  return text;
+}
+
+function clampWindowSize(raw) {
+  var n = Math.round(Number(raw));
+  if (!isFinite(n) || n < 100 || n > 4000) return 0;
+  return n;
+}
+
+function indicatorIds() {
+  return ["Dictation", "ScreenRecording", "Reminder", "NightLight", "Dnd", "StayAwake"];
+}
+
+function canonicalizeBindingRow(row, n, label) {
+  var prefix = listRowPrefix(label, n);
+  if (!row || typeof row !== "object" || Array.isArray(row))
+    return { error: prefix + "is not a binding." };
+  var keys = sanitizeBindingKeys(row.keys);
+  if (!keys) return { error: prefix + "is not a valid chord." };
+  if (row.unbind != null && row.unbind !== true && row.unbind !== false)
+    return { error: prefix + "has a bad unbind flag." };
+  var unbind = row.unbind === true;
+  var command = "";
+  if (row.command != null && row.command !== "") {
+    if (typeof row.command !== "string") return { error: prefix + "has a bad command." };
+    command = sanitizeListCommand(row.command);
+    if (!command) return { error: prefix + "has a command Atmos will not write." };
+  }
+  if (!command && !unbind) return { error: prefix + "needs a command or an unbind." };
+  var rowLabel = "";
+  if (row.label != null && row.label !== "") {
+    if (typeof row.label !== "string") return { error: prefix + "has a bad label." };
+    rowLabel = sanitizeBindingLabel(row.label);
+    if (String(row.label).replace(/^\s+|\s+$/g, "") && !rowLabel)
+      return { error: prefix + "has a label Atmos will not write." };
+  }
+  return {
+    value: normalizeListRow({ keys: keys, label: rowLabel, command: command, unbind: unbind }),
+  };
+}
+
+function canonicalizeAutostartRow(row, n, label) {
+  var prefix = listRowPrefix(label, n);
+  if (!row || typeof row !== "object" || Array.isArray(row))
+    return { error: prefix + "is not a startup program." };
+  if (typeof row.command !== "string") return { error: prefix + "has no command." };
+  var command = sanitizeListCommand(row.command);
+  if (!command) return { error: prefix + "has a command Atmos will not write." };
+  return { value: { command: command } };
+}
+
+function canonicalizeWindowRuleRow(row, n, label) {
+  var prefix = listRowPrefix(label, n);
+  if (!row || typeof row !== "object" || Array.isArray(row))
+    return { error: prefix + "is not a window rule." };
+  var match = sanitizeWindowMatch(row.match);
+  if (!match) return { error: prefix + "has no class to match." };
+  var placement = row.placement == null ? "" : String(row.placement);
+  if (row.float === true) placement = "float";
+  if (row.tile === true && placement !== "float") placement = "tile";
+  if (placement !== "" && placement !== "float" && placement !== "tile")
+    return { error: prefix + "is not a valid placement." };
+  if (row.center != null && row.center !== true && row.center !== false)
+    return { error: prefix + "has a bad center flag." };
+  var center = row.center === true;
+  var width = clampWindowSize(row.width);
+  var height = clampWindowSize(row.height);
+  if (Array.isArray(row.size) && row.size.length >= 2) {
+    width = clampWindowSize(row.size[0]);
+    height = clampWindowSize(row.size[1]);
+  }
+  var sentSize =
+    row.width != null || row.height != null || (Array.isArray(row.size) && row.size.length >= 2);
+  if (!(width && height)) {
+    width = 0;
+    height = 0;
+  }
+  if (sentSize && !(width && height)) return { error: prefix + "has a size Atmos will not write." };
+  var workspace = "";
+  if (row.workspace != null && row.workspace !== "") {
+    workspace = sanitizeWindowWorkspace(row.workspace);
+    if (!workspace) return { error: prefix + "is not a valid workspace." };
+  }
+  if (!placement && !center && !width && !workspace) return { error: prefix + "does nothing." };
+  return {
+    value: normalizeListRow({
+      match: match,
+      placement: placement,
+      center: center,
+      width: width,
+      height: height,
+      workspace: workspace,
+    }),
+  };
+}
+
+function canonicalizeIndicatorRow(row, n, label) {
+  var prefix = listRowPrefix(label, n);
+  if (typeof row !== "string" || !row) return { error: prefix + "is not a known indicator." };
+  if (indicatorIds().indexOf(row) === -1) return { error: prefix + "is not a known indicator." };
+  return { value: row };
+}
+
+function canonicalizeStringIdRow(row, n, label) {
+  var prefix = listRowPrefix(label, n);
+  if (typeof row !== "string" || !row) return { error: prefix + "is not a tray id." };
+  return { value: row };
+}
+
 function sameValue(a, b) {
   if (typeof a === "number" && typeof b === "number") return Math.abs(a - b) < 1e-9;
-  if (Array.isArray(a) && Array.isArray(b)) return JSON.stringify(a) === JSON.stringify(b);
+  if (Array.isArray(a) && Array.isArray(b))
+    return JSON.stringify(exportList(a)) === JSON.stringify(exportList(b));
   return a === b;
 }
 
@@ -1282,14 +1734,23 @@ function shownListRow(row, key) {
 }
 
 function normalizeListRow(row) {
-  if (!row || typeof row !== "object") return row;
+  if (row === null || row === undefined || typeof row !== "object" || Array.isArray(row))
+    return row;
+  var keys = Object.keys(row).sort();
   var copy = {};
-  for (var k in row) {
-    if (!Object.prototype.hasOwnProperty.call(row, k)) continue;
-    if (k === "managed") continue;
-    copy[k] = row[k];
+  for (var i = 0; i < keys.length; i++) {
+    if (keys[i] === "managed") continue;
+    copy[keys[i]] = row[keys[i]];
   }
   return copy;
+}
+
+// Drop `managed` and sort keys so a file you typed matches the live list.
+function exportList(list) {
+  var src = Array.isArray(list) ? list : [];
+  var out = [];
+  for (var i = 0; i < src.length; i++) out.push(normalizeListRow(src[i]));
+  return out;
 }
 
 function listDiffLines(from, to, key) {

@@ -1,18 +1,41 @@
 import QtQuick
 import "../components"
 import "../services"
+import "../services/HyprPrefs.js" as HyprPrefs
 
 PrefsPage {
   id: root
   title: "Input"
   description: "How the mouse, touchpad, and keyboard feel. Turning the laptop trackpad off is on Displays. The system layout picker is on System."
 
+  property string kbLayoutDraft: Omarchy.hyprKbLayout
+  property string kbVariantDraft: Omarchy.hyprKbVariant
+  readonly property string kbLayoutParsed: HyprPrefs.sanitizeLayoutList(root.kbLayoutDraft)
+  readonly property bool kbLayoutValid: String(root.kbLayoutDraft || "").replace(/^\s+|\s+$/g, "").length === 0 || root.kbLayoutParsed.length > 0
+  readonly property string kbVariantParsed: root.kbLayoutParsed
+    ? HyprPrefs.sanitizeVariantList(root.kbVariantDraft, root.kbLayoutParsed.split(",").length)
+    : ""
+  readonly property bool kbVariantValid: String(root.kbVariantDraft || "").replace(/^\s+|\s+$/g, "").length === 0 || root.kbVariantParsed.length > 0
+  readonly property bool kbOverrideValid: root.kbLayoutValid && root.kbVariantValid
+  readonly property bool kbOverrideDirty: root.kbLayoutParsed !== Omarchy.hyprKbLayout || root.kbVariantParsed !== Omarchy.hyprKbVariant
+
+  function applyKbOverride() {
+    if (!root.kbOverrideValid) return
+    Omarchy.setHyprKbOverride(root.kbLayoutParsed, root.kbVariantParsed, Omarchy.hyprKbGroupToggle)
+  }
+
+  Connections {
+    target: Omarchy
+    function onHyprKbLayoutChanged() { root.kbLayoutDraft = Omarchy.hyprKbLayout }
+    function onHyprKbVariantChanged() { root.kbVariantDraft = Omarchy.hyprKbVariant }
+  }
+
   PrefsGroup {
     title: "Pointer"
     query: root.query
     detail: "Sensitivity and acceleration for the mouse and trackpad. These write a managed block in ~/.config/hypr/input.lua."
 
-    PrefsRow {
+    SettingRow {
       stretchControl: true
       label: "Sensitivity"
       description: "Pointer speed. Zero is the Hyprland default. Negative is slower."
@@ -35,7 +58,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: "Acceleration"
       description: "Adaptive speeds up as you move. Flat keeps a steady ratio."
       hint: "~/.config/hypr/input.lua · input.accel_profile"
@@ -56,7 +79,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: "Scroll inertia"
       description: "How a high-resolution or free-spin mouse wheel is turned into scroll events. Smooth keeps the fine motion. Stepped turns it into clicks."
       hint: "~/.config/hypr/input.lua · input.emulate_discrete_scroll"
@@ -84,7 +107,7 @@ PrefsPage {
     query: root.query
     detail: "Feel for the trackpad. The on/off switch for the device itself is on Displays."
 
-    PrefsRow {
+    SettingRow {
       label: "Natural scroll"
       description: "Content moves with your fingers, the way a phone does."
       hint: "~/.config/hypr/input.lua · input.touchpad.natural_scroll"
@@ -97,7 +120,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       stretchControl: true
       label: "Scroll speed"
       description: "How far two-finger scroll moves."
@@ -120,7 +143,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: "Two-finger click"
       description: "A two-finger tap is a right click."
       hint: "~/.config/hypr/input.lua · input.touchpad.clickfinger_behavior"
@@ -133,7 +156,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: "Ignore while typing"
       description: "The trackpad rests while you type, so a palm does not move the pointer."
       hint: "~/.config/hypr/input.lua · input.touchpad.disable_while_typing"
@@ -146,7 +169,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: "Three-finger drag"
       description: "Three fingers down and moving drags, like a click-and-hold."
       hint: "~/.config/hypr/input.lua · input.touchpad.drag_3fg"
@@ -165,7 +188,7 @@ PrefsPage {
     query: root.query
     detail: "Repeat and numlock for Hyprland. The console and login layout stay on System."
 
-    PrefsRow {
+    SettingRow {
       stretchControl: true
       label: "Repeat rate"
       description: "How many times a held key repeats each second."
@@ -188,7 +211,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       stretchControl: true
       label: "Repeat delay"
       description: "How long you hold a key before it starts repeating."
@@ -211,9 +234,9 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: "Numlock on boot"
-      description: "Turn the number pad on when Hyprland starts."
+      description: "The number pad is on when Hyprland starts."
       hint: "~/.config/hypr/input.lua · input.numlock_by_default"
       query: root.query
       keywords: ["numlock", "keypad"]
@@ -224,7 +247,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       available: Omarchy.hyprInputManaged
       label: "Reset input"
       description: "Remove the block Atmos wrote. Hyprland goes back to the rest of input.lua and the Omarchy defaults."
@@ -246,7 +269,7 @@ PrefsPage {
     query: root.query
     detail: "Follow mouse, waking the screen, an optional Hyprland layout list, and a three-finger workspace swipe."
 
-    PrefsRow {
+    SettingRow {
       label: "Follow mouse"
       description: "How the pointer picks the focused window. 1 is the usual Omarchy setting."
       hint: "~/.config/hypr/input.lua · input.follow_mouse"
@@ -269,7 +292,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: "Wake on key"
       description: "A key press turns the screen back on after DPMS off."
       hint: "~/.config/hypr/input.lua · misc.key_press_enables_dpms"
@@ -282,7 +305,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: "Wake on mouse"
       description: "Moving the pointer turns the screen back on after DPMS off."
       hint: "~/.config/hypr/input.lua · misc.mouse_move_enables_dpms"
@@ -295,10 +318,12 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       stretchControl: true
       label: "Hyprland layouts"
-      description: "Optional. A comma list such as us,dk for Hyprland only. Leave it blank to keep the System layout."
+      description: root.kbLayoutValid
+        ? "Optional. A comma list such as us,dk for Hyprland only. Leave it blank to keep the System layout."
+        : "Layout ids are 1–8 letters or digits, separated by commas. Spaces around commas are fine. Set stays off until the list is valid."
       hint: "~/.config/hypr/input.lua · input.kb_layout"
       query: root.query
       keywords: ["layout", "xkb", "multi", "us,dk"]
@@ -310,36 +335,64 @@ PrefsPage {
         PrefsField {
           id: layoutField
           width: parent.width - layoutSetBtn.width - parent.spacing
-          value: Omarchy.hyprKbLayout
+          value: root.kbLayoutDraft
           placeholder: "us,dk"
+          invalid: !root.kbLayoutValid
+          onEdited: function(value) { root.kbLayoutDraft = value }
+          onSubmitted: function(value) {
+            root.kbLayoutDraft = value
+            root.applyKbOverride()
+          }
         }
 
         PrefsButton {
           id: layoutSetBtn
           text: "Set"
           primary: true
-          onClicked: Omarchy.setHyprKbOverride(layoutField.currentText(), variantField.currentText(), Omarchy.hyprKbGroupToggle)
+          enabled: root.kbOverrideValid && root.kbOverrideDirty
+          onClicked: root.applyKbOverride()
         }
       }
     }
 
-    PrefsRow {
+    SettingRow {
       stretchControl: true
       label: "Variants"
-      description: "Optional variants matching the layout list, such as ,nodeadkeys."
+      description: root.kbVariantValid
+        ? "Optional variants matching the layout list, such as ,nodeadkeys."
+        : "One variant per layout, same comma count. Letters, digits, underscore, or hyphen. Set stays off until the list matches."
       hint: "~/.config/hypr/input.lua · input.kb_variant"
       query: root.query
       keywords: ["variant", "intl", "nodeadkeys"]
 
-      PrefsField {
-        id: variantField
+      Row {
         width: parent.width
-        value: Omarchy.hyprKbVariant
-        placeholder: ",nodeadkeys"
+        spacing: Theme.space
+
+        PrefsField {
+          id: variantField
+          width: parent.width - variantSetBtn.width - parent.spacing
+          value: root.kbVariantDraft
+          placeholder: ",nodeadkeys"
+          invalid: !root.kbVariantValid
+          onEdited: function(value) { root.kbVariantDraft = value }
+          onSubmitted: function(value) {
+            root.kbVariantDraft = value
+            root.applyKbOverride()
+          }
+        }
+
+        PrefsButton {
+          id: variantSetBtn
+          text: "Set"
+          primary: true
+          enabled: root.kbOverrideValid && root.kbOverrideDirty
+          onClicked: root.applyKbOverride()
+        }
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: "Alt+Alt layout switch"
       description: "Left Alt and Right Alt together cycle the Hyprland layouts above."
       hint: "~/.config/hypr/input.lua · input.kb_options"
@@ -348,11 +401,16 @@ PrefsPage {
 
       PrefsToggle {
         checked: Omarchy.hyprKbGroupToggle
-        onToggled: Omarchy.setHyprKbOverride(layoutField.currentText() || Omarchy.hyprKbLayout, variantField.currentText() || Omarchy.hyprKbVariant, !Omarchy.hyprKbGroupToggle)
+        onToggled: {
+          if (root.kbOverrideValid)
+            Omarchy.setHyprKbOverride(root.kbLayoutParsed, root.kbVariantParsed, !Omarchy.hyprKbGroupToggle)
+          else
+            Omarchy.setHyprKbOverride(Omarchy.hyprKbLayout, Omarchy.hyprKbVariant, !Omarchy.hyprKbGroupToggle)
+        }
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: "Three-finger swipe"
       description: "Swipe sideways with three fingers to change workspace."
       hint: "~/.config/hypr/input.lua · hl.gesture"

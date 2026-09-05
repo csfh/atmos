@@ -33,6 +33,7 @@ function snapshotGroupForWatchPath(path) {
     base === "shell.json" ||
     base === "shell.toml" ||
     base === "looknfeel.lua" ||
+    base === "hyprsunset.conf" ||
     base === "monitors.lua" ||
     base === "screensaver.txt" ||
     base === "about.txt" ||

@@ -13,18 +13,28 @@ Popup {
   padding: Theme.pad * 1.5
   closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
   anchors.centerIn: Overlay.overlay
-  width: Math.min(520, Overlay.overlay ? Overlay.overlay.width - 48 : 520)
+  width: Math.min(Theme.dialogWidth, Overlay.overlay ? Overlay.overlay.width - Theme.overlayInset : Theme.dialogWidth)
 
   background: Rectangle {
     color: Theme.background
-    border.width: 1
+    border.width: Theme.borderWidth
     border.color: Theme.borderColor()
     radius: Theme.radius
   }
 
   Overlay.modal: Rectangle {
-    color: Qt.rgba(0, 0, 0, 0.55)
+    color: Qt.rgba(0, 0, 0, Theme.scrimAlpha)
   }
+
+  // Declared inside PrefsPage's Flickable. Live on Overlay so clip cannot
+  // crop LUKS and add-item dialogs that never reparent themselves.
+  function attachOverlay() {
+    var overlay = Overlay.overlay
+    if (overlay)
+      parent = overlay
+  }
+
+  onAboutToShow: attachOverlay()
 
   Column {
     id: body

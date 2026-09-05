@@ -64,7 +64,7 @@ PrefsPage {
     query: root.objectQuery(root.hw.machine, ["vendor", "name", "family", "chassis", "version", "serial", "sku"])
     detail: "Name and chassis from DMI. Refresh reads the machine again, including memory use."
 
-    PrefsRow {
+    SettingRow {
       available: root.hasText(root.hw.machine.vendor, root.hw.machine.name, root.hw.machine.family, root.hw.machine.chassis)
       label: root.hw.machine.name || root.hw.machine.family || "This machine"
       description: HardwareJs.machineSummary(root.hw.machine) || "The firmware did not name this chassis."
@@ -79,7 +79,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       available: root.hasText(root.hw.machine.serial, root.hw.machine.sku)
       label: "Identity"
       description: root.hasText(root.hw.machine.serial)
@@ -96,7 +96,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: "Refresh"
       description: "Read the units again. Memory use and temperatures change while the machine runs."
       hint: "snapshot"
@@ -115,7 +115,7 @@ PrefsPage {
     query: root.objectQuery(root.hw.board, ["vendor", "name", "version"])
     detail: "The board DMI names. Chipset is the host bridge on that board, listed next."
 
-    PrefsRow {
+    SettingRow {
       available: root.hasText(root.hw.board.vendor, root.hw.board.name)
       label: root.hw.board.name || "Board"
       description: HardwareJs.boardSummary(root.hw.board)
@@ -136,7 +136,7 @@ PrefsPage {
     query: root.objectQuery(root.hw.chipset, ["name", "vendor", "pciId", "southbridge"])
     detail: "The PCI host bridge, and the ISA or LPC bridge when the kernel names one. That is the chipset the CPU talks to."
 
-    PrefsRow {
+    SettingRow {
       available: root.hasText(root.hw.chipset.name, root.hw.chipset.vendor, root.hw.chipset.pciId)
       label: root.hw.chipset.name || "Host bridge"
       description: HardwareJs.chipsetSummary(root.hw.chipset)
@@ -157,7 +157,7 @@ PrefsPage {
     query: root.firmwareQuery()
     detail: "BIOS or UEFI from DMI, plus TPM and Secure Boot when the firmware exposes them."
 
-    PrefsRow {
+    SettingRow {
       available: root.hasText(root.hw.bios.vendor, root.hw.bios.version, root.hw.bios.date) || root.hw.bios.uefi
       label: "BIOS"
       description: HardwareJs.biosSummary(root.hw.bios) || (root.hw.bios.uefi ? "UEFI firmware." : "")
@@ -172,23 +172,19 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       available: root.hw.secureBoot.available
       label: "Secure Boot"
       description: root.hw.secureBoot.enabled
-        ? "The firmware is verifying boot loaders. Change this in the UEFI setup (firmware menu), not here."
-        : "The firmware is not verifying boot loaders. Change this in the UEFI setup (firmware menu), not here."
+        ? "The firmware is verifying boot loaders. Change this in UEFI setup, not here."
+        : "The firmware is not verifying boot loaders. Change this in UEFI setup, not here."
       hint: "/sys/firmware/efi"
       query: root.query
       keywords: ["secure boot", "efi", "mok"]
-
-      PrefsToggle {
-        checked: root.hw.secureBoot.enabled
-        enabled: false
-      }
+      valueText: root.hw.secureBoot.enabled ? "On" : "Off"
     }
 
-    PrefsRow {
+    SettingRow {
       available: root.hw.tpm.present
       label: "TPM"
       description: HardwareJs.tpmSummary(root.hw.tpm)
@@ -209,7 +205,7 @@ PrefsPage {
     query: root.objectQuery(root.hw.cpu, ["model", "vendor", "arch", "cores"])
     detail: "Cores and threads from the kernel. Flags are the ones that matter for guests and SIMD."
 
-    PrefsRow {
+    SettingRow {
       available: root.hasText(root.hw.cpu.model, root.hw.cpu.vendor)
       label: root.hw.cpu.model || "CPU"
       description: HardwareJs.cpuSummary(root.hw.cpu)
@@ -226,11 +222,12 @@ PrefsPage {
   }
 
   PrefsGroup {
+    framed: true
     title: "Memory"
     query: root.hw.memory.total > 0 || root.hw.memory.modules.length > 0 ? root.query : "."
     detail: "Use comes from /proc/meminfo. Modules are SMBIOS type 17 when the firmware table is readable without root."
 
-    PrefsRow {
+    SettingRow {
       available: root.hw.memory.total > 0
       stretchControl: true
       label: "Installed"
@@ -247,7 +244,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       available: root.hw.memory.swapTotal > 0
       stretchControl: true
       label: "Swap"
@@ -267,7 +264,7 @@ PrefsPage {
     Repeater {
       model: root.hw.memory.modules
 
-      PrefsRow {
+      SettingRow {
         required property var modelData
         sectionHelp: false
         label: (modelData && modelData.locator) || "DIMM"
@@ -286,6 +283,7 @@ PrefsPage {
   }
 
   PrefsGroup {
+    framed: true
     title: "Graphics"
     query: (root.hw.gpus.length || Omarchy.hwNvidia || Omarchy.hwVulkan || Omarchy.hybridGpuAvailable) ? root.query : "."
     detail: "PCI display devices, plus the DRM driver when the kernel bound one. Active is NVIDIA when that GPU is present, otherwise Vulkan. Hybrid switching reboots."
@@ -293,7 +291,7 @@ PrefsPage {
     Repeater {
       model: root.hw.gpus
 
-      PrefsRow {
+      SettingRow {
         required property var modelData
         label: (modelData && modelData.name) || "GPU"
         description: HardwareJs.gpuSummary(modelData)
@@ -309,7 +307,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       available: Omarchy.hwNvidia || Omarchy.hwVulkan
       label: "Active stack"
       description: Omarchy.hwNvidia
@@ -331,7 +329,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       available: Omarchy.hybridGpuAvailable
       label: "Hybrid GPU"
       description: Omarchy.hybridGpuMode === "Integrated"
@@ -352,6 +350,7 @@ PrefsPage {
   }
 
   PrefsGroup {
+    framed: true
     title: "NPU"
     query: root.listQuery(root.hw.npus)
     detail: "A neural processor on PCI, such as AMD XDNA, when one is present."
@@ -359,7 +358,7 @@ PrefsPage {
     Repeater {
       model: root.hw.npus
 
-      PrefsRow {
+      SettingRow {
         required property var modelData
         label: (modelData && modelData.name) || "NPU"
         description: HardwareJs.npuSummary(modelData)
@@ -377,6 +376,7 @@ PrefsPage {
   }
 
   PrefsGroup {
+    framed: true
     title: "Network adapters"
     query: root.listQuery(root.hw.nics)
     detail: "Physical interfaces the kernel registered. Virtual bridges and containers stay off this list."
@@ -384,7 +384,7 @@ PrefsPage {
     Repeater {
       model: root.hw.nics
 
-      PrefsRow {
+      SettingRow {
         required property var modelData
         label: (modelData && (modelData.iface || modelData.name)) || "NIC"
         description: HardwareJs.nicSummary(modelData)
@@ -402,6 +402,7 @@ PrefsPage {
   }
 
   PrefsGroup {
+    framed: true
     title: "Audio"
     query: root.listQuery(root.hw.audio)
     detail: "Sound cards from ALSA. Volume and sinks stay on the Sound page."
@@ -409,7 +410,7 @@ PrefsPage {
     Repeater {
       model: root.hw.audio
 
-      PrefsRow {
+      SettingRow {
         required property var modelData
         label: (modelData && modelData.name) || "Audio"
         description: modelData && modelData.driver ? ("ALSA " + modelData.driver + ". Volume and sinks are on Sound.") : "ALSA card. Volume and sinks are on Sound."
@@ -427,6 +428,7 @@ PrefsPage {
   }
 
   PrefsGroup {
+    framed: true
     title: "USB"
     query: root.listQuery(root.hw.usb)
     detail: "Devices on the USB buses that published a product name."
@@ -434,7 +436,7 @@ PrefsPage {
     Repeater {
       model: root.hw.usb
 
-      PrefsRow {
+      SettingRow {
         required property var modelData
         label: (modelData && modelData.name) || "USB"
         description: [
@@ -455,6 +457,7 @@ PrefsPage {
   }
 
   PrefsGroup {
+    framed: true
     title: "Battery"
     query: root.listQuery(root.hw.batteries)
     detail: "Charge from sysfs. Profiles and the bar percentage stay on the Power page."
@@ -462,7 +465,7 @@ PrefsPage {
     Repeater {
       model: root.hw.batteries
 
-      PrefsRow {
+      SettingRow {
         required property var modelData
         stretchControl: true
         label: (modelData && modelData.name) || "Battery"
@@ -476,7 +479,7 @@ PrefsPage {
 
         Column {
           width: parent.width
-          spacing: 8
+          spacing: Theme.space
 
           PrefsProgress {
             width: parent.width
@@ -488,9 +491,9 @@ PrefsPage {
           }
 
           Row {
-            spacing: 8
+            spacing: Theme.space
             PrefsButton {
-              text: "Show"
+              text: "Show battery"
               enabled: Omarchy.batteryPresent
               onClicked: Omarchy.showBatteryNotification()
             }
@@ -506,6 +509,7 @@ PrefsPage {
   }
 
   PrefsGroup {
+    framed: true
     title: "Thermal"
     query: root.listQuery(root.hw.thermals)
     detail: "Zones the kernel exported. Refresh if you want a newer reading."
@@ -513,7 +517,7 @@ PrefsPage {
     Repeater {
       model: root.hw.thermals
 
-      PrefsRow {
+      SettingRow {
         required property var modelData
         label: (modelData && (modelData.name || modelData.type)) || "Sensor"
         description: HardwareJs.thermalSummary(modelData)
@@ -535,7 +539,7 @@ PrefsPage {
     query: root.objectQuery(root.hw.virtualization, ["hypervisor", "guest", "kvm"])
     detail: "Whether this OS is a guest, and whether KVM can run guests here."
 
-    PrefsRow {
+    SettingRow {
       available: root.hw.virtualization.guest || root.hw.virtualization.kvm || root.hasText(root.hw.virtualization.hypervisor)
       label: root.hw.virtualization.guest ? "Guest" : "Host"
       description: HardwareJs.virtSummary(root.hw.virtualization) || "No hypervisor was reported."

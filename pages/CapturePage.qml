@@ -38,7 +38,7 @@ PrefsPage {
     detail: "Smart picks a region or a window. Copy and save writes a PNG under Pictures and puts it on the clipboard."
     hint: "omarchy capture screenshot"
 
-    PrefsRow {
+    SettingRow {
       label: "Mode"
       description: "What the picker asks for."
       hint: "omarchy capture screenshot"
@@ -52,7 +52,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: "Where it goes"
       description: "Copy and save is the usual Omarchy path. Copy skips the file. Save skips the clipboard."
       hint: "omarchy capture screenshot"
@@ -66,7 +66,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: "Take screenshot"
       description: "The picker opens on the desktop."
       hint: "omarchy capture screenshot"
@@ -74,7 +74,7 @@ PrefsPage {
       keywords: ["screenshot", "capture", "grim"]
 
       PrefsButton {
-        text: "Capture"
+        text: root.shotMode === "fullscreen" ? "Capture" : "Capture…"
         primary: true
         onClicked: Omarchy.captureScreenshot(root.shotMode, root.shotDest)
       }
@@ -87,7 +87,7 @@ PrefsPage {
     detail: "Start opens a region picker unless you ask for the whole screen. Stop finishes the file in Videos."
     hint: "omarchy capture screenrecording"
 
-    PrefsRow {
+    SettingRow {
       label: "Desktop audio"
       description: "Record what the speakers are playing."
       hint: "omarchy capture screenrecording --with-desktop-audio"
@@ -101,7 +101,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: "Microphone"
       description: "Record your voice with the picture."
       hint: "omarchy capture screenrecording --with-microphone-audio"
@@ -115,9 +115,9 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: "Webcam"
-      description: "Put a camera overlay on the recording."
+      description: "A camera overlay on the recording."
       hint: "omarchy capture screenrecording --with-webcam"
       query: root.query
       keywords: ["record", "webcam", "camera"]
@@ -129,7 +129,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       available: root.recWebcam
       label: "Webcam size"
       description: "How large the overlay starts."
@@ -145,9 +145,9 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: "Whole screen"
-      description: "Skip the region picker and record the monitor."
+      description: "Record the whole monitor, without a region picker."
       hint: "omarchy capture screenrecording --fullscreen"
       query: root.query
       keywords: ["record", "fullscreen", "monitor"]
@@ -159,7 +159,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: Omarchy.recordingActive ? "Recording" : "Start recording"
       description: Omarchy.recordingActive
         ? "gpu-screen-recorder is running. Stop writes the file under Videos."
@@ -169,10 +169,10 @@ PrefsPage {
       keywords: ["record", "start", "stop", "video"]
 
       Row {
-        spacing: 8
+        spacing: Theme.space
         PrefsButton {
           visible: !Omarchy.recordingActive
-          text: "Start"
+          text: root.recFullscreen ? "Start" : "Start…"
           primary: true
           enabled: !Omarchy.recordingActive
           onClicked: Omarchy.startScreenrecording(root.recDesktopAudio, root.recMic, root.recWebcam, root.recWebcamSize, root.recFullscreen)
@@ -187,7 +187,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       available: Omarchy.webcamOverlay
       label: "Resize webcam"
       description: "Step the overlay smaller or larger while a recording is up."
@@ -196,7 +196,7 @@ PrefsPage {
       keywords: ["webcam", "resize", "overlay"]
 
       Row {
-        spacing: 8
+        spacing: Theme.space
         PrefsButton {
           text: "Smaller"
           enabled: Omarchy.webcamOverlay
@@ -221,7 +221,7 @@ PrefsPage {
     query: root.query
     detail: "Both open a region picker. Text copies what OCR finds. QR copies the decoded link or payload."
 
-    PrefsRow {
+    SettingRow {
       label: "Text from screen"
       description: "OCR a region and copy the words."
       hint: "omarchy capture text"
@@ -229,12 +229,12 @@ PrefsPage {
       keywords: ["ocr", "text", "tesseract"]
 
       PrefsButton {
-        text: "Read text"
+        text: "Read text…"
         onClicked: Omarchy.captureText()
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: "QR code"
       description: "Decode a QR code from a region."
       hint: "omarchy capture qr"
@@ -242,7 +242,7 @@ PrefsPage {
       keywords: ["qr", "code", "scan"]
 
       PrefsButton {
-        text: "Read QR"
+        text: "Read QR…"
         onClicked: Omarchy.captureQr()
       }
     }
@@ -253,19 +253,19 @@ PrefsPage {
     query: root.query
     detail: "Omarchy uses the XDG Pictures and Videos folders. Open the folder or copy the path. These are not changed here."
 
-    PrefsRow {
+    SettingRow {
       label: "Screenshots"
       description: Omarchy.picturesDir.length
         ? Omarchy.picturesDir
-        : "XDG Pictures is not set. Open and Copy stay disabled until that folder exists."
+        : "XDG Pictures is not set. Open folder and Copy stay disabled until that folder exists."
       hint: "XDG_PICTURES_DIR"
       query: root.query
       keywords: ["pictures", "folder", "screenshot", "path"]
 
       Row {
-        spacing: 8
+        spacing: Theme.space
         PrefsButton {
-          text: "Open"
+          text: "Open folder"
           enabled: Omarchy.picturesDir.length > 0
           onClicked: Omarchy.openUserDir(Omarchy.picturesDir)
         }
@@ -277,19 +277,19 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: "Recordings"
       description: Omarchy.videosDir.length
         ? Omarchy.videosDir
-        : "XDG Videos is not set. Open and Copy stay disabled until that folder exists."
+        : "XDG Videos is not set. Open folder and Copy stay disabled until that folder exists."
       hint: "XDG_VIDEOS_DIR"
       query: root.query
       keywords: ["videos", "folder", "recording", "path"]
 
       Row {
-        spacing: 8
+        spacing: Theme.space
         PrefsButton {
-          text: "Open"
+          text: "Open folder"
           enabled: Omarchy.videosDir.length > 0
           onClicked: Omarchy.openUserDir(Omarchy.videosDir)
         }

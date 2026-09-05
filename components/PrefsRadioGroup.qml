@@ -15,9 +15,9 @@ Flow {
   signal changed(string value)
 
   width: wrap && parent ? parent.width : implicitWidth
-  spacing: wrap ? Theme.pad : 6
+  spacing: wrap ? Theme.pad : Theme.stackGap
   flow: wrap ? Flow.LeftToRight : Flow.TopToBottom
-  opacity: enabled ? 1 : 0.45
+  opacity: Theme.controlOpacity(enabled)
 
   Accessible.role: Accessible.List
   Accessible.name: displayLabel
@@ -54,18 +54,18 @@ Flow {
       font.family: Theme.fontFamily
       font.pixelSize: Theme.fontSize
       padding: 2
-      spacing: 8
+      spacing: Theme.space
       implicitHeight: Math.max(22, Theme.fontSize + 6)
       onClicked: root.changed(root.optionValue(modelData))
 
       indicator: Rectangle {
-        implicitWidth: 16
-        implicitHeight: 16
+        implicitWidth: Theme.radioSize
+        implicitHeight: Theme.radioSize
         x: radio.leftPadding
         y: radio.topPadding + (radio.availableHeight - height) / 2
         radius: width / 2
         color: "transparent"
-        border.width: 1
+        border.width: Theme.borderWidth
         border.color: radio.checked || radio.hovered ? Theme.accent : Theme.borderColor()
 
         Rectangle {

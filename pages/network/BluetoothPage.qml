@@ -84,11 +84,11 @@ PrefsPage {
     detail: "Powers the adapter and remembers the choice across reboots. Restart unblocks rfkill and brings BlueZ back up."
     hint: "omarchy bluetooth power"
 
-    PrefsRow {
+    SettingRow {
       label: "Bluetooth radio"
       description: Omarchy.bluetooth
         ? "Paired devices show up below. Scan further down for something new."
-        : "The adapter is powered down. Turn it on to pair a headset or mouse."
+        : "Paired devices and scanning use this adapter."
       hint: "omarchy bluetooth power"
       query: root.query
       keywords: ["bt", "radio", "wireless"]
@@ -99,7 +99,7 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: "Restart Bluetooth"
       description: "Unblock rfkill and restart BlueZ. Try this if the adapter looks stuck."
       hint: "omarchy restart bluetooth"
@@ -114,32 +114,25 @@ PrefsPage {
   }
 
   PrefsGroup {
+    framed: true
     title: "Paired"
     query: root.query
     detail: "Connect, disconnect, or forget a paired device. The adapter stays on until you turn it off above."
     hint: "omarchy bluetooth device"
 
-    PrefsRow {
+    SettingRow {
       available: root.pairedBt.length === 0
       sectionHelp: false
       label: "Paired devices"
-      description: Omarchy.bluetooth
-        ? "Nothing is paired yet. Scan nearby for a headset or mouse."
-        : "Turn the radio on above, then scan for a nearby device."
+      description: "No paired devices."
       query: root.query
       keywords: ["empty"]
-
-      PrefsButton {
-        text: "Scan"
-        enabled: Omarchy.bluetooth
-        onClicked: root.scanningBt = true
-      }
     }
 
     Repeater {
       model: root.pairedBt
 
-      PrefsRow {
+      SettingRow {
         required property var modelData
         available: true
         sectionHelp: false
@@ -150,7 +143,7 @@ PrefsPage {
         keywords: ["bt", "headset", "mouse", "keyboard", "forget"]
 
         Row {
-          spacing: 8
+          spacing: Theme.space
           PrefsButton {
             text: modelData && modelData.connected ? "Disconnect" : "Connect"
             primary: !(modelData && modelData.connected)
@@ -161,7 +154,7 @@ PrefsPage {
             }
           }
           PrefsButton {
-            text: "Forget"
+            text: "Forget…"
             danger: true
             enabled: modelData && modelData.address
             onClicked: {
@@ -175,15 +168,18 @@ PrefsPage {
   }
 
   PrefsGroup {
+    framed: true
     title: "Nearby"
     query: root.query
     detail: "Scan looks for unpaired devices around you. Pair adds one to the list above."
 
-    PrefsRow {
+    SettingRow {
       label: "Scan"
       description: !Omarchy.bluetooth
-        ? "Turn the radio on above. The switch stays off until the adapter is powered."
-        : (root.scanningBt ? "Looking for unpaired devices nearby." : "Look for unpaired devices nearby.")
+        ? "The adapter is off."
+        : (root.scanningBt
+          ? "Looking for unpaired devices nearby."
+          : "Unpaired devices nearby appear below while this is on.")
       hint: "bluetoothctl scan"
       query: root.query
       keywords: ["discover", "pair", "headset"]
@@ -195,10 +191,19 @@ PrefsPage {
       }
     }
 
+    SettingRow {
+      available: Omarchy.bluetooth && root.scanningBt && root.discoveredBt.length === 0
+      sectionHelp: false
+      label: "Nearby devices"
+      description: "No unpaired devices nearby."
+      query: root.query
+      keywords: ["empty", "discover"]
+    }
+
     Repeater {
       model: root.discoveredBt
 
-      PrefsRow {
+      SettingRow {
         required property var modelData
         available: Omarchy.bluetooth && root.scanningBt
         sectionHelp: false

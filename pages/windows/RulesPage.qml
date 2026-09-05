@@ -86,12 +86,13 @@ PrefsPage {
   }
 
   PrefsGroup {
+    framed: true
     title: "Your rules"
     query: root.query
     detail: "Match is a window class, or a regex Hyprland applies to class. Use focused copies the class of the window that is focused right now."
     hint: "~/.config/hypr/atmos.lua"
 
-    PrefsRow {
+    SettingRow {
       label: "Add a rule"
       description: "Float, tile, center, size, or pin a class to a workspace."
       hint: "~/.config/hypr/atmos.lua"
@@ -105,25 +106,19 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       available: root.ruleRows.length === 0
       sectionHelp: false
       label: "Rules"
-      description: "No personal o.window lines in the Atmos block."
+      description: "No personal window rules."
       query: root.query
       keywords: ["empty", "rules"]
-
-      PrefsButton {
-        text: "Add…"
-        primary: true
-        onClicked: root.openAdd()
-      }
     }
 
     Repeater {
       model: root.ruleRows
 
-      PrefsRow {
+      SettingRow {
         required property var modelData
         sectionHelp: false
         label: modelData && modelData.match ? modelData.match : "class"
@@ -135,7 +130,7 @@ PrefsPage {
         keywords: ["window", "rule", "float"]
 
         PrefsButton {
-          text: "Remove"
+          text: "Remove…"
           danger: true
           enabled: modelData && modelData.managed
           onClicked: {
@@ -173,7 +168,7 @@ PrefsPage {
 
       PrefsButton {
         id: focusedBtn
-        text: "Focused"
+        text: "Use focused"
         enabled: Omarchy.focusedClass.length > 0
         onClicked: root.useFocused()
       }
@@ -187,10 +182,10 @@ PrefsPage {
       onChanged: function(value) { root.placementDraft = value }
     }
 
-    PrefsRow {
+    SettingRow {
       sectionHelp: false
       label: "Center"
-      description: "Put a floating window in the middle of the screen."
+      description: "A floating window sits in the middle of the screen."
       query: ""
 
       PrefsToggle {

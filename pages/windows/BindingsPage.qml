@@ -94,12 +94,13 @@ PrefsPage {
   }
 
   PrefsGroup {
+    framed: true
     title: "Your overrides"
     query: root.query
     detail: "These lines live in the Atmos block of bindings.lua. Adding a chord that is already taken writes hl.unbind first, then o.bind."
     hint: "~/.config/hypr/bindings.lua"
 
-    PrefsRow {
+    SettingRow {
       label: "Add a binding"
       description: "A chord, a short name, and the command to run. Unbind only turns a default off."
       hint: "~/.config/hypr/bindings.lua"
@@ -113,25 +114,19 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       available: root.overrideRows.length === 0
       sectionHelp: false
       label: "Overrides"
-      description: "No personal o.bind or hl.unbind lines in bindings.lua."
+      description: "No personal bindings."
       query: root.query
       keywords: ["empty", "bindings"]
-
-      PrefsButton {
-        text: "Add…"
-        primary: true
-        onClicked: root.openAdd()
-      }
     }
 
     Repeater {
       model: root.overrideRows
 
-      PrefsRow {
+      SettingRow {
         required property var modelData
         sectionHelp: false
         label: modelData && modelData.keys ? modelData.keys : "chord"
@@ -141,7 +136,7 @@ PrefsPage {
         keywords: ["bind", "unbind", "override"]
 
         PrefsButton {
-          text: "Remove"
+          text: "Remove…"
           danger: true
           enabled: modelData && modelData.managed
           onClicked: {
@@ -155,17 +150,27 @@ PrefsPage {
   }
 
   PrefsGroup {
+    framed: true
     title: "What is bound"
     query: root.query
     detail: "This is omarchy menu keybindings --print. Filter if you want to find a chord before you override it."
     hint: "omarchy menu keybindings --print"
 
-    PrefsRow {
+    SettingRow {
+      available: Omarchy.keybindings.length === 0
+      sectionHelp: false
+      label: "Bindings"
+      description: "No bindings reported."
+      hint: "omarchy menu keybindings --print"
+      query: root.query
+      keywords: ["empty", "keybinding"]
+    }
+
+    SettingRow {
+      available: Omarchy.keybindings.length > 0
       stretchControl: true
       label: "Filter"
-      description: Omarchy.keybindings.length
-        ? (root.catalogRows.length + " of " + Omarchy.keybindings.length + " bindings.")
-        : "Hyprland did not report any bindings."
+      description: root.catalogRows.length + " of " + Omarchy.keybindings.length + " bindings."
       hint: "omarchy menu keybindings --print"
       query: root.query
       keywords: ["search", "filter", "list"]
@@ -173,15 +178,23 @@ PrefsPage {
       PrefsField {
         width: parent.width
         placeholder: "SUPER + Q or Close window"
-        enabled: Omarchy.keybindings.length > 0
         onEdited: function(value) { root.catalogFilter = value }
       }
+    }
+
+    SettingRow {
+      available: Omarchy.keybindings.length > 0 && root.catalogRows.length === 0
+      sectionHelp: false
+      label: "Bindings"
+      description: "No matching bindings."
+      query: root.query
+      keywords: ["empty", "filter"]
     }
 
     Repeater {
       model: root.catalogRows
 
-      PrefsRow {
+      SettingRow {
         required property var modelData
         sectionHelp: false
         label: modelData && modelData.keys ? modelData.keys : "chord"
@@ -191,7 +204,7 @@ PrefsPage {
         keywords: ["keybinding", "hotkey", "shortcut"]
 
         Row {
-          spacing: 8
+          spacing: Theme.space
           PrefsButton {
             text: "Copy"
             enabled: !!(modelData && modelData.keys)
@@ -246,10 +259,10 @@ PrefsPage {
       onSubmitted: function() { root.submitAdd() }
     }
 
-    PrefsRow {
+    SettingRow {
       sectionHelp: false
       label: "Unbind only"
-      description: "Turn the default off without adding a replacement."
+      description: "The default chord is removed, with no replacement."
       query: ""
 
       PrefsToggle {

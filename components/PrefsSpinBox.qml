@@ -15,11 +15,11 @@ Item {
 
   signal changed(int value)
 
-  implicitWidth: 108
+  implicitWidth: Theme.spinWidth
   implicitHeight: Theme.controlHeight
   width: implicitWidth
   height: implicitHeight
-  opacity: enabled ? 1 : 0.45
+  opacity: Theme.controlOpacity(enabled)
 
   Accessible.role: Accessible.SpinBox
   Accessible.name: String(value)
@@ -43,20 +43,22 @@ Item {
       root._heldValue = value
       root._holding = true
       root.changed(value)
-      if (root.value === value) root._holding = false
+      // Writers apply or reject in this call. A rejected birth year (or
+      // any other ignored number) must not keep Binding off forever.
+      root._holding = false
     }
 
     background: Rectangle {
       color: spin.activeFocus || spin.hovered ? Theme.fill(Theme.hoverFill) : Theme.fill(Theme.normalFill)
-      border.width: 1
+      border.width: Theme.borderWidth
       border.color: spin.activeFocus || spin.hovered ? Theme.accent : Theme.borderColor()
       radius: Theme.radius
 
       Behavior on color {
-        ColorAnimation { duration: 90 }
+        ColorAnimation { duration: Theme.motionFast }
       }
       Behavior on border.color {
-        ColorAnimation { duration: 90 }
+        ColorAnimation { duration: Theme.motionFast }
       }
     }
 

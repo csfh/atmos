@@ -2,7 +2,7 @@ import QtQuick
 import "../../components"
 import "../../services"
 
-PrefsRow {
+SettingRow {
   label: "Animations"
   description: "Window open, close, and fade motion."
   hint: "~/.config/hypr/looknfeel.lua · animations.enabled"

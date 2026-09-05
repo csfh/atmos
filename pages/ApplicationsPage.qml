@@ -204,12 +204,13 @@ PrefsPage {
   }
 
   PrefsGroup {
+    framed: true
     title: "Advanced"
     query: root.query
     detail: "Autostart writes a managed block at the end of ~/.config/hypr/autostart.lua. Lines you typed yourself stay. Remove only deletes a line Atmos added."
     hint: "~/.config/hypr/autostart.lua"
 
-    PrefsRow {
+    SettingRow {
       label: "Add a command"
       description: "A program name or command Omarchy should launch on start. Same form as o.launch_on_start."
       hint: "~/.config/hypr/autostart.lua"
@@ -217,7 +218,7 @@ PrefsPage {
       keywords: ["autostart", "startup", "launch", "hypr"]
 
       Row {
-        spacing: 8
+        spacing: Theme.space
         PrefsField {
           width: 180
           placeholder: "hyprsunset"
@@ -236,26 +237,19 @@ PrefsPage {
       }
     }
 
-    PrefsRow {
+    SettingRow {
       available: Omarchy.autostart.length === 0
       sectionHelp: false
       label: "Launch on start"
-      description: "No o.launch_on_start lines in autostart.lua. Type a command above, then Add."
+      description: "No launch-on-start commands."
       query: root.query
       keywords: ["autostart", "empty"]
-
-      PrefsButton {
-        text: "Add"
-        primary: true
-        enabled: root.autostartDraft.length > 0
-        onClicked: Omarchy.addAutostart(root.autostartDraft)
-      }
     }
 
     Repeater {
       model: Omarchy.autostart
 
-      PrefsRow {
+      SettingRow {
         required property var modelData
         sectionHelp: false
         label: modelData && modelData.command ? modelData.command : "command"
@@ -268,7 +262,7 @@ PrefsPage {
 
         PrefsButton {
           visible: !!(modelData && modelData.managed)
-          text: "Remove"
+          text: "Remove…"
           danger: true
           enabled: modelData && modelData.managed
           onClicked: {
@@ -286,7 +280,7 @@ PrefsPage {
     detail: "Desktop writes a .desktop file for a command. Terminal uses omarchy tui install. Web uses omarchy webapp install and can fetch the site icon."
     hint: "omarchy tui install · omarchy webapp install"
 
-    PrefsRow {
+    SettingRow {
       label: "Desktop"
       description: "A launcher for a command on this machine."
       hint: "add-desktop-launcher.sh"
@@ -294,14 +288,14 @@ PrefsPage {
       keywords: ["add", "install", "create", "desktop", "launcher"]
 
       PrefsButton {
-        text: "Add"
+        text: "Add…"
         primary: true
         enabled: !Omarchy.jobBusy
         onClicked: root.openAdd("desktop")
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: "Terminal"
       description: "A TUI that opens in your default terminal."
       hint: "omarchy tui install"
@@ -309,14 +303,14 @@ PrefsPage {
       keywords: ["add", "install", "create", "tui", "terminal"]
 
       PrefsButton {
-        text: "Add"
+        text: "Add…"
         primary: true
         enabled: !Omarchy.jobBusy
         onClicked: root.openAdd("tui")
       }
     }
 
-    PrefsRow {
+    SettingRow {
       label: "Web"
       description: "A site in its own window."
       hint: "omarchy webapp install"
@@ -324,7 +318,7 @@ PrefsPage {
       keywords: ["add", "install", "create", "webapp", "web"]
 
       PrefsButton {
-        text: "Add"
+        text: "Add…"
         primary: true
         enabled: !Omarchy.jobBusy
         onClicked: root.openAdd("web")
@@ -333,133 +327,100 @@ PrefsPage {
   }
 
   PrefsGroup {
+    framed: true
     title: "Desktop"
     query: root.query
     detail: "Regular desktop launchers in ~/.local/share/applications. Web apps and terminal UIs have their own sections below. Remove deletes that .desktop file."
     hint: "omarchy remove launcher entry"
 
-    PrefsRow {
+    SettingRow {
       available: Omarchy.desktopApps.length === 0
       sectionHelp: false
       label: "Desktop launchers"
-      description: "You have not added any extra desktop launchers on this machine."
+      description: "No desktop launchers."
       query: root.query
       keywords: ["empty", "desktop"]
-
-      PrefsButton {
-        text: "Add…"
-        primary: true
-        enabled: !Omarchy.jobBusy
-        onClicked: root.openAdd("desktop")
-      }
     }
 
     Repeater {
       model: Omarchy.desktopApps
 
-      PrefsRow {
+      CollectionRow {
         required property var modelData
-        sectionHelp: false
         label: modelData && modelData.name ? modelData.name : "App"
-        description: modelData && modelData.detail ? modelData.detail : "A desktop launcher you added."
+        description: modelData && modelData.detail ? modelData.detail : "Desktop launcher you added."
         hint: "omarchy remove launcher entry"
         query: root.query
         keywords: ["desktop", "app", "launcher", "uninstall"]
-
-        PrefsButton {
-          text: "Remove"
-          danger: true
-          enabled: modelData && modelData.id
-          onClicked: root.askRemove("desktop", modelData.id, modelData.name)
-        }
+        dangerAction: "Remove…"
+        dangerEnabled: !!(modelData && modelData.id)
+        onDangered: root.askRemove("desktop", modelData.id, modelData.name)
       }
     }
   }
 
   PrefsGroup {
+    framed: true
     title: "Terminal"
     query: root.query
     detail: "Terminal UIs you installed with omarchy tui install. They open in your default terminal. Remove deletes the launcher."
     hint: "omarchy tui remove"
 
-    PrefsRow {
+    SettingRow {
       available: Omarchy.tuiApps.length === 0
       sectionHelp: false
       label: "Terminal launchers"
-      description: "You have not added any terminal UI launchers yet."
+      description: "No terminal launchers."
       query: root.query
       keywords: ["empty", "tui"]
-
-      PrefsButton {
-        text: "Add…"
-        primary: true
-        enabled: !Omarchy.jobBusy
-        onClicked: root.openAdd("tui")
-      }
     }
 
     Repeater {
       model: Omarchy.tuiApps
 
-      PrefsRow {
+      CollectionRow {
         required property var modelData
-        sectionHelp: false
         label: modelData && modelData.name ? modelData.name : "TUI"
         description: modelData && modelData.detail ? modelData.detail : "Opens in your default terminal."
         hint: "omarchy tui remove"
         query: root.query
         keywords: ["tui", "terminal", "console"]
-
-        PrefsButton {
-          text: "Remove"
-          danger: true
-          enabled: modelData && modelData.name
-          onClicked: root.askRemove("tui", modelData.id, modelData.name)
-        }
+        dangerAction: "Remove…"
+        dangerEnabled: !!(modelData && modelData.name)
+        onDangered: root.askRemove("tui", modelData.id, modelData.name)
       }
     }
   }
 
   PrefsGroup {
+    framed: true
     title: "Web"
     query: root.query
     detail: "Site wrappers you installed with omarchy webapp install. Remove deletes the launcher. The site itself stays online."
     hint: "omarchy webapp remove"
 
-    PrefsRow {
+    SettingRow {
       available: Omarchy.webApps.length === 0
       sectionHelp: false
       label: "Web apps"
-      description: "You have not added any web app launchers yet."
+      description: "No web apps."
       query: root.query
       keywords: ["empty", "webapp"]
-
-      PrefsButton {
-        text: "Add…"
-        primary: true
-        enabled: !Omarchy.jobBusy
-        onClicked: root.openAdd("web")
-      }
     }
 
     Repeater {
       model: Omarchy.webApps
 
-      PrefsRow {
+      CollectionRow {
         required property var modelData
-        sectionHelp: false
         label: modelData && modelData.name ? modelData.name : "Web app"
         description: modelData && modelData.detail ? modelData.detail : "Opens this site in its own window."
         hint: "omarchy webapp remove"
         query: root.query
         keywords: ["webapp", "web", "browser", "pwa"]
-
-        PrefsButton {
-          text: "Remove"
-          danger: true
-          enabled: modelData && modelData.name
-          onClicked: root.askRemove("web", modelData.id, modelData.name)
-        }
+        dangerAction: "Remove…"
+        dangerEnabled: !!(modelData && modelData.name)
+        onDangered: root.askRemove("web", modelData.id, modelData.name)
       }
     }
   }

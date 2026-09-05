@@ -3616,6 +3616,10 @@ QtObject {
       if (root.jobStdin.length > 0) {
         write(root.jobStdin)
         root.jobStdin = ""
+        // Closed after writing, or a job that reads its input to EOF never
+        // gets one. enqueueIo re-arms this per job, so it stays correct for
+        // the next one.
+        stdinEnabled = false;
       }
     }
     onExited: function(exitCode) {

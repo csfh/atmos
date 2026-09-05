@@ -2,6 +2,17 @@
 
 Notable changes to Atmos. Each section is a git tag on `main` and `alpha`. Install and in-app Update follow the `alpha` branch.
 
+## [v0.0.1-alpha.10] - 2026-09-05
+
+### Fixed
+
+- Choosing an avatar from a user-only FUSE mount (rclone without `allow_other`) failed on the privileged AccountsService copy. The image is staged locally first. Based on work by Fred Nix ([@nixfred](https://github.com/nixfred)). ([#15](https://github.com/csfh/atmos/pull/15))
+- Every `runGumJob` failed with `scripts/stubs: Is a directory`. The wrapper put the stub dir on `PATH` as `$1` and then `exec "$@"` still started at `$1`. It now `shift`s before exec. Fingerprint, FIDO2, sshd, sudoless docker, channel, `omarchy update`, firmware, orphans, and prune all go through this. Based on work by Fred Nix. ([#19](https://github.com/csfh/atmos/pull/19), [#17](https://github.com/csfh/atmos/pull/17))
+- A GUI import hung and blocked the queue. `runJob` wrote the plan to stdin and never closed it, and `apply-settings.sh` waits for EOF. ([#20](https://github.com/csfh/atmos/pull/20), [#18](https://github.com/csfh/atmos/pull/18))
+- A second export wrote an empty file and reported success. `writeProc` cleared `stdinEnabled` for `cat` and never restored it. ([#20](https://github.com/csfh/atmos/pull/20))
+- Importing `barVisible = false` showed the bar. `omarchy toggle bar` takes the state being turned off. ([#20](https://github.com/csfh/atmos/pull/20))
+- Muting a device and setting its volume in one import left it unmuted. `set-audio.sh` unmutes before a volume write, and mute now runs after. ([#20](https://github.com/csfh/atmos/pull/20))
+
 ## [v0.0.1-alpha.9] - 2026-09-05
 
 ### Added
@@ -157,6 +168,7 @@ First public alpha. Standalone [Quickshell](https://quickshell.org) preferences 
 - Keyboard use on controls (tab focus and activation). File watching of Omarchy/Hyprland paths so outside changes can refresh the snapshot. Shared page routing and content-column layout.
 - MIT license. Contributions assign copyright to Christoffer Hallas ([CLA](CLA.md)).
 
+[v0.0.1-alpha.10]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.9...v0.0.1-alpha.10
 [v0.0.1-alpha.9]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.8...v0.0.1-alpha.9
 [v0.0.1-alpha.8]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.7...v0.0.1-alpha.8
 [v0.0.1-alpha.7]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.6...v0.0.1-alpha.7

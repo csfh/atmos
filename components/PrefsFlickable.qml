@@ -87,7 +87,9 @@ Flickable {
     var span = recent[recent.length - 1].t - recent[0].t
     if (span <= 0) return 0
     var travelled = 0
-    for (var i = 0; i < recent.length; i++) travelled += recent[i].dy
+    // Distance after the first sample: span starts at recent[0].t, so
+    // including that dy would treat it as occurring in zero time.
+    for (var i = 1; i < recent.length; i++) travelled += recent[i].dy
     return (travelled / span) * 1000
   }
 
@@ -133,7 +135,8 @@ Flickable {
       }
       root.cancelFlick()
       root.contentY = Math.max(0, Math.min(max, root.contentY - dy))
-      root.noteSample(dy)
+      if (wheel.pixelDelta.y !== 0)
+        root.noteSample(dy)
       wheel.accepted = true
     }
   }

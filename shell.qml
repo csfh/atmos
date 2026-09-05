@@ -845,5 +845,11 @@ ShellRoot {
         else if (searchField.text.length > 0) searchField.text = ""
       }
     }
+
+    TapHandler {
+      acceptedButtons: Qt.BackButton
+      enabled: pageStack.depth > 1 && !errorDialog.visible && !sudoModeDialog.visible
+      onTapped: pageStack.pop()
+    }
   }
 }

@@ -90,12 +90,20 @@ case $action in
       echo "set-avatar.sh: not a file: $src" >&2
       exit 1
     }
-    size=$(wc -c <"$src")
+
+    # Privileged processes cannot read user-only FUSE mounts such as rclone
+    # mounts without allow_other. Stage the selected file while we still have
+    # the desktop user's access, then use that local copy for every write.
+    staged=$(mktemp -p /tmp atmos-avatar.XXXXXX)
+    trap 'rm -f -- "$staged"' EXIT
+    cp -f -- "$src" "$staged"
+
+    size=$(wc -c <"$staged")
     (( size > 0 && size <= 5000000 )) || {
       echo "set-avatar.sh: image must be 1 byte to 5 MB" >&2
       exit 1
     }
-    mime=$(file -b --mime-type "$src" 2>/dev/null || true)
+    mime=$(file -b --mime-type "$staged" 2>/dev/null || true)
     case $mime in
       image/png | image/jpeg | image/jpg) ;;
       *)
@@ -104,7 +112,7 @@ case $action in
         ;;
     esac
     if [[ $user == "$(id -un)" ]]; then
-      install_face "$src"
+      install_face "$staged"
     else
       "$ROOT/as-root.sh" /bin/bash -c '
         set -euo pipefail
@@ -118,9 +126,9 @@ case $action in
           setfacl -m u:sddm:x "$home" 2>/dev/null || true
           setfacl -m u:sddm:r "$home/.face.icon" 2>/dev/null || true
         fi
-      ' bash "$home" "$src"
+      ' bash "$home" "$staged"
     fi
-    install_accounts "$src"
+    install_accounts "$staged"
     ;;
   clear)
     if [[ $user == "$(id -un)" ]]; then

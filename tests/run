@@ -382,6 +382,60 @@ if [[ -x scripts/set-avatar.sh ]]; then
     exit 1
   fi
   echo "ok - set-avatar.sh rejects root, a trailing hyphen, a relative path, and a non-image"
+
+  avatar_case=$(mktemp -d)
+  trap 'rm -rf -- "$avatar_case"' EXIT
+  mkdir -p "$avatar_case/bin" "$avatar_case/home" "$avatar_case/scripts" "$avatar_case/source"
+  cp scripts/set-avatar.sh "$avatar_case/scripts/set-avatar.sh"
+  chmod +x "$avatar_case/scripts/set-avatar.sh"
+
+  cat >"$avatar_case/bin/getent" <<'SH'
+#!/bin/bash
+set -euo pipefail
+if [[ ${1:-} == passwd && ${2:-} == atmostest ]]; then
+  printf 'atmostest:x:1001:1001:Atmos Test:%s:/bin/bash\n' "$ATMOS_TEST_HOME"
+  exit 0
+fi
+exec /usr/bin/getent "$@"
+SH
+  chmod +x "$avatar_case/bin/getent"
+
+  cat >"$avatar_case/scripts/as-root.sh" <<'SH'
+#!/bin/bash
+set -euo pipefail
+last=${!#}
+if [[ " $* " == *"/var/lib/AccountsService/"* ]]; then
+  [[ $last != "$ATMOS_TEST_SOURCE" ]]
+  [[ $last == /tmp/atmos-avatar.* ]]
+  printf '%s\n' "$last" >"$ATMOS_TEST_STAGE_PATH"
+  cp -- "$last" "$ATMOS_TEST_ACCOUNTS_ICON"
+  exit 0
+fi
+exec "$@"
+SH
+  chmod +x "$avatar_case/scripts/as-root.sh"
+
+  base64 -d >"$avatar_case/source/avatar.jpg" <<'JPEG'
+/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////2wBDAf//////////////////////////////////////////////////////////////////////////////////////wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAf/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIQAxAAAAH/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/9oACAEBAAEFAqf/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oACAEDAQE/Aaf/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oACAECAQE/Aaf/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/9oACAEBAAY/Aqf/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/9oACAEBAAE/IV//2gAMAwEAAgADAAAAEP/EABQRAQAAAAAAAAAAAAAAAAAAABD/2gAIAQMBAT8QH//EABQRAQAAAAAAAAAAAAAAAAAAABD/2gAIAQIBAT8QH//EABQQAQAAAAAAAAAAAAAAAAAAABD/2gAIAQEAAT8QH//Z
+JPEG
+  chmod 700 "$avatar_case/source"
+  chmod 600 "$avatar_case/source/avatar.jpg"
+
+  PATH="$avatar_case/bin:$PATH" \
+    ATMOS_TEST_HOME="$avatar_case/home" \
+    ATMOS_TEST_SOURCE="$avatar_case/source/avatar.jpg" \
+    ATMOS_TEST_STAGE_PATH="$avatar_case/staged-path" \
+    ATMOS_TEST_ACCOUNTS_ICON="$avatar_case/accounts-icon" \
+    bash "$avatar_case/scripts/set-avatar.sh" set atmostest "$avatar_case/source/avatar.jpg"
+
+  staged_path=$(<"$avatar_case/staged-path")
+  cmp "$avatar_case/source/avatar.jpg" "$avatar_case/home/.face"
+  cmp "$avatar_case/source/avatar.jpg" "$avatar_case/home/.face.icon"
+  cmp "$avatar_case/source/avatar.jpg" "$avatar_case/accounts-icon"
+  [[ ! -e $staged_path ]]
+  rm -rf -- "$avatar_case"
+  trap - EXIT
+  echo "ok - set-avatar.sh stages a private source before privileged copies and cleans up"
 else
   echo "ok - skipping set-avatar.sh"
 fi

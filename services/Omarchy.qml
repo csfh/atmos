@@ -1201,7 +1201,9 @@ QtObject {
 
   function runGumJob(argv, kind, opts) {
     if (!(argv instanceof Array) || argv.length === 0) return
-    var cmd = ["bash", "-c", "PATH=\"$1:$PATH\" exec \"$@\"", "prefs-job", gumStubDir]
+    // shift, or "$@" still carries $1 and exec is handed the stub directory
+    // itself: prefs-job: .../scripts/stubs: Is a directory
+    var cmd = ["bash", "-c", "PATH=\"$1:$PATH\"; shift; exec \"$@\"", "prefs-job", gumStubDir]
     for (var i = 0; i < argv.length; i++) cmd.push(argv[i])
     runJob(cmd, "", kind, opts)
   }

@@ -12,6 +12,7 @@ Notable changes to Atmos. Each section is a git tag on `main` and `alpha`. Insta
 - Groups **Manage…** opens a membership dialog. You add or remove logins there instead of a Select action on the group row.
 - Import and export cover more Hypr look and input keys (blur, shadow, dim, animations, column width, scroll inertia, scroll speed, layouts, and related).
 - Night light warmth is written into a live `hyprsunset.conf` night profile, so a restart keeps the Kelvin you set.
+- Mouse button 8 (back) pops a nested page, the same as the header chevron and Escape. Error and sudo dialogs keep the button. ([#14](https://github.com/csfh/atmos/pull/14))
 
 ### Changed
 
@@ -22,6 +23,7 @@ Notable changes to Atmos. Each section is a git tag on `main` and `alpha`. Insta
 - Generic Open buttons name the destination: Configure…, Manage…, Choose…, Test…, Open folder.
 - Section `?` only appears when the group has extra copy beyond the row text.
 - List Remove stays visible. It used to appear on hover when Edit was already on the row, which is why a flat `theme-set` hook flashed Remove… as the pointer crossed it.
+- After a touchpad or high-resolution wheel throw, the pane coasts with the velocity from that gesture instead of stopping the moment the events stop. Notch wheels stay stepped and stop with the clicks. Based on work by Fred Nix ([@nixfred](https://github.com/nixfred)). ([#13](https://github.com/csfh/atmos/pull/13))
 
 ### Fixed
 

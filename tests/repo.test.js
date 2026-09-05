@@ -1007,15 +1007,15 @@ assert(
 );
 assert(
   omarchySrc.indexOf("if (!AccountsJs.isFullName(name)) return") !== -1,
-  "Omarchy validates full name with AccountsJs.isFullName"
+  "Omarchy validates full name with AccountsJs.isFullName",
 );
 
 // runGumJob passes the stub dir as $1 and the command after it. Without the
 // shift, "$@" still carries $1 and exec is handed the directory itself:
 //   prefs-job: .../scripts/stubs: Is a directory
 assert(
-  omarchySrc.indexOf('PATH=\"$1:$PATH\"; shift; exec \"$@\"') !== -1,
-  "runGumJob shifts the stub dir off before exec"
+  omarchySrc.indexOf('PATH=\\"$1:$PATH\\"; shift; exec') !== -1,
+  "runGumJob shifts the stub dir off before exec",
 );
 
 // A job whose input is read to EOF hangs unless stdin is closed after the

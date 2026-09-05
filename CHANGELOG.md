@@ -2,6 +2,34 @@
 
 Notable changes to Atmos. Each section is a git tag on `main` and `alpha`. Install and in-app Update follow the `alpha` branch.
 
+## [v0.0.1-alpha.9] - 2026-09-05
+
+### Added
+
+- Shared setting layout. `SettingRow` is the row: hairline splits, trailing On/Off status for values you cannot change here, captions, and an optional leading checkbox. `PrefsRow` stays an alias. `CollectionRow` is the list row (Install, Enable, Edit, Remove). `PrefsCheck` is the export inclusion box. `PrefsSliderStepper` is the compact slider plus numeric stepper used for text size and cursor size.
+- Visual tokens in `Theme.qml` (type scale, control sizes, motion, `copyInset`). Page title, section heading, and setting label share one left edge.
+- `hypr.atmos_layout` wraps dwindle `layoutmsg` (`togglesplit`, `swapsplit`, `preselect`) so Super+J on a scrolling workspace does not throw. Install copies `packaging/hypr-atmos-layout.lua` to `~/.config/hypr/atmos_layout.lua` and requires it before Omarchy defaults.
+- Groups **Manage…** opens a membership dialog. You add or remove logins there instead of a Select action on the group row.
+- Import and export cover more Hypr look and input keys (blur, shadow, dim, animations, column width, scroll inertia, scroll speed, layouts, and related).
+- Night light warmth is written into a live `hyprsunset.conf` night profile, so a restart keeps the Kelvin you set.
+
+### Changed
+
+- Read-only booleans such as Secure Boot and lid close show On/Off status instead of a disabled switch.
+- Empty collections say so (no hidden/pinned bar icons, no reminders waiting, no scripts) instead of a blank control or a second create button.
+- Toggle labels and descriptions describe the same direction. Show bar is "Keep the bar visible. Turn this off to hide it."
+- Volume, brightness, and gaps keep a full-width slider. Text size and cursor size use the compact slider plus stepper. Tick labels on the wide slider are thinned so they do not collide.
+- Generic Open buttons name the destination: Configure…, Manage…, Choose…, Test…, Open folder.
+- Section `?` only appears when the group has extra copy beyond the row text.
+- List Remove stays visible. It used to appear on hover when Edit was already on the row, which is why a flat `theme-set` hook flashed Remove… as the pointer crossed it.
+
+### Fixed
+
+- SettingRow toggles could stay hidden after child controls landed. The row now tracks `children.length`.
+- Sentinel parsers skip commented autostart, bind, and window examples, keep live calls with comments inside the table, and treat Lua `\n` in a string as a newline.
+- Importing a clock format onto a bar on the left or right writes `verticalFormat`, which is the key the bar reads.
+- Typed fields (hostname, weather, SSH key, Hyprland layouts, full name) validate before Set, and Set stays off when the value is invalid or unchanged.
+
 ## [v0.0.1-alpha.8] - 2026-09-04
 
 ### Added
@@ -127,6 +155,7 @@ First public alpha. Standalone [Quickshell](https://quickshell.org) preferences 
 - Keyboard use on controls (tab focus and activation). File watching of Omarchy/Hyprland paths so outside changes can refresh the snapshot. Shared page routing and content-column layout.
 - MIT license. Contributions assign copyright to Christoffer Hallas ([CLA](CLA.md)).
 
+[v0.0.1-alpha.9]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.8...v0.0.1-alpha.9
 [v0.0.1-alpha.8]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.7...v0.0.1-alpha.8
 [v0.0.1-alpha.7]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.6...v0.0.1-alpha.7
 [v0.0.1-alpha.6]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.5...v0.0.1-alpha.6

@@ -152,6 +152,18 @@ queue_stdin() {
 
 bool_arg() { [[ $1 == true ]] && printf 'true\n' || printf 'false\n'; }
 
+# format / formatAlt on a horizontal bar, verticalFormat / verticalFormatAlt
+# on one down the side.
+clock_key() {
+  local base=$1 position
+  position=$(plan_or_snapshot barPosition)
+  if [[ $position == left || $position == right ]]; then
+    printf 'vertical%s%s\n' "$(tr '[:lower:]' '[:upper:]' <<<"${base:0:1}")" "${base:1}"
+  else
+    printf '%s\n' "$base"
+  fi
+}
+
 # A toggle has no "set" verb, so it only runs when the plan actually flips it.
 toggle_needed() {
   local key=$1
@@ -188,11 +200,16 @@ while IFS= read -r key; do
 
     barPosition) queue "$key" "" omarchy bar position "$value" ;;
     barTransparent) queue "$key" "" omarchy bar transparent "$(bool_arg "$value")" ;;
+    # The toggle is named bar-off, so the argument is the state being turned
+    # off. Passing the visibility straight through showed the bar when the
+    # plan asked to hide it.
     barVisible)
-      toggle_needed "$key" && queue "$key" "" omarchy toggle bar "$([[ $value == true ]] && echo on || echo off)"
+      toggle_needed "$key" && queue "$key" "" omarchy toggle bar "$([[ $value == true ]] && echo off || echo on)"
       ;;
-    clockFormat) queue "$key" clock omarchy bar set omarchy.clock format "$value" ;;
-    clockFormatAlt) queue "$key" clock omarchy bar set omarchy.clock formatAlt "$value" ;;
+    # A bar on the left or right draws the clock from verticalFormat, so
+    # writing format there changes a setting nobody can see.
+    clockFormat) queue "$key" clock omarchy bar set omarchy.clock "$(clock_key format)" "$value" ;;
+    clockFormatAlt) queue "$key" clock omarchy bar set omarchy.clock "$(clock_key formatAlt)" "$value" ;;
     clockWeekStart) queue "$key" clock omarchy bar set omarchy.clock weekStartDay "$value" ;;
 
     browser | terminal | editor | agent) queue "$key" "" omarchy default "$key" "$value" ;;
@@ -253,12 +270,12 @@ while IFS= read -r key; do
 
     audioOutputVolume) queue "$key" "" bash "$ROOT/set-audio.sh" output-volume "$value" ;;
     audioInputVolume) queue "$key" "" bash "$ROOT/set-audio.sh" input-volume "$value" ;;
-    audioOutputMuted)
-      toggle_needed "$key" && queue "$key" "" omarchy audio output volume mute-toggle
-      ;;
-    audioInputMuted)
-      toggle_needed "$key" && queue "$key" "" omarchy audio input mute
-      ;;
+    # Deferred to the end of the run. set-audio.sh unmutes the device before
+    # it sets a volume, and the keys sort mute before volume, so muting first
+    # and then setting a volume left the device unmuted. There is only a
+    # toggle, no set, so the desired state is compared against what the
+    # volume write will have left behind.
+    audioOutputMuted | audioInputMuted) ;;
     audioTuningOn) queue "$key" "" omarchy audio tuning "$([[ $value == true ]] && echo on || echo off)" ;;
 
     powerProfileAc) queue "$key" "" omarchy powerprofiles set ac "$value" ;;
@@ -327,6 +344,21 @@ while IFS= read -r key; do
       ;;
   esac
 done < <(jq -r '.changes[].key' <<<"$PLAN")
+
+# Mute last, against the state the volume writes leave behind.
+queue_mute() {
+  local key=$1 volume_key=$2
+  shift 2
+  plan_has "$key" || return 0
+  local want current
+  want=$(plan_value "$key")
+  # A volume write unmutes, so that is the state this is really starting from.
+  if plan_has "$volume_key"; then current=false; else current=$(snap_value "$key"); fi
+  [[ $want == "$current" ]] && return 0
+  queue "$key" "" "$@"
+}
+queue_mute audioOutputMuted audioOutputVolume omarchy audio output volume mute-toggle
+queue_mute audioInputMuted audioInputVolume omarchy audio input mute
 
 # The undo plan is the same plan with from and value swapped, so reversing an
 # import is the ordinary path rather than a special one.

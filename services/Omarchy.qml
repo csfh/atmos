@@ -909,8 +909,7 @@ QtObject {
   }
 
   // Job record: kind ("read"|"mut"|"job"), argv, stdin, key, apply, refresh,
-  // sudo, jobKind, onStdoutLine, onFinished. apply is consumed for mut;
-  // kind job may carry apply but jobProc does not read it yet.
+  // sudo, jobKind, onStdoutLine, onFinished. apply is consumed for mut and job.
   function enqueueIo(job) {
     if (!job) return
     if (job.sudo && !passwordlessSudo) {
@@ -968,7 +967,8 @@ QtObject {
       stdin: String(stdinText || ""),
       jobKind: kind,
       key: opts.key ? String(opts.key) : kind,
-      refresh: opts.refresh === "none" ? "none" : "all",
+      apply: opts.apply && typeof opts.apply === "object" ? opts.apply : null,
+      refresh: opts.refresh === "none" ? "none" : SnapshotGroups.normalizeGroup(opts.refresh || "all"),
       sudo: opts.sudo === true,
       onStdoutLine: typeof opts.onStdoutLine === "function" ? opts.onStdoutLine : null,
       onFinished: typeof opts.onFinished === "function" ? opts.onFinished : null
@@ -1038,10 +1038,22 @@ QtObject {
   function installTheme(url) {
     url = RichUi.parseGitUrl(url)
     if (!url) return
-    runJob(["omarchy", "theme", "install", url], "", "theme-install")
+    var name = RichUi.gitThemeName(url)
+    var extras = extraThemes.slice()
+    var allThemes = themes.slice()
+    var apply = null
+    if (name) {
+      if (extras.indexOf(name) === -1) extras.push(name)
+      if (allThemes.indexOf(name) === -1) allThemes.push(name)
+      apply = { extraThemes: extras, themes: allThemes, theme: name }
+    }
+    runJob(["omarchy", "theme", "install", url], "", "theme-install", {
+      refresh: "look",
+      apply: apply
+    })
   }
   function updateThemes() {
-    runJob(["omarchy", "theme", "update"], "", "theme-update")
+    runJob(["omarchy", "theme", "update"], "", "theme-update", { refresh: "look" })
   }
   function removeTheme(name) {
     name = String(name || "").replace(/^\s+|\s+$/g, "")
@@ -2890,7 +2902,6 @@ QtObject {
     defaultAboutBrandFile: defaultAboutBrandFile,
     plymouthLogoFile: plymouthLogoFile,
     defaultPlymouthLogoFile: defaultPlymouthLogoFile,
-    extraThemesDir: extraThemesDir,
     packagedThemesDir: packagedThemesDir,
     fontconfigFile: fontconfigFile,
     indicatorsDir: indicatorsDir,
@@ -2933,20 +2944,6 @@ QtObject {
     }
   }
 
-  function syncThemeFromDisk() {
-    var slug = Theme.currentThemeSlug()
-    if (!slug) return
-    Theme.handleCurrentChanged()
-    root.applyThemeNameFromFile(slug)
-  }
-
-  function syncThemeFromDiskIfStale() {
-    var slug = Theme.currentThemeSlug()
-    if (!slug) return
-    if (ThemeJs.themeSlug(slug) === ThemeJs.themeSlug(root.theme)) return
-    root.syncThemeFromDisk()
-  }
-
   onThemesChanged: {
     var mapped = ThemeJs.themeNameFromSlug(root.theme, root.themes)
     if (mapped && mapped !== root.theme) root.applySnapshot(JSON.stringify({ theme: mapped }))
@@ -2963,6 +2960,32 @@ QtObject {
         root.scheduleRefresh(modelData.group)
       }
     }
+  }
+
+  // FileView misses nested git clones in extraThemesDir. inotifywait follows
+  // create/delete/move/close_write; the 1s timer restarts a dead watcher.
+  property Process extraThemesWatcher: Process {
+    running: true
+    command: [
+      "inotifywait", "-m", "-q",
+      "-e", "create,delete,move,close_write",
+      "--format", "%e %f",
+      extraThemesDir
+    ]
+    stdout: SplitParser {
+      onRead: function(line) { extraThemesDebounce.restart() }
+    }
+    onExited: extraThemesWatcherRestart.restart()
+  }
+
+  property Timer extraThemesWatcherRestart: Timer {
+    interval: 1000
+    onTriggered: extraThemesWatcher.running = true
+  }
+
+  property Timer extraThemesDebounce: Timer {
+    interval: 180
+    onTriggered: root.scheduleRefresh("look")
   }
 
   property Timer refreshTimer: Timer {
@@ -3116,8 +3139,9 @@ QtObject {
           root.lastError = failText ? "" : "Command failed"
       } else {
         root.lastError = ""
-        if (!job || job.refresh !== "none")
-          WorkQueue.enqueueRead(root.ioQueue, "all")
+        root.applyWritePatch(job)
+        if (job && job.refresh && job.refresh !== "none")
+          WorkQueue.enqueueRead(root.ioQueue, SnapshotGroups.normalizeGroup(job.refresh))
       }
       root.jobKind = ""
       root.ioFinished()

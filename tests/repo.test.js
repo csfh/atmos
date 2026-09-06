@@ -1395,3 +1395,59 @@ assert(
   settingsSrc.indexOf('title: "Idle and light"') !== -1,
   "export Markdown keeps Idle and light",
 );
+
+const installStart = omarchySrc.indexOf("function installTheme(");
+const installEnd = omarchySrc.indexOf("function updateThemes(", installStart);
+const installBody = omarchySrc.slice(installStart, installEnd);
+assert(installBody.indexOf('refresh: "look"') !== -1, "installTheme refreshes look after a clone");
+assert(
+  installBody.indexOf("RichUi.gitThemeName") !== -1 &&
+    installBody.indexOf("extraThemes") !== -1 &&
+    installBody.indexOf("themes") !== -1,
+  "installTheme optimistic-patches extraThemes, themes, and theme",
+);
+const updateStart = omarchySrc.indexOf("function updateThemes(");
+const updateEnd = omarchySrc.indexOf("function removeTheme(", updateStart);
+const updateBody = omarchySrc.slice(updateStart, updateEnd);
+assert(updateBody.indexOf('refresh: "look"') !== -1, "updateThemes refreshes look");
+const runJobStart = omarchySrc.indexOf("function runJob(");
+const runJobEnd = omarchySrc.indexOf("function cancelJob(", runJobStart);
+const runJobBody = omarchySrc.slice(runJobStart, runJobEnd);
+assert(
+  runJobBody.indexOf('opts.refresh === "none" ? "none" : "all"') === -1,
+  'runJob no longer forces refresh to "none"|"all"',
+);
+assert(
+  runJobBody.indexOf("SnapshotGroups.normalizeGroup") !== -1,
+  "runJob honors snapshot groups through normalizeGroup",
+);
+assert(runJobBody.indexOf("opts.apply") !== -1, "runJob copies opts.apply onto the job");
+assert(shellSrc.indexOf("inotifywait") === -1, "inotifywait is not in shell.qml");
+assert(
+  omarchySrc.indexOf("syncThemeFromDiskIfStale") === -1 &&
+    omarchySrc.indexOf("function syncThemeFromDisk(") === -1,
+  "syncThemeFromDiskIfStale is gone",
+);
+const themeQmlSrc = fs.readFileSync(path.join(__dirname, "..", "services", "Theme.qml"), "utf8");
+assert(themeQmlSrc.indexOf("inotifywait") !== -1, "inotifywait is in Theme.qml");
+const watchStart = omarchySrc.indexOf("readonly property var watchSpecs:");
+const watchEnd = omarchySrc.indexOf("function applyThemeNameFromFile", watchStart);
+const watchBody = omarchySrc.slice(watchStart, watchEnd);
+assert(watchBody.indexOf("extraThemesDir") === -1, "extraThemesDir is not in watchSpecs");
+assert(watchBody.indexOf("packagedThemesDir") !== -1, "packaged themes dir may stay FileView");
+const extraWatchStart = omarchySrc.indexOf("property Process extraThemesWatcher:");
+assert(extraWatchStart !== -1, "Omarchy watches extraThemesDir with a Process");
+const extraWatchBody = omarchySrc.slice(extraWatchStart, extraWatchStart + 900);
+assert(
+  extraWatchBody.indexOf("inotifywait") !== -1 && extraWatchBody.indexOf("extraThemesDir") !== -1,
+  "extraThemesDir has inotifywait",
+);
+const jobProcStart = omarchySrc.indexOf("property Process jobProc:");
+assert(jobProcStart !== -1, "jobProc exists");
+const jobProcSrc = omarchySrc.slice(jobProcStart);
+const applyAt = jobProcSrc.indexOf("root.applyWritePatch(job)");
+const readAt = jobProcSrc.indexOf("enqueueRead", applyAt);
+assert(
+  applyAt !== -1 && readAt !== -1 && applyAt < readAt,
+  "jobProc calls applyWritePatch before enqueueRead",
+);

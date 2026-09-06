@@ -396,7 +396,6 @@ var WATCH_SPEC_KEYS = [
   ["defaultAboutBrandFile", "look"],
   ["plymouthLogoFile", "look"],
   ["defaultPlymouthLogoFile", "look"],
-  ["extraThemesDir", "look"],
   ["packagedThemesDir", "look"],
   ["fontconfigFile", "look"],
   ["indicatorsDir", "look"],

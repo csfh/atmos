@@ -240,6 +240,33 @@ QtObject {
     onTriggered: root.handleCurrentChanged()
   }
 
+  // omarchy-theme-set replaces current/theme. FileView keeps the old inode;
+  // inotifywait on currentDir follows the replace. The 1s timer only restarts
+  // a dead watcher.
+  property Process currentDirWatcher: Process {
+    running: true
+    command: [
+      "inotifywait", "-m", "-q",
+      "-e", "close_write,create,delete,move,modify,attrib",
+      "--format", "%e %f",
+      root.currentDir
+    ]
+    stdout: SplitParser {
+      onRead: function(line) { currentDirWatcherDebounce.restart() }
+    }
+    onExited: currentDirWatcherRestart.restart()
+  }
+
+  property Timer currentDirWatcherRestart: Timer {
+    interval: 1000
+    onTriggered: currentDirWatcher.running = true
+  }
+
+  property Timer currentDirWatcherDebounce: Timer {
+    interval: 120
+    onTriggered: root.handleCurrentChanged()
+  }
+
   property FileView peekFile: FileView {
     printErrors: false
     blockLoading: true

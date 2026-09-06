@@ -212,43 +212,6 @@ ShellRoot {
 
     onClosed: Qt.quit()
 
-    // FileView on the Theme singleton does not see omarchy-theme-set replacing
-    // ~/.local/state/omarchy/current/theme. inotifywait watches that directory
-    // the same way the shell plugin registry watches plugins.
-    Process {
-      id: currentDirWatcher
-      running: true
-      command: [
-        "inotifywait", "-m", "-q",
-        "-e", "close_write,create,delete,move,modify,attrib",
-        "--format", "%e %f",
-        Theme.currentDir
-      ]
-      stdout: SplitParser {
-        onRead: function(line) { currentDirDebounce.restart() }
-      }
-      onExited: currentDirWatcherRestart.restart()
-    }
-
-    Timer {
-      id: currentDirWatcherRestart
-      interval: 1000
-      onTriggered: currentDirWatcher.running = true
-    }
-
-    Timer {
-      id: currentDirDebounce
-      interval: 120
-      onTriggered: Omarchy.syncThemeFromDisk()
-    }
-
-    Timer {
-      interval: 800
-      running: true
-      repeat: true
-      onTriggered: Omarchy.syncThemeFromDiskIfStale()
-    }
-
     Rectangle {
       id: sidebar
       anchors.left: parent.left

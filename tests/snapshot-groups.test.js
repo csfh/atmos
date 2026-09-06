@@ -172,20 +172,26 @@ const paths = {
   pacmanConfFile: "/etc/pacman.conf",
 };
 const specs = groups.watchSpecs(paths);
-assertEqual(specs.length, 43, "watchSpecs keeps today's 43 path/group pairs");
+assertEqual(specs.length, 42, "watchSpecs drops extraThemesDir and keeps 42 path/group pairs");
 assertEqual(
   specs
     .map(function (row) {
       return row.group;
     })
     .join(","),
-  "look,look,look,look,look,look,look,look,look,look,look,look,look,look,look,look,look,look,look,look,look,look,look,all,rest,rest,rest,rest,rest,rest,rest,rest,rest,rest,rest,rest,rest,rest,rest,rest,rest,rest,rest",
+  "look,look,look,look,look,look,look,look,look,look,look,look,look,look,look,look,look,look,look,look,look,look,all,rest,rest,rest,rest,rest,rest,rest,rest,rest,rest,rest,rest,rest,rest,rest,rest,rest,rest,rest",
   "watchSpecs group order matches today's Omarchy array",
 );
 assertEqual(specs[0].path, "/u/shell.json", "watchSpecs uses the passed userShellJson path");
-assertEqual(specs[12].path, "/u/omarchy/themes", "watchSpecs still includes extraThemesDir");
-assertEqual(specs[23].group, "all", "togglesDir stays all");
-assertEqual(specs[23].path, paths.togglesDir, "togglesDir path is the live map value");
+assertEqual(specs[12].path, "/usr/share/omarchy/themes", "watchSpecs keeps packagedThemesDir");
+assert(
+  specs.every(function (row) {
+    return row.path !== "/u/omarchy/themes";
+  }),
+  "watchSpecs does not FileView extraThemesDir",
+);
+assertEqual(specs[22].group, "all", "togglesDir stays all");
+assertEqual(specs[22].path, paths.togglesDir, "togglesDir path is the live map value");
 assertEqual(
   groups.snapshotGroupForWatchPath(paths.looknfeelLuaFile, specs),
   "look",

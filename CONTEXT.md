@@ -30,4 +30,4 @@
 
 **Look payload** — A snapshot (or `job.apply`) whose group is `look`. Not the Appearance hub.
 
-**job.apply** — Optional object on an enqueueIo job (`kind` `mut` or `job`). `mutProc` adopts it today; `jobProc` does not yet.
+**job.apply** — Optional object on an enqueueIo job (`kind` `mut` or `job`). `mutProc` and `jobProc` adopt it on success, then enqueue the job's refresh group.

@@ -2698,11 +2698,17 @@ function runCommandsCli(argv) {
   var inputFile =
     process.env.ATMOS_INPUT_FILE || path.join(process.env.HOME || "", ".config/hypr/input.lua");
   try {
-    var HyprPrefs = require("./HyprPrefs.js");
-    if (fs.existsSync(inputFile))
-      opts.workspaceGestureUnmanaged = HyprPrefs.inputHasUnmanagedWorkspaceGesture(
-        fs.readFileSync(inputFile, "utf8"),
+    if (fs.existsSync(inputFile)) {
+      var listed = require("child_process").spawnSync(
+        "python3",
+        [path.join(scriptsRoot, "hypr-sentinel.py"), "input", "list", inputFile],
+        { encoding: "utf8" },
       );
+      if (listed.status === 0) {
+        var parsed = JSON.parse(String(listed.stdout || "").replace(/^\s+|\s+$/g, "") || "{}");
+        opts.workspaceGestureUnmanaged = parsed.workspaceGestureUnmanaged === true;
+      }
+    }
   } catch (e) {}
   for (i = 0; i < changes.length; i++) {
     var key = String(changes[i].key || "");

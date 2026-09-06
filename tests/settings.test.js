@@ -726,6 +726,30 @@ assertEqual(
   "matching an unmanaged gesture still warns instead of claiming a write",
 );
 
+const skippedGesture = settings.planCommands(
+  [{ key: "hyprInput.workspaceGesture", value: true }],
+  { hyprInput: { workspaceGesture: false, sensitivity: 0 } },
+  { workspaceGestureUnmanaged: true },
+);
+assertEqual(skippedGesture.length, 1, "planCommands reports a skipped unmanaged gesture");
+assertEqual(skippedGesture[0].skip, true, "the unmanaged gesture command is a skip");
+assertEqual(
+  skippedGesture[0].key,
+  "hyprInput.workspaceGesture",
+  "the skip keeps the workspace gesture key",
+);
+
+const otherInput = settings.commandFor(
+  "hyprInput.sensitivity",
+  -0.2,
+  { hyprInput: { workspaceGesture: true, sensitivity: 0 } },
+  { workspaceGestureUnmanaged: true },
+);
+assert(
+  otherInput.stdin.indexOf("workspaceGesture") === -1,
+  "an unmanaged live gesture is omitted from a paired input write",
+);
+
 const selected = planFor(
   "```toml atmos:meta\nschema = 1\n```\n" +
     '```toml atmos:appearance\ntheme = "catppuccin"\n```\n' +

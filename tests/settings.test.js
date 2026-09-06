@@ -742,6 +742,78 @@ assert(
   "mute after volume still toggles because volume unmutes",
 );
 
+const muteOnlyOn = settings.planCommands(
+  [{ key: "audioOutputMuted", value: true }],
+  { audioOutputMuted: false },
+  {},
+);
+assertEqual(muteOnlyOn.length, 1, "mute-only unmuted to muted emits a toggle");
+assertEqual(muteOnlyOn[0].key, "audioOutputMuted", "mute-only keeps the mute key");
+assert(
+  muteOnlyOn[0].argv.join(" ").indexOf("mute-toggle") !== -1,
+  "mute-only unmuted to muted toggles output mute",
+);
+
+const muteOnlyOff = settings.planCommands(
+  [{ key: "audioOutputMuted", value: false }],
+  { audioOutputMuted: true },
+  {},
+);
+assertEqual(muteOnlyOff.length, 1, "mute-only muted to unmuted emits a toggle");
+assert(
+  muteOnlyOff[0].argv.join(" ").indexOf("mute-toggle") !== -1,
+  "mute-only muted to unmuted toggles output mute",
+);
+
+const inputMuteOnly = settings.planCommands(
+  [{ key: "audioInputMuted", value: true }],
+  { audioInputMuted: false },
+  {},
+);
+assertEqual(inputMuteOnly.length, 1, "input mute-only unmuted to muted emits a toggle");
+
+const muteOnlySkip = settings.planCommands(
+  [{ key: "audioOutputMuted", value: true }],
+  { audioOutputMuted: true },
+  {},
+);
+assertEqual(muteOnlySkip.length, 0, "mute-only skips when the snapshot already matches");
+
+const inputCmd = settings.commandFor(
+  "hyprInput.sensitivity",
+  0.5,
+  { hyprInput: { sensitivity: 0, naturalScroll: false }, hyprInputManaged: false },
+  {},
+);
+assertEqual(
+  settings.commandFor("hyprLook.gapsIn", 9, { hyprLook: { gapsIn: 5 } }, {}).apply.group,
+  "look",
+  "hyprLook apply is tagged look",
+);
+assertEqual(inputCmd.apply.group, undefined, "hyprInput apply is not tagged look");
+assertEqual(inputCmd.apply.hyprInput.sensitivity, 0.5, "hyprInput apply carries the merged object");
+assertEqual(inputCmd.apply.hyprInputManaged, true, "hyprInput apply sets hyprInputManaged");
+
+const groups = load("services/SnapshotGroups.js");
+const snapshotJs = load("services/Snapshot.js");
+const adoptAdapters = {
+  clampLook: hypr.clampLook,
+  clampInput: hypr.clampInput,
+  allowedKey: groups.allowedKey,
+};
+const adoptedInput = snapshotJs.adopt(
+  { hyprInput: { sensitivity: 0, naturalScroll: false }, hyprInputManaged: false },
+  inputCmd.apply,
+  adoptAdapters,
+);
+assertEqual(
+  adoptedInput.hyprInput.sensitivity,
+  0.5,
+  "hyprInput apply survives adopt with allowedKey",
+);
+assertEqual(adoptedInput.hyprInputManaged, true, "hyprInputManaged apply survives adopt");
+assertEqual(adoptedInput.hyprInput.naturalScroll, false, "hyprInput apply keeps unpatched fields");
+
 const sideClock = settings.commandFor("clockFormat", "HH:mm", { barPosition: "left" });
 assert(
   sideClock.argv.indexOf("verticalFormat") !== -1,

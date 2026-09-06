@@ -1010,7 +1010,19 @@ QtObject {
     name = String(name || "")
     if (!name || name === theme) return
     Theme.applyNamedTheme(name)
-    dispatchSetting("theme", name)
+    var cmd = SettingsJs.commandFor("theme", name, snapshotData, scriptOpts())
+    if (!cmd || cmd.skip) return
+    // Import argv stays omarchy theme set. Detach here so mutProc does not
+    // wait for omarchy-theme-set to recolor the shell.
+    var argv = ["bash", "-c", "\"$@\" >/dev/null 2>&1 &", "theme-set"]
+    var i
+    for (i = 0; i < cmd.argv.length; i++) argv.push(cmd.argv[i])
+    runCommand(argv, {
+      key: cmd.coalesceKey || "theme",
+      apply: cmd.apply,
+      refresh: "none",
+      sudo: cmd.sudo === true
+    })
   }
   function openThemeSwitcher() {
     runCommand(["bash", "-c", "theme=$(omarchy theme switcher || true); [[ -n $theme ]] && omarchy theme set \"$theme\" >/dev/null 2>&1 &"], {

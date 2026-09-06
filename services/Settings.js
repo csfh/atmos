@@ -1849,8 +1849,6 @@ var APPLY_GROUP = {
   textSize: "look",
   hyprLook: "look",
   hyprLookManaged: "look",
-  hyprInput: "look",
-  hyprInputManaged: "look",
   hyprNoGaps: "look",
   hyprSquareAspect: "look",
   barPosition: "look",
@@ -2135,7 +2133,7 @@ function writerSpec(key) {
       kind: "hypr-group",
       group: "hyprInput",
       script: "input",
-      snapshotGroup: "look",
+      snapshotGroup: "rest",
       backup: "hyprInput",
     };
   }
@@ -2597,7 +2595,7 @@ function planCommands(changes, snapshot, opts) {
     if (merged) seen[merged] = true;
     out.push(cmd);
   }
-  var muteSnap = copyObject(snap);
+  var muteSnap = copyObject(snapshot || {});
   // Volume writes unmute, so compare mute against that leftover state.
   if (volumeIn(list, "audioOutputVolume")) muteSnap.audioOutputMuted = false;
   if (volumeIn(list, "audioInputVolume")) muteSnap.audioInputMuted = false;

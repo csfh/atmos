@@ -1002,29 +1002,30 @@ else
   echo "ok - skipping set-hypr-input.sh"
 fi
 
-if [[ -x scripts/snapshot.sh ]] && command -v python3 >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
+if [[ -x scripts/hypr-sentinel.py ]] && command -v python3 >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
   gesture_snap=$(mktemp -d)
+  # Same jq read snapshot.sh uses: a live unmanaged line is on and not managed.
   cat >"$gesture_snap/input.lua" <<'LUA'
 -- Enable touchpad gestures for changing workspaces.
 hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })
 LUA
-  snap_json=$(ATMOS_INPUT_FILE="$gesture_snap/input.lua" HOME="$gesture_snap" bash scripts/snapshot.sh)
-  echo "$snap_json" | jq -e '.hyprWorkspaceGesture == true and .hyprWorkspaceGestureManaged == false and .hyprWorkspaceGestureUnmanaged == true and .hyprInput.workspaceGesture == true' >/dev/null
+  parsed=$(python3 scripts/hypr-sentinel.py input list "$gesture_snap/input.lua")
+  echo "$parsed" | jq -e '.workspaceGesture == true and .workspaceGestureManaged == false and .workspaceGestureUnmanaged == true' >/dev/null
   cat >"$gesture_snap/input.lua" <<'LUA'
 -- Enable touchpad gestures for changing workspaces.
 -- hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })
 LUA
-  snap_json=$(ATMOS_INPUT_FILE="$gesture_snap/input.lua" HOME="$gesture_snap" bash scripts/snapshot.sh)
-  echo "$snap_json" | jq -e '.hyprWorkspaceGesture == false and .hyprWorkspaceGestureUnmanaged == false and .hyprInput.workspaceGesture == false' >/dev/null
+  parsed=$(python3 scripts/hypr-sentinel.py input list "$gesture_snap/input.lua")
+  echo "$parsed" | jq -e '.workspaceGesture == false and .workspaceGestureUnmanaged == false' >/dev/null
   cat >"$gesture_snap/input.lua" <<'LUA'
 -- atmos:input begin
 hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })
 -- atmos:input end
 LUA
-  snap_json=$(ATMOS_INPUT_FILE="$gesture_snap/input.lua" HOME="$gesture_snap" bash scripts/snapshot.sh)
-  echo "$snap_json" | jq -e '.hyprWorkspaceGesture == true and .hyprWorkspaceGestureManaged == true and .hyprWorkspaceGestureUnmanaged == false' >/dev/null
+  parsed=$(python3 scripts/hypr-sentinel.py input list "$gesture_snap/input.lua")
+  echo "$parsed" | jq -e '.workspaceGesture == true and .workspaceGestureManaged == true and .workspaceGestureUnmanaged == false' >/dev/null
   rm -rf "$gesture_snap"
-  echo "ok - snapshot.sh reports managed vs unmanaged workspace gesture"
+  echo "ok - snapshot.sh input list reports managed vs unmanaged workspace gesture"
 else
   echo "ok - skipping snapshot.sh workspace gesture"
 fi

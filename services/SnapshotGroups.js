@@ -446,10 +446,24 @@ function setSnapshotGroupForHub(fn) {
 
 function snapshotGroupForHub(hub) {
   if (snapshotGroupForHubImpl) return snapshotGroupForHubImpl(hub);
+  // Unwired callers keep today's look-first policy until Hubs is installed.
   var id = String(hub || "");
   var slash = id.indexOf("/");
   if (slash !== -1) id = id.substring(0, slash);
-  if (!id) return "look";
+  if (
+    !id ||
+    id === "appearance" ||
+    id === "display" ||
+    id === "windows" ||
+    id === "bar" ||
+    id === "notifications" ||
+    id === "idle"
+  )
+    return "look";
+  if (id === "network") return "network";
+  if (id === "disks") return "disks";
+  if (id === "accounts") return "accounts";
+  if (id === "system") return "system";
   return "all";
 }
 

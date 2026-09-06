@@ -1355,8 +1355,20 @@ assert(searchSrc.indexOf("FILE_HUB") === -1, "SearchIndex does not own FILE_HUB"
 assert(searchSrc.indexOf("PAGE_TITLE") === -1, "SearchIndex does not own PAGE_TITLE");
 assert(searchSrc.indexOf("hubsApi()") !== -1, "SearchIndex loads Hubs via vm");
 assert(
-  omarchyQml.indexOf("HubsJs.snapshotGroupForHub") !== -1,
-  "startSession uses Hubs.snapshotGroupForHub",
+  omarchyQml.indexOf("SnapshotGroups.setSnapshotGroupForHub(HubsJs.snapshotGroupForHub)") !== -1,
+  "Omarchy installs Hubs.snapshotGroupForHub on SnapshotGroups at load",
+);
+assert(
+  omarchyQml.indexOf("var first = SnapshotGroups.snapshotGroupForHub(hub)") !== -1,
+  "startSession uses SnapshotGroups.snapshotGroupForHub",
+);
+const completedStart = omarchyQml.indexOf("Component.onCompleted:");
+const completedEnd = omarchyQml.indexOf("readonly property var watchSpecs", completedStart);
+const completedBody = omarchyQml.slice(completedStart, completedEnd);
+assert(
+  completedBody.indexOf("setSnapshotGroupForHub") !== -1 &&
+    completedBody.indexOf("setSnapshotGroupForHub") < completedBody.indexOf("startSession"),
+  "Omarchy wires snapshotGroupForHub before startSession",
 );
 const settingsSrc = fs.readFileSync(path.join(__dirname, "..", "services", "Settings.js"), "utf8");
 assert(

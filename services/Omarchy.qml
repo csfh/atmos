@@ -673,7 +673,7 @@ QtObject {
   }
 
   function startSession(hub) {
-    var first = HubsJs.snapshotGroupForHub(hub)
+    var first = SnapshotGroups.snapshotGroupForHub(hub)
     WorkQueue.enqueueRead(ioQueue, first)
     if (first !== "all") WorkQueue.enqueueRead(ioQueue, "rest")
     kickIo()
@@ -3089,6 +3089,7 @@ QtObject {
   }
 
   Component.onCompleted: {
+    SnapshotGroups.setSnapshotGroupForHub(HubsJs.snapshotGroupForHub)
     Theme.currentThemeSwapped.connect(root.applyThemeNameFromFile)
     startSession(Quickshell.env("ATMOS_PAGE") || "appearance")
   }

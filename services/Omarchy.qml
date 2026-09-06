@@ -399,6 +399,8 @@ QtObject {
     var next = SnapshotJs.adopt(snapshotData, parsed, snapshotAdapters)
     snapshotData = next
     copyRecord(next)
+    var accounts = SnapshotJs.accountStorePatch(parsed)
+    if (accounts) AccountsStore.applyPatch(accounts)
   }
 
   function copyRecord(next) {
@@ -529,7 +531,6 @@ QtObject {
     ntp = SnapshotJs.adoptValue(ntp, next.ntp)
     ntpAvailable = SnapshotJs.adoptValue(ntpAvailable, next.ntpAvailable)
     ntpSynchronized = SnapshotJs.adoptValue(ntpSynchronized, next.ntpSynchronized)
-    AccountsStore.applyPatch(next)
     keyboardLayout = SnapshotJs.adoptValue(keyboardLayout, next.keyboardLayout)
     keyboardLayouts = SnapshotJs.adoptArray(keyboardLayouts, next.keyboardLayouts)
     locale = SnapshotJs.adoptValue(locale, next.locale)

@@ -187,11 +187,48 @@ assertEqual(fresh.theme, "tokyo", "adopt sets theme from an empty record");
 assertEqual(fresh.extraThemes.join(","), "a", "adopt sets extraThemes from an empty record");
 assert(!("hardware" in fresh), "adopt from {} leaves hardware absent");
 
-const full = { hardware: { cpu: { model: "X" } }, theme: "omarchy", users: [{ name: "a" }] };
-const next = snapshot.adopt(full, { theme: "x" }, adapters);
+const full = {
+  hardware: { cpu: { model: "X" } },
+  theme: "omarchy",
+  hostname: "old",
+  users: [{ name: "a" }],
+};
+const lookParsed = { theme: "x" };
+const next = snapshot.adopt(full, lookParsed, adapters);
 assert(next.hardware === full.hardware, "look/theme patch keeps hardware reference");
 assert(next.users === full.users, "look/theme patch keeps users reference");
 assertEqual(next.theme, "x", "look/theme patch updates theme");
+assertEqual(next.hostname, "old", "merged look record still carries hostname from current");
+assertEqual(
+  snapshot.accountStorePatch(lookParsed),
+  null,
+  "look patch does not build an AccountsStore patch",
+);
+assertEqual(
+  snapshot.accountStorePatch(next).hostname,
+  "old",
+  "merged record would wrongly patch stale hostname if used as the store src",
+);
+const hostPatch = snapshot.accountStorePatch({ hostname: "new", theme: "x" });
+assertEqual(hostPatch.hostname, "new", "accountStorePatch keeps hostname from parsed");
+assert(!("theme" in hostPatch), "accountStorePatch drops non-account keys");
+assert(!("users" in hostPatch), "accountStorePatch omits unpatched users");
+
+const sameHw = { cpu: { model: "X" } };
+assert(
+  snapshot.adoptValue(sameHw, sameHw) === sameHw,
+  "adoptValue keeps the same object reference",
+);
+const sameUsers = [{ name: "a" }];
+assert(
+  snapshot.adoptArray(sameUsers, sameUsers) === sameUsers,
+  "adoptArray keeps the same array reference",
+);
+const twinHw = { cpu: { model: "X" } };
+assert(
+  snapshot.adoptValue(sameHw, twinHw) === sameHw,
+  "adoptValue keeps current when JSON-equal objects differ by reference",
+);
 
 assertEqual(
   snapshot.adopt({ barVisible: true }, { barVisible: false }, adapters).barVisible,

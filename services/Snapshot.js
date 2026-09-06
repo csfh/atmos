@@ -248,6 +248,7 @@ function parseSnapshot(raw) {
 
 function adoptValue(cur, next) {
   if (next === undefined) return cur;
+  if (cur === next) return cur;
   if (next !== null && typeof next === "object") {
     if (JSON.stringify(cur) === JSON.stringify(next)) return cur;
   }
@@ -704,6 +705,20 @@ function accountKeysPatched(filtered) {
   return false;
 }
 
+function accountStorePatch(parsed) {
+  var src = isPlainObject(parsed) ? parsed : {};
+  var out = {};
+  var i;
+  var found = false;
+  for (i = 0; i < ACCOUNT_KEYS.length; i++) {
+    var key = ACCOUNT_KEYS[i];
+    if (!hasOwn(src, key)) continue;
+    out[key] = src[key];
+    found = true;
+  }
+  return found ? out : null;
+}
+
 function prepareHyprInput(src, filtered, current) {
   var input = isPlainObject(src) ? src : {};
   var prepared = {};
@@ -804,6 +819,7 @@ if (typeof module !== "undefined" && module.exports) {
     adopt: adopt,
     adoptValue: adoptValue,
     adoptArray: adoptArray,
+    accountStorePatch: accountStorePatch,
     patchGroup: patchGroup,
     sanitizeDmi: sanitizeDmi,
     patchMonitorBrightness: patchMonitorBrightness,

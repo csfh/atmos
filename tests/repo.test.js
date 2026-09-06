@@ -1062,7 +1062,15 @@ assert(
 assert(copyBody.indexOf("applyHyprLook") === -1, "copyRecord does not re-clamp look");
 assert(copyBody.indexOf("applyHyprInput") === -1, "copyRecord does not re-clamp input");
 assert(copyBody.indexOf("sanitizeDmi") === -1, "copyRecord does not re-sanitize DMI");
-assert(copyBody.indexOf("AccountsStore.applyPatch") !== -1, "copyRecord applies account keys");
+assert(
+  copyBody.indexOf("AccountsStore.applyPatch") === -1,
+  "copyRecord does not apply merged account keys",
+);
+assert(
+  omarchySrc.indexOf("AccountsStore.applyPatch(accounts)") !== -1 &&
+    omarchySrc.indexOf("SnapshotJs.accountStorePatch(parsed)") !== -1,
+  "applySnapshot applies account keys from the parsed patch, not the merge",
+);
 const copyProps = [
   "theme",
   "background",

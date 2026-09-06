@@ -1045,6 +1045,8 @@ assert(
 );
 
 assert(omarchySrc.indexOf("function applyLookPatch") === -1, "applyLookPatch is gone");
+assert(omarchySrc.indexOf("function applyHyprLook") === -1, "applyHyprLook is gone");
+assert(omarchySrc.indexOf("function applyHyprInput") === -1, "applyHyprInput is gone");
 assert(
   omarchySrc.indexOf('!("hardware" in parsed)') === -1 &&
     omarchySrc.indexOf('!("disks" in parsed)') === -1,

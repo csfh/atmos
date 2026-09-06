@@ -378,27 +378,17 @@ QtObject {
 
   property var ioQueue: WorkQueue.createWorkQueue()
   property var snapshotData: ({})
+  readonly property var snapshotAdapters: ({
+    clampLook: HyprPrefs.clampLook,
+    clampInput: HyprPrefs.clampInput,
+    applyAccountPatch: AccountsJs.applyAccountPatch,
+    normalizeHardware: HardwareJs.normalize,
+    parseTime: HyprSunset.parseTime,
+    parseChannel: AtmosUpdate.parseChannel,
+    parseWeatherCoords: RichUi.parseWeatherCoords
+  })
   property var ioJob: null
   property bool snapshotReady: false
-
-  function sanitizeDmi(raw) {
-    var source = String(raw || "")
-    if (source.indexOf("\n") !== -1 || source.indexOf("\r") !== -1) return ""
-    var s = source.replace(/\s+/g, " ").replace(/^\s+|\s+$/g, "")
-    if (!s || s.length > 160) return ""
-    if (s.indexOf("..") !== -1) return ""
-    if (s.charAt(0) === "-" || s.charAt(0) === "/") return ""
-    var lower = s.toLowerCase()
-    if (lower === "none" || lower === "default string" || lower === "unknown" || lower.indexOf("to be filled") !== -1)
-      return ""
-    return s
-  }
-
-  function adoptArray(cur, next) {
-    if (!(next instanceof Array)) next = []
-    if (JSON.stringify(cur) === JSON.stringify(next)) return cur
-    return next
-  }
 
   function applySnapshot(raw) {
     var parsed = SnapshotJs.parseSnapshot(raw)
@@ -406,521 +396,260 @@ QtObject {
       lastError = "Could not parse Omarchy snapshot"
       return
     }
-    var data = SnapshotJs.mergeSnapshot(snapshotData, parsed)
-    snapshotData = data
-    if (!("hardware" in parsed) && !("disks" in parsed)) {
-      root.applyLookPatch(parsed)
-      return
-    }
-    theme = String(data.theme || "")
-    background = String(data.background || "")
-    font = String(data.font || "")
-    textSize = Number(data.textSize) || 12
-    themes = adoptArray(themes, data.themes)
-    extraThemes = adoptArray(extraThemes, data.extraThemes)
-    desktopApps = adoptArray(desktopApps, data.desktopApps)
-    tuiApps = adoptArray(tuiApps, data.tuiApps)
-    webApps = adoptArray(webApps, data.webApps)
-    fonts = adoptArray(fonts, data.fonts)
-    barPosition = String(data.barPosition || "top")
-    barTransparent = data.barTransparent === true
-    barVisible = data.barVisible !== false
-    clockFormat = String(data.clockFormat || "")
-    clockFormatAlt = String(data.clockFormatAlt || "")
-    clockWeekStart = String(data.clockWeekStart || "").toLowerCase()
-    if (clockWeekStart !== "sunday" && clockWeekStart !== "monday" && clockWeekStart !== "tuesday" && clockWeekStart !== "wednesday" && clockWeekStart !== "thursday" && clockWeekStart !== "friday" && clockWeekStart !== "saturday")
-      clockWeekStart = ""
-    clockPresent = data.clockPresent === true
-    clockBirthYear = Math.round(Number(data.clockBirthYear)) || 0
-    if (clockBirthYear < 1) clockBirthYear = 0
-    clockLifeExpectancy = Math.round(Number(data.clockLifeExpectancy)) || 0
-    if (clockLifeExpectancy < 1 || clockLifeExpectancy > 150) clockLifeExpectancy = 0
-    indicatorsPresent = data.indicatorsPresent === true
-    indicatorsAlwaysShow = data.indicatorsAlwaysShow === true
-    indicatorsItems = adoptArray(indicatorsItems, root.normalizedIndicatorItems(data.indicatorsItems))
-    agentsPresent = data.agentsPresent === true
-    agentsRefreshIntervalSec = Number(data.agentsRefreshIntervalSec) || 900
-    if (agentsRefreshIntervalSec < 30) agentsRefreshIntervalSec = 900
-    agentsSync = data.agentsSync === true
-    agentsSyncDir = String(data.agentsSyncDir || "")
-    agentsSyncFileName = String(data.agentsSyncFileName || "")
-    agentsSyncDeviceId = String(data.agentsSyncDeviceId || "")
-    spacerPresent = data.spacerPresent === true
-    spacerSize = Math.round(Number(data.spacerSize))
-    if (!isFinite(spacerSize) || spacerSize < 0) spacerSize = 12
-    if (spacerSize > 64) spacerSize = 64
-    trayPresent = data.trayPresent === true
-    trayHidden = adoptArray(trayHidden, root.normalizedStringIds(data.trayHidden))
-    trayPinned = adoptArray(trayPinned, root.normalizedStringIds(data.trayPinned))
-    browser = String(data.browser || "")
-    terminal = String(data.terminal || "")
-    editor = String(data.editor || "")
-    agent = String(data.agent || "")
-    dns = String(data.dns || "")
-    idleScreensaver = Number(data.idleScreensaver) || 0
-    idleLock = Number(data.idleLock) || 0
-    stayAwake = data.stayAwake === true
-    nightlight = data.nightlight === true
-    nightlightTemperature = Math.round(Number(data.nightlightTemperature)) || 0
-    if (nightlightTemperature < 0) nightlightTemperature = 0
-    screensaverEnabled = data.screensaverEnabled !== false
-    screensaverBranded = data.screensaverBranded === true
-    aboutBranded = data.aboutBranded === true
-    bluetooth = data.bluetooth === true
-    wifiConnected = data.wifiConnected === true
-    wifiBand = String(data.wifiBand || "")
-    wifiBandSelected = String(data.wifiBandSelected || "auto")
-    wifiBands = adoptArray(wifiBands, data.wifiBands instanceof Array ? data.wifiBands : ["auto"])
-    wifiIface = String(data.wifiIface || "")
-    if (!/^[a-zA-Z0-9._-]+$/.test(wifiIface)) wifiIface = ""
-    netKind = String(data.netKind || "disconnected")
-    if (netKind !== "ethernet" && netKind !== "wifi") netKind = "disconnected"
-    netIface = String(data.netIface || "")
-    if (!/^[a-zA-Z0-9._-]+$/.test(netIface)) netIface = ""
-    netSsid = String(data.netSsid || "")
-    netSignal = String(data.netSignal || "")
-    if (!/^[0-9]+$/.test(netSignal)) netSignal = ""
-    netIp = String(data.netIp || "")
-    if (!/^[0-9a-fA-F:.]+$/.test(netIp)) netIp = ""
-    netSpeed = String(data.netSpeed || "")
-    if (!/^[0-9]+$/.test(netSpeed)) netSpeed = ""
-    wifiHw = data.wifiHw === true
-    wifiRadio = data.wifiRadio === true
-    wifiConnections = adoptArray(wifiConnections, data.wifiConnections)
-    bluetoothDevices = adoptArray(bluetoothDevices, data.bluetoothDevices)
-    audioSinks = adoptArray(audioSinks, data.audioSinks)
-    audioSources = adoptArray(audioSources, data.audioSources)
-    audioOutputVolume = Math.round(Number(data.audioOutputVolume)) || 0
-    if (audioOutputVolume < 0) audioOutputVolume = 0
-    if (audioOutputVolume > 100) audioOutputVolume = 100
-    audioOutputMuted = data.audioOutputMuted === true
-    audioInputVolume = Math.round(Number(data.audioInputVolume)) || 0
-    if (audioInputVolume < 0) audioInputVolume = 0
-    if (audioInputVolume > 100) audioInputVolume = 100
-    audioInputMuted = data.audioInputMuted === true
-    audioTuningMatch = data.audioTuningMatch === true
-    audioTuningOn = data.audioTuningOn === true
-    disks = adoptArray(disks, data.disks)
-    hardware = HardwareJs.normalize(data.hardware)
-    luksDevices = adoptArray(luksDevices, data.luksDevices)
-    swapDevices = adoptArray(swapDevices, data.swapDevices)
-    snapperPresent = data.snapperPresent === true
-    snapperConfigs = adoptArray(snapperConfigs, data.snapperConfigs)
-    snapshots = adoptArray(snapshots, data.snapshots)
-    hibernationAvailable = data.hibernationAvailable === true
-    hibernationSupported = data.hibernationSupported === true
-    hibernationConfigured = data.hibernationConfigured === true
-    audioSink = ""
-    audioSource = ""
-    var i
-    for (i = 0; i < audioSinks.length; i++) {
-      if (audioSinks[i] && audioSinks[i].default) {
-        audioSink = String(audioSinks[i].name || "")
-        break
-      }
-    }
-    for (i = 0; i < audioSources.length; i++) {
-      if (audioSources[i] && audioSources[i].default) {
-        audioSource = String(audioSources[i].name || "")
-        break
-      }
-    }
-    suspendEnabled = data.suspendEnabled !== false
-    powerProfile = String(data.powerProfile || "")
-    powerProfileAc = String(data.powerProfileAc || "")
-    powerProfileBattery = String(data.powerProfileBattery || "")
-    powerProfiles = adoptArray(powerProfiles, data.powerProfiles)
-    powerPresent = data.powerPresent === true
-    powerShowPercentage = data.powerShowPercentage === true
-    isLaptop = data.isLaptop === true
-    batteryPresent = data.batteryPresent === true
-    monitors = adoptArray(monitors, data.monitors)
-    internalPresent = data.internalPresent === true
-    internalEnabled = data.internalEnabled === true
-    externalPresent = data.externalPresent === true
-    mirroring = data.mirroring === true
-    touchpadPresent = data.touchpadPresent === true
-    touchpadEnabled = data.touchpadEnabled !== false
-    touchscreenPresent = data.touchscreenPresent === true
-    touchscreenEnabled = data.touchscreenEnabled !== false
-    keyboardBacklightPresent = data.keyboardBacklightPresent === true
-    keyboardBrightness = Math.round(Number(data.keyboardBrightness)) || 0
-    if (keyboardBrightness < 0) keyboardBrightness = 0
-    if (keyboardBrightness > 100) keyboardBrightness = 100
-    crashCapture = data.crashCapture !== false
-    doNotDisturb = data.doNotDisturb === true
-    weatherLocation = String(data.weatherLocation || "")
-    weatherCoords = RichUi.parseWeatherCoords(data.weatherCoords)
-    weatherAuto = data.weatherAuto !== false
-    weatherPresent = data.weatherPresent === true
-    weatherUnit = String(data.weatherUnit || "auto")
-    if (weatherUnit !== "metric" && weatherUnit !== "imperial") weatherUnit = "auto"
-    weatherRefreshMinutes = Number(data.weatherRefreshMinutes) || 15
-    if (weatherRefreshMinutes < 1) weatherRefreshMinutes = 15
-    reminderCount = Math.round(Number(data.reminderCount)) || 0
-    if (reminderCount < 0) reminderCount = 0
-    reminderActive = data.reminderActive === true
-    reminders = adoptArray(reminders, data.reminders)
-    plymouth = String(data.plymouth || "")
-    plymouthThemes = adoptArray(plymouthThemes, data.plymouthThemes)
-    hasAether = data.hasAether === true
-    browsers = data.browsers || ({})
-    terminals = data.terminals || ({})
-    editors = data.editors || ({})
-    timezone = String(data.timezone || "")
-    if (!/^[A-Za-z0-9/_+-]+$/.test(timezone) || timezone.indexOf("..") !== -1) timezone = ""
-    timezones = adoptArray(timezones, data.timezones)
-    ntp = data.ntp === true
-    ntpAvailable = data.ntpAvailable === true
-    ntpSynchronized = data.ntpSynchronized === true
-    AccountsStore.applyPatch(data)
-    keyboardLayout = String(data.keyboardLayout || "")
-    if (keyboardLayout.indexOf(",") !== -1) keyboardLayout = keyboardLayout.split(",")[0]
-    if (!/^[a-z0-9]{1,8}$/.test(keyboardLayout)) keyboardLayout = ""
-    keyboardLayouts = adoptArray(keyboardLayouts, data.keyboardLayouts)
-    locale = String(data.locale || "")
-    if (locale !== "C.UTF-8" && !/^[a-z]{2,3}(_[A-Z]{2})?\.UTF-8(@[A-Za-z0-9]+)?$/.test(locale))
-      locale = ""
-    locales = adoptArray(locales, data.locales)
-    parallelDownloads = Math.round(Number(data.parallelDownloads)) || 5
-    if (parallelDownloads < 1) parallelDownloads = 5
-    if (parallelDownloads > 20) parallelDownloads = 20
-    root.applyHyprLook(data.hyprLook)
-    root.applyHyprInput(data.hyprInput)
-    hyprLookManaged = data.hyprLookManaged === true
-    hyprInputManaged = data.hyprInputManaged === true
-    hyprWorkspaceGesture = data.hyprWorkspaceGesture === true
-    hyprNoGaps = data.hyprNoGaps === true
-    hyprSquareAspect = data.hyprSquareAspect === true
-    hyprWorkspaceLayout = String(data.hyprWorkspaceLayout || "dwindle")
-    if (hyprWorkspaceLayout !== "scrolling") hyprWorkspaceLayout = "dwindle"
-    fingerprintAvailable = data.fingerprintAvailable === true
-    fingerprintConfigured = data.fingerprintConfigured === true
-    fido2Configured = data.fido2Configured === true
-    sshdEnabled = data.sshdEnabled === true
-    sshdActive = data.sshdActive === true
-    passwordlessSudo = data.passwordlessSudo === true
-    sudolessDocker = data.sudolessDocker === true
-    omarchyVersion = String(data.omarchyVersion || "")
-    omarchyChannel = String(data.omarchyChannel || "")
-    if (omarchyChannel !== "stable" && omarchyChannel !== "rc" && omarchyChannel !== "edge" && omarchyChannel !== "dev")
-      omarchyChannel = ""
-    updateAvailable = data.updateAvailable === true
-    updateSummary = String(data.updateSummary || "")
-    atmosRevision = String(data.atmosRevision || "")
-    if (!/^[0-9a-f]{4,40}$/.test(atmosRevision)) atmosRevision = ""
-    atmosChannel = AtmosUpdate.parseChannel(data.atmosChannel)
-    if (!atmosChannel) atmosChannel = "alpha"
-    atmosInstalled = data.atmosInstalled === true
-    voxtypeInstalled = data.voxtypeInstalled === true
-    hybridGpuAvailable = data.hybridGpuAvailable === true
-    hybridGpuMode = String(data.hybridGpuMode || "")
-    if (hybridGpuMode !== "Integrated" && hybridGpuMode !== "Hybrid") hybridGpuMode = ""
-    hwNvidia = data.hwNvidia === true
-    hwNvidiaGsp = data.hwNvidiaGsp === true
-    hwNvidiaWithoutGsp = data.hwNvidiaWithoutGsp === true
-    hwVulkan = data.hwVulkan === true
-    hwIntel = data.hwIntel === true
-    hwIntelPtl = data.hwIntelPtl === true
-    hwWebcam = data.hwWebcam === true
-    hwFramework16 = data.hwFramework16 === true
-    hwAsusRog = data.hwAsusRog === true
-    hwSurface = data.hwSurface === true
-    dmiVendor = root.sanitizeDmi(data.dmiVendor)
-    dmiProduct = root.sanitizeDmi(data.dmiProduct)
-    dmiFamily = root.sanitizeDmi(data.dmiFamily)
-    cpuStat = String(data.cpuStat || "").replace(/^\s+|\s+$/g, "")
-    memoryStat = String(data.memoryStat || "").replace(/^\s+|\s+$/g, "")
-    cpuIdentity = root.sanitizeDmi(data.cpuIdentity)
-    gpuIdentity = root.sanitizeDmi(data.gpuIdentity)
-    npuIdentity = root.sanitizeDmi(data.npuIdentity)
-    tailscaleInstalled = data.tailscaleInstalled === true
-    tailscaleRunning = data.tailscaleRunning === true
-    plugins = adoptArray(plugins, data.plugins)
-    snapperNumberLimit = Math.round(Number(data.snapperNumberLimit)) || 5
-    if (snapperNumberLimit < 1) snapperNumberLimit = 5
-    if (snapperNumberLimit > 50) snapperNumberLimit = 50
-    snapperTimeline = data.snapperTimeline === true
-    fstrimEnabled = data.fstrimEnabled === true
-    directBootAvailable = data.directBootAvailable === true
-    directBoot = data.directBoot === true
-    mimePdf = String(data.mimePdf || "")
-    mimeImage = String(data.mimeImage || "")
-    mimeVideo = String(data.mimeVideo || "")
-    if (!/^[A-Za-z0-9._-]+\.desktop$/.test(mimePdf)) mimePdf = ""
-    if (!/^[A-Za-z0-9._-]+\.desktop$/.test(mimeImage)) mimeImage = ""
-    if (!/^[A-Za-z0-9._-]+\.desktop$/.test(mimeVideo)) mimeVideo = ""
-    mimePdfOptions = adoptArray(mimePdfOptions, data.mimePdfOptions)
-    mimeImageOptions = adoptArray(mimeImageOptions, data.mimeImageOptions)
-    mimeVideoOptions = adoptArray(mimeVideoOptions, data.mimeVideoOptions)
-    picturesDir = String(data.picturesDir || "")
-    videosDir = String(data.videosDir || "")
-    recordingActive = data.recordingActive === true
-    webcamOverlay = data.webcamOverlay === true
-    services = data.services || ({})
-    gaming = data.gaming || ({})
-    extras = data.extras || ({})
-    hooks = adoptArray(hooks, data.hooks)
-    autostart = adoptArray(autostart, data.autostart)
-    autostartManaged = data.autostartManaged === true
-    bindings = adoptArray(bindings, data.bindings)
-    bindingsManaged = data.bindingsManaged === true
-    windowRules = adoptArray(windowRules, data.windowRules)
-    windowRulesManaged = data.windowRulesManaged === true
-    keybindings = adoptArray(keybindings, data.keybindings)
-    focusedClass = String(data.focusedClass || "")
-    cupsActive = data.cupsActive === true
-    printerSetup = data.printerSetup === true
-    nightlightDay = HyprSunset.parseTime(data.nightlightDay) || "07:00"
-    nightlightNight = HyprSunset.parseTime(data.nightlightNight) || "20:00"
-    nightlightNightOn = data.nightlightNightOn === true
-    tailscalePeers = adoptArray(tailscalePeers, data.tailscalePeers)
-    var opts = String(data.hyprInput && data.hyprInput.kbOptions || "")
-    hyprKbGroupToggle = opts.indexOf("grp:alts_toggle") !== -1
+    var next = SnapshotJs.adopt(snapshotData, parsed, snapshotAdapters)
+    snapshotData = next
+    copyRecord(next)
   }
 
-  function applyLookPatch(parsed) {
-    if ("theme" in parsed) theme = String(parsed.theme || "")
-    if ("background" in parsed) background = String(parsed.background || "")
-    if ("font" in parsed) font = String(parsed.font || "")
-    if ("textSize" in parsed) {
-      textSize = Number(parsed.textSize) || 12
-    }
-    if ("themes" in parsed) themes = adoptArray(themes, parsed.themes)
-    if ("extraThemes" in parsed) extraThemes = adoptArray(extraThemes, parsed.extraThemes)
-    if ("fonts" in parsed) fonts = adoptArray(fonts, parsed.fonts)
-    if ("stayAwake" in parsed) stayAwake = parsed.stayAwake === true
-    if ("nightlight" in parsed) nightlight = parsed.nightlight === true
-    if ("nightlightTemperature" in parsed) {
-      nightlightTemperature = Math.round(Number(parsed.nightlightTemperature)) || 0
-      if (nightlightTemperature < 0) nightlightTemperature = 0
-    }
-    if ("screensaverBranded" in parsed) screensaverBranded = parsed.screensaverBranded === true
-    if ("aboutBranded" in parsed) aboutBranded = parsed.aboutBranded === true
-    if ("plymouth" in parsed) plymouth = String(parsed.plymouth || "")
-    if ("plymouthThemes" in parsed) plymouthThemes = adoptArray(plymouthThemes, parsed.plymouthThemes)
-    if ("nightlightDay" in parsed)
-      nightlightDay = HyprSunset.parseTime(parsed.nightlightDay) || "07:00"
-    if ("nightlightNight" in parsed)
-      nightlightNight = HyprSunset.parseTime(parsed.nightlightNight) || "20:00"
-    if ("nightlightNightOn" in parsed) nightlightNightOn = parsed.nightlightNightOn === true
-    if ("monitors" in parsed) monitors = adoptArray(monitors, parsed.monitors)
-    if ("keyboardBrightness" in parsed) {
-      keyboardBrightness = Math.round(Number(parsed.keyboardBrightness)) || 0
-      if (keyboardBrightness < 0) keyboardBrightness = 0
-      if (keyboardBrightness > 100) keyboardBrightness = 100
-    }
-    if ("internalEnabled" in parsed) internalEnabled = parsed.internalEnabled === true
-    if ("mirroring" in parsed) mirroring = parsed.mirroring === true
-    if ("touchpadEnabled" in parsed) touchpadEnabled = parsed.touchpadEnabled !== false
-    if ("touchscreenEnabled" in parsed) touchscreenEnabled = parsed.touchscreenEnabled !== false
-    if ("barPosition" in parsed) barPosition = String(parsed.barPosition || "top")
-    if ("barTransparent" in parsed) barTransparent = parsed.barTransparent === true
-    if ("barVisible" in parsed) barVisible = parsed.barVisible !== false
-    if ("clockPresent" in parsed) clockPresent = parsed.clockPresent === true
-    if ("indicatorsPresent" in parsed) indicatorsPresent = parsed.indicatorsPresent === true
-    if ("agentsPresent" in parsed) agentsPresent = parsed.agentsPresent === true
-    if ("trayPresent" in parsed) trayPresent = parsed.trayPresent === true
-    if ("isLaptop" in parsed) isLaptop = parsed.isLaptop === true
-    if ("batteryPresent" in parsed) batteryPresent = parsed.batteryPresent === true
-    if ("weatherPresent" in parsed) weatherPresent = parsed.weatherPresent === true
-    if ("internalPresent" in parsed) internalPresent = parsed.internalPresent === true
-    if ("externalPresent" in parsed) externalPresent = parsed.externalPresent === true
-    if ("touchpadPresent" in parsed) touchpadPresent = parsed.touchpadPresent === true
-    if ("touchscreenPresent" in parsed) touchscreenPresent = parsed.touchscreenPresent === true
-    if ("keyboardBacklightPresent" in parsed) keyboardBacklightPresent = parsed.keyboardBacklightPresent === true
-    if ("hyprSquareAspect" in parsed) hyprSquareAspect = parsed.hyprSquareAspect === true
-    if ("hyprWorkspaceGesture" in parsed) hyprWorkspaceGesture = parsed.hyprWorkspaceGesture === true
-    if ("clockFormat" in parsed) clockFormat = String(parsed.clockFormat || "")
-    if ("clockFormatAlt" in parsed) clockFormatAlt = String(parsed.clockFormatAlt || "")
-    if ("clockWeekStart" in parsed) {
-      clockWeekStart = String(parsed.clockWeekStart || "").toLowerCase()
-      if (clockWeekStart !== "sunday" && clockWeekStart !== "monday" && clockWeekStart !== "tuesday" && clockWeekStart !== "wednesday" && clockWeekStart !== "thursday" && clockWeekStart !== "friday" && clockWeekStart !== "saturday")
-        clockWeekStart = ""
-    }
-    if ("clockBirthYear" in parsed) {
-      clockBirthYear = Math.round(Number(parsed.clockBirthYear)) || 0
-      if (clockBirthYear < 1) clockBirthYear = 0
-    }
-    if ("clockLifeExpectancy" in parsed) {
-      clockLifeExpectancy = Math.round(Number(parsed.clockLifeExpectancy)) || 0
-      if (clockLifeExpectancy < 1 || clockLifeExpectancy > 150) clockLifeExpectancy = 0
-    }
-    if ("indicatorsAlwaysShow" in parsed) indicatorsAlwaysShow = parsed.indicatorsAlwaysShow === true
-    if ("indicatorsItems" in parsed) indicatorsItems = adoptArray(indicatorsItems, root.normalizedIndicatorItems(parsed.indicatorsItems))
-    if ("agentsRefreshIntervalSec" in parsed) {
-      agentsRefreshIntervalSec = Number(parsed.agentsRefreshIntervalSec) || 900
-      if (agentsRefreshIntervalSec < 30) agentsRefreshIntervalSec = 900
-    }
-    if ("agentsSync" in parsed) agentsSync = parsed.agentsSync === true
-    if ("agentsSyncDir" in parsed) agentsSyncDir = String(parsed.agentsSyncDir || "")
-    if ("agentsSyncFileName" in parsed) agentsSyncFileName = String(parsed.agentsSyncFileName || "")
-    if ("agentsSyncDeviceId" in parsed) agentsSyncDeviceId = String(parsed.agentsSyncDeviceId || "")
-    if ("spacerSize" in parsed) {
-      spacerSize = Math.round(Number(parsed.spacerSize))
-      if (!isFinite(spacerSize) || spacerSize < 0) spacerSize = 12
-      if (spacerSize > 64) spacerSize = 64
-    }
-    if ("spacerPresent" in parsed) spacerPresent = parsed.spacerPresent === true
-    if ("trayHidden" in parsed) trayHidden = adoptArray(trayHidden, root.normalizedStringIds(parsed.trayHidden))
-    if ("trayPinned" in parsed) trayPinned = adoptArray(trayPinned, root.normalizedStringIds(parsed.trayPinned))
-    if ("browser" in parsed) browser = String(parsed.browser || "")
-    if ("terminal" in parsed) terminal = String(parsed.terminal || "")
-    if ("editor" in parsed) editor = String(parsed.editor || "")
-    if ("agent" in parsed) agent = String(parsed.agent || "")
-    if ("dns" in parsed) dns = String(parsed.dns || "")
-    if ("idleScreensaver" in parsed) idleScreensaver = Number(parsed.idleScreensaver) || 0
-    if ("idleLock" in parsed) idleLock = Number(parsed.idleLock) || 0
-    if ("screensaverEnabled" in parsed) screensaverEnabled = parsed.screensaverEnabled !== false
-    if ("timezone" in parsed) {
-      timezone = String(parsed.timezone || "")
-      if (!/^[A-Za-z0-9/_+-]+$/.test(timezone) || timezone.indexOf("..") !== -1) timezone = ""
-    }
-    if ("ntp" in parsed) ntp = parsed.ntp === true
-    if ("ntpSynchronized" in parsed) ntpSynchronized = parsed.ntpSynchronized === true
-    if ("hostname" in parsed || "fullName" in parsed || "currentUser" in parsed || "avatarPath" in parsed || "users" in parsed || "groups" in parsed)
-      AccountsStore.applyPatch(parsed)
-    if ("keyboardLayout" in parsed) {
-      keyboardLayout = String(parsed.keyboardLayout || "")
-      if (keyboardLayout.indexOf(",") !== -1) keyboardLayout = keyboardLayout.split(",")[0]
-      if (!/^[a-z0-9]{1,8}$/.test(keyboardLayout)) keyboardLayout = ""
-    }
-    if ("locale" in parsed) {
-      locale = String(parsed.locale || "")
-      if (locale !== "C.UTF-8" && !/^[a-z]{2,3}(_[A-Z]{2})?\.UTF-8(@[A-Za-z0-9]+)?$/.test(locale))
-        locale = ""
-    }
-    if ("parallelDownloads" in parsed) {
-      parallelDownloads = Math.round(Number(parsed.parallelDownloads)) || 5
-      if (parallelDownloads < 1) parallelDownloads = 5
-      if (parallelDownloads > 20) parallelDownloads = 20
-    }
-    if ("hyprLook" in parsed) root.applyHyprLook(parsed.hyprLook)
-    if ("hyprInput" in parsed) root.applyHyprInput(parsed.hyprInput)
-    if ("hyprLookManaged" in parsed) hyprLookManaged = parsed.hyprLookManaged === true
-    if ("hyprInputManaged" in parsed) hyprInputManaged = parsed.hyprInputManaged === true
-    if ("hyprNoGaps" in parsed) hyprNoGaps = parsed.hyprNoGaps === true
-    if ("hyprSquareAspect" in parsed) hyprSquareAspect = parsed.hyprSquareAspect === true
-    if ("hyprWorkspaceGesture" in parsed) hyprWorkspaceGesture = parsed.hyprWorkspaceGesture === true
-    if ("plugins" in parsed) plugins = adoptArray(plugins, parsed.plugins)
-    if ("desktopApps" in parsed) desktopApps = adoptArray(desktopApps, parsed.desktopApps)
-    if ("tuiApps" in parsed) tuiApps = adoptArray(tuiApps, parsed.tuiApps)
-    if ("webApps" in parsed) webApps = adoptArray(webApps, parsed.webApps)
-    if ("hyprWorkspaceLayout" in parsed) {
-      hyprWorkspaceLayout = String(parsed.hyprWorkspaceLayout || "dwindle")
-      if (hyprWorkspaceLayout !== "scrolling") hyprWorkspaceLayout = "dwindle"
-    }
-    if ("bluetoothDevices" in parsed) bluetoothDevices = adoptArray(bluetoothDevices, parsed.bluetoothDevices)
-    if ("wifiConnections" in parsed) wifiConnections = adoptArray(wifiConnections, parsed.wifiConnections)
-    if ("wifiConnected" in parsed) wifiConnected = parsed.wifiConnected === true
-    if ("netKind" in parsed) {
-      netKind = String(parsed.netKind || "disconnected")
-      if (netKind !== "ethernet" && netKind !== "wifi") netKind = "disconnected"
-    }
-    if ("netSsid" in parsed) netSsid = String(parsed.netSsid || "")
-    if ("hooks" in parsed) hooks = adoptArray(hooks, parsed.hooks)
-    if ("reminderCount" in parsed) {
-      reminderCount = Math.round(Number(parsed.reminderCount)) || 0
-      if (reminderCount < 0) reminderCount = 0
-    }
-    if ("reminderActive" in parsed) reminderActive = parsed.reminderActive === true
-    if ("reminders" in parsed) reminders = adoptArray(reminders, parsed.reminders)
-    if ("recordingActive" in parsed) recordingActive = parsed.recordingActive === true
-    if ("webcamOverlay" in parsed) webcamOverlay = parsed.webcamOverlay === true
-    if ("autostart" in parsed) autostart = adoptArray(autostart, parsed.autostart)
-    if ("autostartManaged" in parsed) autostartManaged = parsed.autostartManaged === true
-    if ("bindings" in parsed) bindings = adoptArray(bindings, parsed.bindings)
-    if ("bindingsManaged" in parsed) bindingsManaged = parsed.bindingsManaged === true
-    if ("windowRules" in parsed) windowRules = adoptArray(windowRules, parsed.windowRules)
-    if ("windowRulesManaged" in parsed) windowRulesManaged = parsed.windowRulesManaged === true
-    if ("atmosChannel" in parsed) {
-      atmosChannel = AtmosUpdate.parseChannel(parsed.atmosChannel)
-      if (!atmosChannel) atmosChannel = "alpha"
-    }
-    if ("snapperNumberLimit" in parsed) {
-      snapperNumberLimit = Math.round(Number(parsed.snapperNumberLimit)) || 5
-      if (snapperNumberLimit < 1) snapperNumberLimit = 5
-      if (snapperNumberLimit > 50) snapperNumberLimit = 50
-    }
-    if ("snapperTimeline" in parsed) snapperTimeline = parsed.snapperTimeline === true
-    if ("fstrimEnabled" in parsed) fstrimEnabled = parsed.fstrimEnabled === true
-    if ("mimePdf" in parsed) {
-      mimePdf = String(parsed.mimePdf || "")
-      if (!/^[A-Za-z0-9._-]+\.desktop$/.test(mimePdf)) mimePdf = ""
-    }
-    if ("mimeImage" in parsed) {
-      mimeImage = String(parsed.mimeImage || "")
-      if (!/^[A-Za-z0-9._-]+\.desktop$/.test(mimeImage)) mimeImage = ""
-    }
-    if ("mimeVideo" in parsed) {
-      mimeVideo = String(parsed.mimeVideo || "")
-      if (!/^[A-Za-z0-9._-]+\.desktop$/.test(mimeVideo)) mimeVideo = ""
-    }
-    if ("bluetooth" in parsed) bluetooth = parsed.bluetooth === true
-    if ("wifiBandSelected" in parsed) wifiBandSelected = String(parsed.wifiBandSelected || "auto")
-    if ("wifiRadio" in parsed) wifiRadio = parsed.wifiRadio === true
-    if ("wifiHw" in parsed) wifiHw = parsed.wifiHw === true
-    if ("wifiIface" in parsed) {
-      wifiIface = String(parsed.wifiIface || "")
-      if (!/^[a-zA-Z0-9._-]+$/.test(wifiIface)) wifiIface = ""
-    }
-    if ("wifiBand" in parsed) wifiBand = String(parsed.wifiBand || "")
-    if ("wifiBands" in parsed) wifiBands = adoptArray(wifiBands, parsed.wifiBands)
-    if ("netIface" in parsed) netIface = String(parsed.netIface || "")
-    if ("netIp" in parsed) netIp = String(parsed.netIp || "")
-    if ("netSpeed" in parsed) netSpeed = String(parsed.netSpeed || "")
-    if ("netSignal" in parsed) netSignal = String(parsed.netSignal || "")
-    if ("tailscaleInstalled" in parsed) tailscaleInstalled = parsed.tailscaleInstalled === true
-    if ("tailscaleRunning" in parsed) tailscaleRunning = parsed.tailscaleRunning === true
-    if ("tailscalePeers" in parsed) tailscalePeers = adoptArray(tailscalePeers, parsed.tailscalePeers)
-    if ("disks" in parsed) disks = adoptArray(disks, parsed.disks)
-    if ("luksDevices" in parsed) luksDevices = adoptArray(luksDevices, parsed.luksDevices)
-    if ("swapDevices" in parsed) swapDevices = adoptArray(swapDevices, parsed.swapDevices)
-    if ("snapshots" in parsed) snapshots = adoptArray(snapshots, parsed.snapshots)
-    if ("snapperPresent" in parsed) snapperPresent = parsed.snapperPresent === true
-    if ("snapperConfigs" in parsed) snapperConfigs = adoptArray(snapperConfigs, parsed.snapperConfigs)
-    if ("hibernationAvailable" in parsed) hibernationAvailable = parsed.hibernationAvailable === true
-    if ("hibernationSupported" in parsed) hibernationSupported = parsed.hibernationSupported === true
-    if ("hibernationConfigured" in parsed) hibernationConfigured = parsed.hibernationConfigured === true
-    if ("fstrimEnabled" in parsed) fstrimEnabled = parsed.fstrimEnabled === true
-    if ("timezones" in parsed) timezones = adoptArray(timezones, parsed.timezones)
-    if ("ntpAvailable" in parsed) ntpAvailable = parsed.ntpAvailable === true
-    if ("locales" in parsed) locales = adoptArray(locales, parsed.locales)
-    if ("keyboardLayouts" in parsed) keyboardLayouts = adoptArray(keyboardLayouts, parsed.keyboardLayouts)
-    if ("audioOutputVolume" in parsed) {
-      audioOutputVolume = Math.round(Number(parsed.audioOutputVolume)) || 0
-      if (audioOutputVolume < 0) audioOutputVolume = 0
-      if (audioOutputVolume > 100) audioOutputVolume = 100
-    }
-    if ("audioOutputMuted" in parsed) audioOutputMuted = parsed.audioOutputMuted === true
-    if ("audioInputVolume" in parsed) {
-      audioInputVolume = Math.round(Number(parsed.audioInputVolume)) || 0
-      if (audioInputVolume < 0) audioInputVolume = 0
-      if (audioInputVolume > 100) audioInputVolume = 100
-    }
-    if ("audioInputMuted" in parsed) audioInputMuted = parsed.audioInputMuted === true
-    if ("audioSink" in parsed) audioSink = String(parsed.audioSink || "")
-    if ("audioSource" in parsed) audioSource = String(parsed.audioSource || "")
-    if ("audioTuningOn" in parsed) audioTuningOn = parsed.audioTuningOn === true
-    if ("suspendEnabled" in parsed) suspendEnabled = parsed.suspendEnabled !== false
-    if ("powerProfile" in parsed) powerProfile = String(parsed.powerProfile || "")
-    if ("powerProfileAc" in parsed) powerProfileAc = String(parsed.powerProfileAc || "")
-    if ("powerProfileBattery" in parsed) powerProfileBattery = String(parsed.powerProfileBattery || "")
-    if ("powerShowPercentage" in parsed) powerShowPercentage = parsed.powerShowPercentage === true
-    if ("crashCapture" in parsed) crashCapture = parsed.crashCapture !== false
-    if ("doNotDisturb" in parsed) doNotDisturb = parsed.doNotDisturb === true
-    if ("weatherLocation" in parsed) weatherLocation = String(parsed.weatherLocation || "")
-    if ("weatherAuto" in parsed) weatherAuto = parsed.weatherAuto !== false
-    if ("weatherCoords" in parsed)
-      weatherCoords = RichUi.parseWeatherCoords(parsed.weatherCoords)
-    if ("weatherUnit" in parsed) {
-      weatherUnit = String(parsed.weatherUnit || "auto")
-      if (weatherUnit !== "metric" && weatherUnit !== "imperial") weatherUnit = "auto"
-    }
-    if ("weatherRefreshMinutes" in parsed) {
-      weatherRefreshMinutes = Number(parsed.weatherRefreshMinutes) || 15
-      if (weatherRefreshMinutes < 1) weatherRefreshMinutes = 15
-    }
+  function copyRecord(next) {
+    if (!next || typeof next !== "object") next = {}
+    var look = next.hyprLook && typeof next.hyprLook === "object" ? next.hyprLook : null
+    var input = next.hyprInput && typeof next.hyprInput === "object" ? next.hyprInput : null
+    theme = SnapshotJs.adoptValue(theme, next.theme)
+    background = SnapshotJs.adoptValue(background, next.background)
+    font = SnapshotJs.adoptValue(font, next.font)
+    textSize = SnapshotJs.adoptValue(textSize, next.textSize)
+    themes = SnapshotJs.adoptArray(themes, next.themes)
+    extraThemes = SnapshotJs.adoptArray(extraThemes, next.extraThemes)
+    desktopApps = SnapshotJs.adoptArray(desktopApps, next.desktopApps)
+    tuiApps = SnapshotJs.adoptArray(tuiApps, next.tuiApps)
+    webApps = SnapshotJs.adoptArray(webApps, next.webApps)
+    fonts = SnapshotJs.adoptArray(fonts, next.fonts)
+    barPosition = SnapshotJs.adoptValue(barPosition, next.barPosition)
+    barTransparent = SnapshotJs.adoptValue(barTransparent, next.barTransparent)
+    barVisible = SnapshotJs.adoptValue(barVisible, next.barVisible)
+    clockFormat = SnapshotJs.adoptValue(clockFormat, next.clockFormat)
+    clockFormatAlt = SnapshotJs.adoptValue(clockFormatAlt, next.clockFormatAlt)
+    clockWeekStart = SnapshotJs.adoptValue(clockWeekStart, next.clockWeekStart)
+    clockPresent = SnapshotJs.adoptValue(clockPresent, next.clockPresent)
+    clockBirthYear = SnapshotJs.adoptValue(clockBirthYear, next.clockBirthYear)
+    clockLifeExpectancy = SnapshotJs.adoptValue(clockLifeExpectancy, next.clockLifeExpectancy)
+    indicatorsPresent = SnapshotJs.adoptValue(indicatorsPresent, next.indicatorsPresent)
+    indicatorsAlwaysShow = SnapshotJs.adoptValue(indicatorsAlwaysShow, next.indicatorsAlwaysShow)
+    indicatorsItems = SnapshotJs.adoptArray(indicatorsItems, next.indicatorsItems)
+    agentsPresent = SnapshotJs.adoptValue(agentsPresent, next.agentsPresent)
+    agentsRefreshIntervalSec = SnapshotJs.adoptValue(agentsRefreshIntervalSec, next.agentsRefreshIntervalSec)
+    agentsSync = SnapshotJs.adoptValue(agentsSync, next.agentsSync)
+    agentsSyncDir = SnapshotJs.adoptValue(agentsSyncDir, next.agentsSyncDir)
+    agentsSyncFileName = SnapshotJs.adoptValue(agentsSyncFileName, next.agentsSyncFileName)
+    agentsSyncDeviceId = SnapshotJs.adoptValue(agentsSyncDeviceId, next.agentsSyncDeviceId)
+    spacerPresent = SnapshotJs.adoptValue(spacerPresent, next.spacerPresent)
+    spacerSize = SnapshotJs.adoptValue(spacerSize, next.spacerSize)
+    trayPresent = SnapshotJs.adoptValue(trayPresent, next.trayPresent)
+    trayHidden = SnapshotJs.adoptArray(trayHidden, next.trayHidden)
+    trayPinned = SnapshotJs.adoptArray(trayPinned, next.trayPinned)
+    browser = SnapshotJs.adoptValue(browser, next.browser)
+    terminal = SnapshotJs.adoptValue(terminal, next.terminal)
+    editor = SnapshotJs.adoptValue(editor, next.editor)
+    agent = SnapshotJs.adoptValue(agent, next.agent)
+    dns = SnapshotJs.adoptValue(dns, next.dns)
+    idleScreensaver = SnapshotJs.adoptValue(idleScreensaver, next.idleScreensaver)
+    idleLock = SnapshotJs.adoptValue(idleLock, next.idleLock)
+    stayAwake = SnapshotJs.adoptValue(stayAwake, next.stayAwake)
+    nightlight = SnapshotJs.adoptValue(nightlight, next.nightlight)
+    nightlightTemperature = SnapshotJs.adoptValue(nightlightTemperature, next.nightlightTemperature)
+    screensaverEnabled = SnapshotJs.adoptValue(screensaverEnabled, next.screensaverEnabled)
+    screensaverBranded = SnapshotJs.adoptValue(screensaverBranded, next.screensaverBranded)
+    aboutBranded = SnapshotJs.adoptValue(aboutBranded, next.aboutBranded)
+    bluetooth = SnapshotJs.adoptValue(bluetooth, next.bluetooth)
+    wifiConnected = SnapshotJs.adoptValue(wifiConnected, next.wifiConnected)
+    wifiBand = SnapshotJs.adoptValue(wifiBand, next.wifiBand)
+    wifiBandSelected = SnapshotJs.adoptValue(wifiBandSelected, next.wifiBandSelected)
+    wifiBands = SnapshotJs.adoptArray(wifiBands, next.wifiBands)
+    wifiIface = SnapshotJs.adoptValue(wifiIface, next.wifiIface)
+    netKind = SnapshotJs.adoptValue(netKind, next.netKind)
+    netIface = SnapshotJs.adoptValue(netIface, next.netIface)
+    netSsid = SnapshotJs.adoptValue(netSsid, next.netSsid)
+    netSignal = SnapshotJs.adoptValue(netSignal, next.netSignal)
+    netIp = SnapshotJs.adoptValue(netIp, next.netIp)
+    netSpeed = SnapshotJs.adoptValue(netSpeed, next.netSpeed)
+    wifiHw = SnapshotJs.adoptValue(wifiHw, next.wifiHw)
+    wifiRadio = SnapshotJs.adoptValue(wifiRadio, next.wifiRadio)
+    wifiConnections = SnapshotJs.adoptArray(wifiConnections, next.wifiConnections)
+    bluetoothDevices = SnapshotJs.adoptArray(bluetoothDevices, next.bluetoothDevices)
+    audioSinks = SnapshotJs.adoptArray(audioSinks, next.audioSinks)
+    audioSources = SnapshotJs.adoptArray(audioSources, next.audioSources)
+    audioOutputVolume = SnapshotJs.adoptValue(audioOutputVolume, next.audioOutputVolume)
+    audioOutputMuted = SnapshotJs.adoptValue(audioOutputMuted, next.audioOutputMuted)
+    audioInputVolume = SnapshotJs.adoptValue(audioInputVolume, next.audioInputVolume)
+    audioInputMuted = SnapshotJs.adoptValue(audioInputMuted, next.audioInputMuted)
+    audioTuningMatch = SnapshotJs.adoptValue(audioTuningMatch, next.audioTuningMatch)
+    audioTuningOn = SnapshotJs.adoptValue(audioTuningOn, next.audioTuningOn)
+    disks = SnapshotJs.adoptArray(disks, next.disks)
+    hardware = SnapshotJs.adoptValue(hardware, next.hardware)
+    luksDevices = SnapshotJs.adoptArray(luksDevices, next.luksDevices)
+    swapDevices = SnapshotJs.adoptArray(swapDevices, next.swapDevices)
+    snapperPresent = SnapshotJs.adoptValue(snapperPresent, next.snapperPresent)
+    snapperConfigs = SnapshotJs.adoptArray(snapperConfigs, next.snapperConfigs)
+    snapshots = SnapshotJs.adoptArray(snapshots, next.snapshots)
+    hibernationAvailable = SnapshotJs.adoptValue(hibernationAvailable, next.hibernationAvailable)
+    hibernationSupported = SnapshotJs.adoptValue(hibernationSupported, next.hibernationSupported)
+    hibernationConfigured = SnapshotJs.adoptValue(hibernationConfigured, next.hibernationConfigured)
+    audioSink = SnapshotJs.adoptValue(audioSink, next.audioSink)
+    audioSource = SnapshotJs.adoptValue(audioSource, next.audioSource)
+    suspendEnabled = SnapshotJs.adoptValue(suspendEnabled, next.suspendEnabled)
+    powerProfile = SnapshotJs.adoptValue(powerProfile, next.powerProfile)
+    powerProfileAc = SnapshotJs.adoptValue(powerProfileAc, next.powerProfileAc)
+    powerProfileBattery = SnapshotJs.adoptValue(powerProfileBattery, next.powerProfileBattery)
+    powerProfiles = SnapshotJs.adoptArray(powerProfiles, next.powerProfiles)
+    powerPresent = SnapshotJs.adoptValue(powerPresent, next.powerPresent)
+    powerShowPercentage = SnapshotJs.adoptValue(powerShowPercentage, next.powerShowPercentage)
+    isLaptop = SnapshotJs.adoptValue(isLaptop, next.isLaptop)
+    batteryPresent = SnapshotJs.adoptValue(batteryPresent, next.batteryPresent)
+    monitors = SnapshotJs.adoptArray(monitors, next.monitors)
+    internalPresent = SnapshotJs.adoptValue(internalPresent, next.internalPresent)
+    internalEnabled = SnapshotJs.adoptValue(internalEnabled, next.internalEnabled)
+    externalPresent = SnapshotJs.adoptValue(externalPresent, next.externalPresent)
+    mirroring = SnapshotJs.adoptValue(mirroring, next.mirroring)
+    touchpadPresent = SnapshotJs.adoptValue(touchpadPresent, next.touchpadPresent)
+    touchpadEnabled = SnapshotJs.adoptValue(touchpadEnabled, next.touchpadEnabled)
+    touchscreenPresent = SnapshotJs.adoptValue(touchscreenPresent, next.touchscreenPresent)
+    touchscreenEnabled = SnapshotJs.adoptValue(touchscreenEnabled, next.touchscreenEnabled)
+    keyboardBacklightPresent = SnapshotJs.adoptValue(keyboardBacklightPresent, next.keyboardBacklightPresent)
+    keyboardBrightness = SnapshotJs.adoptValue(keyboardBrightness, next.keyboardBrightness)
+    crashCapture = SnapshotJs.adoptValue(crashCapture, next.crashCapture)
+    doNotDisturb = SnapshotJs.adoptValue(doNotDisturb, next.doNotDisturb)
+    weatherLocation = SnapshotJs.adoptValue(weatherLocation, next.weatherLocation)
+    weatherCoords = SnapshotJs.adoptValue(weatherCoords, next.weatherCoords)
+    weatherAuto = SnapshotJs.adoptValue(weatherAuto, next.weatherAuto)
+    weatherPresent = SnapshotJs.adoptValue(weatherPresent, next.weatherPresent)
+    weatherUnit = SnapshotJs.adoptValue(weatherUnit, next.weatherUnit)
+    weatherRefreshMinutes = SnapshotJs.adoptValue(weatherRefreshMinutes, next.weatherRefreshMinutes)
+    reminderCount = SnapshotJs.adoptValue(reminderCount, next.reminderCount)
+    reminderActive = SnapshotJs.adoptValue(reminderActive, next.reminderActive)
+    reminders = SnapshotJs.adoptArray(reminders, next.reminders)
+    plymouth = SnapshotJs.adoptValue(plymouth, next.plymouth)
+    plymouthThemes = SnapshotJs.adoptArray(plymouthThemes, next.plymouthThemes)
+    hasAether = SnapshotJs.adoptValue(hasAether, next.hasAether)
+    browsers = SnapshotJs.adoptValue(browsers, next.browsers)
+    terminals = SnapshotJs.adoptValue(terminals, next.terminals)
+    editors = SnapshotJs.adoptValue(editors, next.editors)
+    timezone = SnapshotJs.adoptValue(timezone, next.timezone)
+    timezones = SnapshotJs.adoptArray(timezones, next.timezones)
+    ntp = SnapshotJs.adoptValue(ntp, next.ntp)
+    ntpAvailable = SnapshotJs.adoptValue(ntpAvailable, next.ntpAvailable)
+    ntpSynchronized = SnapshotJs.adoptValue(ntpSynchronized, next.ntpSynchronized)
+    AccountsStore.applyPatch(next)
+    keyboardLayout = SnapshotJs.adoptValue(keyboardLayout, next.keyboardLayout)
+    keyboardLayouts = SnapshotJs.adoptArray(keyboardLayouts, next.keyboardLayouts)
+    locale = SnapshotJs.adoptValue(locale, next.locale)
+    locales = SnapshotJs.adoptArray(locales, next.locales)
+    parallelDownloads = SnapshotJs.adoptValue(parallelDownloads, next.parallelDownloads)
+    hyprGapsIn = SnapshotJs.adoptValue(hyprGapsIn, look ? look.gapsIn : undefined)
+    hyprGapsOut = SnapshotJs.adoptValue(hyprGapsOut, look ? look.gapsOut : undefined)
+    hyprBorderSize = SnapshotJs.adoptValue(hyprBorderSize, look ? look.borderSize : undefined)
+    hyprRounding = SnapshotJs.adoptValue(hyprRounding, look ? look.rounding : undefined)
+    hyprBlur = SnapshotJs.adoptValue(hyprBlur, look ? look.blur : undefined)
+    hyprShadow = SnapshotJs.adoptValue(hyprShadow, look ? look.shadow : undefined)
+    hyprLayout = SnapshotJs.adoptValue(hyprLayout, look ? look.layout : undefined)
+    hyprColumnWidth = SnapshotJs.adoptValue(hyprColumnWidth, look ? look.columnWidth : undefined)
+    hyprDimInactive = SnapshotJs.adoptValue(hyprDimInactive, look ? look.dimInactive : undefined)
+    hyprDimStrength = SnapshotJs.adoptValue(hyprDimStrength, look ? look.dimStrength : undefined)
+    hyprAnimations = SnapshotJs.adoptValue(hyprAnimations, look ? look.animations : undefined)
+    hyprCursorHideOnKey = SnapshotJs.adoptValue(hyprCursorHideOnKey, look ? look.cursorHideOnKey : undefined)
+    hyprCursorWarp = SnapshotJs.adoptValue(hyprCursorWarp, look ? look.cursorWarp : undefined)
+    hyprCursorSize = SnapshotJs.adoptValue(hyprCursorSize, look ? look.cursorSize : undefined)
+    hyprAllowTearing = SnapshotJs.adoptValue(hyprAllowTearing, look ? look.allowTearing : undefined)
+    hyprResizeOnBorder = SnapshotJs.adoptValue(hyprResizeOnBorder, look ? look.resizeOnBorder : undefined)
+    hyprActiveOpacity = SnapshotJs.adoptValue(hyprActiveOpacity, look ? look.activeOpacity : undefined)
+    hyprInactiveOpacity = SnapshotJs.adoptValue(hyprInactiveOpacity, look ? look.inactiveOpacity : undefined)
+    hyprPreserveSplit = SnapshotJs.adoptValue(hyprPreserveSplit, look ? look.preserveSplit : undefined)
+    hyprFocusOnActivate = SnapshotJs.adoptValue(hyprFocusOnActivate, look ? look.focusOnActivate : undefined)
+    hyprLookManaged = SnapshotJs.adoptValue(hyprLookManaged, next.hyprLookManaged)
+    hyprInputManaged = SnapshotJs.adoptValue(hyprInputManaged, next.hyprInputManaged)
+    hyprWorkspaceGesture = SnapshotJs.adoptValue(hyprWorkspaceGesture, next.hyprWorkspaceGesture !== undefined ? next.hyprWorkspaceGesture : (input ? input.workspaceGesture : undefined))
+    hyprNoGaps = SnapshotJs.adoptValue(hyprNoGaps, next.hyprNoGaps)
+    hyprSquareAspect = SnapshotJs.adoptValue(hyprSquareAspect, next.hyprSquareAspect)
+    hyprWorkspaceLayout = SnapshotJs.adoptValue(hyprWorkspaceLayout, next.hyprWorkspaceLayout)
+    hyprSensitivity = SnapshotJs.adoptValue(hyprSensitivity, input ? input.sensitivity : undefined)
+    hyprAccelProfile = SnapshotJs.adoptValue(hyprAccelProfile, input ? input.accelProfile : undefined)
+    hyprEmulateDiscreteScroll = SnapshotJs.adoptValue(hyprEmulateDiscreteScroll, input ? input.emulateDiscreteScroll : undefined)
+    hyprNaturalScroll = SnapshotJs.adoptValue(hyprNaturalScroll, input ? input.naturalScroll : undefined)
+    hyprScrollFactor = SnapshotJs.adoptValue(hyprScrollFactor, input ? input.scrollFactor : undefined)
+    hyprClickfinger = SnapshotJs.adoptValue(hyprClickfinger, input ? input.clickfinger : undefined)
+    hyprDisableWhileTyping = SnapshotJs.adoptValue(hyprDisableWhileTyping, input ? input.disableWhileTyping : undefined)
+    hyprDrag3fg = SnapshotJs.adoptValue(hyprDrag3fg, input ? input.drag3fg : undefined)
+    hyprRepeatRate = SnapshotJs.adoptValue(hyprRepeatRate, input ? input.repeatRate : undefined)
+    hyprRepeatDelay = SnapshotJs.adoptValue(hyprRepeatDelay, input ? input.repeatDelay : undefined)
+    hyprNumlock = SnapshotJs.adoptValue(hyprNumlock, input ? input.numlock : undefined)
+    hyprFollowMouse = SnapshotJs.adoptValue(hyprFollowMouse, input ? input.followMouse : undefined)
+    hyprKeyPressDpms = SnapshotJs.adoptValue(hyprKeyPressDpms, input ? input.keyPressDpms : undefined)
+    hyprMouseMoveDpms = SnapshotJs.adoptValue(hyprMouseMoveDpms, input ? input.mouseMoveDpms : undefined)
+    hyprKbLayout = SnapshotJs.adoptValue(hyprKbLayout, input ? ("kbLayoutOverride" in input ? input.kbLayoutOverride : input.kbLayout) : undefined)
+    hyprKbVariant = SnapshotJs.adoptValue(hyprKbVariant, input ? ("kbVariantOverride" in input ? input.kbVariantOverride : input.kbVariant) : undefined)
+    hyprKbOptions = SnapshotJs.adoptValue(hyprKbOptions, input ? input.kbOptions : undefined)
+    fingerprintAvailable = SnapshotJs.adoptValue(fingerprintAvailable, next.fingerprintAvailable)
+    fingerprintConfigured = SnapshotJs.adoptValue(fingerprintConfigured, next.fingerprintConfigured)
+    fido2Configured = SnapshotJs.adoptValue(fido2Configured, next.fido2Configured)
+    sshdEnabled = SnapshotJs.adoptValue(sshdEnabled, next.sshdEnabled)
+    sshdActive = SnapshotJs.adoptValue(sshdActive, next.sshdActive)
+    passwordlessSudo = SnapshotJs.adoptValue(passwordlessSudo, next.passwordlessSudo)
+    sudolessDocker = SnapshotJs.adoptValue(sudolessDocker, next.sudolessDocker)
+    omarchyVersion = SnapshotJs.adoptValue(omarchyVersion, next.omarchyVersion)
+    omarchyChannel = SnapshotJs.adoptValue(omarchyChannel, next.omarchyChannel)
+    updateAvailable = SnapshotJs.adoptValue(updateAvailable, next.updateAvailable)
+    updateSummary = SnapshotJs.adoptValue(updateSummary, next.updateSummary)
+    atmosRevision = SnapshotJs.adoptValue(atmosRevision, next.atmosRevision)
+    atmosChannel = SnapshotJs.adoptValue(atmosChannel, next.atmosChannel)
+    atmosInstalled = SnapshotJs.adoptValue(atmosInstalled, next.atmosInstalled)
+    voxtypeInstalled = SnapshotJs.adoptValue(voxtypeInstalled, next.voxtypeInstalled)
+    hybridGpuAvailable = SnapshotJs.adoptValue(hybridGpuAvailable, next.hybridGpuAvailable)
+    hybridGpuMode = SnapshotJs.adoptValue(hybridGpuMode, next.hybridGpuMode)
+    hwNvidia = SnapshotJs.adoptValue(hwNvidia, next.hwNvidia)
+    hwNvidiaGsp = SnapshotJs.adoptValue(hwNvidiaGsp, next.hwNvidiaGsp)
+    hwNvidiaWithoutGsp = SnapshotJs.adoptValue(hwNvidiaWithoutGsp, next.hwNvidiaWithoutGsp)
+    hwVulkan = SnapshotJs.adoptValue(hwVulkan, next.hwVulkan)
+    hwIntel = SnapshotJs.adoptValue(hwIntel, next.hwIntel)
+    hwIntelPtl = SnapshotJs.adoptValue(hwIntelPtl, next.hwIntelPtl)
+    hwWebcam = SnapshotJs.adoptValue(hwWebcam, next.hwWebcam)
+    hwFramework16 = SnapshotJs.adoptValue(hwFramework16, next.hwFramework16)
+    hwAsusRog = SnapshotJs.adoptValue(hwAsusRog, next.hwAsusRog)
+    hwSurface = SnapshotJs.adoptValue(hwSurface, next.hwSurface)
+    dmiVendor = SnapshotJs.adoptValue(dmiVendor, next.dmiVendor)
+    dmiProduct = SnapshotJs.adoptValue(dmiProduct, next.dmiProduct)
+    dmiFamily = SnapshotJs.adoptValue(dmiFamily, next.dmiFamily)
+    cpuStat = SnapshotJs.adoptValue(cpuStat, next.cpuStat)
+    memoryStat = SnapshotJs.adoptValue(memoryStat, next.memoryStat)
+    cpuIdentity = SnapshotJs.adoptValue(cpuIdentity, next.cpuIdentity)
+    gpuIdentity = SnapshotJs.adoptValue(gpuIdentity, next.gpuIdentity)
+    npuIdentity = SnapshotJs.adoptValue(npuIdentity, next.npuIdentity)
+    tailscaleInstalled = SnapshotJs.adoptValue(tailscaleInstalled, next.tailscaleInstalled)
+    tailscaleRunning = SnapshotJs.adoptValue(tailscaleRunning, next.tailscaleRunning)
+    plugins = SnapshotJs.adoptArray(plugins, next.plugins)
+    snapperNumberLimit = SnapshotJs.adoptValue(snapperNumberLimit, next.snapperNumberLimit)
+    snapperTimeline = SnapshotJs.adoptValue(snapperTimeline, next.snapperTimeline)
+    fstrimEnabled = SnapshotJs.adoptValue(fstrimEnabled, next.fstrimEnabled)
+    directBootAvailable = SnapshotJs.adoptValue(directBootAvailable, next.directBootAvailable)
+    directBoot = SnapshotJs.adoptValue(directBoot, next.directBoot)
+    mimePdf = SnapshotJs.adoptValue(mimePdf, next.mimePdf)
+    mimeImage = SnapshotJs.adoptValue(mimeImage, next.mimeImage)
+    mimeVideo = SnapshotJs.adoptValue(mimeVideo, next.mimeVideo)
+    mimePdfOptions = SnapshotJs.adoptArray(mimePdfOptions, next.mimePdfOptions)
+    mimeImageOptions = SnapshotJs.adoptArray(mimeImageOptions, next.mimeImageOptions)
+    mimeVideoOptions = SnapshotJs.adoptArray(mimeVideoOptions, next.mimeVideoOptions)
+    picturesDir = SnapshotJs.adoptValue(picturesDir, next.picturesDir)
+    videosDir = SnapshotJs.adoptValue(videosDir, next.videosDir)
+    recordingActive = SnapshotJs.adoptValue(recordingActive, next.recordingActive)
+    webcamOverlay = SnapshotJs.adoptValue(webcamOverlay, next.webcamOverlay)
+    services = SnapshotJs.adoptValue(services, next.services)
+    gaming = SnapshotJs.adoptValue(gaming, next.gaming)
+    extras = SnapshotJs.adoptValue(extras, next.extras)
+    hooks = SnapshotJs.adoptArray(hooks, next.hooks)
+    autostart = SnapshotJs.adoptArray(autostart, next.autostart)
+    autostartManaged = SnapshotJs.adoptValue(autostartManaged, next.autostartManaged)
+    bindings = SnapshotJs.adoptArray(bindings, next.bindings)
+    bindingsManaged = SnapshotJs.adoptValue(bindingsManaged, next.bindingsManaged)
+    windowRules = SnapshotJs.adoptArray(windowRules, next.windowRules)
+    windowRulesManaged = SnapshotJs.adoptValue(windowRulesManaged, next.windowRulesManaged)
+    keybindings = SnapshotJs.adoptArray(keybindings, next.keybindings)
+    focusedClass = SnapshotJs.adoptValue(focusedClass, next.focusedClass)
+    cupsActive = SnapshotJs.adoptValue(cupsActive, next.cupsActive)
+    printerSetup = SnapshotJs.adoptValue(printerSetup, next.printerSetup)
+    nightlightDay = SnapshotJs.adoptValue(nightlightDay, next.nightlightDay)
+    nightlightNight = SnapshotJs.adoptValue(nightlightNight, next.nightlightNight)
+    nightlightNightOn = SnapshotJs.adoptValue(nightlightNightOn, next.nightlightNightOn)
+    tailscalePeers = SnapshotJs.adoptArray(tailscalePeers, next.tailscalePeers)
+    hyprKbGroupToggle = SnapshotJs.adoptValue(hyprKbGroupToggle, input ? input.kbGroupToggle : undefined)
   }
 
   function refresh() {
@@ -1208,6 +937,9 @@ QtObject {
     runJob(cmd, "", kind, opts)
   }
 
+  // Job record: kind ("read"|"mut"|"job"), argv, stdin, key, apply, refresh,
+  // sudo, jobKind, onStdoutLine, onFinished. apply is consumed for mut;
+  // kind job may carry apply but jobProc does not read it yet.
   function enqueueIo(job) {
     if (!job) return
     if (job.sudo && !passwordlessSudo) {

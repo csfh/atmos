@@ -1,4 +1,4 @@
-const { load, assertEqual } = require("./harness");
+const { load, assert, assertEqual } = require("./harness");
 
 const snapshot = load("services/Snapshot.js");
 const snapMerged = snapshot.mergeSnapshot(
@@ -165,3 +165,87 @@ assertEqual(replacedBinds[0].keys, "SUPER + D", "patchReplaceManaged keeps the u
 assertEqual(replacedBinds[1].keys, "SUPER + Q", "patchReplaceManaged appends the managed bind");
 assertEqual(replacedBinds[1].unbind, true, "patchReplaceManaged keeps bind fields");
 assertEqual(replacedBinds[1].managed, true, "patchReplaceManaged marks replacement binds managed");
+
+const hypr = load("services/HyprPrefs.js");
+const accounts = load("services/Accounts.js");
+const hardware = load("services/Hardware.js");
+const sunset = load("services/HyprSunset.js");
+const atmosUpdate = load("services/AtmosUpdate.js");
+const richUi = load("services/RichUi.js");
+const adapters = {
+  clampLook: hypr.clampLook,
+  clampInput: hypr.clampInput,
+  applyAccountPatch: accounts.applyAccountPatch,
+  normalizeHardware: hardware.normalize,
+  parseTime: sunset.parseTime,
+  parseChannel: atmosUpdate.parseChannel,
+  parseWeatherCoords: richUi.parseWeatherCoords,
+};
+
+const fresh = snapshot.adopt({}, { theme: "tokyo", extraThemes: ["a"] }, adapters);
+assertEqual(fresh.theme, "tokyo", "adopt sets theme from an empty record");
+assertEqual(fresh.extraThemes.join(","), "a", "adopt sets extraThemes from an empty record");
+assert(!("hardware" in fresh), "adopt from {} leaves hardware absent");
+
+const full = { hardware: { cpu: { model: "X" } }, theme: "omarchy", users: [{ name: "a" }] };
+const next = snapshot.adopt(full, { theme: "x" }, adapters);
+assert(next.hardware === full.hardware, "look/theme patch keeps hardware reference");
+assert(next.users === full.users, "look/theme patch keeps users reference");
+assertEqual(next.theme, "x", "look/theme patch updates theme");
+
+assertEqual(
+  snapshot.adopt({ barVisible: true }, { barVisible: false }, adapters).barVisible,
+  false,
+  "adopt keeps false",
+);
+assertEqual(
+  snapshot.adopt({}, { clockWeekStart: "fun" }, adapters).clockWeekStart,
+  "",
+  "adopt drops an unknown week start",
+);
+
+const look = snapshot.adopt({}, { hyprLook: { gapsIn: 80, layout: "niri" } }, adapters);
+assertEqual(look.hyprLook.gapsIn, 64, "adopt clamps hyprLook gapsIn via clampLook");
+assertEqual(look.hyprLook.layout, "dwindle", "adopt clamps hyprLook layout via clampLook");
+
+let missingLook = false;
+try {
+  snapshot.adopt({}, { hyprLook: { gapsIn: 80 } }, { clampInput: hypr.clampInput });
+} catch {
+  missingLook = true;
+}
+assert(missingLook, "adopt throws when clampLook is missing");
+
+let missingInput = false;
+try {
+  snapshot.adopt({}, { hyprInput: { sensitivity: 0 } }, { clampLook: hypr.clampLook });
+} catch {
+  missingInput = true;
+}
+assert(missingInput, "adopt throws when clampInput is missing");
+
+let missingAdapters = false;
+try {
+  snapshot.adopt({}, { theme: "x" });
+} catch {
+  missingAdapters = true;
+}
+assert(missingAdapters, "adopt throws when adapters are missing");
+
+const tagged = snapshot.adopt(
+  { hardware: { cpu: { model: "X" } } },
+  { group: "look", theme: "x", hardware: { cpu: { model: "nope" } } },
+  adapters,
+);
+assertEqual(tagged.theme, "x", "tagged look still merges theme");
+assertEqual(
+  tagged.hardware.cpu.model,
+  "nope",
+  "PR 1 tagged look keeps patched hardware (no emitKeys yet)",
+);
+assert(!("group" in tagged), "adopt never copies group onto the record");
+
+assertEqual(snapshot.parseSnapshot("{"), null, "parseSnapshot rejects junk after adopt");
+assertEqual(snapshot.patchGroup({ group: "look" }), "look", "patchGroup accepts look");
+assertEqual(snapshot.patchGroup({ group: "nope" }), "", "patchGroup rejects an unknown group");
+assertEqual(snapshot.sanitizeDmi("to be filled by o.e.m."), "", "sanitizeDmi drops DMI filler");

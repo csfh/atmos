@@ -696,6 +696,21 @@ assertEqual(
   "hypr-sentinel.py apply matches applyInputFile over a commented stock line",
 );
 
+const commentedOutUnmanaged = unmanagedWritten.replace(
+  'hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })\n',
+  '-- hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })\n',
+);
+const recovered = hypr.applyInputFile(commentedOutUnmanaged, { workspaceGesture: true });
+assert(
+  /-- atmos:input begin[\s\S]*hl\.gesture\(\{ fingers = 3[\s\S]*-- atmos:input end/.test(recovered),
+  "after the unmanaged line is commented out, applyInputFile writes a managed gesture",
+);
+assertGestureState(
+  hypr.inputWorkspaceGestureState(recovered),
+  onManaged,
+  "commenting the stock line out lets Atmos own the gesture",
+);
+
 assert(
   hypr.serializeInput({ workspaceGesture: true }, unmanagedGesture).indexOf("hl.gesture(") === -1,
   "serializeInput omits the Atmos gesture when existing text has an unmanaged one",

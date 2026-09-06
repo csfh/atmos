@@ -367,6 +367,10 @@ def sentinel_has_workspace_gesture(src: str) -> bool:
             continue
         end = text.find(")", at)
         body = text[at : end + 1 if end >= 0 else len(text)]
+        # Any live workspace action means defer. Hyprland clashes on
+        # HORIZONTAL, so a vertical/left/right workspace line over-defers
+        # and blocks a non-shadowing Atmos swipe. That is the rule: do not
+        # emit a second workspace gesture when one already exists.
         if re.search(r"""action\s*=\s*["']workspace["']""", body):
             return True
         i = at + 11

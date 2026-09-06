@@ -2978,13 +2978,6 @@ QtObject {
     if (mapped && mapped !== root.theme) root.applySnapshot(JSON.stringify({ theme: mapped }))
   }
 
-  FileView {
-    id: inputLuaView
-    path: root.inputLuaFile
-    watchChanges: false
-    printErrors: false
-  }
-
   property Instantiator fileWatchers: Instantiator {
     model: root.watchSpecs
     delegate: FileView {
@@ -3057,6 +3050,13 @@ QtObject {
       root.snapshotReady = true
       root.ioFinished()
     }
+  }
+
+  FileView {
+    id: inputLuaView
+    path: root.inputLuaFile
+    watchChanges: false
+    printErrors: false
   }
 
   property Process mutProc: Process {

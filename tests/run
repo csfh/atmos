@@ -1656,6 +1656,42 @@ JSON
   grep -q '"scrollFactor":0.4' <<<"$out"
   rm -rf "$input_dir"
   echo "ok - apply-settings.sh keeps hyprInput layout override and workspace gesture"
+
+  stale_dir=$(mktemp -d)
+  mkdir -p "$stale_dir/.config/hypr"
+  cat >"$stale_dir/.config/hypr/input.lua" <<'LUA'
+hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })
+LUA
+  printf '{"hyprInput":{"workspaceGesture":false,"sensitivity":0}}' >"$stale_dir/snapshot.json"
+  cat >"$stale_dir/plan.json" <<'JSON'
+{
+  "schema": 1,
+  "changes": [
+    { "key": "hyprInput.workspaceGesture", "value": true, "from": false }
+  ]
+}
+JSON
+  stale_out=$(HOME="$stale_dir" ATMOS_INPUT_FILE="$stale_dir/.config/hypr/input.lua" ATMOS_SKIP_HYPR=1 \
+    bash scripts/apply-settings.sh --snapshot "$stale_dir/snapshot.json" --plan "$stale_dir/plan.json")
+  echo "$stale_out" | jq -e '.results | map(select(.key == "hyprInput.workspaceGesture")) | .[0].status == "skipped"' >/dev/null
+  if echo "$stale_out" | jq -e '.results | any(.key == "hyprInput.workspaceGesture" and .status == "applied")' >/dev/null; then
+    echo "not ok - apply-settings.sh reported an unmanaged workspace gesture as applied"
+    rm -rf "$stale_dir"
+    exit 1
+  fi
+  gesture_count=$(grep -c 'hl.gesture' "$stale_dir/.config/hypr/input.lua" || true)
+  if [[ $gesture_count -ne 1 ]]; then
+    echo "not ok - apply-settings.sh wrote a duplicate gesture over a stale snapshot ($gesture_count)"
+    rm -rf "$stale_dir"
+    exit 1
+  fi
+  if grep -q -- '-- atmos:input begin' "$stale_dir/.config/hypr/input.lua"; then
+    echo "not ok - apply-settings.sh wrote an input block for a skipped workspace gesture"
+    rm -rf "$stale_dir"
+    exit 1
+  fi
+  rm -rf "$stale_dir"
+  echo "ok - apply-settings.sh skips a workspace gesture when the live file is unmanaged"
 else
   echo "ok - skipping apply-settings.sh hyprInput merge"
 fi

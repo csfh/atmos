@@ -683,6 +683,26 @@ assert(
   "the unmanaged gesture warning says the setting is skipped",
 );
 
+const staleUnmanaged = settings.planImport(
+  settings.parseSettingsMarkdown(
+    "```toml atmos:meta\nschema = 1\n```\n" +
+      "```toml atmos:input\nhyprInput.workspaceGesture = true\n```\n",
+  ),
+  { hyprInput: { workspaceGesture: false } },
+  null,
+  { workspaceGestureUnmanaged: true },
+);
+assertEqual(
+  staleUnmanaged.changes.length,
+  0,
+  "a live unmanaged scan skips workspaceGesture even when the snapshot flag is missing",
+);
+assertEqual(
+  staleUnmanaged.warnings.length,
+  1,
+  "a live unmanaged scan still warns instead of planning a write",
+);
+
 const unmanagedGestureSame = settings.planImport(
   settings.parseSettingsMarkdown(
     "```toml atmos:meta\nschema = 1\n```\n" +

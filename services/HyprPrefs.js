@@ -462,6 +462,10 @@ function sentinelHasWorkspaceGesture(src) {
     }
     var end = text.indexOf(")", at);
     var body = text.substring(at, end === -1 ? text.length : end + 1);
+    // Any live workspace action means defer. Hyprland clashes on
+    // HORIZONTAL, so a vertical/left/right workspace line over-defers
+    // and blocks a non-shadowing Atmos swipe. That is the rule: do not
+    // emit a second workspace gesture when one already exists.
     if (/action\s*=\s*["']workspace["']/.test(body)) return true;
     i = at + 11;
   }

@@ -412,13 +412,16 @@ PrefsPage {
 
     SettingRow {
       label: "Three-finger swipe"
-      description: "Swipe sideways with three fingers to change workspace."
+      description: Omarchy.hyprWorkspaceGestureUnmanaged
+        ? "This gesture is already in ~/.config/hypr/input.lua outside the Atmos block, so the switch stays on and Atmos will not change it. Comment that line out to let Atmos own it."
+        : "Swipe sideways with three fingers to change workspace."
       hint: "~/.config/hypr/input.lua · hl.gesture"
       query: root.query
       keywords: ["gesture", "swipe", "workspace", "three"]
 
       PrefsToggle {
         checked: Omarchy.hyprWorkspaceGesture
+        enabled: !Omarchy.hyprWorkspaceGestureUnmanaged
         onToggled: Omarchy.setHyprWorkspaceGesture(!Omarchy.hyprWorkspaceGesture)
       }
     }

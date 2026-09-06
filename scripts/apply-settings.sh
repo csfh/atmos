@@ -104,6 +104,7 @@ declare -a RUN_KEYS=()
 declare -a RUN_CMDS=()
 declare -a RUN_GROUPS=()
 declare -a RUN_STDIN=()
+declare -a SKIPPED_KEYS=()
 
 queue() {
   local key=$1 group=$2
@@ -167,6 +168,10 @@ for ((i = 0; i < cmd_count; i++)); do
       unset 'argv[-1]'
     fi
   fi
+  if jq -e --argjson i "$i" '.[$i].skip == true' <<<"$COMMANDS" >/dev/null; then
+    SKIPPED_KEYS+=("$key")
+    continue
+  fi
   # Prefer stdin when non-empty so a long list does not hit the 128 KiB argv cap.
   if [[ -n $stdin_payload && ${#argv[@]} -gt 0 && ${argv[-1]} == "$stdin_payload" ]]; then
     unset 'argv[-1]'
@@ -177,6 +182,7 @@ for ((i = 0; i < cmd_count; i++)); do
     queue "$key" "$backup" "${argv[@]}"
   fi
 done
+
 
 # The undo plan is the same plan with from and value swapped, so reversing an
 # import is the ordinary path rather than a special one.
@@ -214,6 +220,11 @@ fi
 
 status=0
 results=()
+if ((${#SKIPPED_KEYS[@]} > 0)); then
+  for key in "${SKIPPED_KEYS[@]}"; do
+    results+=("$(jq -nc --arg k "$key" '{key:$k, status:"skipped"}')")
+  done
+fi
 for i in "${!RUN_KEYS[@]}"; do
   key=${RUN_KEYS[$i]}
   mapfile -d '' -t argv < <(base64 -d <<<"${RUN_CMDS[$i]}")

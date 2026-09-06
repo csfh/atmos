@@ -1078,6 +1078,19 @@ function planImport(doc, snapshot, keys, options) {
       var to = values[key];
       var from = readValue(snap, key);
 
+      // Workspace gesture is a boolean, so unmanagedCount never fires. A
+      // live hl.gesture outside the Atmos block still owns HORIZONTAL;
+      // writing this key would either no-op or duplicate it. Skip instead.
+      if (key === "hyprInput.workspaceGesture" && workspaceGestureUnmanaged(snap, opts)) {
+        warnings.push({
+          key: key,
+          message:
+            "Workspace gesture is written by hand in ~/.config/hypr/input.lua outside the Atmos block. " +
+            "Atmos leaves that line alone, so this setting is skipped.",
+        });
+        continue;
+      }
+
       // Settled before anything is validated. A value the machine already
       // holds needs no permission to stay: plymouth reports "default" as
       // its theme while the installable themes list does not contain it,
@@ -1372,6 +1385,14 @@ function choiceReason(item, value) {
 // fall back to 07:00 is blocked instead of silently rewriting the schedule.
 function isClockTime(value) {
   return typeof value === "string" && /^([01]?\d|2[0-3]):([0-5]\d)$/.test(value);
+}
+
+// Snapshot flag, or a live re-scan the caller already did (same scan as
+// the writer). A stale in-memory snapshot can miss an uncommented stock line.
+function workspaceGestureUnmanaged(snap, options) {
+  var opts = options || {};
+  if (opts.workspaceGestureUnmanaged === true) return true;
+  return !!(snap && snap.hyprWorkspaceGestureUnmanaged === true);
 }
 
 // Rows the snapshot says live outside the block Atmos manages.
@@ -2199,8 +2220,9 @@ function clockBarKey(base, snapshot) {
   return base;
 }
 
-function skipRecord(key) {
-  return { skip: true, key: key };
+function skipRecord(key, extra) {
+  extra = extra || {};
+  return { skip: true, key: key, report: extra.report === true };
 }
 
 function tagApply(apply) {
@@ -2412,8 +2434,18 @@ function commandFor(key, value, snapshot, opts) {
 
   if (spec.kind === "hypr-group") {
     var field = String(key).slice(spec.group.length + 1);
+    // Same scan as the writer. A stale snapshot can omit the unmanaged
+    // flag; do not queue a gesture write or later claim it applied.
+    if (
+      spec.group === "hyprInput" &&
+      field === "workspaceGesture" &&
+      workspaceGestureUnmanaged(snapshot, opts)
+    )
+      return skipRecord(key, { report: true });
     var merged = copyObject(readValue(snapshot, spec.group));
     merged[field] = value;
+    if (spec.group === "hyprInput" && workspaceGestureUnmanaged(snapshot, opts))
+      delete merged.workspaceGesture;
     var payload = JSON.stringify(merged);
     var applyHypr = {};
     applyHypr[spec.group] = merged;
@@ -2591,7 +2623,11 @@ function planCommands(changes, snapshot, opts) {
     )
       cmdSnap = snapshot || {};
     var cmd = commandFor(key, list[i].value, cmdSnap, opts);
-    if (!cmd || cmd.skip) continue;
+    if (!cmd) continue;
+    if (cmd.skip) {
+      if (cmd.report) out.push(cmd);
+      continue;
+    }
     if (merged) seen[merged] = true;
     out.push(cmd);
   }
@@ -2659,6 +2695,21 @@ function runCommandsCli(argv) {
   if (!snapshot || typeof snapshot !== "object" || Array.isArray(snapshot)) snapshot = {};
   var changes = plan && Array.isArray(plan.changes) ? plan.changes : [];
   var opts = { root: path.dirname(scriptsRoot), scripts: scriptsFromRoot(scriptsRoot) };
+  var inputFile =
+    process.env.ATMOS_INPUT_FILE || path.join(process.env.HOME || "", ".config/hypr/input.lua");
+  try {
+    if (fs.existsSync(inputFile)) {
+      var listed = require("child_process").spawnSync(
+        "python3",
+        [path.join(scriptsRoot, "hypr-sentinel.py"), "input", "list", inputFile],
+        { encoding: "utf8" },
+      );
+      if (listed.status === 0) {
+        var parsed = JSON.parse(String(listed.stdout || "").replace(/^\s+|\s+$/g, "") || "{}");
+        opts.workspaceGestureUnmanaged = parsed.workspaceGestureUnmanaged === true;
+      }
+    }
+  } catch (e) {}
   for (i = 0; i < changes.length; i++) {
     var key = String(changes[i].key || "");
     if (!commandFor(key, changes[i].value, snapshot, opts)) {

@@ -2,6 +2,12 @@
 
 Notable changes to Atmos. Each section is a git tag on `main` and `alpha`. Install and in-app Update follow the `alpha` branch.
 
+## [Unreleased]
+
+### Fixed
+
+- Installing or updating extra themes now refreshes the Installed themes list.
+
 ## [v0.0.1-alpha.10] - 2026-09-05
 
 ### Fixed

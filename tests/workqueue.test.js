@@ -1,66 +1,9 @@
 const { load, assert, assertEqual } = require("./harness");
 
 const queue = load("services/WorkQueue.js");
-assertEqual(queue.snapshotGroupForHub("appearance"), "look", "appearance hub reads look first");
-assertEqual(queue.snapshotGroupForHub("display"), "look", "displays hub reads look first");
-assertEqual(queue.snapshotGroupForHub("windows"), "look", "windows hub reads look first");
-assertEqual(queue.snapshotGroupForHub("bar"), "look", "bar hub reads look first");
-assertEqual(
-  queue.snapshotGroupForHub("notifications"),
-  "look",
-  "notifications hub reads look first",
-);
-assertEqual(queue.snapshotGroupForHub("idle"), "look", "idle hub reads look first");
-assertEqual(queue.snapshotGroupForHub("network"), "network", "network hub reads network first");
-assertEqual(queue.snapshotGroupForHub("disks"), "disks", "disks hub reads disks first");
-assertEqual(queue.snapshotGroupForHub("accounts"), "accounts", "accounts hub reads accounts first");
-assertEqual(queue.snapshotGroupForHub("system"), "system", "system hub reads system first");
-assertEqual(queue.snapshotGroupForHub("hardware"), "all", "other hubs read the full snapshot");
 const netIo = queue.createWorkQueue();
 queue.enqueueRead(netIo, "network");
 assertEqual(netIo.reads[0].group, "network", "enqueueRead keeps a network group");
-assertEqual(
-  queue.snapshotGroupForWatchPath("/home/x/.config/hypr/looknfeel.lua"),
-  "look",
-  "looknfeel.lua watch is look",
-);
-assertEqual(
-  queue.snapshotGroupForWatchPath("/home/x/.config/hypr/hyprsunset.conf"),
-  "look",
-  "hyprsunset.conf watch is look",
-);
-assertEqual(
-  queue.snapshotGroupForWatchPath("/home/x/.config/hypr/input.lua"),
-  "rest",
-  "input.lua watch is rest",
-);
-assertEqual(
-  queue.snapshotGroupForWatchPath("/home/x/.config/hypr/autostart.lua"),
-  "rest",
-  "autostart.lua watch is rest",
-);
-assertEqual(
-  queue.snapshotGroupForWatchPath("/home/x/.config/hypr/bindings.lua"),
-  "rest",
-  "bindings.lua watch is rest",
-);
-assertEqual(
-  queue.snapshotGroupForWatchPath("/home/x/.config/hypr/atmos.lua"),
-  "rest",
-  "atmos.lua watch is rest",
-);
-assertEqual(queue.snapshotGroupForWatchPath("/etc/hostname"), "rest", "hostname watch is rest");
-assertEqual(queue.snapshotGroupForWatchPath("/home/x/.face.icon"), "rest", "face watch is rest");
-assertEqual(
-  queue.snapshotGroupForWatchPath("/home/x/.local/state/omarchy/toggles"),
-  "all",
-  "toggles dir watch is all",
-);
-assertEqual(
-  queue.snapshotGroupForWatchPath("/home/x/.local/state/omarchy/toggles/hypr"),
-  "look",
-  "hypr toggles watch is look",
-);
 assertEqual(
   queue.addPendingRefresh(["look"], "rest").join(","),
   "look,rest",

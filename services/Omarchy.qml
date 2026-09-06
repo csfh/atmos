@@ -6,10 +6,13 @@ import "Accounts.js" as AccountsJs
 import "AtmosUpdate.js" as AtmosUpdate
 import "Hardware.js" as HardwareJs
 import "Hooks.js" as HooksJs
+import "Hubs.js" as HubsJs
 import "HyprPrefs.js" as HyprPrefs
 import "HyprSunset.js" as HyprSunset
 import "RichUi.js" as RichUi
+import "Settings.js" as SettingsJs
 import "Snapshot.js" as SnapshotJs
+import "SnapshotGroups.js" as SnapshotGroups
 import "Theme.js" as ThemeJs
 import "WorkQueue.js" as WorkQueue
 
@@ -378,27 +381,18 @@ QtObject {
 
   property var ioQueue: WorkQueue.createWorkQueue()
   property var snapshotData: ({})
+  readonly property var snapshotAdapters: ({
+    clampLook: HyprPrefs.clampLook,
+    clampInput: HyprPrefs.clampInput,
+    applyAccountPatch: AccountsJs.applyAccountPatch,
+    normalizeHardware: HardwareJs.normalize,
+    parseTime: HyprSunset.parseTime,
+    parseChannel: AtmosUpdate.parseChannel,
+    parseWeatherCoords: RichUi.parseWeatherCoords,
+    allowedKey: SnapshotGroups.allowedKey
+  })
   property var ioJob: null
   property bool snapshotReady: false
-
-  function sanitizeDmi(raw) {
-    var source = String(raw || "")
-    if (source.indexOf("\n") !== -1 || source.indexOf("\r") !== -1) return ""
-    var s = source.replace(/\s+/g, " ").replace(/^\s+|\s+$/g, "")
-    if (!s || s.length > 160) return ""
-    if (s.indexOf("..") !== -1) return ""
-    if (s.charAt(0) === "-" || s.charAt(0) === "/") return ""
-    var lower = s.toLowerCase()
-    if (lower === "none" || lower === "default string" || lower === "unknown" || lower.indexOf("to be filled") !== -1)
-      return ""
-    return s
-  }
-
-  function adoptArray(cur, next) {
-    if (!(next instanceof Array)) next = []
-    if (JSON.stringify(cur) === JSON.stringify(next)) return cur
-    return next
-  }
 
   function applySnapshot(raw) {
     var parsed = SnapshotJs.parseSnapshot(raw)
@@ -406,521 +400,261 @@ QtObject {
       lastError = "Could not parse Omarchy snapshot"
       return
     }
-    var data = SnapshotJs.mergeSnapshot(snapshotData, parsed)
-    snapshotData = data
-    if (!("hardware" in parsed) && !("disks" in parsed)) {
-      root.applyLookPatch(parsed)
-      return
-    }
-    theme = String(data.theme || "")
-    background = String(data.background || "")
-    font = String(data.font || "")
-    textSize = Number(data.textSize) || 12
-    themes = adoptArray(themes, data.themes)
-    extraThemes = adoptArray(extraThemes, data.extraThemes)
-    desktopApps = adoptArray(desktopApps, data.desktopApps)
-    tuiApps = adoptArray(tuiApps, data.tuiApps)
-    webApps = adoptArray(webApps, data.webApps)
-    fonts = adoptArray(fonts, data.fonts)
-    barPosition = String(data.barPosition || "top")
-    barTransparent = data.barTransparent === true
-    barVisible = data.barVisible !== false
-    clockFormat = String(data.clockFormat || "")
-    clockFormatAlt = String(data.clockFormatAlt || "")
-    clockWeekStart = String(data.clockWeekStart || "").toLowerCase()
-    if (clockWeekStart !== "sunday" && clockWeekStart !== "monday" && clockWeekStart !== "tuesday" && clockWeekStart !== "wednesday" && clockWeekStart !== "thursday" && clockWeekStart !== "friday" && clockWeekStart !== "saturday")
-      clockWeekStart = ""
-    clockPresent = data.clockPresent === true
-    clockBirthYear = Math.round(Number(data.clockBirthYear)) || 0
-    if (clockBirthYear < 1) clockBirthYear = 0
-    clockLifeExpectancy = Math.round(Number(data.clockLifeExpectancy)) || 0
-    if (clockLifeExpectancy < 1 || clockLifeExpectancy > 150) clockLifeExpectancy = 0
-    indicatorsPresent = data.indicatorsPresent === true
-    indicatorsAlwaysShow = data.indicatorsAlwaysShow === true
-    indicatorsItems = adoptArray(indicatorsItems, root.normalizedIndicatorItems(data.indicatorsItems))
-    agentsPresent = data.agentsPresent === true
-    agentsRefreshIntervalSec = Number(data.agentsRefreshIntervalSec) || 900
-    if (agentsRefreshIntervalSec < 30) agentsRefreshIntervalSec = 900
-    agentsSync = data.agentsSync === true
-    agentsSyncDir = String(data.agentsSyncDir || "")
-    agentsSyncFileName = String(data.agentsSyncFileName || "")
-    agentsSyncDeviceId = String(data.agentsSyncDeviceId || "")
-    spacerPresent = data.spacerPresent === true
-    spacerSize = Math.round(Number(data.spacerSize))
-    if (!isFinite(spacerSize) || spacerSize < 0) spacerSize = 12
-    if (spacerSize > 64) spacerSize = 64
-    trayPresent = data.trayPresent === true
-    trayHidden = adoptArray(trayHidden, root.normalizedStringIds(data.trayHidden))
-    trayPinned = adoptArray(trayPinned, root.normalizedStringIds(data.trayPinned))
-    browser = String(data.browser || "")
-    terminal = String(data.terminal || "")
-    editor = String(data.editor || "")
-    agent = String(data.agent || "")
-    dns = String(data.dns || "")
-    idleScreensaver = Number(data.idleScreensaver) || 0
-    idleLock = Number(data.idleLock) || 0
-    stayAwake = data.stayAwake === true
-    nightlight = data.nightlight === true
-    nightlightTemperature = Math.round(Number(data.nightlightTemperature)) || 0
-    if (nightlightTemperature < 0) nightlightTemperature = 0
-    screensaverEnabled = data.screensaverEnabled !== false
-    screensaverBranded = data.screensaverBranded === true
-    aboutBranded = data.aboutBranded === true
-    bluetooth = data.bluetooth === true
-    wifiConnected = data.wifiConnected === true
-    wifiBand = String(data.wifiBand || "")
-    wifiBandSelected = String(data.wifiBandSelected || "auto")
-    wifiBands = adoptArray(wifiBands, data.wifiBands instanceof Array ? data.wifiBands : ["auto"])
-    wifiIface = String(data.wifiIface || "")
-    if (!/^[a-zA-Z0-9._-]+$/.test(wifiIface)) wifiIface = ""
-    netKind = String(data.netKind || "disconnected")
-    if (netKind !== "ethernet" && netKind !== "wifi") netKind = "disconnected"
-    netIface = String(data.netIface || "")
-    if (!/^[a-zA-Z0-9._-]+$/.test(netIface)) netIface = ""
-    netSsid = String(data.netSsid || "")
-    netSignal = String(data.netSignal || "")
-    if (!/^[0-9]+$/.test(netSignal)) netSignal = ""
-    netIp = String(data.netIp || "")
-    if (!/^[0-9a-fA-F:.]+$/.test(netIp)) netIp = ""
-    netSpeed = String(data.netSpeed || "")
-    if (!/^[0-9]+$/.test(netSpeed)) netSpeed = ""
-    wifiHw = data.wifiHw === true
-    wifiRadio = data.wifiRadio === true
-    wifiConnections = adoptArray(wifiConnections, data.wifiConnections)
-    bluetoothDevices = adoptArray(bluetoothDevices, data.bluetoothDevices)
-    audioSinks = adoptArray(audioSinks, data.audioSinks)
-    audioSources = adoptArray(audioSources, data.audioSources)
-    audioOutputVolume = Math.round(Number(data.audioOutputVolume)) || 0
-    if (audioOutputVolume < 0) audioOutputVolume = 0
-    if (audioOutputVolume > 100) audioOutputVolume = 100
-    audioOutputMuted = data.audioOutputMuted === true
-    audioInputVolume = Math.round(Number(data.audioInputVolume)) || 0
-    if (audioInputVolume < 0) audioInputVolume = 0
-    if (audioInputVolume > 100) audioInputVolume = 100
-    audioInputMuted = data.audioInputMuted === true
-    audioTuningMatch = data.audioTuningMatch === true
-    audioTuningOn = data.audioTuningOn === true
-    disks = adoptArray(disks, data.disks)
-    hardware = HardwareJs.normalize(data.hardware)
-    luksDevices = adoptArray(luksDevices, data.luksDevices)
-    swapDevices = adoptArray(swapDevices, data.swapDevices)
-    snapperPresent = data.snapperPresent === true
-    snapperConfigs = adoptArray(snapperConfigs, data.snapperConfigs)
-    snapshots = adoptArray(snapshots, data.snapshots)
-    hibernationAvailable = data.hibernationAvailable === true
-    hibernationSupported = data.hibernationSupported === true
-    hibernationConfigured = data.hibernationConfigured === true
-    audioSink = ""
-    audioSource = ""
-    var i
-    for (i = 0; i < audioSinks.length; i++) {
-      if (audioSinks[i] && audioSinks[i].default) {
-        audioSink = String(audioSinks[i].name || "")
-        break
-      }
-    }
-    for (i = 0; i < audioSources.length; i++) {
-      if (audioSources[i] && audioSources[i].default) {
-        audioSource = String(audioSources[i].name || "")
-        break
-      }
-    }
-    suspendEnabled = data.suspendEnabled !== false
-    powerProfile = String(data.powerProfile || "")
-    powerProfileAc = String(data.powerProfileAc || "")
-    powerProfileBattery = String(data.powerProfileBattery || "")
-    powerProfiles = adoptArray(powerProfiles, data.powerProfiles)
-    powerPresent = data.powerPresent === true
-    powerShowPercentage = data.powerShowPercentage === true
-    isLaptop = data.isLaptop === true
-    batteryPresent = data.batteryPresent === true
-    monitors = adoptArray(monitors, data.monitors)
-    internalPresent = data.internalPresent === true
-    internalEnabled = data.internalEnabled === true
-    externalPresent = data.externalPresent === true
-    mirroring = data.mirroring === true
-    touchpadPresent = data.touchpadPresent === true
-    touchpadEnabled = data.touchpadEnabled !== false
-    touchscreenPresent = data.touchscreenPresent === true
-    touchscreenEnabled = data.touchscreenEnabled !== false
-    keyboardBacklightPresent = data.keyboardBacklightPresent === true
-    keyboardBrightness = Math.round(Number(data.keyboardBrightness)) || 0
-    if (keyboardBrightness < 0) keyboardBrightness = 0
-    if (keyboardBrightness > 100) keyboardBrightness = 100
-    crashCapture = data.crashCapture !== false
-    doNotDisturb = data.doNotDisturb === true
-    weatherLocation = String(data.weatherLocation || "")
-    weatherCoords = RichUi.parseWeatherCoords(data.weatherCoords)
-    weatherAuto = data.weatherAuto !== false
-    weatherPresent = data.weatherPresent === true
-    weatherUnit = String(data.weatherUnit || "auto")
-    if (weatherUnit !== "metric" && weatherUnit !== "imperial") weatherUnit = "auto"
-    weatherRefreshMinutes = Number(data.weatherRefreshMinutes) || 15
-    if (weatherRefreshMinutes < 1) weatherRefreshMinutes = 15
-    reminderCount = Math.round(Number(data.reminderCount)) || 0
-    if (reminderCount < 0) reminderCount = 0
-    reminderActive = data.reminderActive === true
-    reminders = adoptArray(reminders, data.reminders)
-    plymouth = String(data.plymouth || "")
-    plymouthThemes = adoptArray(plymouthThemes, data.plymouthThemes)
-    hasAether = data.hasAether === true
-    browsers = data.browsers || ({})
-    terminals = data.terminals || ({})
-    editors = data.editors || ({})
-    timezone = String(data.timezone || "")
-    if (!/^[A-Za-z0-9/_+-]+$/.test(timezone) || timezone.indexOf("..") !== -1) timezone = ""
-    timezones = adoptArray(timezones, data.timezones)
-    ntp = data.ntp === true
-    ntpAvailable = data.ntpAvailable === true
-    ntpSynchronized = data.ntpSynchronized === true
-    AccountsStore.applyPatch(data)
-    keyboardLayout = String(data.keyboardLayout || "")
-    if (keyboardLayout.indexOf(",") !== -1) keyboardLayout = keyboardLayout.split(",")[0]
-    if (!/^[a-z0-9]{1,8}$/.test(keyboardLayout)) keyboardLayout = ""
-    keyboardLayouts = adoptArray(keyboardLayouts, data.keyboardLayouts)
-    locale = String(data.locale || "")
-    if (locale !== "C.UTF-8" && !/^[a-z]{2,3}(_[A-Z]{2})?\.UTF-8(@[A-Za-z0-9]+)?$/.test(locale))
-      locale = ""
-    locales = adoptArray(locales, data.locales)
-    parallelDownloads = Math.round(Number(data.parallelDownloads)) || 5
-    if (parallelDownloads < 1) parallelDownloads = 5
-    if (parallelDownloads > 20) parallelDownloads = 20
-    root.applyHyprLook(data.hyprLook)
-    root.applyHyprInput(data.hyprInput)
-    hyprLookManaged = data.hyprLookManaged === true
-    hyprInputManaged = data.hyprInputManaged === true
-    hyprWorkspaceGesture = data.hyprWorkspaceGesture === true
-    hyprNoGaps = data.hyprNoGaps === true
-    hyprSquareAspect = data.hyprSquareAspect === true
-    hyprWorkspaceLayout = String(data.hyprWorkspaceLayout || "dwindle")
-    if (hyprWorkspaceLayout !== "scrolling") hyprWorkspaceLayout = "dwindle"
-    fingerprintAvailable = data.fingerprintAvailable === true
-    fingerprintConfigured = data.fingerprintConfigured === true
-    fido2Configured = data.fido2Configured === true
-    sshdEnabled = data.sshdEnabled === true
-    sshdActive = data.sshdActive === true
-    passwordlessSudo = data.passwordlessSudo === true
-    sudolessDocker = data.sudolessDocker === true
-    omarchyVersion = String(data.omarchyVersion || "")
-    omarchyChannel = String(data.omarchyChannel || "")
-    if (omarchyChannel !== "stable" && omarchyChannel !== "rc" && omarchyChannel !== "edge" && omarchyChannel !== "dev")
-      omarchyChannel = ""
-    updateAvailable = data.updateAvailable === true
-    updateSummary = String(data.updateSummary || "")
-    atmosRevision = String(data.atmosRevision || "")
-    if (!/^[0-9a-f]{4,40}$/.test(atmosRevision)) atmosRevision = ""
-    atmosChannel = AtmosUpdate.parseChannel(data.atmosChannel)
-    if (!atmosChannel) atmosChannel = "alpha"
-    atmosInstalled = data.atmosInstalled === true
-    voxtypeInstalled = data.voxtypeInstalled === true
-    hybridGpuAvailable = data.hybridGpuAvailable === true
-    hybridGpuMode = String(data.hybridGpuMode || "")
-    if (hybridGpuMode !== "Integrated" && hybridGpuMode !== "Hybrid") hybridGpuMode = ""
-    hwNvidia = data.hwNvidia === true
-    hwNvidiaGsp = data.hwNvidiaGsp === true
-    hwNvidiaWithoutGsp = data.hwNvidiaWithoutGsp === true
-    hwVulkan = data.hwVulkan === true
-    hwIntel = data.hwIntel === true
-    hwIntelPtl = data.hwIntelPtl === true
-    hwWebcam = data.hwWebcam === true
-    hwFramework16 = data.hwFramework16 === true
-    hwAsusRog = data.hwAsusRog === true
-    hwSurface = data.hwSurface === true
-    dmiVendor = root.sanitizeDmi(data.dmiVendor)
-    dmiProduct = root.sanitizeDmi(data.dmiProduct)
-    dmiFamily = root.sanitizeDmi(data.dmiFamily)
-    cpuStat = String(data.cpuStat || "").replace(/^\s+|\s+$/g, "")
-    memoryStat = String(data.memoryStat || "").replace(/^\s+|\s+$/g, "")
-    cpuIdentity = root.sanitizeDmi(data.cpuIdentity)
-    gpuIdentity = root.sanitizeDmi(data.gpuIdentity)
-    npuIdentity = root.sanitizeDmi(data.npuIdentity)
-    tailscaleInstalled = data.tailscaleInstalled === true
-    tailscaleRunning = data.tailscaleRunning === true
-    plugins = adoptArray(plugins, data.plugins)
-    snapperNumberLimit = Math.round(Number(data.snapperNumberLimit)) || 5
-    if (snapperNumberLimit < 1) snapperNumberLimit = 5
-    if (snapperNumberLimit > 50) snapperNumberLimit = 50
-    snapperTimeline = data.snapperTimeline === true
-    fstrimEnabled = data.fstrimEnabled === true
-    directBootAvailable = data.directBootAvailable === true
-    directBoot = data.directBoot === true
-    mimePdf = String(data.mimePdf || "")
-    mimeImage = String(data.mimeImage || "")
-    mimeVideo = String(data.mimeVideo || "")
-    if (!/^[A-Za-z0-9._-]+\.desktop$/.test(mimePdf)) mimePdf = ""
-    if (!/^[A-Za-z0-9._-]+\.desktop$/.test(mimeImage)) mimeImage = ""
-    if (!/^[A-Za-z0-9._-]+\.desktop$/.test(mimeVideo)) mimeVideo = ""
-    mimePdfOptions = adoptArray(mimePdfOptions, data.mimePdfOptions)
-    mimeImageOptions = adoptArray(mimeImageOptions, data.mimeImageOptions)
-    mimeVideoOptions = adoptArray(mimeVideoOptions, data.mimeVideoOptions)
-    picturesDir = String(data.picturesDir || "")
-    videosDir = String(data.videosDir || "")
-    recordingActive = data.recordingActive === true
-    webcamOverlay = data.webcamOverlay === true
-    services = data.services || ({})
-    gaming = data.gaming || ({})
-    extras = data.extras || ({})
-    hooks = adoptArray(hooks, data.hooks)
-    autostart = adoptArray(autostart, data.autostart)
-    autostartManaged = data.autostartManaged === true
-    bindings = adoptArray(bindings, data.bindings)
-    bindingsManaged = data.bindingsManaged === true
-    windowRules = adoptArray(windowRules, data.windowRules)
-    windowRulesManaged = data.windowRulesManaged === true
-    keybindings = adoptArray(keybindings, data.keybindings)
-    focusedClass = String(data.focusedClass || "")
-    cupsActive = data.cupsActive === true
-    printerSetup = data.printerSetup === true
-    nightlightDay = HyprSunset.parseTime(data.nightlightDay) || "07:00"
-    nightlightNight = HyprSunset.parseTime(data.nightlightNight) || "20:00"
-    nightlightNightOn = data.nightlightNightOn === true
-    tailscalePeers = adoptArray(tailscalePeers, data.tailscalePeers)
-    var opts = String(data.hyprInput && data.hyprInput.kbOptions || "")
-    hyprKbGroupToggle = opts.indexOf("grp:alts_toggle") !== -1
+    var next = SnapshotJs.adopt(snapshotData, parsed, snapshotAdapters)
+    snapshotData = next
+    copyRecord(next)
+    var accounts = SnapshotJs.accountStorePatch(parsed)
+    if (accounts) AccountsStore.applyPatch(accounts)
   }
 
-  function applyLookPatch(parsed) {
-    if ("theme" in parsed) theme = String(parsed.theme || "")
-    if ("background" in parsed) background = String(parsed.background || "")
-    if ("font" in parsed) font = String(parsed.font || "")
-    if ("textSize" in parsed) {
-      textSize = Number(parsed.textSize) || 12
-    }
-    if ("themes" in parsed) themes = adoptArray(themes, parsed.themes)
-    if ("extraThemes" in parsed) extraThemes = adoptArray(extraThemes, parsed.extraThemes)
-    if ("fonts" in parsed) fonts = adoptArray(fonts, parsed.fonts)
-    if ("stayAwake" in parsed) stayAwake = parsed.stayAwake === true
-    if ("nightlight" in parsed) nightlight = parsed.nightlight === true
-    if ("nightlightTemperature" in parsed) {
-      nightlightTemperature = Math.round(Number(parsed.nightlightTemperature)) || 0
-      if (nightlightTemperature < 0) nightlightTemperature = 0
-    }
-    if ("screensaverBranded" in parsed) screensaverBranded = parsed.screensaverBranded === true
-    if ("aboutBranded" in parsed) aboutBranded = parsed.aboutBranded === true
-    if ("plymouth" in parsed) plymouth = String(parsed.plymouth || "")
-    if ("plymouthThemes" in parsed) plymouthThemes = adoptArray(plymouthThemes, parsed.plymouthThemes)
-    if ("nightlightDay" in parsed)
-      nightlightDay = HyprSunset.parseTime(parsed.nightlightDay) || "07:00"
-    if ("nightlightNight" in parsed)
-      nightlightNight = HyprSunset.parseTime(parsed.nightlightNight) || "20:00"
-    if ("nightlightNightOn" in parsed) nightlightNightOn = parsed.nightlightNightOn === true
-    if ("monitors" in parsed) monitors = adoptArray(monitors, parsed.monitors)
-    if ("keyboardBrightness" in parsed) {
-      keyboardBrightness = Math.round(Number(parsed.keyboardBrightness)) || 0
-      if (keyboardBrightness < 0) keyboardBrightness = 0
-      if (keyboardBrightness > 100) keyboardBrightness = 100
-    }
-    if ("internalEnabled" in parsed) internalEnabled = parsed.internalEnabled === true
-    if ("mirroring" in parsed) mirroring = parsed.mirroring === true
-    if ("touchpadEnabled" in parsed) touchpadEnabled = parsed.touchpadEnabled !== false
-    if ("touchscreenEnabled" in parsed) touchscreenEnabled = parsed.touchscreenEnabled !== false
-    if ("barPosition" in parsed) barPosition = String(parsed.barPosition || "top")
-    if ("barTransparent" in parsed) barTransparent = parsed.barTransparent === true
-    if ("barVisible" in parsed) barVisible = parsed.barVisible !== false
-    if ("clockPresent" in parsed) clockPresent = parsed.clockPresent === true
-    if ("indicatorsPresent" in parsed) indicatorsPresent = parsed.indicatorsPresent === true
-    if ("agentsPresent" in parsed) agentsPresent = parsed.agentsPresent === true
-    if ("trayPresent" in parsed) trayPresent = parsed.trayPresent === true
-    if ("isLaptop" in parsed) isLaptop = parsed.isLaptop === true
-    if ("batteryPresent" in parsed) batteryPresent = parsed.batteryPresent === true
-    if ("weatherPresent" in parsed) weatherPresent = parsed.weatherPresent === true
-    if ("internalPresent" in parsed) internalPresent = parsed.internalPresent === true
-    if ("externalPresent" in parsed) externalPresent = parsed.externalPresent === true
-    if ("touchpadPresent" in parsed) touchpadPresent = parsed.touchpadPresent === true
-    if ("touchscreenPresent" in parsed) touchscreenPresent = parsed.touchscreenPresent === true
-    if ("keyboardBacklightPresent" in parsed) keyboardBacklightPresent = parsed.keyboardBacklightPresent === true
-    if ("hyprSquareAspect" in parsed) hyprSquareAspect = parsed.hyprSquareAspect === true
-    if ("hyprWorkspaceGesture" in parsed) hyprWorkspaceGesture = parsed.hyprWorkspaceGesture === true
-    if ("clockFormat" in parsed) clockFormat = String(parsed.clockFormat || "")
-    if ("clockFormatAlt" in parsed) clockFormatAlt = String(parsed.clockFormatAlt || "")
-    if ("clockWeekStart" in parsed) {
-      clockWeekStart = String(parsed.clockWeekStart || "").toLowerCase()
-      if (clockWeekStart !== "sunday" && clockWeekStart !== "monday" && clockWeekStart !== "tuesday" && clockWeekStart !== "wednesday" && clockWeekStart !== "thursday" && clockWeekStart !== "friday" && clockWeekStart !== "saturday")
-        clockWeekStart = ""
-    }
-    if ("clockBirthYear" in parsed) {
-      clockBirthYear = Math.round(Number(parsed.clockBirthYear)) || 0
-      if (clockBirthYear < 1) clockBirthYear = 0
-    }
-    if ("clockLifeExpectancy" in parsed) {
-      clockLifeExpectancy = Math.round(Number(parsed.clockLifeExpectancy)) || 0
-      if (clockLifeExpectancy < 1 || clockLifeExpectancy > 150) clockLifeExpectancy = 0
-    }
-    if ("indicatorsAlwaysShow" in parsed) indicatorsAlwaysShow = parsed.indicatorsAlwaysShow === true
-    if ("indicatorsItems" in parsed) indicatorsItems = adoptArray(indicatorsItems, root.normalizedIndicatorItems(parsed.indicatorsItems))
-    if ("agentsRefreshIntervalSec" in parsed) {
-      agentsRefreshIntervalSec = Number(parsed.agentsRefreshIntervalSec) || 900
-      if (agentsRefreshIntervalSec < 30) agentsRefreshIntervalSec = 900
-    }
-    if ("agentsSync" in parsed) agentsSync = parsed.agentsSync === true
-    if ("agentsSyncDir" in parsed) agentsSyncDir = String(parsed.agentsSyncDir || "")
-    if ("agentsSyncFileName" in parsed) agentsSyncFileName = String(parsed.agentsSyncFileName || "")
-    if ("agentsSyncDeviceId" in parsed) agentsSyncDeviceId = String(parsed.agentsSyncDeviceId || "")
-    if ("spacerSize" in parsed) {
-      spacerSize = Math.round(Number(parsed.spacerSize))
-      if (!isFinite(spacerSize) || spacerSize < 0) spacerSize = 12
-      if (spacerSize > 64) spacerSize = 64
-    }
-    if ("spacerPresent" in parsed) spacerPresent = parsed.spacerPresent === true
-    if ("trayHidden" in parsed) trayHidden = adoptArray(trayHidden, root.normalizedStringIds(parsed.trayHidden))
-    if ("trayPinned" in parsed) trayPinned = adoptArray(trayPinned, root.normalizedStringIds(parsed.trayPinned))
-    if ("browser" in parsed) browser = String(parsed.browser || "")
-    if ("terminal" in parsed) terminal = String(parsed.terminal || "")
-    if ("editor" in parsed) editor = String(parsed.editor || "")
-    if ("agent" in parsed) agent = String(parsed.agent || "")
-    if ("dns" in parsed) dns = String(parsed.dns || "")
-    if ("idleScreensaver" in parsed) idleScreensaver = Number(parsed.idleScreensaver) || 0
-    if ("idleLock" in parsed) idleLock = Number(parsed.idleLock) || 0
-    if ("screensaverEnabled" in parsed) screensaverEnabled = parsed.screensaverEnabled !== false
-    if ("timezone" in parsed) {
-      timezone = String(parsed.timezone || "")
-      if (!/^[A-Za-z0-9/_+-]+$/.test(timezone) || timezone.indexOf("..") !== -1) timezone = ""
-    }
-    if ("ntp" in parsed) ntp = parsed.ntp === true
-    if ("ntpSynchronized" in parsed) ntpSynchronized = parsed.ntpSynchronized === true
-    if ("hostname" in parsed || "fullName" in parsed || "currentUser" in parsed || "avatarPath" in parsed || "users" in parsed || "groups" in parsed)
-      AccountsStore.applyPatch(parsed)
-    if ("keyboardLayout" in parsed) {
-      keyboardLayout = String(parsed.keyboardLayout || "")
-      if (keyboardLayout.indexOf(",") !== -1) keyboardLayout = keyboardLayout.split(",")[0]
-      if (!/^[a-z0-9]{1,8}$/.test(keyboardLayout)) keyboardLayout = ""
-    }
-    if ("locale" in parsed) {
-      locale = String(parsed.locale || "")
-      if (locale !== "C.UTF-8" && !/^[a-z]{2,3}(_[A-Z]{2})?\.UTF-8(@[A-Za-z0-9]+)?$/.test(locale))
-        locale = ""
-    }
-    if ("parallelDownloads" in parsed) {
-      parallelDownloads = Math.round(Number(parsed.parallelDownloads)) || 5
-      if (parallelDownloads < 1) parallelDownloads = 5
-      if (parallelDownloads > 20) parallelDownloads = 20
-    }
-    if ("hyprLook" in parsed) root.applyHyprLook(parsed.hyprLook)
-    if ("hyprInput" in parsed) root.applyHyprInput(parsed.hyprInput)
-    if ("hyprLookManaged" in parsed) hyprLookManaged = parsed.hyprLookManaged === true
-    if ("hyprInputManaged" in parsed) hyprInputManaged = parsed.hyprInputManaged === true
-    if ("hyprNoGaps" in parsed) hyprNoGaps = parsed.hyprNoGaps === true
-    if ("hyprSquareAspect" in parsed) hyprSquareAspect = parsed.hyprSquareAspect === true
-    if ("hyprWorkspaceGesture" in parsed) hyprWorkspaceGesture = parsed.hyprWorkspaceGesture === true
-    if ("plugins" in parsed) plugins = adoptArray(plugins, parsed.plugins)
-    if ("desktopApps" in parsed) desktopApps = adoptArray(desktopApps, parsed.desktopApps)
-    if ("tuiApps" in parsed) tuiApps = adoptArray(tuiApps, parsed.tuiApps)
-    if ("webApps" in parsed) webApps = adoptArray(webApps, parsed.webApps)
-    if ("hyprWorkspaceLayout" in parsed) {
-      hyprWorkspaceLayout = String(parsed.hyprWorkspaceLayout || "dwindle")
-      if (hyprWorkspaceLayout !== "scrolling") hyprWorkspaceLayout = "dwindle"
-    }
-    if ("bluetoothDevices" in parsed) bluetoothDevices = adoptArray(bluetoothDevices, parsed.bluetoothDevices)
-    if ("wifiConnections" in parsed) wifiConnections = adoptArray(wifiConnections, parsed.wifiConnections)
-    if ("wifiConnected" in parsed) wifiConnected = parsed.wifiConnected === true
-    if ("netKind" in parsed) {
-      netKind = String(parsed.netKind || "disconnected")
-      if (netKind !== "ethernet" && netKind !== "wifi") netKind = "disconnected"
-    }
-    if ("netSsid" in parsed) netSsid = String(parsed.netSsid || "")
-    if ("hooks" in parsed) hooks = adoptArray(hooks, parsed.hooks)
-    if ("reminderCount" in parsed) {
-      reminderCount = Math.round(Number(parsed.reminderCount)) || 0
-      if (reminderCount < 0) reminderCount = 0
-    }
-    if ("reminderActive" in parsed) reminderActive = parsed.reminderActive === true
-    if ("reminders" in parsed) reminders = adoptArray(reminders, parsed.reminders)
-    if ("recordingActive" in parsed) recordingActive = parsed.recordingActive === true
-    if ("webcamOverlay" in parsed) webcamOverlay = parsed.webcamOverlay === true
-    if ("autostart" in parsed) autostart = adoptArray(autostart, parsed.autostart)
-    if ("autostartManaged" in parsed) autostartManaged = parsed.autostartManaged === true
-    if ("bindings" in parsed) bindings = adoptArray(bindings, parsed.bindings)
-    if ("bindingsManaged" in parsed) bindingsManaged = parsed.bindingsManaged === true
-    if ("windowRules" in parsed) windowRules = adoptArray(windowRules, parsed.windowRules)
-    if ("windowRulesManaged" in parsed) windowRulesManaged = parsed.windowRulesManaged === true
-    if ("atmosChannel" in parsed) {
-      atmosChannel = AtmosUpdate.parseChannel(parsed.atmosChannel)
-      if (!atmosChannel) atmosChannel = "alpha"
-    }
-    if ("snapperNumberLimit" in parsed) {
-      snapperNumberLimit = Math.round(Number(parsed.snapperNumberLimit)) || 5
-      if (snapperNumberLimit < 1) snapperNumberLimit = 5
-      if (snapperNumberLimit > 50) snapperNumberLimit = 50
-    }
-    if ("snapperTimeline" in parsed) snapperTimeline = parsed.snapperTimeline === true
-    if ("fstrimEnabled" in parsed) fstrimEnabled = parsed.fstrimEnabled === true
-    if ("mimePdf" in parsed) {
-      mimePdf = String(parsed.mimePdf || "")
-      if (!/^[A-Za-z0-9._-]+\.desktop$/.test(mimePdf)) mimePdf = ""
-    }
-    if ("mimeImage" in parsed) {
-      mimeImage = String(parsed.mimeImage || "")
-      if (!/^[A-Za-z0-9._-]+\.desktop$/.test(mimeImage)) mimeImage = ""
-    }
-    if ("mimeVideo" in parsed) {
-      mimeVideo = String(parsed.mimeVideo || "")
-      if (!/^[A-Za-z0-9._-]+\.desktop$/.test(mimeVideo)) mimeVideo = ""
-    }
-    if ("bluetooth" in parsed) bluetooth = parsed.bluetooth === true
-    if ("wifiBandSelected" in parsed) wifiBandSelected = String(parsed.wifiBandSelected || "auto")
-    if ("wifiRadio" in parsed) wifiRadio = parsed.wifiRadio === true
-    if ("wifiHw" in parsed) wifiHw = parsed.wifiHw === true
-    if ("wifiIface" in parsed) {
-      wifiIface = String(parsed.wifiIface || "")
-      if (!/^[a-zA-Z0-9._-]+$/.test(wifiIface)) wifiIface = ""
-    }
-    if ("wifiBand" in parsed) wifiBand = String(parsed.wifiBand || "")
-    if ("wifiBands" in parsed) wifiBands = adoptArray(wifiBands, parsed.wifiBands)
-    if ("netIface" in parsed) netIface = String(parsed.netIface || "")
-    if ("netIp" in parsed) netIp = String(parsed.netIp || "")
-    if ("netSpeed" in parsed) netSpeed = String(parsed.netSpeed || "")
-    if ("netSignal" in parsed) netSignal = String(parsed.netSignal || "")
-    if ("tailscaleInstalled" in parsed) tailscaleInstalled = parsed.tailscaleInstalled === true
-    if ("tailscaleRunning" in parsed) tailscaleRunning = parsed.tailscaleRunning === true
-    if ("tailscalePeers" in parsed) tailscalePeers = adoptArray(tailscalePeers, parsed.tailscalePeers)
-    if ("disks" in parsed) disks = adoptArray(disks, parsed.disks)
-    if ("luksDevices" in parsed) luksDevices = adoptArray(luksDevices, parsed.luksDevices)
-    if ("swapDevices" in parsed) swapDevices = adoptArray(swapDevices, parsed.swapDevices)
-    if ("snapshots" in parsed) snapshots = adoptArray(snapshots, parsed.snapshots)
-    if ("snapperPresent" in parsed) snapperPresent = parsed.snapperPresent === true
-    if ("snapperConfigs" in parsed) snapperConfigs = adoptArray(snapperConfigs, parsed.snapperConfigs)
-    if ("hibernationAvailable" in parsed) hibernationAvailable = parsed.hibernationAvailable === true
-    if ("hibernationSupported" in parsed) hibernationSupported = parsed.hibernationSupported === true
-    if ("hibernationConfigured" in parsed) hibernationConfigured = parsed.hibernationConfigured === true
-    if ("fstrimEnabled" in parsed) fstrimEnabled = parsed.fstrimEnabled === true
-    if ("timezones" in parsed) timezones = adoptArray(timezones, parsed.timezones)
-    if ("ntpAvailable" in parsed) ntpAvailable = parsed.ntpAvailable === true
-    if ("locales" in parsed) locales = adoptArray(locales, parsed.locales)
-    if ("keyboardLayouts" in parsed) keyboardLayouts = adoptArray(keyboardLayouts, parsed.keyboardLayouts)
-    if ("audioOutputVolume" in parsed) {
-      audioOutputVolume = Math.round(Number(parsed.audioOutputVolume)) || 0
-      if (audioOutputVolume < 0) audioOutputVolume = 0
-      if (audioOutputVolume > 100) audioOutputVolume = 100
-    }
-    if ("audioOutputMuted" in parsed) audioOutputMuted = parsed.audioOutputMuted === true
-    if ("audioInputVolume" in parsed) {
-      audioInputVolume = Math.round(Number(parsed.audioInputVolume)) || 0
-      if (audioInputVolume < 0) audioInputVolume = 0
-      if (audioInputVolume > 100) audioInputVolume = 100
-    }
-    if ("audioInputMuted" in parsed) audioInputMuted = parsed.audioInputMuted === true
-    if ("audioSink" in parsed) audioSink = String(parsed.audioSink || "")
-    if ("audioSource" in parsed) audioSource = String(parsed.audioSource || "")
-    if ("audioTuningOn" in parsed) audioTuningOn = parsed.audioTuningOn === true
-    if ("suspendEnabled" in parsed) suspendEnabled = parsed.suspendEnabled !== false
-    if ("powerProfile" in parsed) powerProfile = String(parsed.powerProfile || "")
-    if ("powerProfileAc" in parsed) powerProfileAc = String(parsed.powerProfileAc || "")
-    if ("powerProfileBattery" in parsed) powerProfileBattery = String(parsed.powerProfileBattery || "")
-    if ("powerShowPercentage" in parsed) powerShowPercentage = parsed.powerShowPercentage === true
-    if ("crashCapture" in parsed) crashCapture = parsed.crashCapture !== false
-    if ("doNotDisturb" in parsed) doNotDisturb = parsed.doNotDisturb === true
-    if ("weatherLocation" in parsed) weatherLocation = String(parsed.weatherLocation || "")
-    if ("weatherAuto" in parsed) weatherAuto = parsed.weatherAuto !== false
-    if ("weatherCoords" in parsed)
-      weatherCoords = RichUi.parseWeatherCoords(parsed.weatherCoords)
-    if ("weatherUnit" in parsed) {
-      weatherUnit = String(parsed.weatherUnit || "auto")
-      if (weatherUnit !== "metric" && weatherUnit !== "imperial") weatherUnit = "auto"
-    }
-    if ("weatherRefreshMinutes" in parsed) {
-      weatherRefreshMinutes = Number(parsed.weatherRefreshMinutes) || 15
-      if (weatherRefreshMinutes < 1) weatherRefreshMinutes = 15
-    }
+  function copyRecord(next) {
+    if (!next || typeof next !== "object") next = {}
+    var look = next.hyprLook && typeof next.hyprLook === "object" ? next.hyprLook : null
+    var input = next.hyprInput && typeof next.hyprInput === "object" ? next.hyprInput : null
+    theme = SnapshotJs.adoptValue(theme, next.theme)
+    background = SnapshotJs.adoptValue(background, next.background)
+    font = SnapshotJs.adoptValue(font, next.font)
+    textSize = SnapshotJs.adoptValue(textSize, next.textSize)
+    themes = SnapshotJs.adoptArray(themes, next.themes)
+    extraThemes = SnapshotJs.adoptArray(extraThemes, next.extraThemes)
+    desktopApps = SnapshotJs.adoptArray(desktopApps, next.desktopApps)
+    tuiApps = SnapshotJs.adoptArray(tuiApps, next.tuiApps)
+    webApps = SnapshotJs.adoptArray(webApps, next.webApps)
+    fonts = SnapshotJs.adoptArray(fonts, next.fonts)
+    barPosition = SnapshotJs.adoptValue(barPosition, next.barPosition)
+    barTransparent = SnapshotJs.adoptValue(barTransparent, next.barTransparent)
+    barVisible = SnapshotJs.adoptValue(barVisible, next.barVisible)
+    clockFormat = SnapshotJs.adoptValue(clockFormat, next.clockFormat)
+    clockFormatAlt = SnapshotJs.adoptValue(clockFormatAlt, next.clockFormatAlt)
+    clockWeekStart = SnapshotJs.adoptValue(clockWeekStart, next.clockWeekStart)
+    clockPresent = SnapshotJs.adoptValue(clockPresent, next.clockPresent)
+    clockBirthYear = SnapshotJs.adoptValue(clockBirthYear, next.clockBirthYear)
+    clockLifeExpectancy = SnapshotJs.adoptValue(clockLifeExpectancy, next.clockLifeExpectancy)
+    indicatorsPresent = SnapshotJs.adoptValue(indicatorsPresent, next.indicatorsPresent)
+    indicatorsAlwaysShow = SnapshotJs.adoptValue(indicatorsAlwaysShow, next.indicatorsAlwaysShow)
+    indicatorsItems = SnapshotJs.adoptArray(indicatorsItems, next.indicatorsItems)
+    agentsPresent = SnapshotJs.adoptValue(agentsPresent, next.agentsPresent)
+    agentsRefreshIntervalSec = SnapshotJs.adoptValue(agentsRefreshIntervalSec, next.agentsRefreshIntervalSec)
+    agentsSync = SnapshotJs.adoptValue(agentsSync, next.agentsSync)
+    agentsSyncDir = SnapshotJs.adoptValue(agentsSyncDir, next.agentsSyncDir)
+    agentsSyncFileName = SnapshotJs.adoptValue(agentsSyncFileName, next.agentsSyncFileName)
+    agentsSyncDeviceId = SnapshotJs.adoptValue(agentsSyncDeviceId, next.agentsSyncDeviceId)
+    spacerPresent = SnapshotJs.adoptValue(spacerPresent, next.spacerPresent)
+    spacerSize = SnapshotJs.adoptValue(spacerSize, next.spacerSize)
+    trayPresent = SnapshotJs.adoptValue(trayPresent, next.trayPresent)
+    trayHidden = SnapshotJs.adoptArray(trayHidden, next.trayHidden)
+    trayPinned = SnapshotJs.adoptArray(trayPinned, next.trayPinned)
+    browser = SnapshotJs.adoptValue(browser, next.browser)
+    terminal = SnapshotJs.adoptValue(terminal, next.terminal)
+    editor = SnapshotJs.adoptValue(editor, next.editor)
+    agent = SnapshotJs.adoptValue(agent, next.agent)
+    dns = SnapshotJs.adoptValue(dns, next.dns)
+    idleScreensaver = SnapshotJs.adoptValue(idleScreensaver, next.idleScreensaver)
+    idleLock = SnapshotJs.adoptValue(idleLock, next.idleLock)
+    stayAwake = SnapshotJs.adoptValue(stayAwake, next.stayAwake)
+    nightlight = SnapshotJs.adoptValue(nightlight, next.nightlight)
+    nightlightTemperature = SnapshotJs.adoptValue(nightlightTemperature, next.nightlightTemperature)
+    screensaverEnabled = SnapshotJs.adoptValue(screensaverEnabled, next.screensaverEnabled)
+    screensaverBranded = SnapshotJs.adoptValue(screensaverBranded, next.screensaverBranded)
+    aboutBranded = SnapshotJs.adoptValue(aboutBranded, next.aboutBranded)
+    bluetooth = SnapshotJs.adoptValue(bluetooth, next.bluetooth)
+    wifiConnected = SnapshotJs.adoptValue(wifiConnected, next.wifiConnected)
+    wifiBand = SnapshotJs.adoptValue(wifiBand, next.wifiBand)
+    wifiBandSelected = SnapshotJs.adoptValue(wifiBandSelected, next.wifiBandSelected)
+    wifiBands = SnapshotJs.adoptArray(wifiBands, next.wifiBands)
+    wifiIface = SnapshotJs.adoptValue(wifiIface, next.wifiIface)
+    netKind = SnapshotJs.adoptValue(netKind, next.netKind)
+    netIface = SnapshotJs.adoptValue(netIface, next.netIface)
+    netSsid = SnapshotJs.adoptValue(netSsid, next.netSsid)
+    netSignal = SnapshotJs.adoptValue(netSignal, next.netSignal)
+    netIp = SnapshotJs.adoptValue(netIp, next.netIp)
+    netSpeed = SnapshotJs.adoptValue(netSpeed, next.netSpeed)
+    wifiHw = SnapshotJs.adoptValue(wifiHw, next.wifiHw)
+    wifiRadio = SnapshotJs.adoptValue(wifiRadio, next.wifiRadio)
+    wifiConnections = SnapshotJs.adoptArray(wifiConnections, next.wifiConnections)
+    bluetoothDevices = SnapshotJs.adoptArray(bluetoothDevices, next.bluetoothDevices)
+    audioSinks = SnapshotJs.adoptArray(audioSinks, next.audioSinks)
+    audioSources = SnapshotJs.adoptArray(audioSources, next.audioSources)
+    audioOutputVolume = SnapshotJs.adoptValue(audioOutputVolume, next.audioOutputVolume)
+    audioOutputMuted = SnapshotJs.adoptValue(audioOutputMuted, next.audioOutputMuted)
+    audioInputVolume = SnapshotJs.adoptValue(audioInputVolume, next.audioInputVolume)
+    audioInputMuted = SnapshotJs.adoptValue(audioInputMuted, next.audioInputMuted)
+    audioTuningMatch = SnapshotJs.adoptValue(audioTuningMatch, next.audioTuningMatch)
+    audioTuningOn = SnapshotJs.adoptValue(audioTuningOn, next.audioTuningOn)
+    disks = SnapshotJs.adoptArray(disks, next.disks)
+    hardware = SnapshotJs.adoptValue(hardware, next.hardware)
+    luksDevices = SnapshotJs.adoptArray(luksDevices, next.luksDevices)
+    swapDevices = SnapshotJs.adoptArray(swapDevices, next.swapDevices)
+    snapperPresent = SnapshotJs.adoptValue(snapperPresent, next.snapperPresent)
+    snapperConfigs = SnapshotJs.adoptArray(snapperConfigs, next.snapperConfigs)
+    snapshots = SnapshotJs.adoptArray(snapshots, next.snapshots)
+    hibernationAvailable = SnapshotJs.adoptValue(hibernationAvailable, next.hibernationAvailable)
+    hibernationSupported = SnapshotJs.adoptValue(hibernationSupported, next.hibernationSupported)
+    hibernationConfigured = SnapshotJs.adoptValue(hibernationConfigured, next.hibernationConfigured)
+    audioSink = SnapshotJs.adoptValue(audioSink, next.audioSink)
+    audioSource = SnapshotJs.adoptValue(audioSource, next.audioSource)
+    suspendEnabled = SnapshotJs.adoptValue(suspendEnabled, next.suspendEnabled)
+    powerProfile = SnapshotJs.adoptValue(powerProfile, next.powerProfile)
+    powerProfileAc = SnapshotJs.adoptValue(powerProfileAc, next.powerProfileAc)
+    powerProfileBattery = SnapshotJs.adoptValue(powerProfileBattery, next.powerProfileBattery)
+    powerProfiles = SnapshotJs.adoptArray(powerProfiles, next.powerProfiles)
+    powerPresent = SnapshotJs.adoptValue(powerPresent, next.powerPresent)
+    powerShowPercentage = SnapshotJs.adoptValue(powerShowPercentage, next.powerShowPercentage)
+    isLaptop = SnapshotJs.adoptValue(isLaptop, next.isLaptop)
+    batteryPresent = SnapshotJs.adoptValue(batteryPresent, next.batteryPresent)
+    monitors = SnapshotJs.adoptArray(monitors, next.monitors)
+    internalPresent = SnapshotJs.adoptValue(internalPresent, next.internalPresent)
+    internalEnabled = SnapshotJs.adoptValue(internalEnabled, next.internalEnabled)
+    externalPresent = SnapshotJs.adoptValue(externalPresent, next.externalPresent)
+    mirroring = SnapshotJs.adoptValue(mirroring, next.mirroring)
+    touchpadPresent = SnapshotJs.adoptValue(touchpadPresent, next.touchpadPresent)
+    touchpadEnabled = SnapshotJs.adoptValue(touchpadEnabled, next.touchpadEnabled)
+    touchscreenPresent = SnapshotJs.adoptValue(touchscreenPresent, next.touchscreenPresent)
+    touchscreenEnabled = SnapshotJs.adoptValue(touchscreenEnabled, next.touchscreenEnabled)
+    keyboardBacklightPresent = SnapshotJs.adoptValue(keyboardBacklightPresent, next.keyboardBacklightPresent)
+    keyboardBrightness = SnapshotJs.adoptValue(keyboardBrightness, next.keyboardBrightness)
+    crashCapture = SnapshotJs.adoptValue(crashCapture, next.crashCapture)
+    doNotDisturb = SnapshotJs.adoptValue(doNotDisturb, next.doNotDisturb)
+    weatherLocation = SnapshotJs.adoptValue(weatherLocation, next.weatherLocation)
+    weatherCoords = SnapshotJs.adoptValue(weatherCoords, next.weatherCoords)
+    weatherAuto = SnapshotJs.adoptValue(weatherAuto, next.weatherAuto)
+    weatherPresent = SnapshotJs.adoptValue(weatherPresent, next.weatherPresent)
+    weatherUnit = SnapshotJs.adoptValue(weatherUnit, next.weatherUnit)
+    weatherRefreshMinutes = SnapshotJs.adoptValue(weatherRefreshMinutes, next.weatherRefreshMinutes)
+    reminderCount = SnapshotJs.adoptValue(reminderCount, next.reminderCount)
+    reminderActive = SnapshotJs.adoptValue(reminderActive, next.reminderActive)
+    reminders = SnapshotJs.adoptArray(reminders, next.reminders)
+    plymouth = SnapshotJs.adoptValue(plymouth, next.plymouth)
+    plymouthThemes = SnapshotJs.adoptArray(plymouthThemes, next.plymouthThemes)
+    hasAether = SnapshotJs.adoptValue(hasAether, next.hasAether)
+    browsers = SnapshotJs.adoptValue(browsers, next.browsers)
+    terminals = SnapshotJs.adoptValue(terminals, next.terminals)
+    editors = SnapshotJs.adoptValue(editors, next.editors)
+    timezone = SnapshotJs.adoptValue(timezone, next.timezone)
+    timezones = SnapshotJs.adoptArray(timezones, next.timezones)
+    ntp = SnapshotJs.adoptValue(ntp, next.ntp)
+    ntpAvailable = SnapshotJs.adoptValue(ntpAvailable, next.ntpAvailable)
+    ntpSynchronized = SnapshotJs.adoptValue(ntpSynchronized, next.ntpSynchronized)
+    keyboardLayout = SnapshotJs.adoptValue(keyboardLayout, next.keyboardLayout)
+    keyboardLayouts = SnapshotJs.adoptArray(keyboardLayouts, next.keyboardLayouts)
+    locale = SnapshotJs.adoptValue(locale, next.locale)
+    locales = SnapshotJs.adoptArray(locales, next.locales)
+    parallelDownloads = SnapshotJs.adoptValue(parallelDownloads, next.parallelDownloads)
+    hyprGapsIn = SnapshotJs.adoptValue(hyprGapsIn, look ? look.gapsIn : undefined)
+    hyprGapsOut = SnapshotJs.adoptValue(hyprGapsOut, look ? look.gapsOut : undefined)
+    hyprBorderSize = SnapshotJs.adoptValue(hyprBorderSize, look ? look.borderSize : undefined)
+    hyprRounding = SnapshotJs.adoptValue(hyprRounding, look ? look.rounding : undefined)
+    hyprBlur = SnapshotJs.adoptValue(hyprBlur, look ? look.blur : undefined)
+    hyprShadow = SnapshotJs.adoptValue(hyprShadow, look ? look.shadow : undefined)
+    hyprLayout = SnapshotJs.adoptValue(hyprLayout, look ? look.layout : undefined)
+    hyprColumnWidth = SnapshotJs.adoptValue(hyprColumnWidth, look ? look.columnWidth : undefined)
+    hyprDimInactive = SnapshotJs.adoptValue(hyprDimInactive, look ? look.dimInactive : undefined)
+    hyprDimStrength = SnapshotJs.adoptValue(hyprDimStrength, look ? look.dimStrength : undefined)
+    hyprAnimations = SnapshotJs.adoptValue(hyprAnimations, look ? look.animations : undefined)
+    hyprCursorHideOnKey = SnapshotJs.adoptValue(hyprCursorHideOnKey, look ? look.cursorHideOnKey : undefined)
+    hyprCursorWarp = SnapshotJs.adoptValue(hyprCursorWarp, look ? look.cursorWarp : undefined)
+    hyprCursorSize = SnapshotJs.adoptValue(hyprCursorSize, look ? look.cursorSize : undefined)
+    hyprAllowTearing = SnapshotJs.adoptValue(hyprAllowTearing, look ? look.allowTearing : undefined)
+    hyprResizeOnBorder = SnapshotJs.adoptValue(hyprResizeOnBorder, look ? look.resizeOnBorder : undefined)
+    hyprActiveOpacity = SnapshotJs.adoptValue(hyprActiveOpacity, look ? look.activeOpacity : undefined)
+    hyprInactiveOpacity = SnapshotJs.adoptValue(hyprInactiveOpacity, look ? look.inactiveOpacity : undefined)
+    hyprPreserveSplit = SnapshotJs.adoptValue(hyprPreserveSplit, look ? look.preserveSplit : undefined)
+    hyprFocusOnActivate = SnapshotJs.adoptValue(hyprFocusOnActivate, look ? look.focusOnActivate : undefined)
+    hyprLookManaged = SnapshotJs.adoptValue(hyprLookManaged, next.hyprLookManaged)
+    hyprInputManaged = SnapshotJs.adoptValue(hyprInputManaged, next.hyprInputManaged)
+    hyprWorkspaceGesture = SnapshotJs.adoptValue(hyprWorkspaceGesture, next.hyprWorkspaceGesture !== undefined ? next.hyprWorkspaceGesture : (input ? input.workspaceGesture : undefined))
+    hyprNoGaps = SnapshotJs.adoptValue(hyprNoGaps, next.hyprNoGaps)
+    hyprSquareAspect = SnapshotJs.adoptValue(hyprSquareAspect, next.hyprSquareAspect)
+    hyprWorkspaceLayout = SnapshotJs.adoptValue(hyprWorkspaceLayout, next.hyprWorkspaceLayout)
+    hyprSensitivity = SnapshotJs.adoptValue(hyprSensitivity, input ? input.sensitivity : undefined)
+    hyprAccelProfile = SnapshotJs.adoptValue(hyprAccelProfile, input ? input.accelProfile : undefined)
+    hyprEmulateDiscreteScroll = SnapshotJs.adoptValue(hyprEmulateDiscreteScroll, input ? input.emulateDiscreteScroll : undefined)
+    hyprNaturalScroll = SnapshotJs.adoptValue(hyprNaturalScroll, input ? input.naturalScroll : undefined)
+    hyprScrollFactor = SnapshotJs.adoptValue(hyprScrollFactor, input ? input.scrollFactor : undefined)
+    hyprClickfinger = SnapshotJs.adoptValue(hyprClickfinger, input ? input.clickfinger : undefined)
+    hyprDisableWhileTyping = SnapshotJs.adoptValue(hyprDisableWhileTyping, input ? input.disableWhileTyping : undefined)
+    hyprDrag3fg = SnapshotJs.adoptValue(hyprDrag3fg, input ? input.drag3fg : undefined)
+    hyprRepeatRate = SnapshotJs.adoptValue(hyprRepeatRate, input ? input.repeatRate : undefined)
+    hyprRepeatDelay = SnapshotJs.adoptValue(hyprRepeatDelay, input ? input.repeatDelay : undefined)
+    hyprNumlock = SnapshotJs.adoptValue(hyprNumlock, input ? input.numlock : undefined)
+    hyprFollowMouse = SnapshotJs.adoptValue(hyprFollowMouse, input ? input.followMouse : undefined)
+    hyprKeyPressDpms = SnapshotJs.adoptValue(hyprKeyPressDpms, input ? input.keyPressDpms : undefined)
+    hyprMouseMoveDpms = SnapshotJs.adoptValue(hyprMouseMoveDpms, input ? input.mouseMoveDpms : undefined)
+    hyprKbLayout = SnapshotJs.adoptValue(hyprKbLayout, input ? ("kbLayoutOverride" in input ? input.kbLayoutOverride : input.kbLayout) : undefined)
+    hyprKbVariant = SnapshotJs.adoptValue(hyprKbVariant, input ? ("kbVariantOverride" in input ? input.kbVariantOverride : input.kbVariant) : undefined)
+    hyprKbOptions = SnapshotJs.adoptValue(hyprKbOptions, input ? input.kbOptions : undefined)
+    fingerprintAvailable = SnapshotJs.adoptValue(fingerprintAvailable, next.fingerprintAvailable)
+    fingerprintConfigured = SnapshotJs.adoptValue(fingerprintConfigured, next.fingerprintConfigured)
+    fido2Configured = SnapshotJs.adoptValue(fido2Configured, next.fido2Configured)
+    sshdEnabled = SnapshotJs.adoptValue(sshdEnabled, next.sshdEnabled)
+    sshdActive = SnapshotJs.adoptValue(sshdActive, next.sshdActive)
+    passwordlessSudo = SnapshotJs.adoptValue(passwordlessSudo, next.passwordlessSudo)
+    sudolessDocker = SnapshotJs.adoptValue(sudolessDocker, next.sudolessDocker)
+    omarchyVersion = SnapshotJs.adoptValue(omarchyVersion, next.omarchyVersion)
+    omarchyChannel = SnapshotJs.adoptValue(omarchyChannel, next.omarchyChannel)
+    updateAvailable = SnapshotJs.adoptValue(updateAvailable, next.updateAvailable)
+    updateSummary = SnapshotJs.adoptValue(updateSummary, next.updateSummary)
+    atmosRevision = SnapshotJs.adoptValue(atmosRevision, next.atmosRevision)
+    atmosChannel = SnapshotJs.adoptValue(atmosChannel, next.atmosChannel)
+    atmosInstalled = SnapshotJs.adoptValue(atmosInstalled, next.atmosInstalled)
+    voxtypeInstalled = SnapshotJs.adoptValue(voxtypeInstalled, next.voxtypeInstalled)
+    hybridGpuAvailable = SnapshotJs.adoptValue(hybridGpuAvailable, next.hybridGpuAvailable)
+    hybridGpuMode = SnapshotJs.adoptValue(hybridGpuMode, next.hybridGpuMode)
+    hwNvidia = SnapshotJs.adoptValue(hwNvidia, next.hwNvidia)
+    hwNvidiaGsp = SnapshotJs.adoptValue(hwNvidiaGsp, next.hwNvidiaGsp)
+    hwNvidiaWithoutGsp = SnapshotJs.adoptValue(hwNvidiaWithoutGsp, next.hwNvidiaWithoutGsp)
+    hwVulkan = SnapshotJs.adoptValue(hwVulkan, next.hwVulkan)
+    hwIntel = SnapshotJs.adoptValue(hwIntel, next.hwIntel)
+    hwIntelPtl = SnapshotJs.adoptValue(hwIntelPtl, next.hwIntelPtl)
+    hwWebcam = SnapshotJs.adoptValue(hwWebcam, next.hwWebcam)
+    hwFramework16 = SnapshotJs.adoptValue(hwFramework16, next.hwFramework16)
+    hwAsusRog = SnapshotJs.adoptValue(hwAsusRog, next.hwAsusRog)
+    hwSurface = SnapshotJs.adoptValue(hwSurface, next.hwSurface)
+    dmiVendor = SnapshotJs.adoptValue(dmiVendor, next.dmiVendor)
+    dmiProduct = SnapshotJs.adoptValue(dmiProduct, next.dmiProduct)
+    dmiFamily = SnapshotJs.adoptValue(dmiFamily, next.dmiFamily)
+    cpuStat = SnapshotJs.adoptValue(cpuStat, next.cpuStat)
+    memoryStat = SnapshotJs.adoptValue(memoryStat, next.memoryStat)
+    cpuIdentity = SnapshotJs.adoptValue(cpuIdentity, next.cpuIdentity)
+    gpuIdentity = SnapshotJs.adoptValue(gpuIdentity, next.gpuIdentity)
+    npuIdentity = SnapshotJs.adoptValue(npuIdentity, next.npuIdentity)
+    tailscaleInstalled = SnapshotJs.adoptValue(tailscaleInstalled, next.tailscaleInstalled)
+    tailscaleRunning = SnapshotJs.adoptValue(tailscaleRunning, next.tailscaleRunning)
+    plugins = SnapshotJs.adoptArray(plugins, next.plugins)
+    snapperNumberLimit = SnapshotJs.adoptValue(snapperNumberLimit, next.snapperNumberLimit)
+    snapperTimeline = SnapshotJs.adoptValue(snapperTimeline, next.snapperTimeline)
+    fstrimEnabled = SnapshotJs.adoptValue(fstrimEnabled, next.fstrimEnabled)
+    directBootAvailable = SnapshotJs.adoptValue(directBootAvailable, next.directBootAvailable)
+    directBoot = SnapshotJs.adoptValue(directBoot, next.directBoot)
+    mimePdf = SnapshotJs.adoptValue(mimePdf, next.mimePdf)
+    mimeImage = SnapshotJs.adoptValue(mimeImage, next.mimeImage)
+    mimeVideo = SnapshotJs.adoptValue(mimeVideo, next.mimeVideo)
+    mimePdfOptions = SnapshotJs.adoptArray(mimePdfOptions, next.mimePdfOptions)
+    mimeImageOptions = SnapshotJs.adoptArray(mimeImageOptions, next.mimeImageOptions)
+    mimeVideoOptions = SnapshotJs.adoptArray(mimeVideoOptions, next.mimeVideoOptions)
+    picturesDir = SnapshotJs.adoptValue(picturesDir, next.picturesDir)
+    videosDir = SnapshotJs.adoptValue(videosDir, next.videosDir)
+    recordingActive = SnapshotJs.adoptValue(recordingActive, next.recordingActive)
+    webcamOverlay = SnapshotJs.adoptValue(webcamOverlay, next.webcamOverlay)
+    services = SnapshotJs.adoptValue(services, next.services)
+    gaming = SnapshotJs.adoptValue(gaming, next.gaming)
+    extras = SnapshotJs.adoptValue(extras, next.extras)
+    hooks = SnapshotJs.adoptArray(hooks, next.hooks)
+    autostart = SnapshotJs.adoptArray(autostart, next.autostart)
+    autostartManaged = SnapshotJs.adoptValue(autostartManaged, next.autostartManaged)
+    bindings = SnapshotJs.adoptArray(bindings, next.bindings)
+    bindingsManaged = SnapshotJs.adoptValue(bindingsManaged, next.bindingsManaged)
+    windowRules = SnapshotJs.adoptArray(windowRules, next.windowRules)
+    windowRulesManaged = SnapshotJs.adoptValue(windowRulesManaged, next.windowRulesManaged)
+    keybindings = SnapshotJs.adoptArray(keybindings, next.keybindings)
+    focusedClass = SnapshotJs.adoptValue(focusedClass, next.focusedClass)
+    cupsActive = SnapshotJs.adoptValue(cupsActive, next.cupsActive)
+    printerSetup = SnapshotJs.adoptValue(printerSetup, next.printerSetup)
+    nightlightDay = SnapshotJs.adoptValue(nightlightDay, next.nightlightDay)
+    nightlightNight = SnapshotJs.adoptValue(nightlightNight, next.nightlightNight)
+    nightlightNightOn = SnapshotJs.adoptValue(nightlightNightOn, next.nightlightNightOn)
+    tailscalePeers = SnapshotJs.adoptArray(tailscalePeers, next.tailscalePeers)
+    hyprKbGroupToggle = SnapshotJs.adoptValue(hyprKbGroupToggle, input ? input.kbGroupToggle : undefined)
   }
 
   function refresh() {
@@ -928,19 +662,19 @@ QtObject {
   }
 
   function scheduleRefresh(group) {
-    pendingRefreshGroups = WorkQueue.addPendingRefresh(pendingRefreshGroups, group || "all")
+    pendingRefreshGroups = WorkQueue.addPendingRefresh(pendingRefreshGroups, SnapshotGroups.normalizeGroup(group))
     refreshTimer.restart()
   }
 
   property var pendingRefreshGroups: []
 
   function enqueueRead(group) {
-    WorkQueue.enqueueRead(ioQueue, group || "all")
+    WorkQueue.enqueueRead(ioQueue, SnapshotGroups.normalizeGroup(group))
     kickIo()
   }
 
   function startSession(hub) {
-    var first = WorkQueue.snapshotGroupForHub(hub)
+    var first = SnapshotGroups.snapshotGroupForHub(hub)
     WorkQueue.enqueueRead(ioQueue, first)
     if (first !== "all") WorkQueue.enqueueRead(ioQueue, "rest")
     kickIo()
@@ -998,9 +732,7 @@ QtObject {
   function snapshotRefreshGroup(value) {
     var g = String(value || "none")
     if (g === "none" || g === "") return "none"
-    if (g === "look" || g === "rest" || g === "all" || g === "network" || g === "disks" || g === "accounts" || g === "system")
-      return g
-    return "all"
+    return SnapshotGroups.normalizeGroup(g)
   }
 
   function runCommand(argv, opts) {
@@ -1016,98 +748,50 @@ QtObject {
     })
   }
 
+  function scriptOpts() {
+    return {
+      root: shellDir,
+      scripts: {
+        look: setHyprLookScript,
+        input: setHyprInputScript,
+        bindings: setHyprBindingsScript,
+        windows: setHyprWindowsScript,
+        autostart: setHyprAutostartScript,
+        idle: setIdleScript,
+        hyprsunset: setHyprsunsetScript,
+        nightlightTemp: setNightlightTempScript,
+        mime: setMimeDefaultScript,
+        audio: setAudioScript,
+        barWidget: setBarWidgetScript,
+        hostname: setHostnameScript,
+        timezone: setTimezoneScript,
+        locale: setLocaleScript,
+        keyboard: setKeyboardLayoutScript,
+        ntp: setNtpScript,
+        fullName: setFullNameScript,
+        parallelDownloads: setParallelDownloadsScript,
+        wifiRadio: setWifiConnectionScript
+      }
+    }
+  }
+
+  function runSettingCommand(cmd, key) {
+    if (!cmd || cmd.skip) return
+    runCommand(cmd.argv, {
+      key: cmd.coalesceKey || key,
+      apply: cmd.apply,
+      refresh: "none",
+      sudo: cmd.sudo === true
+    })
+  }
+
+  function dispatchSetting(key, value) {
+    runSettingCommand(SettingsJs.commandFor(key, value, snapshotData, scriptOpts()), key)
+  }
+
   function applyWritePatch(job) {
     if (!job || !job.apply) return
     applySnapshot(JSON.stringify(job.apply))
-  }
-
-  function applyHyprLook(raw) {
-    var look = raw && typeof raw === "object" ? raw : {}
-    hyprGapsIn = Math.round(Number(look.gapsIn))
-    if (!isFinite(hyprGapsIn) || hyprGapsIn < 0) hyprGapsIn = 5
-    if (hyprGapsIn > 64) hyprGapsIn = 64
-    hyprGapsOut = Math.round(Number(look.gapsOut))
-    if (!isFinite(hyprGapsOut) || hyprGapsOut < 0) hyprGapsOut = 10
-    if (hyprGapsOut > 64) hyprGapsOut = 64
-    hyprBorderSize = Math.round(Number(look.borderSize))
-    if (!isFinite(hyprBorderSize) || hyprBorderSize < 0) hyprBorderSize = 2
-    if (hyprBorderSize > 16) hyprBorderSize = 16
-    hyprRounding = Math.round(Number(look.rounding))
-    if (!isFinite(hyprRounding) || hyprRounding < 0) hyprRounding = 0
-    if (hyprRounding > 32) hyprRounding = 32
-    hyprBlur = look.blur === true
-    hyprShadow = look.shadow === true
-    hyprLayout = String(look.layout || "dwindle")
-    if (hyprLayout !== "scrolling") hyprLayout = "dwindle"
-    hyprColumnWidth = Number(look.columnWidth)
-    if (!isFinite(hyprColumnWidth)) hyprColumnWidth = 0.49
-    if (hyprColumnWidth < 0.2) hyprColumnWidth = 0.2
-    if (hyprColumnWidth > 1) hyprColumnWidth = 1
-    hyprDimInactive = look.dimInactive === true
-    hyprDimStrength = Number(look.dimStrength)
-    if (!isFinite(hyprDimStrength)) hyprDimStrength = 0.15
-    if (hyprDimStrength < 0) hyprDimStrength = 0
-    if (hyprDimStrength > 1) hyprDimStrength = 1
-    hyprAnimations = look.animations !== false
-    hyprCursorHideOnKey = look.cursorHideOnKey !== false
-    hyprCursorWarp = look.cursorWarp !== false
-    hyprCursorSize = Math.round(Number(look.cursorSize)) || 24
-    if (hyprCursorSize < 8) hyprCursorSize = 8
-    if (hyprCursorSize > 64) hyprCursorSize = 64
-    hyprAllowTearing = look.allowTearing === true
-    hyprResizeOnBorder = look.resizeOnBorder === true
-    hyprActiveOpacity = Number(look.activeOpacity)
-    if (!isFinite(hyprActiveOpacity)) hyprActiveOpacity = 1
-    if (hyprActiveOpacity < 0.2) hyprActiveOpacity = 0.2
-    if (hyprActiveOpacity > 1) hyprActiveOpacity = 1
-    hyprInactiveOpacity = Number(look.inactiveOpacity)
-    if (!isFinite(hyprInactiveOpacity)) hyprInactiveOpacity = 1
-    if (hyprInactiveOpacity < 0.2) hyprInactiveOpacity = 0.2
-    if (hyprInactiveOpacity > 1) hyprInactiveOpacity = 1
-    hyprPreserveSplit = look.preserveSplit === true
-    hyprFocusOnActivate = look.focusOnActivate === true
-  }
-
-  function applyHyprInput(raw) {
-    var input = raw && typeof raw === "object" ? raw : {}
-    hyprSensitivity = Number(input.sensitivity)
-    if (!isFinite(hyprSensitivity)) hyprSensitivity = 0
-    if (hyprSensitivity < -1) hyprSensitivity = -1
-    if (hyprSensitivity > 1) hyprSensitivity = 1
-    hyprAccelProfile = String(input.accelProfile || "")
-    if (hyprAccelProfile !== "flat" && hyprAccelProfile !== "adaptive") hyprAccelProfile = ""
-    hyprEmulateDiscreteScroll = Math.round(Number(input.emulateDiscreteScroll))
-    if (!isFinite(hyprEmulateDiscreteScroll) || hyprEmulateDiscreteScroll < 0 || hyprEmulateDiscreteScroll > 2)
-      hyprEmulateDiscreteScroll = 1
-    hyprNaturalScroll = input.naturalScroll === true
-    hyprScrollFactor = Number(input.scrollFactor)
-    if (!isFinite(hyprScrollFactor)) hyprScrollFactor = 0.4
-    if (hyprScrollFactor < 0.1) hyprScrollFactor = 0.1
-    if (hyprScrollFactor > 3) hyprScrollFactor = 3
-    hyprClickfinger = input.clickfinger !== false
-    hyprDisableWhileTyping = input.disableWhileTyping !== false
-    hyprDrag3fg = Math.round(Number(input.drag3fg)) || 0
-    if (hyprDrag3fg !== 1) hyprDrag3fg = 0
-    hyprRepeatRate = Math.round(Number(input.repeatRate)) || 40
-    if (hyprRepeatRate < 10) hyprRepeatRate = 10
-    if (hyprRepeatRate > 100) hyprRepeatRate = 100
-    hyprRepeatDelay = Math.round(Number(input.repeatDelay)) || 250
-    if (hyprRepeatDelay < 100) hyprRepeatDelay = 100
-    if (hyprRepeatDelay > 1000) hyprRepeatDelay = 1000
-    hyprNumlock = input.numlock !== false
-    hyprFollowMouse = Math.round(Number(input.followMouse))
-    if (!isFinite(hyprFollowMouse) || hyprFollowMouse < 0 || hyprFollowMouse > 3) hyprFollowMouse = 1
-    hyprKeyPressDpms = input.keyPressDpms !== false
-    hyprMouseMoveDpms = input.mouseMoveDpms !== false
-    hyprKbLayout = String(input.kbLayout || "")
-    hyprKbVariant = String(input.kbVariant || "")
-    hyprKbOptions = String(input.kbOptions || "")
-    if (Object.prototype.hasOwnProperty.call(input, "kbGroupToggle"))
-      hyprKbGroupToggle = input.kbGroupToggle === true
-    else
-      hyprKbGroupToggle = String(input.kbOptions || "").indexOf("grp:alts_toggle") !== -1
-    if (Object.prototype.hasOwnProperty.call(input, "workspaceGesture"))
-      hyprWorkspaceGesture = input.workspaceGesture === true
   }
 
   function lookState(patch) {
@@ -1183,20 +867,36 @@ QtObject {
 
   function writeHyprLook(patch) {
     var look = lookState(patch)
-    runCommand(["bash", setHyprLookScript, JSON.stringify(look)], {
-      key: "hyprLook",
-      apply: { hyprLook: look, hyprLookManaged: true },
-      refresh: "none"
-    })
+    var snap = SnapshotJs.mergeSnapshot(snapshotData, { hyprLook: look })
+    var field = "gapsIn"
+    var value = look.gapsIn
+    if (patch && typeof patch === "object") {
+      for (var k in patch) {
+        if (Object.prototype.hasOwnProperty.call(patch, k)) {
+          field = k
+          value = patch[k]
+          break
+        }
+      }
+    }
+    runSettingCommand(SettingsJs.commandFor("hyprLook." + field, value, snap, scriptOpts()), "hyprLook." + field)
   }
 
   function writeHyprInput(patch) {
     var input = inputState(patch)
-    runCommand(["bash", setHyprInputScript, JSON.stringify(input)], {
-      key: "hyprInput",
-      apply: { hyprInput: input, hyprInputManaged: true },
-      refresh: "none"
-    })
+    var snap = SnapshotJs.mergeSnapshot(snapshotData, { hyprInput: input })
+    var field = "sensitivity"
+    var value = input.sensitivity
+    if (patch && typeof patch === "object") {
+      for (var k in patch) {
+        if (Object.prototype.hasOwnProperty.call(patch, k)) {
+          field = k
+          value = patch[k]
+          break
+        }
+      }
+    }
+    runSettingCommand(SettingsJs.commandFor("hyprInput." + field, value, snap, scriptOpts()), "hyprInput." + field)
   }
 
   function runGumJob(argv, kind, opts) {
@@ -1208,6 +908,8 @@ QtObject {
     runJob(cmd, "", kind, opts)
   }
 
+  // Job record: kind ("read"|"mut"|"job"), argv, stdin, key, apply, refresh,
+  // sudo, jobKind, onStdoutLine, onFinished. apply is consumed for mut and job.
   function enqueueIo(job) {
     if (!job) return
     if (job.sudo && !passwordlessSudo) {
@@ -1265,7 +967,8 @@ QtObject {
       stdin: String(stdinText || ""),
       jobKind: kind,
       key: opts.key ? String(opts.key) : kind,
-      refresh: opts.refresh === "none" ? "none" : "all",
+      apply: opts.apply && typeof opts.apply === "object" ? opts.apply : null,
+      refresh: opts.refresh === "none" ? "none" : SnapshotGroups.normalizeGroup(opts.refresh || "all"),
       sudo: opts.sudo === true,
       onStdoutLine: typeof opts.onStdoutLine === "function" ? opts.onStdoutLine : null,
       onFinished: typeof opts.onFinished === "function" ? opts.onFinished : null
@@ -1307,12 +1010,18 @@ QtObject {
     name = String(name || "")
     if (!name || name === theme) return
     Theme.applyNamedTheme(name)
-    // Same detach as the shell "Switch theme" action: omarchy-theme-set
-    // recolors the shell over IPC after the swap, then retints apps.
-    runCommand(["bash", "-c", "omarchy theme set \"$1\" >/dev/null 2>&1 &", "theme-set", name], {
-      key: "theme",
-      apply: { theme: name },
-      refresh: "none"
+    var cmd = SettingsJs.commandFor("theme", name, snapshotData, scriptOpts())
+    if (!cmd || cmd.skip) return
+    // Import argv stays omarchy theme set. Detach here so mutProc does not
+    // wait for omarchy-theme-set to recolor the shell.
+    var argv = ["bash", "-c", "\"$@\" >/dev/null 2>&1 &", "theme-set"]
+    var i
+    for (i = 0; i < cmd.argv.length; i++) argv.push(cmd.argv[i])
+    runCommand(argv, {
+      key: cmd.coalesceKey || "theme",
+      apply: cmd.apply,
+      refresh: "none",
+      sudo: cmd.sudo === true
     })
   }
   function openThemeSwitcher() {
@@ -1329,10 +1038,22 @@ QtObject {
   function installTheme(url) {
     url = RichUi.parseGitUrl(url)
     if (!url) return
-    runJob(["omarchy", "theme", "install", url], "", "theme-install")
+    var name = RichUi.gitThemeName(url)
+    var extras = extraThemes.slice()
+    var allThemes = themes.slice()
+    var apply = null
+    if (name) {
+      if (extras.indexOf(name) === -1) extras.push(name)
+      if (allThemes.indexOf(name) === -1) allThemes.push(name)
+      apply = { extraThemes: extras, themes: allThemes, theme: name }
+    }
+    runJob(["omarchy", "theme", "install", url], "", "theme-install", {
+      refresh: "look",
+      apply: apply
+    })
   }
   function updateThemes() {
-    runJob(["omarchy", "theme", "update"], "", "theme-update")
+    runJob(["omarchy", "theme", "update"], "", "theme-update", { refresh: "look" })
   }
   function removeTheme(name) {
     name = String(name || "").replace(/^\s+|\s+$/g, "")
@@ -1346,11 +1067,7 @@ QtObject {
   function setBackgroundPath(path) {
     path = String(path || "")
     if (!path || path.charAt(0) !== "/") return
-    runCommand(["omarchy", "theme", "bg", "set", path], {
-      key: "background",
-      apply: { background: path },
-      refresh: "none"
-    })
+    dispatchSetting("background", path)
   }
   function nextBackground() {
     runCommand(["omarchy", "theme", "bg", "next"], {
@@ -1375,20 +1092,12 @@ QtObject {
   function setFont(name) {
     name = String(name || "")
     if (!name || name === font) return
-    runCommand(["omarchy", "font", "set", name], {
-      key: "font",
-      apply: { font: name },
-      refresh: "none"
-    })
+    dispatchSetting("font", name)
   }
   function setTextSize(size) {
     size = Math.round(Number(size))
     if (!isFinite(size) || size === textSize) return
-    runCommand(["omarchy", "display", "text", "size", String(size)], {
-      key: "textSize",
-      apply: { textSize: size },
-      refresh: "none"
-    })
+    dispatchSetting("textSize", size)
   }
   function resetTextSize() {
     runCommand(["omarchy", "display", "text", "size", "reset"], {
@@ -1448,19 +1157,11 @@ QtObject {
   }
   function setTouchpad(on) {
     if (on === touchpadEnabled) return
-    runCommand(["omarchy", "toggle", "touchpad", on ? "on" : "off"], {
-      key: "touchpadEnabled",
-      apply: { touchpadEnabled: on },
-      refresh: "none"
-    })
+    dispatchSetting("touchpadEnabled", on)
   }
   function setTouchscreen(on) {
     if (on === touchscreenEnabled) return
-    runCommand(["omarchy", "toggle", "touchscreen", on ? "on" : "off"], {
-      key: "touchscreenEnabled",
-      apply: { touchscreenEnabled: on },
-      refresh: "none"
-    })
+    dispatchSetting("touchscreenEnabled", on)
   }
   function adjustKeyboardBacklight(direction) {
     if (direction !== "up" && direction !== "down" && direction !== "off" && direction !== "restore") return
@@ -1481,67 +1182,37 @@ QtObject {
   }
   function setBarPosition(position) {
     if (!position || position === barPosition) return
-    runCommand(["omarchy", "bar", "position", position], {
-      key: "barPosition",
-      apply: { barPosition: position },
-      refresh: "none"
-    })
+    dispatchSetting("barPosition", position)
   }
   function setBarTransparent(on) {
     if (on === barTransparent) return
-    runCommand(["omarchy", "bar", "transparent", on ? "true" : "false"], {
-      key: "barTransparent",
-      apply: { barTransparent: on },
-      refresh: "none"
-    })
+    dispatchSetting("barTransparent", on)
   }
   // `omarchy toggle bar on` sets the bar-off flag and hides the bar.
   function setBarVisible(on) {
     if (on === barVisible) return
-    runCommand(["omarchy", "toggle", "bar", on ? "off" : "on"], {
-      key: "barVisible",
-      apply: { barVisible: on },
-      refresh: "none"
-    })
+    dispatchSetting("barVisible", on)
   }
   function setClockFormat(fmt) {
     if (!fmt || fmt === clockFormat) return
-    var key = (barPosition === "left" || barPosition === "right") ? "verticalFormat" : "format"
-    runCommand(["omarchy", "bar", "set", "omarchy.clock", key, fmt], {
-      key: "clockFormat",
-      apply: { clockFormat: fmt },
-      refresh: "none"
-    })
+    dispatchSetting("clockFormat", fmt)
   }
   function setClockFormatAlt(fmt) {
     if (!fmt || fmt === clockFormatAlt) return
-    var key = (barPosition === "left" || barPosition === "right") ? "verticalFormatAlt" : "formatAlt"
-    runCommand(["omarchy", "bar", "set", "omarchy.clock", key, fmt], {
-      key: "clockFormatAlt",
-      apply: { clockFormatAlt: fmt },
-      refresh: "none"
-    })
+    dispatchSetting("clockFormatAlt", fmt)
   }
   function setClockWeekStart(day) {
     day = String(day || "").toLowerCase()
     if (day !== "sunday" && day !== "monday" && day !== "tuesday" && day !== "wednesday" && day !== "thursday" && day !== "friday" && day !== "saturday") return
     if (day === clockWeekStart) return
-    runCommand(["omarchy", "bar", "set", "omarchy.clock", "weekStartDay", day], {
-      key: "clockWeekStart",
-      apply: { clockWeekStart: day },
-      refresh: "none"
-    })
+    dispatchSetting("clockWeekStart", day)
   }
   function setClockBirthYear(year) {
     if (typeof year === "number") year = String(Math.round(year))
     year = String(year || "").replace(/^\s+|\s+$/g, "")
     if (year.length === 0 || year === "0") {
       if (clockBirthYear === 0) return
-      runCommand(["omarchy", "bar", "set", "omarchy.clock", "birthYear", "0", "--json"], {
-        key: "clockBirthYear",
-        apply: { clockBirthYear: 0 },
-        refresh: "none"
-      })
+      dispatchSetting("clockBirthYear", 0)
       return
     }
     if (!/^\d{4}$/.test(year)) return
@@ -1549,41 +1220,25 @@ QtObject {
     var now = new Date().getFullYear()
     if (!(born >= now - 120 && born <= now)) return
     if (born === clockBirthYear) return
-    runCommand(["omarchy", "bar", "set", "omarchy.clock", "birthYear", String(born), "--json"], {
-      key: "clockBirthYear",
-      apply: { clockBirthYear: born },
-      refresh: "none"
-    })
+    dispatchSetting("clockBirthYear", born)
   }
   function setClockLifeExpectancy(years) {
     if (typeof years === "number") years = String(Math.round(years))
     years = String(years || "").replace(/^\s+|\s+$/g, "")
     if (years.length === 0 || years === "0") {
       if (clockLifeExpectancy === 0) return
-      runCommand(["omarchy", "bar", "set", "omarchy.clock", "lifeExpectancy", "0", "--json"], {
-        key: "clockLifeExpectancy",
-        apply: { clockLifeExpectancy: 0 },
-        refresh: "none"
-      })
+      dispatchSetting("clockLifeExpectancy", 0)
       return
     }
     if (!/^\d+$/.test(years)) return
     var span = parseInt(years, 10)
     if (!(span >= 1 && span <= 150)) return
     if (span === clockLifeExpectancy) return
-    runCommand(["omarchy", "bar", "set", "omarchy.clock", "lifeExpectancy", String(span), "--json"], {
-      key: "clockLifeExpectancy",
-      apply: { clockLifeExpectancy: span },
-      refresh: "none"
-    })
+    dispatchSetting("clockLifeExpectancy", span)
   }
   function setIndicatorsAlwaysShow(on) {
     if (on === indicatorsAlwaysShow) return
-    runCommand(["omarchy", "bar", "set", "omarchy.indicators", "alwaysShow", on ? "true" : "false", "--json"], {
-      key: "indicatorsAlwaysShow",
-      apply: { indicatorsAlwaysShow: on },
-      refresh: "none"
-    })
+    dispatchSetting("indicatorsAlwaysShow", on)
   }
   function indicatorIds() {
     return ["Dictation", "ScreenRecording", "Reminder", "NightLight", "Dnd", "StayAwake"]
@@ -1603,64 +1258,36 @@ QtObject {
     if (next.length === indicatorIds().length) next = []
     var current = indicatorsItems instanceof Array ? indicatorsItems : []
     if (JSON.stringify(next) === JSON.stringify(current)) return
-    runCommand(["bash", setBarWidgetScript, "omarchy.indicators", "items", JSON.stringify(next)], {
-      key: "indicatorsItems",
-      apply: { indicatorsItems: next },
-      refresh: "none"
-    })
+    dispatchSetting("indicatorsItems", next)
   }
   function setAgentsRefreshIntervalSec(seconds) {
     seconds = Math.round(Number(seconds))
     if (!(seconds >= 30) || seconds === agentsRefreshIntervalSec) return
-    runCommand(["omarchy", "bar", "set", "omarchy.agents", "refreshIntervalSec", String(seconds), "--json"], {
-      key: "agentsRefreshIntervalSec",
-      apply: { agentsRefreshIntervalSec: seconds },
-      refresh: "none"
-    })
+    dispatchSetting("agentsRefreshIntervalSec", seconds)
   }
   function setAgentsSync(on) {
     if (on === agentsSync) return
-    runCommand(["omarchy", "bar", "set", "omarchy.agents", "syncMode", on ? "On" : "Off"], {
-      key: "agentsSync",
-      apply: { agentsSync: on },
-      refresh: "none"
-    })
+    dispatchSetting("agentsSync", on)
   }
   function setAgentsSyncDir(path) {
     path = String(path || "").replace(/^\s+|\s+$/g, "")
     if (path === agentsSyncDir) return
-    runCommand(["omarchy", "bar", "set", "omarchy.agents", "syncDir", path], {
-      key: "agentsSyncDir",
-      apply: { agentsSyncDir: path },
-      refresh: "none"
-    })
+    dispatchSetting("agentsSyncDir", path)
   }
   function setAgentsSyncFileName(name) {
     name = String(name || "").replace(/^\s+|\s+$/g, "").split("/").pop()
     if (name === agentsSyncFileName) return
-    runCommand(["omarchy", "bar", "set", "omarchy.agents", "syncFileName", name], {
-      key: "agentsSyncFileName",
-      apply: { agentsSyncFileName: name },
-      refresh: "none"
-    })
+    dispatchSetting("agentsSyncFileName", name)
   }
   function setAgentsSyncDeviceId(id) {
     id = String(id || "").replace(/^\s+|\s+$/g, "")
     if (id === agentsSyncDeviceId) return
-    runCommand(["omarchy", "bar", "set", "omarchy.agents", "syncDeviceId", id], {
-      key: "agentsSyncDeviceId",
-      apply: { agentsSyncDeviceId: id },
-      refresh: "none"
-    })
+    dispatchSetting("agentsSyncDeviceId", id)
   }
   function setSpacerSize(size) {
     size = Math.round(Number(size))
     if (!isFinite(size) || size < 0 || size > 64 || size === spacerSize) return
-    runCommand(["omarchy", "bar", "set", "omarchy.spacer", "size", String(size), "--json"], {
-      key: "spacerSize",
-      apply: { spacerSize: size },
-      refresh: "none"
-    })
+    dispatchSetting("spacerSize", size)
   }
   function addSpacer() {
     if (spacerPresent) return
@@ -1760,11 +1387,7 @@ QtObject {
     var next = normalizedStringIds(list)
     var current = trayHidden instanceof Array ? trayHidden : []
     if (JSON.stringify(next) === JSON.stringify(current)) return
-    runCommand(["bash", setBarWidgetScript, "omarchy.tray", "hidden", JSON.stringify(next)], {
-      key: "trayHidden",
-      apply: { trayHidden: next },
-      refresh: "none"
-    })
+    dispatchSetting("trayHidden", next)
   }
   function clearTrayHidden() {
     setTrayHidden([])
@@ -1773,55 +1396,31 @@ QtObject {
     var next = normalizedStringIds(list)
     var current = trayPinned instanceof Array ? trayPinned : []
     if (JSON.stringify(next) === JSON.stringify(current)) return
-    runCommand(["bash", setBarWidgetScript, "omarchy.tray", "pinned", JSON.stringify(next)], {
-      key: "trayPinned",
-      apply: { trayPinned: next },
-      refresh: "none"
-    })
+    dispatchSetting("trayPinned", next)
   }
   function clearTrayPinned() {
     setTrayPinned([])
   }
   function setBrowser(name) {
     if (!name || name === browser) return
-    runCommand(["omarchy", "default", "browser", name], {
-      key: "browser",
-      apply: { browser: name },
-      refresh: "none"
-    })
+    dispatchSetting("browser", name)
   }
   function setTerminal(name) {
     if (!name || name === terminal) return
-    runCommand(["omarchy", "default", "terminal", name], {
-      key: "terminal",
-      apply: { terminal: name },
-      refresh: "none"
-    })
+    dispatchSetting("terminal", name)
   }
   function setEditor(name) {
     if (!name || name === editor) return
-    runCommand(["omarchy", "default", "editor", name], {
-      key: "editor",
-      apply: { editor: name },
-      refresh: "none"
-    })
+    dispatchSetting("editor", name)
   }
   function setAgent(name) {
     if (!name || name === agent) return
-    runCommand(["omarchy", "default", "agent", name], {
-      key: "agent",
-      apply: { agent: name },
-      refresh: "none"
-    })
+    dispatchSetting("agent", name)
   }
   function setDns(name) {
     if (name !== "Cloudflare" && name !== "Google" && name !== "DHCP") return
     if (name === dns) return
-    runCommand(["omarchy", "dns", name], {
-      key: "dns",
-      apply: { dns: name },
-      refresh: "none"
-    })
+    dispatchSetting("dns", name)
   }
   function setCustomDns(servers) {
     servers = String(servers || "").replace(/^\s+|\s+$/g, "")
@@ -1833,38 +1432,26 @@ QtObject {
   function setIdle(screensaver, lock) {
     var saver = Math.round(Number(screensaver)) || 0
     var lockSec = Math.round(Number(lock)) || 0
-    runCommand(["bash", setIdleScript, String(screensaver), String(lock)], {
-      key: "idle",
-      apply: { idleScreensaver: saver, idleLock: lockSec },
-      refresh: "none"
+    var snap = SnapshotJs.mergeSnapshot(snapshotData, {
+      idleScreensaver: saver,
+      idleLock: lockSec
     })
+    runSettingCommand(SettingsJs.commandFor("idleScreensaver", saver, snap, scriptOpts()), "idleScreensaver")
   }
 
   function setStayAwake(on) {
     if (on === stayAwake) return
-    runCommand(["omarchy", "toggle", "idle", on ? "stay-awake" : "allow-idle"], {
-      key: "stayAwake",
-      apply: { stayAwake: on },
-      refresh: "none"
-    })
+    dispatchSetting("stayAwake", on)
   }
 
   function setNightlight(on) {
     if (on === nightlight) return
-    runCommand(["omarchy", "toggle", "nightlight"], {
-      key: "nightlight",
-      apply: { nightlight: on },
-      refresh: "none"
-    })
+    dispatchSetting("nightlight", on)
   }
 
   function setScreensaverEnabled(on) {
     if (on === screensaverEnabled) return
-    runCommand(["omarchy", "toggle", "screensaver-off", on ? "off" : "on"], {
-      key: "screensaverEnabled",
-      apply: { screensaverEnabled: on },
-      refresh: "none"
-    })
+    dispatchSetting("screensaverEnabled", on)
   }
 
   function setScreensaverBranding(action) {
@@ -1905,45 +1492,25 @@ QtObject {
     name = String(name || "").replace(/^\s+|\s+$/g, "")
     if (!name || name === timezone) return
     if (!/^[A-Za-z0-9/_+-]+$/.test(name) || name.indexOf("..") !== -1) return
-    runCommand(["bash", setTimezoneScript, name], {
-      key: "timezone",
-      apply: { timezone: name },
-      refresh: "none",
-      sudo: true
-    })
+    dispatchSetting("timezone", name)
   }
 
   function setNtp(on) {
     if (on === ntp) return
-    runCommand(["bash", setNtpScript, on ? "true" : "false"], {
-      key: "ntp",
-      apply: { ntp: on, ntpSynchronized: on ? ntpSynchronized : false },
-      refresh: "none",
-      sudo: true
-    })
+    dispatchSetting("ntp", on)
   }
 
   function setHostname(name) {
     name = RichUi.parseHostname(name)
     if (!name || name === hostname) return
-    runCommand(["bash", setHostnameScript, name], {
-      key: "hostname",
-      apply: { hostname: name },
-      refresh: "none",
-      sudo: true
-    })
+    dispatchSetting("hostname", name)
   }
 
   function setFullName(name) {
     name = String(name || "").replace(/^\s+|\s+$/g, "")
     if (name === fullName) return
     if (!AccountsJs.isFullName(name)) return
-    runCommand(["bash", setFullNameScript, name], {
-      key: "fullName",
-      apply: { fullName: name },
-      refresh: "none",
-      sudo: true
-    })
+    dispatchSetting("fullName", name)
   }
 
   function setAvatarPath(path) {
@@ -2019,35 +1586,20 @@ QtObject {
     if (name.indexOf(",") !== -1) name = name.split(",")[0]
     if (!name || name === keyboardLayout) return
     if (!/^[a-z0-9]{1,8}$/.test(name)) return
-    runCommand(["bash", setKeyboardLayoutScript, name], {
-      key: "keyboardLayout",
-      apply: { keyboardLayout: name },
-      refresh: "none",
-      sudo: true
-    })
+    dispatchSetting("keyboardLayout", name)
   }
 
   function setLocale(name) {
     name = String(name || "").replace(/^\s+|\s+$/g, "")
     if (!name || name === locale) return
     if (name !== "C.UTF-8" && !/^[a-z]{2,3}(_[A-Z]{2})?\.UTF-8(@[A-Za-z0-9]+)?$/.test(name)) return
-    runCommand(["bash", setLocaleScript, name], {
-      key: "locale",
-      apply: { locale: name },
-      refresh: "none",
-      sudo: true
-    })
+    dispatchSetting("locale", name)
   }
 
   function setParallelDownloads(n) {
     n = Math.round(Number(n))
     if (!isFinite(n) || n < 1 || n > 20 || n === parallelDownloads) return
-    runCommand(["bash", setParallelDownloadsScript, String(n)], {
-      key: "parallelDownloads",
-      apply: { parallelDownloads: n },
-      refresh: "none",
-      sudo: true
-    })
+    dispatchSetting("parallelDownloads", n)
   }
 
   function setHyprGapsIn(n) {
@@ -2150,19 +1702,11 @@ QtObject {
   }
   function setHyprNoGaps(on) {
     if (on === hyprNoGaps) return
-    runCommand(["omarchy", "hyprland", "toggle", "window-no-gaps", on ? "on" : "off"], {
-      key: "hyprNoGaps",
-      apply: { hyprNoGaps: on },
-      refresh: "none"
-    })
+    dispatchSetting("hyprNoGaps", on)
   }
   function setHyprSquareAspect(on) {
     if (on === hyprSquareAspect) return
-    runCommand(["omarchy", "hyprland", "toggle", "single-window-aspect-ratio", on ? "on" : "off"], {
-      key: "hyprSquareAspect",
-      apply: { hyprSquareAspect: on },
-      refresh: "none"
-    })
+    dispatchSetting("hyprSquareAspect", on)
   }
   function toggleWorkspaceLayout() {
     var next = hyprWorkspaceLayout === "scrolling" ? "dwindle" : "scrolling"
@@ -2275,11 +1819,7 @@ QtObject {
     n = Math.round(Number(n))
     if (!isFinite(n) || n < 3000 || n > 6500) return
     if (n === nightlightTemperature) return
-    runCommand(["bash", setNightlightTempScript, String(n)], {
-      key: "nightlightTemperature",
-      apply: { nightlightTemperature: n, nightlight: n < 6000 },
-      refresh: "none"
-    })
+    dispatchSetting("nightlightTemperature", n)
   }
 
   function setupFingerprint() {
@@ -2440,24 +1980,13 @@ QtObject {
     if (kind !== "pdf" && kind !== "image" && kind !== "video") return
     desktop = String(desktop || "")
     if (!/^[A-Za-z0-9._-]+\.desktop$/.test(desktop)) return
-    var patch = {}
-    if (kind === "pdf") patch.mimePdf = desktop
-    else if (kind === "image") patch.mimeImage = desktop
-    else patch.mimeVideo = desktop
-    runCommand(["bash", setMimeDefaultScript, kind, desktop], {
-      key: "mime:" + kind,
-      apply: patch,
-      refresh: "none"
-    })
+    var key = kind === "pdf" ? "mimePdf" : kind === "image" ? "mimeImage" : "mimeVideo"
+    dispatchSetting(key, desktop)
   }
 
   function setBluetooth(on) {
     if (on === bluetooth) return
-    runCommand(["omarchy", "bluetooth", "power", on ? "on" : "off"], {
-      key: "bluetooth",
-      apply: { bluetooth: on },
-      refresh: "network"
-    })
+    dispatchSetting("bluetooth", on)
   }
 
   function setWifiBand(band) {
@@ -2529,11 +2058,7 @@ QtObject {
   }
   function setWifiRadio(on) {
     if (on === wifiRadio) return
-    runCommand(["bash", setWifiConnectionScript, "radio", on ? "on" : "off"], {
-      key: "wifiRadio",
-      apply: { wifiRadio: on },
-      refresh: "network"
-    })
+    dispatchSetting("wifiRadio", on)
   }
   function connectEnterpriseWifi(ssid, identity, password) {
     ssid = String(ssid || "")
@@ -2699,11 +2224,7 @@ QtObject {
     percent = Math.round(Number(percent))
     if (!isFinite(percent) || percent < 0 || percent > 100) return
     if (percent === audioOutputVolume && !audioOutputMuted) return
-    runCommand(["bash", setAudioScript, "output-volume", String(percent)], {
-      key: "audioOutputVolume",
-      apply: { audioOutputVolume: percent, audioOutputMuted: false },
-      refresh: "none"
-    })
+    dispatchSetting("audioOutputVolume", percent)
   }
   function toggleAudioOutputMute() {
     runCommand(["omarchy", "audio", "output", "volume", "mute-toggle"], {
@@ -2716,11 +2237,7 @@ QtObject {
     percent = Math.round(Number(percent))
     if (!isFinite(percent) || percent < 0 || percent > 100) return
     if (percent === audioInputVolume && !audioInputMuted) return
-    runCommand(["bash", setAudioScript, "input-volume", String(percent)], {
-      key: "audioInputVolume",
-      apply: { audioInputVolume: percent, audioInputMuted: false },
-      refresh: "none"
-    })
+    dispatchSetting("audioInputVolume", percent)
   }
   function toggleAudioInputMute() {
     runCommand(["omarchy", "audio", "input", "mute"], {
@@ -2767,11 +2284,7 @@ QtObject {
   }
   function setAudioTuning(on) {
     if (on === audioTuningOn) return
-    runCommand(["omarchy", "audio", "tuning", on ? "on" : "off"], {
-      key: "audioTuningOn",
-      apply: { audioTuningOn: on },
-      refresh: "none"
-    })
+    dispatchSetting("audioTuningOn", on)
   }
   function restartAudio() {
     runCommand(["omarchy", "restart", "audio"])
@@ -2814,11 +2327,7 @@ QtObject {
 
   function setSuspendEnabled(on) {
     if (on === suspendEnabled) return
-    runCommand(["omarchy", "toggle", "suspend-off", on ? "off" : "on"], {
-      key: "suspendEnabled",
-      apply: { suspendEnabled: on },
-      refresh: "none"
-    })
+    dispatchSetting("suspendEnabled", on)
   }
 
   function setPowerProfile(name) {
@@ -2832,29 +2341,17 @@ QtObject {
 
   function setPowerProfileAc(name) {
     if (!name || name === powerProfileAc) return
-    runCommand(["omarchy", "powerprofiles", "set", "ac", name], {
-      key: "powerProfileAc",
-      apply: { powerProfileAc: name },
-      refresh: "none"
-    })
+    dispatchSetting("powerProfileAc", name)
   }
 
   function setPowerProfileBattery(name) {
     if (!name || name === powerProfileBattery) return
-    runCommand(["omarchy", "powerprofiles", "set", "battery", name], {
-      key: "powerProfileBattery",
-      apply: { powerProfileBattery: name },
-      refresh: "none"
-    })
+    dispatchSetting("powerProfileBattery", name)
   }
 
   function setPowerShowPercentage(on) {
     if (on === powerShowPercentage) return
-    runCommand(["omarchy", "bar", "set", "omarchy.power", "showPercentage", on ? "true" : "false", "--json"], {
-      key: "powerShowPercentage",
-      apply: { powerShowPercentage: on },
-      refresh: "none"
-    })
+    dispatchSetting("powerShowPercentage", on)
   }
 
   function showBatteryNotification() {
@@ -2863,42 +2360,24 @@ QtObject {
 
   function setCrashCapture(on) {
     if (on === crashCapture) return
-    runCommand(["omarchy", "toggle", "crash", "capture"], {
-      key: "crashCapture",
-      apply: { crashCapture: on },
-      refresh: "none"
-    })
+    dispatchSetting("crashCapture", on)
   }
 
   function setDoNotDisturb(on) {
     if (on === doNotDisturb) return
-    runCommand(["omarchy", "toggle", "notification", "silencing"], {
-      key: "doNotDisturb",
-      apply: { doNotDisturb: on },
-      refresh: "none"
-    })
+    dispatchSetting("doNotDisturb", on)
   }
 
   function setWeatherLocation(name) {
     name = RichUi.parseWeatherLocation(name)
     if (!name) return
     if (!weatherAuto && name === weatherLocation) return
-    // --set name rewrites weather.json without lat/lon. Drop the previous
-    // pin so Set on Coordinates cannot apply the old city to the new one.
-    runCommand(["omarchy", "weather", "location", "--set", name], {
-      key: "weatherLocation",
-      apply: { weatherLocation: name, weatherAuto: false, weatherCoords: "" },
-      refresh: "none"
-    })
+    dispatchSetting("weatherLocation", name)
   }
 
   function clearWeatherLocation() {
     if (weatherAuto) return
-    runCommand(["omarchy", "weather", "location", "--clear"], {
-      key: "weatherLocation",
-      apply: { weatherLocation: "", weatherAuto: true, weatherCoords: "" },
-      refresh: "none"
-    })
+    dispatchSetting("weatherLocation", "")
   }
 
   function setWeatherCoordinates(coords) {
@@ -2917,21 +2396,13 @@ QtObject {
   function setWeatherUnit(unit) {
     if (unit !== "auto" && unit !== "metric" && unit !== "imperial") return
     if (unit === weatherUnit) return
-    runCommand(["omarchy", "bar", "set", "omarchy.weather", "unit", unit], {
-      key: "weatherUnit",
-      apply: { weatherUnit: unit },
-      refresh: "none"
-    })
+    dispatchSetting("weatherUnit", unit)
   }
 
   function setWeatherRefreshMinutes(minutes) {
     minutes = Math.round(Number(minutes))
     if (!(minutes >= 1) || minutes === weatherRefreshMinutes) return
-    runCommand(["omarchy", "bar", "set", "omarchy.weather", "refreshMinutes", String(minutes), "--json"], {
-      key: "weatherRefreshMinutes",
-      apply: { weatherRefreshMinutes: minutes },
-      refresh: "none"
-    })
+    dispatchSetting("weatherRefreshMinutes", minutes)
   }
 
   function setReminder(minutes, message) {
@@ -3187,17 +2658,12 @@ QtObject {
     day = HyprSunset.parseTime(day)
     night = HyprSunset.parseTime(night)
     if (!day || !night) return
-    var temp = nightlightTemperature > 0 ? nightlightTemperature : 4000
-    runCommand(["bash", setHyprsunsetScript, JSON.stringify({
-      day: day,
-      night: night,
-      nightOn: nightOn === true,
-      temperature: temp
-    })], {
-      key: "nightlightSchedule",
-      apply: { nightlightDay: day, nightlightNight: night, nightlightNightOn: nightOn === true },
-      refresh: "none"
+    var snap = SnapshotJs.mergeSnapshot(snapshotData, {
+      nightlightDay: day,
+      nightlightNight: night,
+      nightlightNightOn: nightOn === true
     })
+    runSettingCommand(SettingsJs.commandFor("nightlightDay", day, snap, scriptOpts()), "nightlightDay")
   }
 
   function autostartCommands() {
@@ -3210,14 +2676,7 @@ QtObject {
     return out
   }
   function writeAutostart(commands) {
-    runCommand(["bash", setHyprAutostartScript, JSON.stringify({ commands: commands })], {
-      key: "autostart",
-      apply: {
-        autostart: SnapshotJs.patchReplaceManaged(autostart, commands),
-        autostartManaged: true
-      },
-      refresh: "none"
-    })
+    dispatchSetting("autostart", commands)
   }
   function addAutostart(command) {
     command = String(command || "").replace(/^\s+|\s+$/g, "")
@@ -3265,14 +2724,7 @@ QtObject {
   }
 
   function writeBindings(items) {
-    runCommand(["bash", setHyprBindingsScript, JSON.stringify({ items: items })], {
-      key: "bindings",
-      apply: {
-        bindings: SnapshotJs.patchReplaceManaged(bindings, items),
-        bindingsManaged: true
-      },
-      refresh: "none"
-    })
+    dispatchSetting("bindings", items)
   }
 
   function addBinding(keys, label, command, unbind) {
@@ -3322,14 +2774,7 @@ QtObject {
   }
 
   function writeWindowRules(items) {
-    runCommand(["bash", setHyprWindowsScript, JSON.stringify({ items: items })], {
-      key: "windowRules",
-      apply: {
-        windowRules: SnapshotJs.patchReplaceManaged(windowRules, items),
-        windowRulesManaged: true
-      },
-      refresh: "none"
-    })
+    dispatchSetting("windowRules", items)
   }
 
   function addWindowRule(match, placement, center, width, height, workspace) {
@@ -3409,12 +2854,7 @@ QtObject {
   function setPlymouth(name) {
     if (!name || name === "default") return
     if (name === plymouth) return
-    runCommand(["omarchy", "plymouth", "set", "by", "theme", name], {
-      key: "plymouth",
-      apply: { plymouth: name },
-      refresh: "none",
-      sudo: true
-    })
+    dispatchSetting("plymouth", name)
   }
 
   function resetPlymouth() {
@@ -3444,55 +2884,55 @@ QtObject {
   }
 
   Component.onCompleted: {
+    SnapshotGroups.setSnapshotGroupForHub(HubsJs.snapshotGroupForHub)
     Theme.currentThemeSwapped.connect(root.applyThemeNameFromFile)
     startSession(Quickshell.env("ATMOS_PAGE") || "appearance")
   }
 
-  readonly property var watchSpecs: [
-    { path: userShellJson, group: "look" },
-    { path: defaultShellJson, group: "look" },
-    { path: userShellToml, group: "look" },
-    { path: weatherJson, group: "look" },
-    { path: notificationsJson, group: "look" },
-    { path: currentBackgroundFile, group: "look" },
-    { path: screensaverBrandFile, group: "look" },
-    { path: defaultScreensaverBrandFile, group: "look" },
-    { path: aboutBrandFile, group: "look" },
-    { path: defaultAboutBrandFile, group: "look" },
-    { path: plymouthLogoFile, group: "look" },
-    { path: defaultPlymouthLogoFile, group: "look" },
-    { path: extraThemesDir, group: "look" },
-    { path: packagedThemesDir, group: "look" },
-    { path: fontconfigFile, group: "look" },
-    { path: indicatorsDir, group: "look" },
-    { path: reminderDir, group: "look" },
-    { path: looknfeelLuaFile, group: "look" },
-    { path: hyprsunsetConfFile, group: "look" },
-    { path: monitorsLuaFile, group: "look" },
-    { path: hyprTogglesDir, group: "look" },
-    { path: touchpadDisabledFile, group: "look" },
-    { path: touchscreenDisabledFile, group: "look" },
-    { path: togglesDir, group: "all" },
-    { path: powerProfileAcFile, group: "rest" },
-    { path: powerProfileBatteryFile, group: "rest" },
-    { path: powerProfilesStateFile, group: "rest" },
-    { path: applicationsDir, group: "rest" },
-    { path: defaultEditorFile, group: "rest" },
-    { path: defaultAgentFile, group: "rest" },
-    { path: defaultTerminalFile, group: "rest" },
-    { path: defaultBrowserFile, group: "rest" },
-    { path: dnsConfFile, group: "rest" },
-    { path: bluetoothRfkillDir, group: "rest" },
-    { path: networkManagerDevicesDir, group: "rest" },
-    { path: inputLuaFile, group: "rest" },
-    { path: autostartLuaFile, group: "rest" },
-    { path: bindingsLuaFile, group: "rest" },
-    { path: windowsLuaFile, group: "rest" },
-    { path: localtimeFile, group: "rest" },
-    { path: vconsoleFile, group: "rest" },
-    { path: localeConfFile, group: "rest" },
-    { path: pacmanConfFile, group: "rest" }
-  ]
+  readonly property var watchSpecs: SnapshotGroups.watchSpecs({
+    userShellJson: userShellJson,
+    defaultShellJson: defaultShellJson,
+    userShellToml: userShellToml,
+    weatherJson: weatherJson,
+    notificationsJson: notificationsJson,
+    currentBackgroundFile: currentBackgroundFile,
+    screensaverBrandFile: screensaverBrandFile,
+    defaultScreensaverBrandFile: defaultScreensaverBrandFile,
+    aboutBrandFile: aboutBrandFile,
+    defaultAboutBrandFile: defaultAboutBrandFile,
+    plymouthLogoFile: plymouthLogoFile,
+    defaultPlymouthLogoFile: defaultPlymouthLogoFile,
+    packagedThemesDir: packagedThemesDir,
+    fontconfigFile: fontconfigFile,
+    indicatorsDir: indicatorsDir,
+    reminderDir: reminderDir,
+    looknfeelLuaFile: looknfeelLuaFile,
+    hyprsunsetConfFile: hyprsunsetConfFile,
+    monitorsLuaFile: monitorsLuaFile,
+    hyprTogglesDir: hyprTogglesDir,
+    touchpadDisabledFile: touchpadDisabledFile,
+    touchscreenDisabledFile: touchscreenDisabledFile,
+    togglesDir: togglesDir,
+    powerProfileAcFile: powerProfileAcFile,
+    powerProfileBatteryFile: powerProfileBatteryFile,
+    powerProfilesStateFile: powerProfilesStateFile,
+    applicationsDir: applicationsDir,
+    defaultEditorFile: defaultEditorFile,
+    defaultAgentFile: defaultAgentFile,
+    defaultTerminalFile: defaultTerminalFile,
+    defaultBrowserFile: defaultBrowserFile,
+    dnsConfFile: dnsConfFile,
+    bluetoothRfkillDir: bluetoothRfkillDir,
+    networkManagerDevicesDir: networkManagerDevicesDir,
+    inputLuaFile: inputLuaFile,
+    autostartLuaFile: autostartLuaFile,
+    bindingsLuaFile: bindingsLuaFile,
+    windowsLuaFile: windowsLuaFile,
+    localtimeFile: localtimeFile,
+    vconsoleFile: vconsoleFile,
+    localeConfFile: localeConfFile,
+    pacmanConfFile: pacmanConfFile
+  })
 
   function applyThemeNameFromFile(slug) {
     slug = String(slug || "").replace(/^\s+|\s+$/g, "")
@@ -3502,20 +2942,6 @@ QtObject {
       root.applySnapshot(JSON.stringify({ theme: name }))
       root.scheduleRefresh("look")
     }
-  }
-
-  function syncThemeFromDisk() {
-    var slug = Theme.currentThemeSlug()
-    if (!slug) return
-    Theme.handleCurrentChanged()
-    root.applyThemeNameFromFile(slug)
-  }
-
-  function syncThemeFromDiskIfStale() {
-    var slug = Theme.currentThemeSlug()
-    if (!slug) return
-    if (ThemeJs.themeSlug(slug) === ThemeJs.themeSlug(root.theme)) return
-    root.syncThemeFromDisk()
   }
 
   onThemesChanged: {
@@ -3534,6 +2960,32 @@ QtObject {
         root.scheduleRefresh(modelData.group)
       }
     }
+  }
+
+  // FileView misses nested git clones in extraThemesDir. inotifywait follows
+  // create/delete/move/close_write; the 1s timer restarts a dead watcher.
+  property Process extraThemesWatcher: Process {
+    running: true
+    command: [
+      "inotifywait", "-m", "-q",
+      "-e", "create,delete,move,close_write",
+      "--format", "%e %f",
+      extraThemesDir
+    ]
+    stdout: SplitParser {
+      onRead: function(line) { extraThemesDebounce.restart() }
+    }
+    onExited: extraThemesWatcherRestart.restart()
+  }
+
+  property Timer extraThemesWatcherRestart: Timer {
+    interval: 1000
+    onTriggered: extraThemesWatcher.running = true
+  }
+
+  property Timer extraThemesDebounce: Timer {
+    interval: 180
+    onTriggered: root.scheduleRefresh("look")
   }
 
   property Timer refreshTimer: Timer {
@@ -3592,7 +3044,7 @@ QtObject {
       } else {
         root.applyWritePatch(job)
         if (job && job.refresh && job.refresh !== "none")
-          WorkQueue.enqueueRead(root.ioQueue, job.refresh)
+          WorkQueue.enqueueRead(root.ioQueue, SnapshotGroups.normalizeGroup(job.refresh))
       }
       root.ioFinished()
     }
@@ -3687,8 +3139,9 @@ QtObject {
           root.lastError = failText ? "" : "Command failed"
       } else {
         root.lastError = ""
-        if (!job || job.refresh !== "none")
-          WorkQueue.enqueueRead(root.ioQueue, "all")
+        root.applyWritePatch(job)
+        if (job && job.refresh && job.refresh !== "none")
+          WorkQueue.enqueueRead(root.ioQueue, SnapshotGroups.normalizeGroup(job.refresh))
       }
       root.jobKind = ""
       root.ioFinished()

@@ -661,48 +661,170 @@ assertEqual(encoded.schema, 1, "planToJson stamps the schema");
 assertEqual(encoded.changes.length, 2, "planToJson carries every change");
 assertEqual(encoded.changes[0].key, "browser", "planToJson keeps the plan order");
 
-// The s_catalog lives in JS and the writers live in bash. Nothing stops those
-// two from drifting apart except this check.
-const applyScript = fs.readFileSync(
-  path.join(__dirname, "..", "scripts/apply-settings.sh"),
-  "utf8",
-);
-const dispatch = applyScript.slice(
-  applyScript.indexOf("while IFS= read -r key; do"),
-  applyScript.indexOf("done < <(jq -r "),
-);
-assert(dispatch.length > 0, "apply-settings.sh has a dispatch loop");
-
-const labels = [];
-for (const line of dispatch.split("\n")) {
-  const match = line.match(/^ {4}(\S[^)(]*?)\)/);
-  if (!match) continue;
-  for (const part of match[1].split("|")) labels.push(part.trim());
-}
-assert(labels.indexOf("*") !== -1, "the dispatcher refuses an unknown key");
-
-function dispatched(key) {
-  if (labels.indexOf(key) !== -1) return true;
-  for (const label of labels) {
-    if (label.slice(-2) !== ".*") continue;
-    if (key.indexOf(label.slice(0, -2) + ".") === 0) return true;
-  }
-  return false;
+function dummyValue(item) {
+  if (item.type === "boolean") return true;
+  if (item.type === "integer") return 1;
+  if (item.type === "number") return 1;
+  if (item.type === "list") return [];
+  return "x";
 }
 
 let undispatched = "";
 for (const item of s_catalog) {
-  if (item.importable && !dispatched(item.key)) undispatched = item.key;
+  if (!item.importable) continue;
+  const cmd = settings.commandFor(item.key, dummyValue(item), {}, {});
+  if (!cmd) undispatched = item.key;
 }
-assertEqual(undispatched, "", "every importable setting has a writer in apply-settings.sh");
+assertEqual(undispatched, "", "every importable setting has a non-null commandFor");
 
-let orphanLabel = "";
-for (const label of labels) {
-  if (label === "*") continue;
-  const key = label.slice(-2) === ".*" ? label.slice(0, -2) + ".gapsIn" : label;
-  if (!byKey[label] && !byKey[key] && label.indexOf(".*") === -1) orphanLabel = label;
-}
-assertEqual(orphanLabel, "", "apply-settings.sh has no writer for a setting the s_catalog dropped");
+assertEqual(
+  settings.commandFor("sshdEnabled", true, { sshdEnabled: false }),
+  null,
+  "sshdEnabled has no writer",
+);
+
+const hideBar = settings.commandFor("barVisible", false, { barVisible: true });
+assert(
+  hideBar && hideBar.argv && hideBar.argv.join(" ") === "omarchy toggle bar on",
+  "barVisible false turns the bar-off flag on",
+);
+assertEqual(
+  settings.commandFor("barVisible", true, { barVisible: true }).skip,
+  true,
+  "barVisible skips when the snapshot already matches",
+);
+
+const volume = settings.commandFor("audioOutputVolume", 40, { audioOutputMuted: true });
+assertEqual(volume.apply.audioOutputMuted, false, "setting output volume unmutes");
+
+const weatherClear = settings.commandFor("weatherLocation", "", {
+  weatherLocation: "Oslo",
+  weatherAuto: false,
+});
+assert(weatherClear.argv.indexOf("--clear") !== -1, "empty weatherLocation clears the pin");
+assertEqual(weatherClear.apply.weatherAuto, true, "clearing weather returns to auto");
+assertEqual(weatherClear.apply.weatherCoords, "", "clearing weather drops coordinates");
+
+const nightlightOn = settings.commandFor("nightlight", true, { nightlight: false });
+assertEqual(
+  nightlightOn.argv.join(" "),
+  "omarchy toggle nightlight",
+  "nightlight stays a flip with no on/off",
+);
+
+const lookPlan = settings.planCommands(
+  [
+    { key: "hyprLook.gapsIn", value: 9 },
+    { key: "hyprLook.rounding", value: 8 },
+  ],
+  { hyprLook: { gapsIn: 5, gapsOut: 10, rounding: 0, layout: "dwindle" } },
+  {},
+);
+assertEqual(lookPlan.length, 1, "two hyprLook changes coalesce to one write");
+assert(
+  lookPlan[0].stdin.indexOf('"gapsOut":10') !== -1 ||
+    lookPlan[0].argv.join(" ").indexOf('"gapsOut":10') !== -1,
+  "a coalesced look write keeps snapshot gapsOut",
+);
+
+const mutePlan = settings.planCommands(
+  [
+    { key: "audioOutputMuted", value: true },
+    { key: "audioOutputVolume", value: 40 },
+  ],
+  { audioOutputMuted: true, audioOutputVolume: 20 },
+  {},
+);
+assertEqual(mutePlan[0].key, "audioOutputVolume", "volume runs before mute");
+assertEqual(mutePlan[1].key, "audioOutputMuted", "mute follows volume");
+assert(
+  mutePlan[1].argv.join(" ").indexOf("mute-toggle") !== -1,
+  "mute after volume still toggles because volume unmutes",
+);
+
+const muteOnlyOn = settings.planCommands(
+  [{ key: "audioOutputMuted", value: true }],
+  { audioOutputMuted: false },
+  {},
+);
+assertEqual(muteOnlyOn.length, 1, "mute-only unmuted to muted emits a toggle");
+assertEqual(muteOnlyOn[0].key, "audioOutputMuted", "mute-only keeps the mute key");
+assert(
+  muteOnlyOn[0].argv.join(" ").indexOf("mute-toggle") !== -1,
+  "mute-only unmuted to muted toggles output mute",
+);
+
+const muteOnlyOff = settings.planCommands(
+  [{ key: "audioOutputMuted", value: false }],
+  { audioOutputMuted: true },
+  {},
+);
+assertEqual(muteOnlyOff.length, 1, "mute-only muted to unmuted emits a toggle");
+assert(
+  muteOnlyOff[0].argv.join(" ").indexOf("mute-toggle") !== -1,
+  "mute-only muted to unmuted toggles output mute",
+);
+
+const inputMuteOnly = settings.planCommands(
+  [{ key: "audioInputMuted", value: true }],
+  { audioInputMuted: false },
+  {},
+);
+assertEqual(inputMuteOnly.length, 1, "input mute-only unmuted to muted emits a toggle");
+
+const muteOnlySkip = settings.planCommands(
+  [{ key: "audioOutputMuted", value: true }],
+  { audioOutputMuted: true },
+  {},
+);
+assertEqual(muteOnlySkip.length, 0, "mute-only skips when the snapshot already matches");
+
+const inputCmd = settings.commandFor(
+  "hyprInput.sensitivity",
+  0.5,
+  { hyprInput: { sensitivity: 0, naturalScroll: false }, hyprInputManaged: false },
+  {},
+);
+assertEqual(
+  settings.commandFor("hyprLook.gapsIn", 9, { hyprLook: { gapsIn: 5 } }, {}).apply.group,
+  "look",
+  "hyprLook apply is tagged look",
+);
+assertEqual(inputCmd.apply.group, undefined, "hyprInput apply is not tagged look");
+assertEqual(inputCmd.apply.hyprInput.sensitivity, 0.5, "hyprInput apply carries the merged object");
+assertEqual(inputCmd.apply.hyprInputManaged, true, "hyprInput apply sets hyprInputManaged");
+
+const groups = load("services/SnapshotGroups.js");
+const snapshotJs = load("services/Snapshot.js");
+const adoptAdapters = {
+  clampLook: hypr.clampLook,
+  clampInput: hypr.clampInput,
+  allowedKey: groups.allowedKey,
+};
+const adoptedInput = snapshotJs.adopt(
+  { hyprInput: { sensitivity: 0, naturalScroll: false }, hyprInputManaged: false },
+  inputCmd.apply,
+  adoptAdapters,
+);
+assertEqual(
+  adoptedInput.hyprInput.sensitivity,
+  0.5,
+  "hyprInput apply survives adopt with allowedKey",
+);
+assertEqual(adoptedInput.hyprInputManaged, true, "hyprInputManaged apply survives adopt");
+assertEqual(adoptedInput.hyprInput.naturalScroll, false, "hyprInput apply keeps unpatched fields");
+
+const sideClock = settings.commandFor("clockFormat", "HH:mm", { barPosition: "left" });
+assert(
+  sideClock.argv.indexOf("verticalFormat") !== -1,
+  "clockFormat with a side bar uses verticalFormat",
+);
+
+const idleLock = settings.commandFor("idleLock", 900, { idleScreensaver: 300, idleLock: 600 });
+assert(
+  idleLock.argv.indexOf("300") !== -1 && idleLock.argv.indexOf("900") !== -1,
+  "idle pair uses snapshot screensaver when only lock changes",
+);
 
 // Lists: whole-list settings carried in a json block named for the setting.
 assertEqual(byKey.bindings.kind, "list", "bindings is a list setting");

@@ -1,8 +1,20 @@
 const fs = require("fs");
 const path = require("path");
-const { assert, assertEqual } = require("./harness");
+const { load, assert, assertEqual } = require("./harness");
 
 const search = require("../services/SearchIndex.js");
+const hubs = load("services/Hubs.js");
+assert(typeof search.HUBS === "undefined", "search index does not own HUBS");
+assert(typeof search.FILE_HUB === "undefined", "search index does not own FILE_HUB");
+assert(typeof search.PAGE_TITLE === "undefined", "search index does not own PAGE_TITLE");
+const hubCatalog = search.hubRows();
+assertEqual(hubCatalog.length, hubs.searchHubs().length, "hubRows comes from Hubs.searchHubs");
+assert(
+  hubCatalog.some(function (row) {
+    return row.id === "appearance" && row.keywords.indexOf("wallpaper") !== -1;
+  }),
+  "hub search keywords include the shell union",
+);
 assert(typeof search.setSetting === "undefined", "search index has no setSetting write path");
 assert(typeof search.writePrefs === "undefined", "search index has no writePrefs path");
 assert(typeof search.savePrefs === "undefined", "search index has no savePrefs path");

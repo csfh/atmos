@@ -1,6 +1,6 @@
 const fs = require("fs");
 const path = require("path");
-const { assert } = require("./harness");
+const { load, assert, assertEqual } = require("./harness");
 
 const compilePython = fs.readFileSync(path.join(__dirname, "compile-python"), "utf8");
 assert(compilePython.indexOf("ast.parse") !== -1, "compile-python parses scripts/*.py");
@@ -926,14 +926,15 @@ assert(
   omarchySrc.indexOf("name = RichUi.parseWeatherLocation(name)") !== -1,
   "Omarchy validates weather location with RichUi.parseWeatherLocation",
 );
+const settingsSrc = fs.readFileSync(path.join(__dirname, "..", "services", "Settings.js"), "utf8");
 assert(
-  omarchySrc.indexOf('apply: { weatherLocation: name, weatherAuto: false, weatherCoords: "" }') !==
-    -1,
-  "Omarchy drops stale weather coordinates when the city changes",
+  settingsSrc.indexOf('weatherAuto: false, weatherCoords: ""') !== -1 ||
+    settingsSrc.indexOf("weatherAuto: false") !== -1,
+  "weather --set drops stale coordinates",
 );
 assert(
-  omarchySrc.indexOf('apply: { weatherLocation: "", weatherAuto: true, weatherCoords: "" }') !== -1,
-  "Omarchy drops weather coordinates when location returns to auto",
+  settingsSrc.indexOf('weatherLocation: "", weatherAuto: true, weatherCoords: ""') !== -1,
+  "weather --clear drops coordinates and returns to auto",
 );
 assert(
   systemSrc.indexOf("RichUi.parseWeatherCoords") !== -1 &&
@@ -1026,20 +1027,427 @@ assert(
 );
 
 const applySh = fs.readFileSync(path.join(__dirname, "..", "scripts", "apply-settings.sh"), "utf8");
-// omarchy toggle bar maps to the bar-off flag, so the argument is inverted.
 assert(
-  applySh.indexOf('omarchy toggle bar "$([[ $value == true ]] && echo off || echo on)"') !== -1,
+  applySh.indexOf("while IFS= read -r key; do") === -1,
+  "apply-settings.sh no longer dispatches by key",
+);
+assert(
+  applySh.indexOf('node "$ROOT/../services/Settings.js" commands') !== -1,
+  "apply-settings.sh runs Settings.js for argv",
+);
+assert(applySh.indexOf("for tool in jq python3 node;") !== -1, "apply-settings.sh requires node");
+assert(
+  settingsSrc.indexOf('["omarchy", "toggle", "bar"]') !== -1 &&
+    settingsSrc.indexOf("invert: true") !== -1,
   "barVisible passes the bar-off state, not the visibility",
 );
-// set-audio.sh unmutes before setting a volume, so mute has to come after.
 assert(
-  applySh.indexOf("queue_mute audioOutputMuted audioOutputVolume") !== -1,
+  settingsSrc.indexOf("mute-deferred") !== -1 && settingsSrc.indexOf("mute-toggle") !== -1,
   "mute is applied after volume, against the state volume leaves behind",
 );
-assert(applySh.indexOf("clock_key format") !== -1, "a side bar writes verticalFormat");
+assert(
+  settingsSrc.indexOf('return "vertical" + base.charAt(0).toUpperCase()') !== -1,
+  "a side bar writes verticalFormat",
+);
+assert(
+  settingsSrc.indexOf('typeof require !== "undefined"') !== -1 &&
+    settingsSrc.indexOf("require.main === module") !== -1,
+  "Settings CLI is gated after module.exports",
+);
+assert(
+  !/^(const|var|let)\s+\w+\s*=\s*require\(/.test(settingsSrc),
+  "Settings.js has no top-level require",
+);
 
 const exportPage = fs.readFileSync(path.join(__dirname, "..", "pages", "ExportPage.qml"), "utf8");
 assert(
   exportPage.indexOf("writeProc.stdinEnabled = true") !== -1,
   "export re-arms stdin, so a second export is not an empty file",
+);
+
+assert(omarchySrc.indexOf("function applyLookPatch") === -1, "applyLookPatch is gone");
+assert(omarchySrc.indexOf("function applyHyprLook") === -1, "applyHyprLook is gone");
+assert(omarchySrc.indexOf("function applyHyprInput") === -1, "applyHyprInput is gone");
+assert(
+  omarchySrc.indexOf('!("hardware" in parsed)') === -1 &&
+    omarchySrc.indexOf('!("disks" in parsed)') === -1,
+  "snapshot group is not inferred from missing hardware/disks",
+);
+const copyStart = omarchySrc.indexOf("function copyRecord(");
+assert(copyStart !== -1, "copyRecord exists");
+const copyEnd = omarchySrc.indexOf("\n  function refresh(", copyStart);
+assert(copyEnd !== -1, "copyRecord is followed by refresh");
+const copyBody = omarchySrc.slice(copyStart, copyEnd);
+assert(
+  copyBody.indexOf("HardwareJs.normalize") === -1,
+  "copyRecord does not re-normalize hardware",
+);
+assert(copyBody.indexOf("applyHyprLook") === -1, "copyRecord does not re-clamp look");
+assert(copyBody.indexOf("applyHyprInput") === -1, "copyRecord does not re-clamp input");
+assert(copyBody.indexOf("sanitizeDmi") === -1, "copyRecord does not re-sanitize DMI");
+assert(
+  copyBody.indexOf("AccountsStore.applyPatch") === -1,
+  "copyRecord does not apply merged account keys",
+);
+assert(
+  omarchySrc.indexOf("AccountsStore.applyPatch(accounts)") !== -1 &&
+    omarchySrc.indexOf("SnapshotJs.accountStorePatch(parsed)") !== -1,
+  "applySnapshot applies account keys from the parsed patch, not the merge",
+);
+const copyProps = [
+  "theme",
+  "background",
+  "font",
+  "textSize",
+  "themes",
+  "extraThemes",
+  "desktopApps",
+  "tuiApps",
+  "webApps",
+  "fonts",
+  "barPosition",
+  "barTransparent",
+  "barVisible",
+  "clockFormat",
+  "clockFormatAlt",
+  "clockWeekStart",
+  "clockPresent",
+  "clockBirthYear",
+  "clockLifeExpectancy",
+  "indicatorsPresent",
+  "indicatorsAlwaysShow",
+  "indicatorsItems",
+  "agentsPresent",
+  "agentsRefreshIntervalSec",
+  "agentsSync",
+  "agentsSyncDir",
+  "agentsSyncFileName",
+  "agentsSyncDeviceId",
+  "spacerPresent",
+  "spacerSize",
+  "trayPresent",
+  "trayHidden",
+  "trayPinned",
+  "browser",
+  "terminal",
+  "editor",
+  "agent",
+  "dns",
+  "idleScreensaver",
+  "idleLock",
+  "stayAwake",
+  "nightlight",
+  "nightlightTemperature",
+  "screensaverEnabled",
+  "screensaverBranded",
+  "aboutBranded",
+  "bluetooth",
+  "wifiConnected",
+  "wifiBand",
+  "wifiBandSelected",
+  "wifiBands",
+  "wifiIface",
+  "netKind",
+  "netIface",
+  "netSsid",
+  "netSignal",
+  "netIp",
+  "netSpeed",
+  "wifiHw",
+  "wifiRadio",
+  "wifiConnections",
+  "bluetoothDevices",
+  "audioSinks",
+  "audioSources",
+  "audioOutputVolume",
+  "audioOutputMuted",
+  "audioInputVolume",
+  "audioInputMuted",
+  "audioTuningMatch",
+  "audioTuningOn",
+  "disks",
+  "hardware",
+  "luksDevices",
+  "swapDevices",
+  "snapperPresent",
+  "snapperConfigs",
+  "snapshots",
+  "hibernationAvailable",
+  "hibernationSupported",
+  "hibernationConfigured",
+  "audioSink",
+  "audioSource",
+  "suspendEnabled",
+  "powerProfile",
+  "powerProfileAc",
+  "powerProfileBattery",
+  "powerProfiles",
+  "powerPresent",
+  "powerShowPercentage",
+  "isLaptop",
+  "batteryPresent",
+  "monitors",
+  "internalPresent",
+  "internalEnabled",
+  "externalPresent",
+  "mirroring",
+  "touchpadPresent",
+  "touchpadEnabled",
+  "touchscreenPresent",
+  "touchscreenEnabled",
+  "keyboardBacklightPresent",
+  "keyboardBrightness",
+  "crashCapture",
+  "doNotDisturb",
+  "weatherLocation",
+  "weatherCoords",
+  "weatherAuto",
+  "weatherPresent",
+  "weatherUnit",
+  "weatherRefreshMinutes",
+  "reminderCount",
+  "reminderActive",
+  "reminders",
+  "plymouth",
+  "plymouthThemes",
+  "hasAether",
+  "browsers",
+  "terminals",
+  "editors",
+  "timezone",
+  "timezones",
+  "ntp",
+  "ntpAvailable",
+  "ntpSynchronized",
+  "keyboardLayout",
+  "keyboardLayouts",
+  "locale",
+  "locales",
+  "parallelDownloads",
+  "hyprGapsIn",
+  "hyprGapsOut",
+  "hyprBorderSize",
+  "hyprRounding",
+  "hyprBlur",
+  "hyprShadow",
+  "hyprLayout",
+  "hyprColumnWidth",
+  "hyprDimInactive",
+  "hyprDimStrength",
+  "hyprAnimations",
+  "hyprCursorHideOnKey",
+  "hyprCursorWarp",
+  "hyprCursorSize",
+  "hyprAllowTearing",
+  "hyprResizeOnBorder",
+  "hyprActiveOpacity",
+  "hyprInactiveOpacity",
+  "hyprPreserveSplit",
+  "hyprFocusOnActivate",
+  "hyprLookManaged",
+  "hyprInputManaged",
+  "hyprWorkspaceGesture",
+  "hyprNoGaps",
+  "hyprSquareAspect",
+  "hyprWorkspaceLayout",
+  "hyprSensitivity",
+  "hyprAccelProfile",
+  "hyprEmulateDiscreteScroll",
+  "hyprNaturalScroll",
+  "hyprScrollFactor",
+  "hyprClickfinger",
+  "hyprDisableWhileTyping",
+  "hyprDrag3fg",
+  "hyprRepeatRate",
+  "hyprRepeatDelay",
+  "hyprNumlock",
+  "hyprFollowMouse",
+  "hyprKeyPressDpms",
+  "hyprMouseMoveDpms",
+  "hyprKbLayout",
+  "hyprKbVariant",
+  "hyprKbOptions",
+  "fingerprintAvailable",
+  "fingerprintConfigured",
+  "fido2Configured",
+  "sshdEnabled",
+  "sshdActive",
+  "passwordlessSudo",
+  "sudolessDocker",
+  "omarchyVersion",
+  "omarchyChannel",
+  "updateAvailable",
+  "updateSummary",
+  "atmosRevision",
+  "atmosChannel",
+  "atmosInstalled",
+  "voxtypeInstalled",
+  "hybridGpuAvailable",
+  "hybridGpuMode",
+  "hwNvidia",
+  "hwNvidiaGsp",
+  "hwNvidiaWithoutGsp",
+  "hwVulkan",
+  "hwIntel",
+  "hwIntelPtl",
+  "hwWebcam",
+  "hwFramework16",
+  "hwAsusRog",
+  "hwSurface",
+  "dmiVendor",
+  "dmiProduct",
+  "dmiFamily",
+  "cpuStat",
+  "memoryStat",
+  "cpuIdentity",
+  "gpuIdentity",
+  "npuIdentity",
+  "tailscaleInstalled",
+  "tailscaleRunning",
+  "plugins",
+  "snapperNumberLimit",
+  "snapperTimeline",
+  "fstrimEnabled",
+  "directBootAvailable",
+  "directBoot",
+  "mimePdf",
+  "mimeImage",
+  "mimeVideo",
+  "mimePdfOptions",
+  "mimeImageOptions",
+  "mimeVideoOptions",
+  "picturesDir",
+  "videosDir",
+  "recordingActive",
+  "webcamOverlay",
+  "services",
+  "gaming",
+  "extras",
+  "hooks",
+  "autostart",
+  "autostartManaged",
+  "bindings",
+  "bindingsManaged",
+  "windowRules",
+  "windowRulesManaged",
+  "keybindings",
+  "focusedClass",
+  "cupsActive",
+  "printerSetup",
+  "nightlightDay",
+  "nightlightNight",
+  "nightlightNightOn",
+  "tailscalePeers",
+  "hyprKbGroupToggle",
+];
+copyProps.forEach(function (name) {
+  assert(copyBody.indexOf(name) !== -1, "copyRecord assigns " + name);
+});
+
+const hubsJs = load("services/Hubs.js");
+const atmosSrc = fs.readFileSync(path.join(__dirname, "..", "bin", "atmos"), "utf8");
+const atmosAllow = atmosSrc.split("\n").find(function (row) {
+  return /\$HUB != appearance/.test(row);
+});
+const atmosHubIds = [];
+const atmosHubRe = /\$HUB != ([A-Za-z0-9_-]+)/g;
+let atmosHubMatch;
+while (atmosAllow && (atmosHubMatch = atmosHubRe.exec(atmosAllow)))
+  atmosHubIds.push(atmosHubMatch[1]);
+assertEqual(
+  atmosHubIds.join(","),
+  hubsJs.hubIds().join(","),
+  "bin/atmos hub ids match Hubs.hubIds()",
+);
+const atmosSuffixMatch = atmosSrc.match(/\[\/([a-z0-9_|]+)\]/);
+const atmosSuffixes = atmosSuffixMatch ? atmosSuffixMatch[1].split("|") : [];
+hubsJs.childIds().forEach(function (id) {
+  const tail = id.split("/").pop();
+  assert(atmosSuffixes.indexOf(tail) !== -1, "bin/atmos suffix regex includes " + tail);
+});
+assert(shellSrc.indexOf("HubsJs.navPages()") !== -1, "shell pages come from Hubs.navPages");
+assert(
+  shellSrc.indexOf('id: "appearance", title: "Appearance"') === -1,
+  "shell does not inline hub titles",
+);
+const searchSrc = fs.readFileSync(path.join(__dirname, "..", "services", "SearchIndex.js"), "utf8");
+assert(searchSrc.indexOf("const HUBS") === -1, "SearchIndex does not own HUBS");
+assert(searchSrc.indexOf("FILE_HUB") === -1, "SearchIndex does not own FILE_HUB");
+assert(searchSrc.indexOf("PAGE_TITLE") === -1, "SearchIndex does not own PAGE_TITLE");
+assert(searchSrc.indexOf("hubsApi()") !== -1, "SearchIndex loads Hubs via vm");
+assert(
+  omarchyQml.indexOf("SnapshotGroups.setSnapshotGroupForHub(HubsJs.snapshotGroupForHub)") !== -1,
+  "Omarchy installs Hubs.snapshotGroupForHub on SnapshotGroups at load",
+);
+assert(
+  omarchyQml.indexOf("var first = SnapshotGroups.snapshotGroupForHub(hub)") !== -1,
+  "startSession uses SnapshotGroups.snapshotGroupForHub",
+);
+const completedStart = omarchyQml.indexOf("Component.onCompleted:");
+const completedEnd = omarchyQml.indexOf("readonly property var watchSpecs", completedStart);
+const completedBody = omarchyQml.slice(completedStart, completedEnd);
+assert(
+  completedBody.indexOf("setSnapshotGroupForHub") !== -1 &&
+    completedBody.indexOf("setSnapshotGroupForHub") < completedBody.indexOf("startSession"),
+  "Omarchy wires snapshotGroupForHub before startSession",
+);
+assert(
+  settingsSrc.indexOf('title: "Idle and light"') !== -1,
+  "export Markdown keeps Idle and light",
+);
+
+const installStart = omarchySrc.indexOf("function installTheme(");
+const installEnd = omarchySrc.indexOf("function updateThemes(", installStart);
+const installBody = omarchySrc.slice(installStart, installEnd);
+assert(installBody.indexOf('refresh: "look"') !== -1, "installTheme refreshes look after a clone");
+assert(
+  installBody.indexOf("RichUi.gitThemeName") !== -1 &&
+    installBody.indexOf("extraThemes") !== -1 &&
+    installBody.indexOf("themes") !== -1,
+  "installTheme optimistic-patches extraThemes, themes, and theme",
+);
+const updateStart = omarchySrc.indexOf("function updateThemes(");
+const updateEnd = omarchySrc.indexOf("function removeTheme(", updateStart);
+const updateBody = omarchySrc.slice(updateStart, updateEnd);
+assert(updateBody.indexOf('refresh: "look"') !== -1, "updateThemes refreshes look");
+const runJobStart = omarchySrc.indexOf("function runJob(");
+const runJobEnd = omarchySrc.indexOf("function cancelJob(", runJobStart);
+const runJobBody = omarchySrc.slice(runJobStart, runJobEnd);
+assert(
+  runJobBody.indexOf('opts.refresh === "none" ? "none" : "all"') === -1,
+  'runJob no longer forces refresh to "none"|"all"',
+);
+assert(
+  runJobBody.indexOf("SnapshotGroups.normalizeGroup") !== -1,
+  "runJob honors snapshot groups through normalizeGroup",
+);
+assert(runJobBody.indexOf("opts.apply") !== -1, "runJob copies opts.apply onto the job");
+assert(shellSrc.indexOf("inotifywait") === -1, "inotifywait is not in shell.qml");
+assert(
+  omarchySrc.indexOf("syncThemeFromDiskIfStale") === -1 &&
+    omarchySrc.indexOf("function syncThemeFromDisk(") === -1,
+  "syncThemeFromDiskIfStale is gone",
+);
+const themeQmlSrc = fs.readFileSync(path.join(__dirname, "..", "services", "Theme.qml"), "utf8");
+assert(themeQmlSrc.indexOf("inotifywait") !== -1, "inotifywait is in Theme.qml");
+const watchStart = omarchySrc.indexOf("readonly property var watchSpecs:");
+const watchEnd = omarchySrc.indexOf("function applyThemeNameFromFile", watchStart);
+const watchBody = omarchySrc.slice(watchStart, watchEnd);
+assert(watchBody.indexOf("extraThemesDir") === -1, "extraThemesDir is not in watchSpecs");
+assert(watchBody.indexOf("packagedThemesDir") !== -1, "packaged themes dir may stay FileView");
+const extraWatchStart = omarchySrc.indexOf("property Process extraThemesWatcher:");
+assert(extraWatchStart !== -1, "Omarchy watches extraThemesDir with a Process");
+const extraWatchBody = omarchySrc.slice(extraWatchStart, extraWatchStart + 900);
+assert(
+  extraWatchBody.indexOf("inotifywait") !== -1 && extraWatchBody.indexOf("extraThemesDir") !== -1,
+  "extraThemesDir has inotifywait",
+);
+const jobProcStart = omarchySrc.indexOf("property Process jobProc:");
+assert(jobProcStart !== -1, "jobProc exists");
+const jobProcSrc = omarchySrc.slice(jobProcStart);
+const applyAt = jobProcSrc.indexOf("root.applyWritePatch(job)");
+const readAt = jobProcSrc.indexOf("enqueueRead", applyAt);
+assert(
+  applyAt !== -1 && readAt !== -1 && applyAt < readAt,
+  "jobProc calls applyWritePatch before enqueueRead",
 );

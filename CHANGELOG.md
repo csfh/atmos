@@ -2,11 +2,16 @@
 
 Notable changes to Atmos. Each section is a git tag on `main` and `alpha`. Install and in-app Update follow the `alpha` branch.
 
-## [Unreleased]
+## [v0.0.1-alpha.11] - 2026-09-06
+
+### Changed
+
+- Settings import and the live controls share one write dispatcher (`Settings.commandFor`). Import still runs the same `omarchy` and `set-*.sh` writers as the matching row. ([#22](https://github.com/csfh/atmos/pull/22))
 
 ### Fixed
 
-- Installing or updating extra themes now refreshes the Installed themes list.
+- Installing or updating extra themes now refreshes the Installed themes list. Nested clones under `~/.config/omarchy/themes` are watched with inotifywait. ([#22](https://github.com/csfh/atmos/pull/22))
+- Omarchy replacing `~/.local/state/omarchy/current/theme` is followed from `Theme.qml`. The 800ms theme poll is gone. ([#22](https://github.com/csfh/atmos/pull/22))
 
 ## [v0.0.1-alpha.10] - 2026-09-05
 
@@ -174,6 +179,7 @@ First public alpha. Standalone [Quickshell](https://quickshell.org) preferences 
 - Keyboard use on controls (tab focus and activation). File watching of Omarchy/Hyprland paths so outside changes can refresh the snapshot. Shared page routing and content-column layout.
 - MIT license. Contributions assign copyright to Christoffer Hallas ([CLA](CLA.md)).
 
+[v0.0.1-alpha.11]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.10...v0.0.1-alpha.11
 [v0.0.1-alpha.10]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.9...v0.0.1-alpha.10
 [v0.0.1-alpha.9]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.8...v0.0.1-alpha.9
 [v0.0.1-alpha.8]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.7...v0.0.1-alpha.8

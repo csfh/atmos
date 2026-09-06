@@ -483,6 +483,7 @@ emit_look_snapshot() {
   parse_hyprsunset_conf
   fill_look_surface
   jq -n \
+    --arg group "$GROUP" \
     --arg theme "$theme" \
     --arg background "$background" \
     --arg font "$font" \
@@ -551,6 +552,7 @@ emit_look_snapshot() {
     --argjson reminderActive "$reminder_active" \
     --argjson reminders "$reminders_json" \
     '{
+      group: $group,
       theme: $theme,
       background: $background,
       font: $font,
@@ -754,6 +756,7 @@ emit_network_snapshot() {
   fi
   [[ -n $tailscale_peers_json ]] || tailscale_peers_json='[]'
   jq -n \
+    --arg group "$GROUP" \
     --arg dns "$dns" \
     --argjson bluetooth "$bluetooth" \
     --argjson wifiConnected "$wifi_connected" \
@@ -775,6 +778,7 @@ emit_network_snapshot() {
     --argjson tailscaleRunning "$tailscale_running" \
     --argjson tailscalePeers "$tailscale_peers_json" \
     '{
+      group: $group,
       dns: $dns,
       bluetooth: $bluetooth,
       wifiConnected: $wifiConnected,
@@ -862,6 +866,7 @@ emit_disks_snapshot() {
     fstrim_enabled=true
   fi
   jq -n \
+    --arg group "$GROUP" \
     --argjson disks "$disks_json" \
     --argjson luksDevices "$luks_devices_json" \
     --argjson swapDevices "$swap_devices_json" \
@@ -875,6 +880,7 @@ emit_disks_snapshot() {
     --argjson snapperTimeline "$snapper_timeline" \
     --argjson fstrimEnabled "$fstrim_enabled" \
     '{
+      group: $group,
       disks: $disks,
       luksDevices: $luksDevices,
       swapDevices: $swapDevices,
@@ -910,9 +916,11 @@ emit_accounts_snapshot() {
     full_name=""
   fi
   jq -n \
+    --arg group "$GROUP" \
     --argjson accounts "$accounts_json" \
     --arg fullName "$full_name" \
     '{
+      group: $group,
       fullName: $fullName,
       currentUser: ($accounts.currentUser // ""),
       avatarPath: ($accounts.avatarPath // ""),
@@ -1033,6 +1041,7 @@ emit_system_snapshot() {
     crash_capture=false
   fi
   jq -n \
+    --arg group "$GROUP" \
     --arg hostname "$hostname" \
     --arg timezone "$timezone" \
     --argjson timezones "$timezones_json" \
@@ -1046,6 +1055,7 @@ emit_system_snapshot() {
     --argjson keyboardLayouts "$keyboard_layouts_json" \
     --argjson crashCapture "$crash_capture" \
     '{
+      group: $group,
       hostname: $hostname,
       timezone: $timezone,
       timezones: $timezones,
@@ -2482,6 +2492,7 @@ fi
 [[ -n $tailscale_peers_json ]] || tailscale_peers_json='[]'
 
 snapshot_json=$(jq -n \
+  --arg group "$GROUP" \
   --arg theme "$theme" \
   --arg background "$background" \
   --arg font "$font" \
@@ -2714,6 +2725,7 @@ snapshot_json=$(jq -n \
     --argjson emacs "$(present emacs && echo true || echo false)" \
     '{nvim:$nvim,code:$code,cursor:$cursor,zeditor:$zeditor,sublime_text:$sublime_text,helix:$helix,vim:$vim,emacs:$emacs}')" \
   '{
+    group: $group,
     theme: $theme,
     background: $background,
     font: $font,
@@ -2929,12 +2941,12 @@ snapshot_json=$(jq -n \
   }')
 
 if [[ $GROUP == rest ]]; then
-  jq -c 'del(
+  jq -c --arg group "$GROUP" 'del(
     .theme, .background, .font, .textSize, .themes, .extraThemes, .fonts,
     .stayAwake, .nightlight, .nightlightTemperature,
     .screensaverBranded, .aboutBranded, .plymouth, .plymouthThemes,
     .nightlightDay, .nightlightNight, .nightlightNightOn
-  )' <<<"$snapshot_json"
+  ) | .group = $group' <<<"$snapshot_json"
 else
   printf '%s\n' "$snapshot_json"
 fi

@@ -172,6 +172,7 @@ const hardware = load("services/Hardware.js");
 const sunset = load("services/HyprSunset.js");
 const atmosUpdate = load("services/AtmosUpdate.js");
 const richUi = load("services/RichUi.js");
+const groups = load("services/SnapshotGroups.js");
 const adapters = {
   clampLook: hypr.clampLook,
   clampInput: hypr.clampInput,
@@ -180,6 +181,7 @@ const adapters = {
   parseTime: sunset.parseTime,
   parseChannel: atmosUpdate.parseChannel,
   parseWeatherCoords: richUi.parseWeatherCoords,
+  allowedKey: groups.allowedKey,
 };
 
 const fresh = snapshot.adopt({}, { theme: "tokyo", extraThemes: ["a"] }, adapters);
@@ -269,18 +271,23 @@ try {
 }
 assert(missingAdapters, "adopt throws when adapters are missing");
 
+const taggedCurrent = { hardware: { cpu: { model: "X" } } };
 const tagged = snapshot.adopt(
-  { hardware: { cpu: { model: "X" } } },
+  taggedCurrent,
   { group: "look", theme: "x", hardware: { cpu: { model: "nope" } } },
   adapters,
 );
 assertEqual(tagged.theme, "x", "tagged look still merges theme");
-assertEqual(
-  tagged.hardware.cpu.model,
-  "nope",
-  "PR 1 tagged look keeps patched hardware (no emitKeys yet)",
-);
+assertEqual(tagged.hardware.cpu.model, "X", "tagged look does not take hardware (allowedKey)");
+assert(tagged.hardware === taggedCurrent.hardware, "tagged look keeps hardware reference");
 assert(!("group" in tagged), "adopt never copies group onto the record");
+
+const untagged = snapshot.adopt(
+  { hardware: { cpu: { model: "X" } } },
+  { hardware: { cpu: { model: "yep" } } },
+  adapters,
+);
+assertEqual(untagged.hardware.cpu.model, "yep", "untagged hardware still takes it");
 
 assertEqual(snapshot.parseSnapshot("{"), null, "parseSnapshot rejects junk after adopt");
 assertEqual(snapshot.patchGroup({ group: "look" }), "look", "patchGroup accepts look");

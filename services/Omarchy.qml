@@ -10,6 +10,7 @@ import "HyprPrefs.js" as HyprPrefs
 import "HyprSunset.js" as HyprSunset
 import "RichUi.js" as RichUi
 import "Snapshot.js" as SnapshotJs
+import "SnapshotGroups.js" as SnapshotGroups
 import "Theme.js" as ThemeJs
 import "WorkQueue.js" as WorkQueue
 
@@ -385,7 +386,8 @@ QtObject {
     normalizeHardware: HardwareJs.normalize,
     parseTime: HyprSunset.parseTime,
     parseChannel: AtmosUpdate.parseChannel,
-    parseWeatherCoords: RichUi.parseWeatherCoords
+    parseWeatherCoords: RichUi.parseWeatherCoords,
+    allowedKey: SnapshotGroups.allowedKey
   })
   property var ioJob: null
   property bool snapshotReady: false
@@ -658,19 +660,19 @@ QtObject {
   }
 
   function scheduleRefresh(group) {
-    pendingRefreshGroups = WorkQueue.addPendingRefresh(pendingRefreshGroups, group || "all")
+    pendingRefreshGroups = WorkQueue.addPendingRefresh(pendingRefreshGroups, SnapshotGroups.normalizeGroup(group))
     refreshTimer.restart()
   }
 
   property var pendingRefreshGroups: []
 
   function enqueueRead(group) {
-    WorkQueue.enqueueRead(ioQueue, group || "all")
+    WorkQueue.enqueueRead(ioQueue, SnapshotGroups.normalizeGroup(group))
     kickIo()
   }
 
   function startSession(hub) {
-    var first = WorkQueue.snapshotGroupForHub(hub)
+    var first = SnapshotGroups.snapshotGroupForHub(hub)
     WorkQueue.enqueueRead(ioQueue, first)
     if (first !== "all") WorkQueue.enqueueRead(ioQueue, "rest")
     kickIo()
@@ -728,9 +730,7 @@ QtObject {
   function snapshotRefreshGroup(value) {
     var g = String(value || "none")
     if (g === "none" || g === "") return "none"
-    if (g === "look" || g === "rest" || g === "all" || g === "network" || g === "disks" || g === "accounts" || g === "system")
-      return g
-    return "all"
+    return SnapshotGroups.normalizeGroup(g)
   }
 
   function runCommand(argv, opts) {
@@ -3092,51 +3092,51 @@ QtObject {
     startSession(Quickshell.env("ATMOS_PAGE") || "appearance")
   }
 
-  readonly property var watchSpecs: [
-    { path: userShellJson, group: "look" },
-    { path: defaultShellJson, group: "look" },
-    { path: userShellToml, group: "look" },
-    { path: weatherJson, group: "look" },
-    { path: notificationsJson, group: "look" },
-    { path: currentBackgroundFile, group: "look" },
-    { path: screensaverBrandFile, group: "look" },
-    { path: defaultScreensaverBrandFile, group: "look" },
-    { path: aboutBrandFile, group: "look" },
-    { path: defaultAboutBrandFile, group: "look" },
-    { path: plymouthLogoFile, group: "look" },
-    { path: defaultPlymouthLogoFile, group: "look" },
-    { path: extraThemesDir, group: "look" },
-    { path: packagedThemesDir, group: "look" },
-    { path: fontconfigFile, group: "look" },
-    { path: indicatorsDir, group: "look" },
-    { path: reminderDir, group: "look" },
-    { path: looknfeelLuaFile, group: "look" },
-    { path: hyprsunsetConfFile, group: "look" },
-    { path: monitorsLuaFile, group: "look" },
-    { path: hyprTogglesDir, group: "look" },
-    { path: touchpadDisabledFile, group: "look" },
-    { path: touchscreenDisabledFile, group: "look" },
-    { path: togglesDir, group: "all" },
-    { path: powerProfileAcFile, group: "rest" },
-    { path: powerProfileBatteryFile, group: "rest" },
-    { path: powerProfilesStateFile, group: "rest" },
-    { path: applicationsDir, group: "rest" },
-    { path: defaultEditorFile, group: "rest" },
-    { path: defaultAgentFile, group: "rest" },
-    { path: defaultTerminalFile, group: "rest" },
-    { path: defaultBrowserFile, group: "rest" },
-    { path: dnsConfFile, group: "rest" },
-    { path: bluetoothRfkillDir, group: "rest" },
-    { path: networkManagerDevicesDir, group: "rest" },
-    { path: inputLuaFile, group: "rest" },
-    { path: autostartLuaFile, group: "rest" },
-    { path: bindingsLuaFile, group: "rest" },
-    { path: windowsLuaFile, group: "rest" },
-    { path: localtimeFile, group: "rest" },
-    { path: vconsoleFile, group: "rest" },
-    { path: localeConfFile, group: "rest" },
-    { path: pacmanConfFile, group: "rest" }
-  ]
+  readonly property var watchSpecs: SnapshotGroups.watchSpecs({
+    userShellJson: userShellJson,
+    defaultShellJson: defaultShellJson,
+    userShellToml: userShellToml,
+    weatherJson: weatherJson,
+    notificationsJson: notificationsJson,
+    currentBackgroundFile: currentBackgroundFile,
+    screensaverBrandFile: screensaverBrandFile,
+    defaultScreensaverBrandFile: defaultScreensaverBrandFile,
+    aboutBrandFile: aboutBrandFile,
+    defaultAboutBrandFile: defaultAboutBrandFile,
+    plymouthLogoFile: plymouthLogoFile,
+    defaultPlymouthLogoFile: defaultPlymouthLogoFile,
+    extraThemesDir: extraThemesDir,
+    packagedThemesDir: packagedThemesDir,
+    fontconfigFile: fontconfigFile,
+    indicatorsDir: indicatorsDir,
+    reminderDir: reminderDir,
+    looknfeelLuaFile: looknfeelLuaFile,
+    hyprsunsetConfFile: hyprsunsetConfFile,
+    monitorsLuaFile: monitorsLuaFile,
+    hyprTogglesDir: hyprTogglesDir,
+    touchpadDisabledFile: touchpadDisabledFile,
+    touchscreenDisabledFile: touchscreenDisabledFile,
+    togglesDir: togglesDir,
+    powerProfileAcFile: powerProfileAcFile,
+    powerProfileBatteryFile: powerProfileBatteryFile,
+    powerProfilesStateFile: powerProfilesStateFile,
+    applicationsDir: applicationsDir,
+    defaultEditorFile: defaultEditorFile,
+    defaultAgentFile: defaultAgentFile,
+    defaultTerminalFile: defaultTerminalFile,
+    defaultBrowserFile: defaultBrowserFile,
+    dnsConfFile: dnsConfFile,
+    bluetoothRfkillDir: bluetoothRfkillDir,
+    networkManagerDevicesDir: networkManagerDevicesDir,
+    inputLuaFile: inputLuaFile,
+    autostartLuaFile: autostartLuaFile,
+    bindingsLuaFile: bindingsLuaFile,
+    windowsLuaFile: windowsLuaFile,
+    localtimeFile: localtimeFile,
+    vconsoleFile: vconsoleFile,
+    localeConfFile: localeConfFile,
+    pacmanConfFile: pacmanConfFile
+  })
 
   function applyThemeNameFromFile(slug) {
     slug = String(slug || "").replace(/^\s+|\s+$/g, "")
@@ -3236,7 +3236,7 @@ QtObject {
       } else {
         root.applyWritePatch(job)
         if (job && job.refresh && job.refresh !== "none")
-          WorkQueue.enqueueRead(root.ioQueue, job.refresh)
+          WorkQueue.enqueueRead(root.ioQueue, SnapshotGroups.normalizeGroup(job.refresh))
       }
       root.ioFinished()
     }

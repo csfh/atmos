@@ -757,9 +757,13 @@ function adopt(currentRecord, patch, adapters) {
   var filtered = {};
   var key;
   var i;
+  var allow = null;
+  if (g !== "" && g !== "all" && adapters && typeof adapters.allowedKey === "function")
+    allow = adapters.allowedKey;
   for (key in src) {
     if (!Object.prototype.hasOwnProperty.call(src, key)) continue;
     if (key === "group") continue;
+    if (allow && !allow(g, key)) continue;
     filtered[key] = src[key];
   }
   var merged = mergeSnapshot(current, filtered);

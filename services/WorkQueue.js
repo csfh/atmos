@@ -4,58 +4,6 @@ function createWorkQueue() {
   return { reads: [], writes: [], running: false, writeSeq: 0 };
 }
 
-function snapshotGroupForHub(hub) {
-  var id = String(hub || "");
-  var slash = id.indexOf("/");
-  if (slash !== -1) id = id.substring(0, slash);
-  if (
-    !id ||
-    id === "appearance" ||
-    id === "display" ||
-    id === "windows" ||
-    id === "bar" ||
-    id === "notifications" ||
-    id === "idle"
-  )
-    return "look";
-  if (id === "network") return "network";
-  if (id === "disks") return "disks";
-  if (id === "accounts") return "accounts";
-  if (id === "system") return "system";
-  return "all";
-}
-
-function snapshotGroupForWatchPath(path) {
-  var p = String(path || "");
-  var i = p.lastIndexOf("/");
-  var base = i === -1 ? p : p.substring(i + 1);
-  if (
-    base === "shell.json" ||
-    base === "shell.toml" ||
-    base === "looknfeel.lua" ||
-    base === "hyprsunset.conf" ||
-    base === "monitors.lua" ||
-    base === "screensaver.txt" ||
-    base === "about.txt" ||
-    base === "logo.txt" ||
-    base === "icon.txt" ||
-    base === "logo.png" ||
-    base === "fonts.conf" ||
-    base === "weather.json" ||
-    base === "notifications.json" ||
-    p.indexOf("/omarchy/current/background") !== -1 ||
-    p.indexOf("/omarchy/themes") !== -1 ||
-    p.indexOf("/omarchy/themes/") !== -1 ||
-    p.indexOf("/usr/share/omarchy/themes") !== -1 ||
-    p.indexOf("/omarchy/indicators") !== -1 ||
-    p.indexOf("/omarchy-reminders") !== -1 ||
-    p.indexOf("/toggles/hypr") !== -1
-  )
-    return "look";
-  if (p.indexOf("/omarchy/toggles") !== -1 && p.indexOf("/toggles/hypr") === -1) return "all";
-  return "rest";
-}
-
 function addPendingRefresh(pending, group) {
   var q = { reads: [], writes: [], running: false, writeSeq: 0 };
   var src = Array.isArray(pending) ? pending : [];
@@ -163,8 +111,6 @@ function isIdle(queue) {
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     createWorkQueue: createWorkQueue,
-    snapshotGroupForHub: snapshotGroupForHub,
-    snapshotGroupForWatchPath: snapshotGroupForWatchPath,
     addPendingRefresh: addPendingRefresh,
     enqueueRead: enqueueRead,
     enqueueWrite: enqueueWrite,

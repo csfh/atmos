@@ -747,9 +747,12 @@ function adopt(currentRecord, patch, adapters) {
   if (
     !adapters ||
     typeof adapters.clampLook !== "function" ||
-    typeof adapters.clampInput !== "function"
+    typeof adapters.clampInput !== "function" ||
+    typeof adapters.allowedKey !== "function"
   )
-    throw new Error("adopt requires adapters.clampLook and adapters.clampInput");
+    throw new Error(
+      "adopt requires adapters.clampLook, adapters.clampInput, and adapters.allowedKey",
+    );
 
   var src = isPlainObject(patch) ? patch : {};
   var current = isPlainObject(currentRecord) ? currentRecord : {};
@@ -757,13 +760,10 @@ function adopt(currentRecord, patch, adapters) {
   var filtered = {};
   var key;
   var i;
-  var allow = null;
-  if (g !== "" && g !== "all" && adapters && typeof adapters.allowedKey === "function")
-    allow = adapters.allowedKey;
   for (key in src) {
     if (!Object.prototype.hasOwnProperty.call(src, key)) continue;
     if (key === "group") continue;
-    if (allow && !allow(g, key)) continue;
+    if (g !== "" && g !== "all" && !adapters.allowedKey(g, key)) continue;
     filtered[key] = src[key];
   }
   var merged = mergeSnapshot(current, filtered);

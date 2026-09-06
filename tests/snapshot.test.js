@@ -249,7 +249,11 @@ assertEqual(look.hyprLook.layout, "dwindle", "adopt clamps hyprLook layout via c
 
 let missingLook = false;
 try {
-  snapshot.adopt({}, { hyprLook: { gapsIn: 80 } }, { clampInput: hypr.clampInput });
+  snapshot.adopt(
+    {},
+    { hyprLook: { gapsIn: 80 } },
+    { clampInput: hypr.clampInput, allowedKey: groups.allowedKey },
+  );
 } catch {
   missingLook = true;
 }
@@ -257,11 +261,23 @@ assert(missingLook, "adopt throws when clampLook is missing");
 
 let missingInput = false;
 try {
-  snapshot.adopt({}, { hyprInput: { sensitivity: 0 } }, { clampLook: hypr.clampLook });
+  snapshot.adopt(
+    {},
+    { hyprInput: { sensitivity: 0 } },
+    { clampLook: hypr.clampLook, allowedKey: groups.allowedKey },
+  );
 } catch {
   missingInput = true;
 }
 assert(missingInput, "adopt throws when clampInput is missing");
+
+let missingAllowed = false;
+try {
+  snapshot.adopt({}, { theme: "x" }, { clampLook: hypr.clampLook, clampInput: hypr.clampInput });
+} catch {
+  missingAllowed = true;
+}
+assert(missingAllowed, "adopt throws when allowedKey is missing");
 
 let missingAdapters = false;
 try {

@@ -256,6 +256,215 @@ if [[ "$look_emit_keys" != "$look_fixture" ]]; then
 fi
 echo "ok - emitKeys(look) matches the look-keys fixture"
 
+rest_emit_keys=$(node -e '
+const { load } = require("./tests/harness");
+const g = load("services/SnapshotGroups.js");
+process.stdout.write(g.emitKeys("rest").slice().sort().join("\n") + "\n");
+')
+rest_fixture=$(cat <<'EOF'
+agent
+agentsPresent
+agentsRefreshIntervalSec
+agentsSync
+agentsSyncDeviceId
+agentsSyncDir
+agentsSyncFileName
+atmosChannel
+atmosInstalled
+atmosRevision
+audioInputMuted
+audioInputVolume
+audioOutputMuted
+audioOutputVolume
+audioSinks
+audioSources
+audioTuningMatch
+audioTuningOn
+autostart
+autostartManaged
+avatarPath
+barPosition
+barTransparent
+barVisible
+batteryPresent
+bindings
+bindingsManaged
+bluetooth
+bluetoothDevices
+browser
+browsers
+clockBirthYear
+clockFormat
+clockFormatAlt
+clockLifeExpectancy
+clockPresent
+clockWeekStart
+cpuIdentity
+cpuStat
+crashCapture
+cupsActive
+currentUser
+desktopApps
+directBoot
+directBootAvailable
+disks
+dmiFamily
+dmiProduct
+dmiVendor
+dns
+doNotDisturb
+editor
+editors
+externalPresent
+extras
+fido2Configured
+fingerprintAvailable
+fingerprintConfigured
+focusedClass
+fstrimEnabled
+fullName
+gaming
+gpuIdentity
+groups
+hardware
+hasAether
+hibernationAvailable
+hibernationConfigured
+hibernationSupported
+hooks
+hostname
+hwAsusRog
+hwFramework16
+hwIntel
+hwIntelPtl
+hwNvidia
+hwNvidiaGsp
+hwNvidiaWithoutGsp
+hwSurface
+hwVulkan
+hwWebcam
+hybridGpuAvailable
+hybridGpuMode
+hyprInput
+hyprInputManaged
+hyprLook
+hyprLookManaged
+hyprNoGaps
+hyprSquareAspect
+hyprWorkspaceGesture
+hyprWorkspaceLayout
+idleLock
+idleScreensaver
+indicatorsAlwaysShow
+indicatorsItems
+indicatorsPresent
+internalEnabled
+internalPresent
+isLaptop
+keybindings
+keyboardBacklightPresent
+keyboardBrightness
+keyboardLayout
+keyboardLayouts
+locale
+locales
+luksDevices
+memoryStat
+mimeImage
+mimeImageOptions
+mimePdf
+mimePdfOptions
+mimeVideo
+mimeVideoOptions
+mirroring
+monitors
+netIface
+netIp
+netKind
+netSignal
+netSpeed
+netSsid
+npuIdentity
+ntp
+ntpAvailable
+ntpSynchronized
+omarchyChannel
+omarchyVersion
+parallelDownloads
+passwordlessSudo
+picturesDir
+plugins
+powerPresent
+powerProfile
+powerProfileAc
+powerProfileBattery
+powerProfiles
+powerShowPercentage
+printerSetup
+recordingActive
+reminderActive
+reminderCount
+reminders
+screensaverEnabled
+services
+snapperConfigs
+snapperNumberLimit
+snapperPresent
+snapperTimeline
+snapshots
+spacerPresent
+spacerSize
+sshdActive
+sshdEnabled
+sudolessDocker
+suspendEnabled
+swapDevices
+tailscaleInstalled
+tailscalePeers
+tailscaleRunning
+terminal
+terminals
+timezone
+timezones
+touchpadEnabled
+touchpadPresent
+touchscreenEnabled
+touchscreenPresent
+trayHidden
+trayPinned
+trayPresent
+tuiApps
+updateAvailable
+updateSummary
+users
+videosDir
+voxtypeInstalled
+weatherAuto
+weatherCoords
+weatherLocation
+weatherPresent
+weatherRefreshMinutes
+weatherUnit
+webApps
+webcamOverlay
+wifiBand
+wifiBandSelected
+wifiBands
+wifiConnected
+wifiConnections
+wifiHw
+wifiIface
+wifiRadio
+windowRules
+windowRulesManaged
+EOF
+)
+if [[ "$rest_emit_keys" != "$rest_fixture" ]]; then
+  echo "not ok - emitKeys(rest) drifted from the rest-keys fixture"
+  exit 1
+fi
+echo "ok - emitKeys(rest) matches the rest-keys fixture"
+
 if [[ -x scripts/snapshot.sh ]] && command -v omarchy >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
   look_json=$(bash scripts/snapshot.sh look)
   echo "$look_json" | jq -e '.group == "look"' >/dev/null
@@ -281,6 +490,12 @@ if [[ -x scripts/snapshot.sh ]] && command -v omarchy >/dev/null 2>&1 && command
     exit 1
   fi
   echo "ok - snapshot.sh rest emits hardware without theme lists"
+  live_rest_keys=$(echo "$rest_json" | jq -r 'keys - ["group"] | .[]')
+  if [[ "$live_rest_keys" != "$rest_emit_keys" ]]; then
+    echo "not ok - snapshot.sh rest keys do not match emitKeys(rest)"
+    exit 1
+  fi
+  echo "ok - snapshot.sh rest keys match emitKeys(rest)"
   net_json=$(bash scripts/snapshot.sh network)
   echo "$net_json" | jq -e '.group == "network"' >/dev/null
   echo "ok - snapshot.sh network JSON is tagged network"

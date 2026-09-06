@@ -1,6 +1,6 @@
 const fs = require("fs");
 const path = require("path");
-const { assert } = require("./harness");
+const { load, assert, assertEqual } = require("./harness");
 
 const compilePython = fs.readFileSync(path.join(__dirname, "compile-python"), "utf8");
 assert(compilePython.indexOf("ast.parse") !== -1, "compile-python parses scripts/*.py");
@@ -1322,3 +1322,44 @@ const copyProps = [
 copyProps.forEach(function (name) {
   assert(copyBody.indexOf(name) !== -1, "copyRecord assigns " + name);
 });
+
+const hubsJs = load("services/Hubs.js");
+const atmosSrc = fs.readFileSync(path.join(__dirname, "..", "bin", "atmos"), "utf8");
+const atmosAllow = atmosSrc.split("\n").find(function (row) {
+  return /\$HUB != appearance/.test(row);
+});
+const atmosHubIds = [];
+const atmosHubRe = /\$HUB != ([A-Za-z0-9_-]+)/g;
+let atmosHubMatch;
+while (atmosAllow && (atmosHubMatch = atmosHubRe.exec(atmosAllow)))
+  atmosHubIds.push(atmosHubMatch[1]);
+assertEqual(
+  atmosHubIds.join(","),
+  hubsJs.hubIds().join(","),
+  "bin/atmos hub ids match Hubs.hubIds()",
+);
+const atmosSuffixMatch = atmosSrc.match(/\[\/([a-z0-9_|]+)\]/);
+const atmosSuffixes = atmosSuffixMatch ? atmosSuffixMatch[1].split("|") : [];
+hubsJs.childIds().forEach(function (id) {
+  const tail = id.split("/").pop();
+  assert(atmosSuffixes.indexOf(tail) !== -1, "bin/atmos suffix regex includes " + tail);
+});
+assert(shellSrc.indexOf("HubsJs.navPages()") !== -1, "shell pages come from Hubs.navPages");
+assert(
+  shellSrc.indexOf('id: "appearance", title: "Appearance"') === -1,
+  "shell does not inline hub titles",
+);
+const searchSrc = fs.readFileSync(path.join(__dirname, "..", "services", "SearchIndex.js"), "utf8");
+assert(searchSrc.indexOf("const HUBS") === -1, "SearchIndex does not own HUBS");
+assert(searchSrc.indexOf("FILE_HUB") === -1, "SearchIndex does not own FILE_HUB");
+assert(searchSrc.indexOf("PAGE_TITLE") === -1, "SearchIndex does not own PAGE_TITLE");
+assert(searchSrc.indexOf("hubsApi()") !== -1, "SearchIndex loads Hubs via vm");
+assert(
+  omarchyQml.indexOf("HubsJs.snapshotGroupForHub") !== -1,
+  "startSession uses Hubs.snapshotGroupForHub",
+);
+const settingsSrc = fs.readFileSync(path.join(__dirname, "..", "services", "Settings.js"), "utf8");
+assert(
+  settingsSrc.indexOf('title: "Idle and light"') !== -1,
+  "export Markdown keeps Idle and light",
+);

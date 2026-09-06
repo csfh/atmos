@@ -16,210 +16,35 @@ function shellConfig() {
   return shellConfig._loaded;
 }
 
-const HUBS = [
-  {
-    id: "appearance",
-    title: "Appearance",
-    description: "Theme, wallpaper, fonts, and how the desktop looks.",
-    keywords: ["theme", "background", "wallpaper", "font", "text", "size", "palette", "nightlight"],
-  },
-  {
-    id: "display",
-    title: "Displays",
-    description: "Monitors, scale, and brightness.",
-    keywords: ["monitor", "scale", "brightness"],
-  },
-  {
-    id: "windows",
-    title: "Windows",
-    description: "Gaps, borders, bindings, and window rules.",
-    keywords: ["gaps", "bind", "window"],
-  },
-  {
-    id: "bar",
-    title: "Bar",
-    description: "Position, clock, and widgets.",
-    keywords: ["bar", "clock", "tray"],
-  },
-  {
-    id: "notifications",
-    title: "Notifications",
-    description: "Do not disturb and reminders.",
-    keywords: ["dnd", "reminder"],
-  },
-  {
-    id: "input",
-    title: "Input",
-    description: "Pointer, keyboard, and gestures.",
-    keywords: ["mouse", "keyboard", "scroll", "inertia"],
-  },
-  {
-    id: "accessibility",
-    title: "Accessibility",
-    description: "Motion, text size, and assistive tools.",
-    keywords: ["a11y", "motion"],
-  },
-  {
-    id: "sound",
-    title: "Sound",
-    description: "Volume, sinks, and sources.",
-    keywords: ["audio", "volume"],
-  },
-  {
-    id: "capture",
-    title: "Capture",
-    description: "Screenshots, recordings, and OCR.",
-    keywords: ["screenshot", "record"],
-  },
-  {
-    id: "hardware",
-    title: "Hardware",
-    description: "CPU, GPU, memory, and firmware.",
-    keywords: ["cpu", "gpu", "memory"],
-  },
-  {
-    id: "disks",
-    title: "Disks",
-    description: "Drives, snapshots, and swap.",
-    keywords: ["drive", "snapper", "swap"],
-  },
-  {
-    id: "network",
-    title: "Network",
-    description: "Wi-Fi, Bluetooth, DNS, and speed test.",
-    keywords: ["wifi", "bluetooth", "dns"],
-  },
-  {
-    id: "power",
-    title: "Power",
-    description: "Profiles and battery.",
-    keywords: ["battery", "profile"],
-  },
-  {
-    id: "idle",
-    title: "Idle and lock",
-    description: "Screensaver, lock, and lid.",
-    keywords: ["lock", "screensaver"],
-  },
-  {
-    id: "defaults",
-    title: "Defaults",
-    description: "Browser, terminal, editor, and MIME.",
-    keywords: ["browser", "terminal"],
-  },
-  {
-    id: "applications",
-    title: "Applications",
-    description: "Desktop, TUI, and web launchers.",
-    keywords: ["app", "launcher"],
-  },
-  {
-    id: "software",
-    title: "Software",
-    description: "Packages and extras.",
-    keywords: ["install", "package"],
-  },
-  {
-    id: "hooks",
-    title: "Hooks",
-    description: "Theme-set and other scripts.",
-    keywords: ["hook", "script"],
-  },
-  {
-    id: "security",
-    title: "Security",
-    description: "Fingerprint, SSH, and sudo.",
-    keywords: ["ssh", "fingerprint"],
-  },
-  {
-    id: "accounts",
-    title: "Accounts",
-    description: "Face, password, users, and groups.",
-    keywords: ["avatar", "user", "group", "password"],
-  },
-  {
-    id: "system",
-    title: "System",
-    description: "Host, locale, updates, and about.",
-    keywords: ["hostname", "locale", "update"],
-  },
-  {
-    id: "export",
-    title: "Import and export",
-    description: "Write settings to a Markdown file, or review and apply one.",
-    keywords: ["import", "export", "backup", "restore", "markdown"],
-  },
-];
-
-const FILE_HUB = {
-  "AppearancePage.qml": "appearance",
-  "DisplaysPage.qml": "display",
-  "HardwarePage.qml": "hardware",
-  "WindowsPage.qml": "windows",
-  "InputPage.qml": "input",
-  "AccessibilityPage.qml": "accessibility",
-  "SoundPage.qml": "sound",
-  "CapturePage.qml": "capture",
-  "DisksPage.qml": "disks",
-  "BarPage.qml": "bar",
-  "NotificationsPage.qml": "notifications",
-  "DefaultsPage.qml": "defaults",
-  "ApplicationsPage.qml": "applications",
-  "SoftwarePage.qml": "software",
-  "NetworkPage.qml": "network",
-  "PowerPage.qml": "power",
-  "IdlePage.qml": "idle",
-  "SecurityPage.qml": "security",
-  "AccountsPage.qml": "accounts",
-  "HooksPage.qml": "hooks",
-  "SystemPage.qml": "system",
-  "ExportPage.qml": "export",
-  "appearance/BackgroundPage.qml": "appearance/background",
-  "appearance/BootPage.qml": "appearance/boot",
-  "network/WifiPage.qml": "network/wifi",
-  "network/BluetoothPage.qml": "network/bluetooth",
-  "network/SpeedtestPage.qml": "network/speedtest",
-  "windows/BindingsPage.qml": "windows/bindings",
-  "windows/RulesPage.qml": "windows/rules",
-};
-
-const PAGE_TITLE = {
-  "appearance/background": "Background",
-  "appearance/boot": "Boot screen",
-  "network/wifi": "Wi-Fi",
-  "network/bluetooth": "Bluetooth",
-  "network/speedtest": "Speed test",
-  "windows/bindings": "Keybindings",
-  "windows/rules": "Window rules",
-};
-
-function rootHub(hub) {
-  return String(hub || "").split("/")[0];
+function hubsApi() {
+  if (!hubsApi._loaded) {
+    const src = fs.readFileSync(path.join(__dirname, "Hubs.js"), "utf8");
+    const ctx = {};
+    vm.runInNewContext(src, ctx, { filename: "Hubs.js" });
+    hubsApi._loaded = ctx;
+  }
+  return hubsApi._loaded;
 }
 
 function hubTitle(hub) {
-  const key = String(hub || "");
-  if (PAGE_TITLE[key]) return PAGE_TITLE[key];
-  const id = rootHub(key);
-  for (let i = 0; i < HUBS.length; i++) {
-    if (HUBS[i].id === id) return HUBS[i].title;
-  }
-  return hub;
+  return hubsApi().hubTitle(hub);
 }
 
 function hubRows() {
-  return HUBS.map(function (hub) {
-    return {
-      id: hub.id,
-      hub: hub.id,
-      hubTitle: hub.title,
-      label: hub.title,
-      description: hub.description,
-      hint: "",
-      detail: "",
-      keywords: hub.keywords,
-    };
-  });
+  return hubsApi()
+    .searchHubs()
+    .map(function (hub) {
+      return {
+        id: hub.id,
+        hub: hub.id,
+        hubTitle: hub.title,
+        label: hub.title,
+        description: hub.description,
+        hint: "",
+        detail: "",
+        keywords: hub.keywords,
+      };
+    });
 }
 
 function indexPath(env) {
@@ -444,12 +269,7 @@ function namedBlocks(src, name) {
 // Search hits navigate to this path. Subpages use hub/id so openPage can
 // push Bindings, Wi-Fi, and the other extra pages instead of the parent hub.
 function hubForPage(rel) {
-  const base = String(rel || "").replace(/\\/g, "/");
-  if (FILE_HUB[base]) return FILE_HUB[base];
-  if (base.indexOf("appearance/") === 0) return "appearance";
-  if (base.indexOf("network/") === 0) return "network";
-  if (base.indexOf("windows/") === 0) return "windows";
-  return "";
+  return hubsApi().fileHub(rel);
 }
 
 function slug(text) {
@@ -624,7 +444,6 @@ function main(argv) {
 }
 
 module.exports = {
-  HUBS,
   indexPath,
   openIndex,
   ingestRows,

@@ -6,6 +6,7 @@ import "Accounts.js" as AccountsJs
 import "AtmosUpdate.js" as AtmosUpdate
 import "Hardware.js" as HardwareJs
 import "Hooks.js" as HooksJs
+import "Hubs.js" as HubsJs
 import "HyprPrefs.js" as HyprPrefs
 import "HyprSunset.js" as HyprSunset
 import "RichUi.js" as RichUi
@@ -672,7 +673,7 @@ QtObject {
   }
 
   function startSession(hub) {
-    var first = SnapshotGroups.snapshotGroupForHub(hub)
+    var first = HubsJs.snapshotGroupForHub(hub)
     WorkQueue.enqueueRead(ioQueue, first)
     if (first !== "all") WorkQueue.enqueueRead(ioQueue, "rest")
     kickIo()

@@ -1,6 +1,8 @@
 const { load, assert, assertEqual } = require("./harness");
 
 const groups = load("services/SnapshotGroups.js");
+const hubs = load("services/Hubs.js");
+groups.setSnapshotGroupForHub(hubs.snapshotGroupForHub);
 
 assertEqual(groups.snapshotGroupForHub("appearance"), "look", "appearance hub reads look first");
 assertEqual(groups.snapshotGroupForHub("display"), "look", "displays hub reads look first");
@@ -23,6 +25,20 @@ assertEqual(
 assertEqual(groups.snapshotGroupForHub("system"), "system", "system hub reads system first");
 assertEqual(groups.snapshotGroupForHub("hardware"), "all", "other hubs read the full snapshot");
 assertEqual(groups.snapshotGroupForHub(""), "look", "empty hub reads look first");
+groups.setSnapshotGroupForHub(function () {
+  return "network";
+});
+assertEqual(
+  groups.snapshotGroupForHub("appearance"),
+  "network",
+  "setSnapshotGroupForHub overrides",
+);
+groups.setSnapshotGroupForHub(hubs.snapshotGroupForHub);
+assertEqual(
+  groups.snapshotGroupForHub("appearance"),
+  "look",
+  "setSnapshotGroupForHub restores Hubs",
+);
 
 assertEqual(
   groups.snapshotGroupForWatchPath("/home/x/.config/hypr/looknfeel.lua"),

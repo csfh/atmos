@@ -438,24 +438,18 @@ function normalizeGroup(g) {
   return "all";
 }
 
+var snapshotGroupForHubImpl = null;
+
+function setSnapshotGroupForHub(fn) {
+  snapshotGroupForHubImpl = typeof fn === "function" ? fn : null;
+}
+
 function snapshotGroupForHub(hub) {
+  if (snapshotGroupForHubImpl) return snapshotGroupForHubImpl(hub);
   var id = String(hub || "");
   var slash = id.indexOf("/");
   if (slash !== -1) id = id.substring(0, slash);
-  if (
-    !id ||
-    id === "appearance" ||
-    id === "display" ||
-    id === "windows" ||
-    id === "bar" ||
-    id === "notifications" ||
-    id === "idle"
-  )
-    return "look";
-  if (id === "network") return "network";
-  if (id === "disks") return "disks";
-  if (id === "accounts") return "accounts";
-  if (id === "system") return "system";
+  if (!id) return "look";
   return "all";
 }
 
@@ -534,6 +528,7 @@ if (typeof module !== "undefined" && module.exports) {
     GROUPS: GROUPS,
     normalizeGroup: normalizeGroup,
     snapshotGroupForHub: snapshotGroupForHub,
+    setSnapshotGroupForHub: setSnapshotGroupForHub,
     emitKeys: emitKeys,
     allowedKey: allowedKey,
     watchSpecs: watchSpecs,

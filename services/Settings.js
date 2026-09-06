@@ -480,6 +480,7 @@ function entry(key, section, label, tier, opts) {
     extraConfirm: o.extraConfirm === true,
     consequence: String(o.consequence || ""),
     importable: tier !== "system",
+    writer: String(o.writer || writerKindFor(key)),
   };
 }
 
@@ -1810,4 +1811,899 @@ function planToJson(plan) {
     out.push({ key: list[i].key, value: list[i].to, from: list[i].from });
   }
   return JSON.stringify({ schema: SETTINGS_SCHEMA, changes: out });
+}
+
+// ---------------------------------------------------------------------------
+// Write dispatch
+// ---------------------------------------------------------------------------
+//
+// Catalog rows own the writer. QML setters and apply-settings.sh both call
+// commandFor / planCommands so argv cannot drift between live UI and import.
+
+var SCRIPT_FILES = {
+  look: "set-hypr-look.sh",
+  input: "set-hypr-input.sh",
+  bindings: "set-hypr-bindings.sh",
+  windows: "set-hypr-windows.sh",
+  autostart: "set-hypr-autostart.sh",
+  idle: "set-idle.sh",
+  hyprsunset: "set-hyprsunset.sh",
+  nightlightTemp: "set-nightlight-temp.sh",
+  mime: "set-mime-default.sh",
+  audio: "set-audio.sh",
+  barWidget: "set-bar-widget.sh",
+  hostname: "set-hostname.sh",
+  timezone: "set-timezone.sh",
+  locale: "set-locale.sh",
+  keyboard: "set-keyboard-layout.sh",
+  ntp: "set-ntp.sh",
+  fullName: "set-full-name.sh",
+  parallelDownloads: "set-parallel-downloads.sh",
+  wifiRadio: "set-wifi-connection.sh",
+};
+
+var APPLY_GROUP = {
+  theme: "look",
+  background: "look",
+  font: "look",
+  textSize: "look",
+  hyprLook: "look",
+  hyprLookManaged: "look",
+  hyprInput: "look",
+  hyprInputManaged: "look",
+  hyprNoGaps: "look",
+  hyprSquareAspect: "look",
+  barPosition: "look",
+  barTransparent: "look",
+  barVisible: "look",
+  clockFormat: "look",
+  clockFormatAlt: "look",
+  clockWeekStart: "look",
+  clockBirthYear: "look",
+  clockLifeExpectancy: "look",
+  idleScreensaver: "look",
+  idleLock: "look",
+  stayAwake: "look",
+  screensaverEnabled: "look",
+  nightlight: "look",
+  nightlightTemperature: "look",
+  nightlightDay: "look",
+  nightlightNight: "look",
+  nightlightNightOn: "look",
+  doNotDisturb: "look",
+  indicatorsAlwaysShow: "look",
+  indicatorsItems: "look",
+  agentsRefreshIntervalSec: "look",
+  agentsSync: "look",
+  agentsSyncDir: "look",
+  agentsSyncFileName: "look",
+  agentsSyncDeviceId: "look",
+  spacerSize: "look",
+  trayHidden: "look",
+  trayPinned: "look",
+  plymouth: "look",
+  touchpadEnabled: "look",
+  touchscreenEnabled: "look",
+  suspendEnabled: "look",
+  dns: "network",
+  bluetooth: "network",
+  wifiRadio: "network",
+  hostname: "system",
+  timezone: "system",
+  locale: "system",
+  keyboardLayout: "system",
+  ntp: "system",
+  ntpSynchronized: "system",
+  parallelDownloads: "system",
+  crashCapture: "system",
+  fullName: "accounts",
+};
+
+var WRITERS;
+
+function writers() {
+  if (WRITERS) return WRITERS;
+  WRITERS = {
+    theme: omarchyArgv(["omarchy", "theme", "set"], "look"),
+    background: omarchyArgv(["omarchy", "theme", "bg", "set"], "look"),
+    font: omarchyArgv(["omarchy", "font", "set"], "look"),
+    textSize: omarchyArgv(["omarchy", "display", "text", "size"], "look"),
+    hyprNoGaps: {
+      kind: "hypr-toggle",
+      prefix: ["omarchy", "hyprland", "toggle", "window-no-gaps"],
+      snapshotGroup: "look",
+    },
+    hyprSquareAspect: {
+      kind: "hypr-toggle",
+      prefix: ["omarchy", "hyprland", "toggle", "single-window-aspect-ratio"],
+      snapshotGroup: "look",
+    },
+    barPosition: omarchyArgv(["omarchy", "bar", "position"], "look"),
+    barTransparent: omarchyArgv(["omarchy", "bar", "transparent"], "look", "true-false"),
+    barVisible: {
+      kind: "toggle-inverted",
+      prefix: ["omarchy", "toggle", "bar"],
+      invert: true,
+      snapshotGroup: "look",
+    },
+    clockFormat: { kind: "clock-format", base: "format", snapshotGroup: "look", backup: "clock" },
+    clockFormatAlt: {
+      kind: "clock-format",
+      base: "formatAlt",
+      snapshotGroup: "look",
+      backup: "clock",
+    },
+    browser: omarchyArgv(["omarchy", "default", "browser"], ""),
+    terminal: omarchyArgv(["omarchy", "default", "terminal"], ""),
+    editor: omarchyArgv(["omarchy", "default", "editor"], ""),
+    agent: omarchyArgv(["omarchy", "default", "agent"], ""),
+    mimePdf: { kind: "script", script: "mime", args: ["pdf"] },
+    mimeImage: { kind: "script", script: "mime", args: ["image"] },
+    mimeVideo: { kind: "script", script: "mime", args: ["video"] },
+    idleScreensaver: { kind: "idle-pair", snapshotGroup: "look" },
+    idleLock: { kind: "idle-pair", snapshotGroup: "look" },
+    stayAwake: { kind: "toggle-named", snapshotGroup: "look" },
+    screensaverEnabled: {
+      kind: "toggle-inverted",
+      prefix: ["omarchy", "toggle", "screensaver-off"],
+      invert: true,
+      snapshotGroup: "look",
+    },
+    doNotDisturb: {
+      kind: "toggle-flip",
+      prefix: ["omarchy", "toggle", "notification", "silencing"],
+      snapshotGroup: "look",
+    },
+    nightlight: {
+      kind: "toggle-flip",
+      prefix: ["omarchy", "toggle", "nightlight"],
+      snapshotGroup: "look",
+    },
+    nightlightTemperature: {
+      kind: "nightlight-temp",
+      snapshotGroup: "look",
+      backup: "nightlightTemp",
+    },
+    nightlightDay: {
+      kind: "nightlight-schedule",
+      snapshotGroup: "look",
+      backup: "nightlightSchedule",
+    },
+    nightlightNight: {
+      kind: "nightlight-schedule",
+      snapshotGroup: "look",
+      backup: "nightlightSchedule",
+    },
+    nightlightNightOn: {
+      kind: "nightlight-schedule",
+      snapshotGroup: "look",
+      backup: "nightlightSchedule",
+    },
+    hostname: { kind: "script", script: "hostname", snapshotGroup: "system" },
+    timezone: { kind: "script", script: "timezone", snapshotGroup: "system" },
+    locale: { kind: "script", script: "locale", snapshotGroup: "system" },
+    keyboardLayout: { kind: "script", script: "keyboard", snapshotGroup: "system" },
+    ntp: { kind: "script", script: "ntp", bool: "true-false", snapshotGroup: "system" },
+    fullName: { kind: "script", script: "fullName", snapshotGroup: "accounts" },
+    parallelDownloads: { kind: "script", script: "parallelDownloads", snapshotGroup: "system" },
+    dns: omarchyArgv(["omarchy", "dns"], "network"),
+    audioOutputVolume: { kind: "script", script: "audio", args: ["output-volume"] },
+    audioInputVolume: { kind: "script", script: "audio", args: ["input-volume"] },
+    audioOutputMuted: {
+      kind: "mute-deferred",
+      prefix: ["omarchy", "audio", "output", "volume", "mute-toggle"],
+    },
+    audioInputMuted: { kind: "mute-deferred", prefix: ["omarchy", "audio", "input", "mute"] },
+    audioTuningOn: omarchyArgv(["omarchy", "audio", "tuning"], "", "on-off"),
+    powerProfileAc: omarchyArgv(["omarchy", "powerprofiles", "set", "ac"], ""),
+    powerProfileBattery: omarchyArgv(["omarchy", "powerprofiles", "set", "battery"], ""),
+    suspendEnabled: {
+      kind: "toggle-inverted",
+      prefix: ["omarchy", "toggle", "suspend-off"],
+      invert: true,
+      snapshotGroup: "look",
+    },
+    crashCapture: {
+      kind: "toggle-flip",
+      prefix: ["omarchy", "toggle", "crash", "capture"],
+      snapshotGroup: "system",
+    },
+    clockWeekStart: barSet(["omarchy", "bar", "set", "omarchy.clock", "weekStartDay"], "look"),
+    clockBirthYear: barSet(["omarchy", "bar", "set", "omarchy.clock", "birthYear"], "look", true),
+    clockLifeExpectancy: barSet(
+      ["omarchy", "bar", "set", "omarchy.clock", "lifeExpectancy"],
+      "look",
+      true,
+    ),
+    indicatorsAlwaysShow: barSet(
+      ["omarchy", "bar", "set", "omarchy.indicators", "alwaysShow"],
+      "look",
+      true,
+      "true-false",
+    ),
+    powerShowPercentage: barSet(
+      ["omarchy", "bar", "set", "omarchy.power", "showPercentage"],
+      "look",
+      true,
+      "true-false",
+    ),
+    spacerSize: barSet(["omarchy", "bar", "set", "omarchy.spacer", "size"], "look", true),
+    weatherLocation: { kind: "weather-location" },
+    weatherUnit: barSet(["omarchy", "bar", "set", "omarchy.weather", "unit"], ""),
+    weatherRefreshMinutes: barSet(
+      ["omarchy", "bar", "set", "omarchy.weather", "refreshMinutes"],
+      "",
+      true,
+    ),
+    agentsRefreshIntervalSec: barSet(
+      ["omarchy", "bar", "set", "omarchy.agents", "refreshIntervalSec"],
+      "look",
+      true,
+    ),
+    agentsSync: {
+      kind: "bar-set",
+      argv: ["omarchy", "bar", "set", "omarchy.agents", "syncMode"],
+      syncMode: true,
+      backup: "clock",
+      snapshotGroup: "look",
+    },
+    agentsSyncDir: barSet(["omarchy", "bar", "set", "omarchy.agents", "syncDir"], "look"),
+    agentsSyncFileName: barSet(["omarchy", "bar", "set", "omarchy.agents", "syncFileName"], "look"),
+    agentsSyncDeviceId: barSet(["omarchy", "bar", "set", "omarchy.agents", "syncDeviceId"], "look"),
+    indicatorsItems: {
+      kind: "bar-widget",
+      id: "omarchy.indicators",
+      field: "items",
+      backup: "clock",
+      snapshotGroup: "look",
+    },
+    trayHidden: {
+      kind: "bar-widget",
+      id: "omarchy.tray",
+      field: "hidden",
+      backup: "clock",
+      snapshotGroup: "look",
+    },
+    trayPinned: {
+      kind: "bar-widget",
+      id: "omarchy.tray",
+      field: "pinned",
+      backup: "clock",
+      snapshotGroup: "look",
+    },
+    plymouth: omarchyArgv(["omarchy", "plymouth", "set", "by", "theme"], "look"),
+    touchpadEnabled: {
+      kind: "toggle-inverted",
+      prefix: ["omarchy", "toggle", "touchpad"],
+      snapshotGroup: "look",
+    },
+    touchscreenEnabled: {
+      kind: "toggle-inverted",
+      prefix: ["omarchy", "toggle", "touchscreen"],
+      snapshotGroup: "look",
+    },
+    bluetooth: {
+      kind: "toggle-inverted",
+      prefix: ["omarchy", "bluetooth", "power"],
+      snapshotGroup: "network",
+    },
+    wifiRadio: {
+      kind: "toggle-inverted",
+      script: "wifiRadio",
+      args: ["radio"],
+      snapshotGroup: "network",
+    },
+    bindings: { kind: "list-stdin", script: "bindings", backup: "bindings" },
+    windowRules: { kind: "list-stdin", script: "windows", backup: "windowRules" },
+    autostart: { kind: "list-stdin", script: "autostart", backup: "autostart" },
+  };
+  return WRITERS;
+}
+
+function omarchyArgv(prefix, snapshotGroup, boolStyle) {
+  return {
+    kind: "omarchy-argv",
+    prefix: prefix,
+    snapshotGroup: snapshotGroup || "",
+    bool: boolStyle || "",
+  };
+}
+
+function barSet(argv, snapshotGroup, jsonFlag, boolStyle) {
+  return {
+    kind: "bar-set",
+    argv: argv,
+    json: jsonFlag === true,
+    bool: boolStyle || "",
+    backup: "clock",
+    snapshotGroup: snapshotGroup || "",
+  };
+}
+
+function writerSpec(key) {
+  if (String(key || "").indexOf("hyprLook.") === 0) {
+    return {
+      kind: "hypr-group",
+      group: "hyprLook",
+      script: "look",
+      snapshotGroup: "look",
+      backup: "hyprLook",
+    };
+  }
+  if (String(key || "").indexOf("hyprInput.") === 0) {
+    return {
+      kind: "hypr-group",
+      group: "hyprInput",
+      script: "input",
+      snapshotGroup: "look",
+      backup: "hyprInput",
+    };
+  }
+  return writers()[key] || null;
+}
+
+function writerKindFor(key) {
+  var spec = writerSpec(key);
+  return spec ? spec.kind : "";
+}
+
+function scriptPath(opts, name) {
+  var scripts = (opts && opts.scripts) || {};
+  if (scripts[name]) return String(scripts[name]);
+  var file = SCRIPT_FILES[name] || name;
+  var root = opts && opts.root ? String(opts.root).replace(/\/$/, "") : "";
+  if (root) return root + "/scripts/" + file;
+  return file;
+}
+
+function bashScript(opts, name) {
+  return ["bash", scriptPath(opts, name)];
+}
+
+function scriptsFromRoot(scriptsRoot) {
+  var root = String(scriptsRoot || "").replace(/\/$/, "");
+  var out = {};
+  var k;
+  for (k in SCRIPT_FILES) {
+    if (Object.prototype.hasOwnProperty.call(SCRIPT_FILES, k))
+      out[k] = root + "/" + SCRIPT_FILES[k];
+  }
+  return out;
+}
+
+function copyObject(src) {
+  var out = {};
+  var k;
+  if (!src || typeof src !== "object" || Array.isArray(src)) return out;
+  for (k in src) {
+    if (Object.prototype.hasOwnProperty.call(src, k)) out[k] = src[k];
+  }
+  return out;
+}
+
+function formatBool(value, style) {
+  if (style === "true-false") return value === true ? "true" : "false";
+  if (style === "on-off") return value === true ? "on" : "off";
+  return String(value);
+}
+
+function onOff(value, invert) {
+  var on = value === true;
+  if (invert) on = !on;
+  return on ? "on" : "off";
+}
+
+function clockBarKey(base, snapshot) {
+  var position = String(readValue(snapshot, "barPosition") || "");
+  if (position === "left" || position === "right") {
+    return "vertical" + base.charAt(0).toUpperCase() + base.slice(1);
+  }
+  return base;
+}
+
+function skipRecord(key) {
+  return { skip: true, key: key };
+}
+
+function tagApply(apply) {
+  if (!apply || typeof apply !== "object") return apply || {};
+  var group = "";
+  var k;
+  for (k in apply) {
+    if (!Object.prototype.hasOwnProperty.call(apply, k) || k === "group") continue;
+    var g = APPLY_GROUP[k] || "";
+    if (!g) {
+      group = "";
+      break;
+    }
+    if (!group) group = g;
+    else if (group !== g) {
+      group = "";
+      break;
+    }
+  }
+  if (group) apply.group = group;
+  return apply;
+}
+
+function keyApply(key, value, extra) {
+  var apply = extra ? copyObject(extra) : {};
+  apply[key] = value;
+  return tagApply(apply);
+}
+
+function commandRecord(key, argv, spec, extra) {
+  extra = extra || {};
+  spec = spec || {};
+  var apply = extra.apply;
+  if (!apply) apply = keyApply(key, extra.value);
+  else apply = tagApply(apply);
+  return {
+    key: key,
+    argv: argv || [],
+    stdin: extra.stdin || "",
+    mergeGroup: extra.mergeGroup || "",
+    sudo: extra.sudo === true,
+    skip: false,
+    coalesceKey: extra.coalesceKey || "",
+    apply: apply,
+    backup: extra.backup || spec.backup || "",
+    snapshotGroup: extra.snapshotGroup || spec.snapshotGroup || "",
+  };
+}
+
+function listPayload(key, value) {
+  var list = Array.isArray(value) ? value : [];
+  var i;
+  if (key === "bindings") {
+    var items = [];
+    for (i = 0; i < list.length; i++) {
+      var row = list[i] && typeof list[i] === "object" ? list[i] : {};
+      items.push({
+        keys: String(row.keys || ""),
+        label: String(row.label || ""),
+        command: String(row.command || ""),
+        unbind: row.unbind === true,
+      });
+    }
+    return JSON.stringify({ items: items });
+  }
+  if (key === "windowRules") {
+    var rules = [];
+    for (i = 0; i < list.length; i++) rules.push(stripManagedRow(list[i]));
+    return JSON.stringify({ items: rules });
+  }
+  if (key === "autostart") {
+    var commands = [];
+    for (i = 0; i < list.length; i++) {
+      var item = list[i];
+      if (typeof item === "string") commands.push(item);
+      else if (item && item.command != null) commands.push(String(item.command));
+    }
+    return JSON.stringify({ commands: commands });
+  }
+  return JSON.stringify(list);
+}
+
+function stripManagedRow(row) {
+  if (!row || typeof row !== "object" || Array.isArray(row)) return row;
+  var out = {};
+  var k;
+  for (k in row) {
+    if (Object.prototype.hasOwnProperty.call(row, k) && k !== "managed") out[k] = row[k];
+  }
+  return out;
+}
+
+function mergeUnmanaged(current, next, key) {
+  var src = Array.isArray(current) ? current : [];
+  var add = Array.isArray(next) ? next : [];
+  var out = [];
+  var i;
+  for (i = 0; i < src.length; i++) {
+    if (src[i] && src[i].managed === false) out.push(src[i]);
+  }
+  for (i = 0; i < add.length; i++) {
+    var item = add[i];
+    if (item == null) continue;
+    if (typeof item === "string") {
+      if (key === "autostart") out.push({ command: item, managed: true });
+      else out.push(item);
+      continue;
+    }
+    if (typeof item !== "object") continue;
+    var row = copyObject(item);
+    row.managed = true;
+    out.push(row);
+  }
+  return out;
+}
+
+function overlayChanges(snapshot, changes) {
+  var snap = copyObject(snapshot);
+  var list = Array.isArray(changes) ? changes : [];
+  var i;
+  for (i = 0; i < list.length; i++) {
+    var key = String(list[i].key || "");
+    if (!key) continue;
+    var value = list[i].value;
+    var dot = key.indexOf(".");
+    if (dot === -1) {
+      snap[key] = value;
+      continue;
+    }
+    var head = key.slice(0, dot);
+    var tail = key.slice(dot + 1);
+    var node = copyObject(snap[head]);
+    node[tail] = value;
+    snap[head] = node;
+  }
+  return snap;
+}
+
+function mergeId(spec) {
+  if (!spec) return "";
+  if (spec.kind === "hypr-group") return spec.group;
+  if (spec.kind === "idle-pair") return "idle";
+  if (spec.kind === "nightlight-schedule") return "nightlightSchedule";
+  return "";
+}
+
+function argvValue(value, spec) {
+  if (spec && spec.bool) return formatBool(value, spec.bool);
+  if (spec && spec.syncMode) return value === true ? "On" : "Off";
+  if (typeof value === "boolean") return value ? "true" : "false";
+  return String(value);
+}
+
+function commandFor(key, value, snapshot, opts) {
+  var item = catalogByKey()[key];
+  if (!item || !item.importable) return null;
+  var spec = writerSpec(key);
+  if (!spec) return null;
+  opts = opts || {};
+  snapshot = snapshot || {};
+  var sudo = item.needsRoot === true;
+  if (
+    spec.kind === "toggle-inverted" ||
+    spec.kind === "toggle-named" ||
+    spec.kind === "toggle-flip" ||
+    spec.kind === "mute-deferred"
+  ) {
+    if (sameValue(readValue(snapshot, key), value)) return skipRecord(key);
+  }
+
+  if (spec.kind === "omarchy-argv") {
+    return commandRecord(key, spec.prefix.concat([argvValue(value, spec)]), spec, {
+      sudo: sudo,
+      value: value,
+    });
+  }
+
+  if (spec.kind === "toggle-inverted") {
+    var flag = onOff(value, spec.invert === true);
+    var invertedArgv;
+    if (spec.script) {
+      invertedArgv = bashScript(opts, spec.script)
+        .concat(spec.args || [])
+        .concat([flag]);
+    } else {
+      invertedArgv = spec.prefix.concat([flag]);
+    }
+    return commandRecord(key, invertedArgv, spec, { sudo: sudo, value: value === true });
+  }
+
+  if (spec.kind === "toggle-named") {
+    var named = value === true ? "stay-awake" : "allow-idle";
+    return commandRecord(key, ["omarchy", "toggle", "idle", named], spec, {
+      sudo: sudo,
+      value: value === true,
+    });
+  }
+
+  if (spec.kind === "toggle-flip") {
+    return commandRecord(key, spec.prefix.slice(), spec, { sudo: sudo, value: value === true });
+  }
+
+  if (spec.kind === "hypr-toggle") {
+    return commandRecord(key, spec.prefix.concat([value === true ? "on" : "off"]), spec, {
+      sudo: sudo,
+      value: value === true,
+    });
+  }
+
+  if (spec.kind === "hypr-group") {
+    var field = String(key).slice(spec.group.length + 1);
+    var merged = copyObject(readValue(snapshot, spec.group));
+    merged[field] = value;
+    var payload = JSON.stringify(merged);
+    var applyHypr = {};
+    applyHypr[spec.group] = merged;
+    applyHypr[spec.group === "hyprLook" ? "hyprLookManaged" : "hyprInputManaged"] = true;
+    return commandRecord(key, bashScript(opts, spec.script).concat([payload]), spec, {
+      stdin: payload,
+      mergeGroup: spec.group,
+      coalesceKey: spec.group,
+      backup: spec.backup,
+      snapshotGroup: spec.snapshotGroup,
+      apply: applyHypr,
+      sudo: sudo,
+    });
+  }
+
+  if (spec.kind === "idle-pair") {
+    var saver = Number(readValue(snapshot, "idleScreensaver"));
+    var lock = Number(readValue(snapshot, "idleLock"));
+    if (key === "idleScreensaver") saver = Number(value);
+    if (key === "idleLock") lock = Number(value);
+    if (!isFinite(saver)) saver = 0;
+    if (!isFinite(lock)) lock = 0;
+    saver = Math.round(saver);
+    lock = Math.round(lock);
+    return commandRecord(
+      key,
+      bashScript(opts, "idle").concat([String(saver), String(lock)]),
+      spec,
+      {
+        mergeGroup: "idle",
+        coalesceKey: "idle",
+        apply: { idleScreensaver: saver, idleLock: lock },
+        sudo: sudo,
+      },
+    );
+  }
+
+  if (spec.kind === "nightlight-temp") {
+    var temp = Math.round(Number(value));
+    return commandRecord(key, bashScript(opts, "nightlightTemp").concat([String(temp)]), spec, {
+      backup: "nightlightTemp",
+      apply: { nightlightTemperature: temp, nightlight: temp < 6000 },
+      sudo: sudo,
+    });
+  }
+
+  if (spec.kind === "nightlight-schedule") {
+    var day = String(readValue(snapshot, "nightlightDay") || "");
+    var night = String(readValue(snapshot, "nightlightNight") || "");
+    var nightOn = readValue(snapshot, "nightlightNightOn") === true;
+    if (key === "nightlightDay") day = String(value || "");
+    if (key === "nightlightNight") night = String(value || "");
+    if (key === "nightlightNightOn") nightOn = value === true;
+    var warmth = Number(readValue(snapshot, "nightlightTemperature"));
+    if (!isFinite(warmth) || warmth <= 0) warmth = 4000;
+    warmth = Math.round(warmth);
+    var schedule = JSON.stringify({
+      day: day,
+      night: night,
+      nightOn: nightOn,
+      temperature: warmth,
+    });
+    return commandRecord(key, bashScript(opts, "hyprsunset").concat([schedule]), spec, {
+      mergeGroup: "nightlightSchedule",
+      coalesceKey: "nightlightSchedule",
+      backup: "nightlightSchedule",
+      apply: { nightlightDay: day, nightlightNight: night, nightlightNightOn: nightOn },
+      sudo: sudo,
+    });
+  }
+
+  if (spec.kind === "clock-format") {
+    var clockArgv = [
+      "omarchy",
+      "bar",
+      "set",
+      "omarchy.clock",
+      clockBarKey(spec.base, snapshot),
+      String(value),
+    ];
+    return commandRecord(key, clockArgv, spec, {
+      backup: "clock",
+      sudo: sudo,
+      value: value,
+    });
+  }
+
+  if (spec.kind === "bar-set") {
+    var barArgv = spec.argv.concat([argvValue(value, spec)]);
+    if (spec.json) barArgv.push("--json");
+    return commandRecord(key, barArgv, spec, { backup: "clock", sudo: sudo, value: value });
+  }
+
+  if (spec.kind === "bar-widget") {
+    var widgetArgv = bashScript(opts, "barWidget").concat([
+      spec.id,
+      spec.field,
+      JSON.stringify(Array.isArray(value) ? value : []),
+    ]);
+    return commandRecord(key, widgetArgv, spec, { backup: "clock", sudo: sudo, value: value });
+  }
+
+  if (spec.kind === "list-stdin") {
+    var listJson = listPayload(key, value);
+    var listApply = {};
+    listApply[key] = mergeUnmanaged(snapshot[key], value, key);
+    listApply[key + "Managed"] = true;
+    return commandRecord(key, bashScript(opts, spec.script).concat([listJson]), spec, {
+      stdin: listJson,
+      coalesceKey: key,
+      backup: spec.backup,
+      apply: listApply,
+      sudo: sudo,
+    });
+  }
+
+  if (spec.kind === "script") {
+    var scriptArgv = bashScript(opts, spec.script)
+      .concat(spec.args || [])
+      .concat([argvValue(value, spec)]);
+    var scriptApply = {};
+    scriptApply[key] = value;
+    if (key === "audioOutputVolume") scriptApply.audioOutputMuted = false;
+    if (key === "audioInputVolume") scriptApply.audioInputMuted = false;
+    if (key === "ntp")
+      scriptApply.ntpSynchronized = value === true ? snapshot.ntpSynchronized === true : false;
+    return commandRecord(key, scriptArgv, spec, { apply: scriptApply, sudo: sudo });
+  }
+
+  if (spec.kind === "weather-location") {
+    var name = String(value || "");
+    if (!name) {
+      return commandRecord(key, ["omarchy", "weather", "location", "--clear"], spec, {
+        apply: { weatherLocation: "", weatherAuto: true, weatherCoords: "" },
+        sudo: sudo,
+      });
+    }
+    return commandRecord(key, ["omarchy", "weather", "location", "--set", name], spec, {
+      apply: { weatherLocation: name, weatherAuto: false, weatherCoords: "" },
+      sudo: sudo,
+    });
+  }
+
+  if (spec.kind === "mute-deferred") {
+    return commandRecord(key, spec.prefix.slice(), spec, { sudo: sudo, value: value === true });
+  }
+
+  return null;
+}
+
+function planCommands(changes, snapshot, opts) {
+  var list = Array.isArray(changes) ? changes : [];
+  var snap = overlayChanges(snapshot || {}, list);
+  var seen = {};
+  var out = [];
+  var mutes = { audioOutputMuted: null, audioInputMuted: null };
+  var i;
+  for (i = 0; i < list.length; i++) {
+    var key = String(list[i].key || "");
+    var spec = writerSpec(key);
+    if (spec && spec.kind === "mute-deferred") {
+      mutes[key] = list[i].value;
+      continue;
+    }
+    var merged = mergeId(spec);
+    if (merged && seen[merged]) continue;
+    // Overlay is for paired writers. onlyIfChanged must see the live value,
+    // or every planned toggle looks already applied and is skipped.
+    var cmdSnap = snap;
+    if (
+      spec &&
+      (spec.kind === "toggle-inverted" ||
+        spec.kind === "toggle-named" ||
+        spec.kind === "toggle-flip")
+    )
+      cmdSnap = snapshot || {};
+    var cmd = commandFor(key, list[i].value, cmdSnap, opts);
+    if (!cmd || cmd.skip) continue;
+    if (merged) seen[merged] = true;
+    out.push(cmd);
+  }
+  var muteSnap = copyObject(snap);
+  // Volume writes unmute, so compare mute against that leftover state.
+  if (volumeIn(list, "audioOutputVolume")) muteSnap.audioOutputMuted = false;
+  if (volumeIn(list, "audioInputVolume")) muteSnap.audioInputMuted = false;
+  var muteKeys = ["audioOutputMuted", "audioInputMuted"];
+  for (i = 0; i < muteKeys.length; i++) {
+    if (mutes[muteKeys[i]] === null || mutes[muteKeys[i]] === undefined) continue;
+    var muteCmd = commandFor(muteKeys[i], mutes[muteKeys[i]], muteSnap, opts);
+    if (muteCmd && !muteCmd.skip) out.push(muteCmd);
+  }
+  return out;
+}
+
+function volumeIn(changes, key) {
+  var i;
+  for (i = 0; i < changes.length; i++) {
+    if (String(changes[i].key || "") === key) return true;
+  }
+  return false;
+}
+
+function runCommandsCli(argv) {
+  var planPath = "";
+  var snapshotPath = "";
+  var scriptsRoot = "";
+  var i;
+  for (i = 0; i < argv.length; i++) {
+    var arg = argv[i];
+    if (arg === "commands") continue;
+    if (arg === "--plan") {
+      planPath = String(argv[++i] || "");
+      continue;
+    }
+    if (arg === "--snapshot") {
+      snapshotPath = String(argv[++i] || "");
+      continue;
+    }
+    if (arg === "--scripts-root") {
+      scriptsRoot = String(argv[++i] || "");
+      continue;
+    }
+    console.error("Settings.js: unknown argument " + arg);
+    process.exit(2);
+  }
+  if (!planPath || !snapshotPath || !scriptsRoot) {
+    console.error(
+      "Usage: Settings.js commands --plan <file> --snapshot <file> --scripts-root <scripts dir>",
+    );
+    process.exit(2);
+  }
+  var fs = require("fs");
+  var path = require("path");
+  var plan;
+  var snapshot;
+  try {
+    plan = JSON.parse(fs.readFileSync(planPath, "utf8"));
+    snapshot = JSON.parse(fs.readFileSync(snapshotPath, "utf8"));
+  } catch (e) {
+    console.error("apply-settings.sh: could not read plan or snapshot");
+    process.exit(1);
+  }
+  if (!snapshot || typeof snapshot !== "object" || Array.isArray(snapshot)) snapshot = {};
+  var changes = plan && Array.isArray(plan.changes) ? plan.changes : [];
+  var opts = { root: path.dirname(scriptsRoot), scripts: scriptsFromRoot(scriptsRoot) };
+  for (i = 0; i < changes.length; i++) {
+    var key = String(changes[i].key || "");
+    if (!commandFor(key, changes[i].value, snapshot, opts)) {
+      console.error("apply-settings.sh: no writer for " + key);
+      process.exit(1);
+    }
+  }
+  process.stdout.write(JSON.stringify(planCommands(changes, snapshot, opts)) + "\n");
+}
+
+if (typeof module !== "undefined" && module.exports) {
+  module.exports = {
+    SETTINGS_SCHEMA: SETTINGS_SCHEMA,
+    settingsCatalog: settingsCatalog,
+    catalogByKey: catalogByKey,
+    settingsSections: settingsSections,
+    presetKeys: presetKeys,
+    sectionKeys: sectionKeys,
+    selectableSections: selectableSections,
+    keysForSections: keysForSections,
+    exportMarkdown: exportMarkdown,
+    parseSettingsMarkdown: parseSettingsMarkdown,
+    planImport: planImport,
+    planToJson: planToJson,
+    commandFor: commandFor,
+    planCommands: planCommands,
+    typeMatches: typeMatches,
+    passwordCount: passwordCount,
+    applyForecast: applyForecast,
+    applyConfirmMessage: applyConfirmMessage,
+    commandConfirmMessage: commandConfirmMessage,
+    hasCommandImport: hasCommandImport,
+    parseApplyResult: parseApplyResult,
+    appliedCountFromResult: appliedCountFromResult,
+    backupDirFromResult: backupDirFromResult,
+    changeLines: changeLines,
+    warningLines: warningLines,
+    blockedLines: blockedLines,
+    fileSummary: fileSummary,
+    exportFileName: exportFileName,
+  };
+}
+
+if (typeof require !== "undefined" && typeof module !== "undefined" && require.main === module) {
+  runCommandsCli(process.argv.slice(2));
 }

@@ -10,6 +10,7 @@ import "Hubs.js" as HubsJs
 import "HyprPrefs.js" as HyprPrefs
 import "HyprSunset.js" as HyprSunset
 import "RichUi.js" as RichUi
+import "Settings.js" as SettingsJs
 import "Snapshot.js" as SnapshotJs
 import "SnapshotGroups.js" as SnapshotGroups
 import "Theme.js" as ThemeJs
@@ -747,6 +748,47 @@ QtObject {
     })
   }
 
+  function scriptOpts() {
+    return {
+      root: shellDir,
+      scripts: {
+        look: setHyprLookScript,
+        input: setHyprInputScript,
+        bindings: setHyprBindingsScript,
+        windows: setHyprWindowsScript,
+        autostart: setHyprAutostartScript,
+        idle: setIdleScript,
+        hyprsunset: setHyprsunsetScript,
+        nightlightTemp: setNightlightTempScript,
+        mime: setMimeDefaultScript,
+        audio: setAudioScript,
+        barWidget: setBarWidgetScript,
+        hostname: setHostnameScript,
+        timezone: setTimezoneScript,
+        locale: setLocaleScript,
+        keyboard: setKeyboardLayoutScript,
+        ntp: setNtpScript,
+        fullName: setFullNameScript,
+        parallelDownloads: setParallelDownloadsScript,
+        wifiRadio: setWifiConnectionScript
+      }
+    }
+  }
+
+  function runSettingCommand(cmd, key) {
+    if (!cmd || cmd.skip) return
+    runCommand(cmd.argv, {
+      key: cmd.coalesceKey || key,
+      apply: cmd.apply,
+      refresh: "none",
+      sudo: cmd.sudo === true
+    })
+  }
+
+  function dispatchSetting(key, value) {
+    runSettingCommand(SettingsJs.commandFor(key, value, snapshotData, scriptOpts()), key)
+  }
+
   function applyWritePatch(job) {
     if (!job || !job.apply) return
     applySnapshot(JSON.stringify(job.apply))
@@ -825,20 +867,36 @@ QtObject {
 
   function writeHyprLook(patch) {
     var look = lookState(patch)
-    runCommand(["bash", setHyprLookScript, JSON.stringify(look)], {
-      key: "hyprLook",
-      apply: { hyprLook: look, hyprLookManaged: true },
-      refresh: "none"
-    })
+    var snap = SnapshotJs.mergeSnapshot(snapshotData, { hyprLook: look })
+    var field = "gapsIn"
+    var value = look.gapsIn
+    if (patch && typeof patch === "object") {
+      for (var k in patch) {
+        if (Object.prototype.hasOwnProperty.call(patch, k)) {
+          field = k
+          value = patch[k]
+          break
+        }
+      }
+    }
+    runSettingCommand(SettingsJs.commandFor("hyprLook." + field, value, snap, scriptOpts()), "hyprLook." + field)
   }
 
   function writeHyprInput(patch) {
     var input = inputState(patch)
-    runCommand(["bash", setHyprInputScript, JSON.stringify(input)], {
-      key: "hyprInput",
-      apply: { hyprInput: input, hyprInputManaged: true },
-      refresh: "none"
-    })
+    var snap = SnapshotJs.mergeSnapshot(snapshotData, { hyprInput: input })
+    var field = "sensitivity"
+    var value = input.sensitivity
+    if (patch && typeof patch === "object") {
+      for (var k in patch) {
+        if (Object.prototype.hasOwnProperty.call(patch, k)) {
+          field = k
+          value = patch[k]
+          break
+        }
+      }
+    }
+    runSettingCommand(SettingsJs.commandFor("hyprInput." + field, value, snap, scriptOpts()), "hyprInput." + field)
   }
 
   function runGumJob(argv, kind, opts) {
@@ -952,13 +1010,7 @@ QtObject {
     name = String(name || "")
     if (!name || name === theme) return
     Theme.applyNamedTheme(name)
-    // Same detach as the shell "Switch theme" action: omarchy-theme-set
-    // recolors the shell over IPC after the swap, then retints apps.
-    runCommand(["bash", "-c", "omarchy theme set \"$1\" >/dev/null 2>&1 &", "theme-set", name], {
-      key: "theme",
-      apply: { theme: name },
-      refresh: "none"
-    })
+    dispatchSetting("theme", name)
   }
   function openThemeSwitcher() {
     runCommand(["bash", "-c", "theme=$(omarchy theme switcher || true); [[ -n $theme ]] && omarchy theme set \"$theme\" >/dev/null 2>&1 &"], {
@@ -991,11 +1043,7 @@ QtObject {
   function setBackgroundPath(path) {
     path = String(path || "")
     if (!path || path.charAt(0) !== "/") return
-    runCommand(["omarchy", "theme", "bg", "set", path], {
-      key: "background",
-      apply: { background: path },
-      refresh: "none"
-    })
+    dispatchSetting("background", path)
   }
   function nextBackground() {
     runCommand(["omarchy", "theme", "bg", "next"], {
@@ -1020,20 +1068,12 @@ QtObject {
   function setFont(name) {
     name = String(name || "")
     if (!name || name === font) return
-    runCommand(["omarchy", "font", "set", name], {
-      key: "font",
-      apply: { font: name },
-      refresh: "none"
-    })
+    dispatchSetting("font", name)
   }
   function setTextSize(size) {
     size = Math.round(Number(size))
     if (!isFinite(size) || size === textSize) return
-    runCommand(["omarchy", "display", "text", "size", String(size)], {
-      key: "textSize",
-      apply: { textSize: size },
-      refresh: "none"
-    })
+    dispatchSetting("textSize", size)
   }
   function resetTextSize() {
     runCommand(["omarchy", "display", "text", "size", "reset"], {
@@ -1093,19 +1133,11 @@ QtObject {
   }
   function setTouchpad(on) {
     if (on === touchpadEnabled) return
-    runCommand(["omarchy", "toggle", "touchpad", on ? "on" : "off"], {
-      key: "touchpadEnabled",
-      apply: { touchpadEnabled: on },
-      refresh: "none"
-    })
+    dispatchSetting("touchpadEnabled", on)
   }
   function setTouchscreen(on) {
     if (on === touchscreenEnabled) return
-    runCommand(["omarchy", "toggle", "touchscreen", on ? "on" : "off"], {
-      key: "touchscreenEnabled",
-      apply: { touchscreenEnabled: on },
-      refresh: "none"
-    })
+    dispatchSetting("touchscreenEnabled", on)
   }
   function adjustKeyboardBacklight(direction) {
     if (direction !== "up" && direction !== "down" && direction !== "off" && direction !== "restore") return
@@ -1126,67 +1158,37 @@ QtObject {
   }
   function setBarPosition(position) {
     if (!position || position === barPosition) return
-    runCommand(["omarchy", "bar", "position", position], {
-      key: "barPosition",
-      apply: { barPosition: position },
-      refresh: "none"
-    })
+    dispatchSetting("barPosition", position)
   }
   function setBarTransparent(on) {
     if (on === barTransparent) return
-    runCommand(["omarchy", "bar", "transparent", on ? "true" : "false"], {
-      key: "barTransparent",
-      apply: { barTransparent: on },
-      refresh: "none"
-    })
+    dispatchSetting("barTransparent", on)
   }
   // `omarchy toggle bar on` sets the bar-off flag and hides the bar.
   function setBarVisible(on) {
     if (on === barVisible) return
-    runCommand(["omarchy", "toggle", "bar", on ? "off" : "on"], {
-      key: "barVisible",
-      apply: { barVisible: on },
-      refresh: "none"
-    })
+    dispatchSetting("barVisible", on)
   }
   function setClockFormat(fmt) {
     if (!fmt || fmt === clockFormat) return
-    var key = (barPosition === "left" || barPosition === "right") ? "verticalFormat" : "format"
-    runCommand(["omarchy", "bar", "set", "omarchy.clock", key, fmt], {
-      key: "clockFormat",
-      apply: { clockFormat: fmt },
-      refresh: "none"
-    })
+    dispatchSetting("clockFormat", fmt)
   }
   function setClockFormatAlt(fmt) {
     if (!fmt || fmt === clockFormatAlt) return
-    var key = (barPosition === "left" || barPosition === "right") ? "verticalFormatAlt" : "formatAlt"
-    runCommand(["omarchy", "bar", "set", "omarchy.clock", key, fmt], {
-      key: "clockFormatAlt",
-      apply: { clockFormatAlt: fmt },
-      refresh: "none"
-    })
+    dispatchSetting("clockFormatAlt", fmt)
   }
   function setClockWeekStart(day) {
     day = String(day || "").toLowerCase()
     if (day !== "sunday" && day !== "monday" && day !== "tuesday" && day !== "wednesday" && day !== "thursday" && day !== "friday" && day !== "saturday") return
     if (day === clockWeekStart) return
-    runCommand(["omarchy", "bar", "set", "omarchy.clock", "weekStartDay", day], {
-      key: "clockWeekStart",
-      apply: { clockWeekStart: day },
-      refresh: "none"
-    })
+    dispatchSetting("clockWeekStart", day)
   }
   function setClockBirthYear(year) {
     if (typeof year === "number") year = String(Math.round(year))
     year = String(year || "").replace(/^\s+|\s+$/g, "")
     if (year.length === 0 || year === "0") {
       if (clockBirthYear === 0) return
-      runCommand(["omarchy", "bar", "set", "omarchy.clock", "birthYear", "0", "--json"], {
-        key: "clockBirthYear",
-        apply: { clockBirthYear: 0 },
-        refresh: "none"
-      })
+      dispatchSetting("clockBirthYear", 0)
       return
     }
     if (!/^\d{4}$/.test(year)) return
@@ -1194,41 +1196,25 @@ QtObject {
     var now = new Date().getFullYear()
     if (!(born >= now - 120 && born <= now)) return
     if (born === clockBirthYear) return
-    runCommand(["omarchy", "bar", "set", "omarchy.clock", "birthYear", String(born), "--json"], {
-      key: "clockBirthYear",
-      apply: { clockBirthYear: born },
-      refresh: "none"
-    })
+    dispatchSetting("clockBirthYear", born)
   }
   function setClockLifeExpectancy(years) {
     if (typeof years === "number") years = String(Math.round(years))
     years = String(years || "").replace(/^\s+|\s+$/g, "")
     if (years.length === 0 || years === "0") {
       if (clockLifeExpectancy === 0) return
-      runCommand(["omarchy", "bar", "set", "omarchy.clock", "lifeExpectancy", "0", "--json"], {
-        key: "clockLifeExpectancy",
-        apply: { clockLifeExpectancy: 0 },
-        refresh: "none"
-      })
+      dispatchSetting("clockLifeExpectancy", 0)
       return
     }
     if (!/^\d+$/.test(years)) return
     var span = parseInt(years, 10)
     if (!(span >= 1 && span <= 150)) return
     if (span === clockLifeExpectancy) return
-    runCommand(["omarchy", "bar", "set", "omarchy.clock", "lifeExpectancy", String(span), "--json"], {
-      key: "clockLifeExpectancy",
-      apply: { clockLifeExpectancy: span },
-      refresh: "none"
-    })
+    dispatchSetting("clockLifeExpectancy", span)
   }
   function setIndicatorsAlwaysShow(on) {
     if (on === indicatorsAlwaysShow) return
-    runCommand(["omarchy", "bar", "set", "omarchy.indicators", "alwaysShow", on ? "true" : "false", "--json"], {
-      key: "indicatorsAlwaysShow",
-      apply: { indicatorsAlwaysShow: on },
-      refresh: "none"
-    })
+    dispatchSetting("indicatorsAlwaysShow", on)
   }
   function indicatorIds() {
     return ["Dictation", "ScreenRecording", "Reminder", "NightLight", "Dnd", "StayAwake"]
@@ -1248,64 +1234,36 @@ QtObject {
     if (next.length === indicatorIds().length) next = []
     var current = indicatorsItems instanceof Array ? indicatorsItems : []
     if (JSON.stringify(next) === JSON.stringify(current)) return
-    runCommand(["bash", setBarWidgetScript, "omarchy.indicators", "items", JSON.stringify(next)], {
-      key: "indicatorsItems",
-      apply: { indicatorsItems: next },
-      refresh: "none"
-    })
+    dispatchSetting("indicatorsItems", next)
   }
   function setAgentsRefreshIntervalSec(seconds) {
     seconds = Math.round(Number(seconds))
     if (!(seconds >= 30) || seconds === agentsRefreshIntervalSec) return
-    runCommand(["omarchy", "bar", "set", "omarchy.agents", "refreshIntervalSec", String(seconds), "--json"], {
-      key: "agentsRefreshIntervalSec",
-      apply: { agentsRefreshIntervalSec: seconds },
-      refresh: "none"
-    })
+    dispatchSetting("agentsRefreshIntervalSec", seconds)
   }
   function setAgentsSync(on) {
     if (on === agentsSync) return
-    runCommand(["omarchy", "bar", "set", "omarchy.agents", "syncMode", on ? "On" : "Off"], {
-      key: "agentsSync",
-      apply: { agentsSync: on },
-      refresh: "none"
-    })
+    dispatchSetting("agentsSync", on)
   }
   function setAgentsSyncDir(path) {
     path = String(path || "").replace(/^\s+|\s+$/g, "")
     if (path === agentsSyncDir) return
-    runCommand(["omarchy", "bar", "set", "omarchy.agents", "syncDir", path], {
-      key: "agentsSyncDir",
-      apply: { agentsSyncDir: path },
-      refresh: "none"
-    })
+    dispatchSetting("agentsSyncDir", path)
   }
   function setAgentsSyncFileName(name) {
     name = String(name || "").replace(/^\s+|\s+$/g, "").split("/").pop()
     if (name === agentsSyncFileName) return
-    runCommand(["omarchy", "bar", "set", "omarchy.agents", "syncFileName", name], {
-      key: "agentsSyncFileName",
-      apply: { agentsSyncFileName: name },
-      refresh: "none"
-    })
+    dispatchSetting("agentsSyncFileName", name)
   }
   function setAgentsSyncDeviceId(id) {
     id = String(id || "").replace(/^\s+|\s+$/g, "")
     if (id === agentsSyncDeviceId) return
-    runCommand(["omarchy", "bar", "set", "omarchy.agents", "syncDeviceId", id], {
-      key: "agentsSyncDeviceId",
-      apply: { agentsSyncDeviceId: id },
-      refresh: "none"
-    })
+    dispatchSetting("agentsSyncDeviceId", id)
   }
   function setSpacerSize(size) {
     size = Math.round(Number(size))
     if (!isFinite(size) || size < 0 || size > 64 || size === spacerSize) return
-    runCommand(["omarchy", "bar", "set", "omarchy.spacer", "size", String(size), "--json"], {
-      key: "spacerSize",
-      apply: { spacerSize: size },
-      refresh: "none"
-    })
+    dispatchSetting("spacerSize", size)
   }
   function addSpacer() {
     if (spacerPresent) return
@@ -1405,11 +1363,7 @@ QtObject {
     var next = normalizedStringIds(list)
     var current = trayHidden instanceof Array ? trayHidden : []
     if (JSON.stringify(next) === JSON.stringify(current)) return
-    runCommand(["bash", setBarWidgetScript, "omarchy.tray", "hidden", JSON.stringify(next)], {
-      key: "trayHidden",
-      apply: { trayHidden: next },
-      refresh: "none"
-    })
+    dispatchSetting("trayHidden", next)
   }
   function clearTrayHidden() {
     setTrayHidden([])
@@ -1418,55 +1372,31 @@ QtObject {
     var next = normalizedStringIds(list)
     var current = trayPinned instanceof Array ? trayPinned : []
     if (JSON.stringify(next) === JSON.stringify(current)) return
-    runCommand(["bash", setBarWidgetScript, "omarchy.tray", "pinned", JSON.stringify(next)], {
-      key: "trayPinned",
-      apply: { trayPinned: next },
-      refresh: "none"
-    })
+    dispatchSetting("trayPinned", next)
   }
   function clearTrayPinned() {
     setTrayPinned([])
   }
   function setBrowser(name) {
     if (!name || name === browser) return
-    runCommand(["omarchy", "default", "browser", name], {
-      key: "browser",
-      apply: { browser: name },
-      refresh: "none"
-    })
+    dispatchSetting("browser", name)
   }
   function setTerminal(name) {
     if (!name || name === terminal) return
-    runCommand(["omarchy", "default", "terminal", name], {
-      key: "terminal",
-      apply: { terminal: name },
-      refresh: "none"
-    })
+    dispatchSetting("terminal", name)
   }
   function setEditor(name) {
     if (!name || name === editor) return
-    runCommand(["omarchy", "default", "editor", name], {
-      key: "editor",
-      apply: { editor: name },
-      refresh: "none"
-    })
+    dispatchSetting("editor", name)
   }
   function setAgent(name) {
     if (!name || name === agent) return
-    runCommand(["omarchy", "default", "agent", name], {
-      key: "agent",
-      apply: { agent: name },
-      refresh: "none"
-    })
+    dispatchSetting("agent", name)
   }
   function setDns(name) {
     if (name !== "Cloudflare" && name !== "Google" && name !== "DHCP") return
     if (name === dns) return
-    runCommand(["omarchy", "dns", name], {
-      key: "dns",
-      apply: { dns: name },
-      refresh: "none"
-    })
+    dispatchSetting("dns", name)
   }
   function setCustomDns(servers) {
     servers = String(servers || "").replace(/^\s+|\s+$/g, "")
@@ -1478,38 +1408,26 @@ QtObject {
   function setIdle(screensaver, lock) {
     var saver = Math.round(Number(screensaver)) || 0
     var lockSec = Math.round(Number(lock)) || 0
-    runCommand(["bash", setIdleScript, String(screensaver), String(lock)], {
-      key: "idle",
-      apply: { idleScreensaver: saver, idleLock: lockSec },
-      refresh: "none"
+    var snap = SnapshotJs.mergeSnapshot(snapshotData, {
+      idleScreensaver: saver,
+      idleLock: lockSec
     })
+    runSettingCommand(SettingsJs.commandFor("idleScreensaver", saver, snap, scriptOpts()), "idleScreensaver")
   }
 
   function setStayAwake(on) {
     if (on === stayAwake) return
-    runCommand(["omarchy", "toggle", "idle", on ? "stay-awake" : "allow-idle"], {
-      key: "stayAwake",
-      apply: { stayAwake: on },
-      refresh: "none"
-    })
+    dispatchSetting("stayAwake", on)
   }
 
   function setNightlight(on) {
     if (on === nightlight) return
-    runCommand(["omarchy", "toggle", "nightlight"], {
-      key: "nightlight",
-      apply: { nightlight: on },
-      refresh: "none"
-    })
+    dispatchSetting("nightlight", on)
   }
 
   function setScreensaverEnabled(on) {
     if (on === screensaverEnabled) return
-    runCommand(["omarchy", "toggle", "screensaver-off", on ? "off" : "on"], {
-      key: "screensaverEnabled",
-      apply: { screensaverEnabled: on },
-      refresh: "none"
-    })
+    dispatchSetting("screensaverEnabled", on)
   }
 
   function setScreensaverBranding(action) {
@@ -1550,45 +1468,25 @@ QtObject {
     name = String(name || "").replace(/^\s+|\s+$/g, "")
     if (!name || name === timezone) return
     if (!/^[A-Za-z0-9/_+-]+$/.test(name) || name.indexOf("..") !== -1) return
-    runCommand(["bash", setTimezoneScript, name], {
-      key: "timezone",
-      apply: { timezone: name },
-      refresh: "none",
-      sudo: true
-    })
+    dispatchSetting("timezone", name)
   }
 
   function setNtp(on) {
     if (on === ntp) return
-    runCommand(["bash", setNtpScript, on ? "true" : "false"], {
-      key: "ntp",
-      apply: { ntp: on, ntpSynchronized: on ? ntpSynchronized : false },
-      refresh: "none",
-      sudo: true
-    })
+    dispatchSetting("ntp", on)
   }
 
   function setHostname(name) {
     name = RichUi.parseHostname(name)
     if (!name || name === hostname) return
-    runCommand(["bash", setHostnameScript, name], {
-      key: "hostname",
-      apply: { hostname: name },
-      refresh: "none",
-      sudo: true
-    })
+    dispatchSetting("hostname", name)
   }
 
   function setFullName(name) {
     name = String(name || "").replace(/^\s+|\s+$/g, "")
     if (name === fullName) return
     if (!AccountsJs.isFullName(name)) return
-    runCommand(["bash", setFullNameScript, name], {
-      key: "fullName",
-      apply: { fullName: name },
-      refresh: "none",
-      sudo: true
-    })
+    dispatchSetting("fullName", name)
   }
 
   function setAvatarPath(path) {
@@ -1664,35 +1562,20 @@ QtObject {
     if (name.indexOf(",") !== -1) name = name.split(",")[0]
     if (!name || name === keyboardLayout) return
     if (!/^[a-z0-9]{1,8}$/.test(name)) return
-    runCommand(["bash", setKeyboardLayoutScript, name], {
-      key: "keyboardLayout",
-      apply: { keyboardLayout: name },
-      refresh: "none",
-      sudo: true
-    })
+    dispatchSetting("keyboardLayout", name)
   }
 
   function setLocale(name) {
     name = String(name || "").replace(/^\s+|\s+$/g, "")
     if (!name || name === locale) return
     if (name !== "C.UTF-8" && !/^[a-z]{2,3}(_[A-Z]{2})?\.UTF-8(@[A-Za-z0-9]+)?$/.test(name)) return
-    runCommand(["bash", setLocaleScript, name], {
-      key: "locale",
-      apply: { locale: name },
-      refresh: "none",
-      sudo: true
-    })
+    dispatchSetting("locale", name)
   }
 
   function setParallelDownloads(n) {
     n = Math.round(Number(n))
     if (!isFinite(n) || n < 1 || n > 20 || n === parallelDownloads) return
-    runCommand(["bash", setParallelDownloadsScript, String(n)], {
-      key: "parallelDownloads",
-      apply: { parallelDownloads: n },
-      refresh: "none",
-      sudo: true
-    })
+    dispatchSetting("parallelDownloads", n)
   }
 
   function setHyprGapsIn(n) {
@@ -1795,19 +1678,11 @@ QtObject {
   }
   function setHyprNoGaps(on) {
     if (on === hyprNoGaps) return
-    runCommand(["omarchy", "hyprland", "toggle", "window-no-gaps", on ? "on" : "off"], {
-      key: "hyprNoGaps",
-      apply: { hyprNoGaps: on },
-      refresh: "none"
-    })
+    dispatchSetting("hyprNoGaps", on)
   }
   function setHyprSquareAspect(on) {
     if (on === hyprSquareAspect) return
-    runCommand(["omarchy", "hyprland", "toggle", "single-window-aspect-ratio", on ? "on" : "off"], {
-      key: "hyprSquareAspect",
-      apply: { hyprSquareAspect: on },
-      refresh: "none"
-    })
+    dispatchSetting("hyprSquareAspect", on)
   }
   function toggleWorkspaceLayout() {
     var next = hyprWorkspaceLayout === "scrolling" ? "dwindle" : "scrolling"
@@ -1920,11 +1795,7 @@ QtObject {
     n = Math.round(Number(n))
     if (!isFinite(n) || n < 3000 || n > 6500) return
     if (n === nightlightTemperature) return
-    runCommand(["bash", setNightlightTempScript, String(n)], {
-      key: "nightlightTemperature",
-      apply: { nightlightTemperature: n, nightlight: n < 6000 },
-      refresh: "none"
-    })
+    dispatchSetting("nightlightTemperature", n)
   }
 
   function setupFingerprint() {
@@ -2085,24 +1956,13 @@ QtObject {
     if (kind !== "pdf" && kind !== "image" && kind !== "video") return
     desktop = String(desktop || "")
     if (!/^[A-Za-z0-9._-]+\.desktop$/.test(desktop)) return
-    var patch = {}
-    if (kind === "pdf") patch.mimePdf = desktop
-    else if (kind === "image") patch.mimeImage = desktop
-    else patch.mimeVideo = desktop
-    runCommand(["bash", setMimeDefaultScript, kind, desktop], {
-      key: "mime:" + kind,
-      apply: patch,
-      refresh: "none"
-    })
+    var key = kind === "pdf" ? "mimePdf" : kind === "image" ? "mimeImage" : "mimeVideo"
+    dispatchSetting(key, desktop)
   }
 
   function setBluetooth(on) {
     if (on === bluetooth) return
-    runCommand(["omarchy", "bluetooth", "power", on ? "on" : "off"], {
-      key: "bluetooth",
-      apply: { bluetooth: on },
-      refresh: "network"
-    })
+    dispatchSetting("bluetooth", on)
   }
 
   function setWifiBand(band) {
@@ -2174,11 +2034,7 @@ QtObject {
   }
   function setWifiRadio(on) {
     if (on === wifiRadio) return
-    runCommand(["bash", setWifiConnectionScript, "radio", on ? "on" : "off"], {
-      key: "wifiRadio",
-      apply: { wifiRadio: on },
-      refresh: "network"
-    })
+    dispatchSetting("wifiRadio", on)
   }
   function connectEnterpriseWifi(ssid, identity, password) {
     ssid = String(ssid || "")
@@ -2344,11 +2200,7 @@ QtObject {
     percent = Math.round(Number(percent))
     if (!isFinite(percent) || percent < 0 || percent > 100) return
     if (percent === audioOutputVolume && !audioOutputMuted) return
-    runCommand(["bash", setAudioScript, "output-volume", String(percent)], {
-      key: "audioOutputVolume",
-      apply: { audioOutputVolume: percent, audioOutputMuted: false },
-      refresh: "none"
-    })
+    dispatchSetting("audioOutputVolume", percent)
   }
   function toggleAudioOutputMute() {
     runCommand(["omarchy", "audio", "output", "volume", "mute-toggle"], {
@@ -2361,11 +2213,7 @@ QtObject {
     percent = Math.round(Number(percent))
     if (!isFinite(percent) || percent < 0 || percent > 100) return
     if (percent === audioInputVolume && !audioInputMuted) return
-    runCommand(["bash", setAudioScript, "input-volume", String(percent)], {
-      key: "audioInputVolume",
-      apply: { audioInputVolume: percent, audioInputMuted: false },
-      refresh: "none"
-    })
+    dispatchSetting("audioInputVolume", percent)
   }
   function toggleAudioInputMute() {
     runCommand(["omarchy", "audio", "input", "mute"], {
@@ -2412,11 +2260,7 @@ QtObject {
   }
   function setAudioTuning(on) {
     if (on === audioTuningOn) return
-    runCommand(["omarchy", "audio", "tuning", on ? "on" : "off"], {
-      key: "audioTuningOn",
-      apply: { audioTuningOn: on },
-      refresh: "none"
-    })
+    dispatchSetting("audioTuningOn", on)
   }
   function restartAudio() {
     runCommand(["omarchy", "restart", "audio"])
@@ -2459,11 +2303,7 @@ QtObject {
 
   function setSuspendEnabled(on) {
     if (on === suspendEnabled) return
-    runCommand(["omarchy", "toggle", "suspend-off", on ? "off" : "on"], {
-      key: "suspendEnabled",
-      apply: { suspendEnabled: on },
-      refresh: "none"
-    })
+    dispatchSetting("suspendEnabled", on)
   }
 
   function setPowerProfile(name) {
@@ -2477,29 +2317,17 @@ QtObject {
 
   function setPowerProfileAc(name) {
     if (!name || name === powerProfileAc) return
-    runCommand(["omarchy", "powerprofiles", "set", "ac", name], {
-      key: "powerProfileAc",
-      apply: { powerProfileAc: name },
-      refresh: "none"
-    })
+    dispatchSetting("powerProfileAc", name)
   }
 
   function setPowerProfileBattery(name) {
     if (!name || name === powerProfileBattery) return
-    runCommand(["omarchy", "powerprofiles", "set", "battery", name], {
-      key: "powerProfileBattery",
-      apply: { powerProfileBattery: name },
-      refresh: "none"
-    })
+    dispatchSetting("powerProfileBattery", name)
   }
 
   function setPowerShowPercentage(on) {
     if (on === powerShowPercentage) return
-    runCommand(["omarchy", "bar", "set", "omarchy.power", "showPercentage", on ? "true" : "false", "--json"], {
-      key: "powerShowPercentage",
-      apply: { powerShowPercentage: on },
-      refresh: "none"
-    })
+    dispatchSetting("powerShowPercentage", on)
   }
 
   function showBatteryNotification() {
@@ -2508,42 +2336,24 @@ QtObject {
 
   function setCrashCapture(on) {
     if (on === crashCapture) return
-    runCommand(["omarchy", "toggle", "crash", "capture"], {
-      key: "crashCapture",
-      apply: { crashCapture: on },
-      refresh: "none"
-    })
+    dispatchSetting("crashCapture", on)
   }
 
   function setDoNotDisturb(on) {
     if (on === doNotDisturb) return
-    runCommand(["omarchy", "toggle", "notification", "silencing"], {
-      key: "doNotDisturb",
-      apply: { doNotDisturb: on },
-      refresh: "none"
-    })
+    dispatchSetting("doNotDisturb", on)
   }
 
   function setWeatherLocation(name) {
     name = RichUi.parseWeatherLocation(name)
     if (!name) return
     if (!weatherAuto && name === weatherLocation) return
-    // --set name rewrites weather.json without lat/lon. Drop the previous
-    // pin so Set on Coordinates cannot apply the old city to the new one.
-    runCommand(["omarchy", "weather", "location", "--set", name], {
-      key: "weatherLocation",
-      apply: { weatherLocation: name, weatherAuto: false, weatherCoords: "" },
-      refresh: "none"
-    })
+    dispatchSetting("weatherLocation", name)
   }
 
   function clearWeatherLocation() {
     if (weatherAuto) return
-    runCommand(["omarchy", "weather", "location", "--clear"], {
-      key: "weatherLocation",
-      apply: { weatherLocation: "", weatherAuto: true, weatherCoords: "" },
-      refresh: "none"
-    })
+    dispatchSetting("weatherLocation", "")
   }
 
   function setWeatherCoordinates(coords) {
@@ -2562,21 +2372,13 @@ QtObject {
   function setWeatherUnit(unit) {
     if (unit !== "auto" && unit !== "metric" && unit !== "imperial") return
     if (unit === weatherUnit) return
-    runCommand(["omarchy", "bar", "set", "omarchy.weather", "unit", unit], {
-      key: "weatherUnit",
-      apply: { weatherUnit: unit },
-      refresh: "none"
-    })
+    dispatchSetting("weatherUnit", unit)
   }
 
   function setWeatherRefreshMinutes(minutes) {
     minutes = Math.round(Number(minutes))
     if (!(minutes >= 1) || minutes === weatherRefreshMinutes) return
-    runCommand(["omarchy", "bar", "set", "omarchy.weather", "refreshMinutes", String(minutes), "--json"], {
-      key: "weatherRefreshMinutes",
-      apply: { weatherRefreshMinutes: minutes },
-      refresh: "none"
-    })
+    dispatchSetting("weatherRefreshMinutes", minutes)
   }
 
   function setReminder(minutes, message) {
@@ -2832,17 +2634,12 @@ QtObject {
     day = HyprSunset.parseTime(day)
     night = HyprSunset.parseTime(night)
     if (!day || !night) return
-    var temp = nightlightTemperature > 0 ? nightlightTemperature : 4000
-    runCommand(["bash", setHyprsunsetScript, JSON.stringify({
-      day: day,
-      night: night,
-      nightOn: nightOn === true,
-      temperature: temp
-    })], {
-      key: "nightlightSchedule",
-      apply: { nightlightDay: day, nightlightNight: night, nightlightNightOn: nightOn === true },
-      refresh: "none"
+    var snap = SnapshotJs.mergeSnapshot(snapshotData, {
+      nightlightDay: day,
+      nightlightNight: night,
+      nightlightNightOn: nightOn === true
     })
+    runSettingCommand(SettingsJs.commandFor("nightlightDay", day, snap, scriptOpts()), "nightlightDay")
   }
 
   function autostartCommands() {
@@ -2855,14 +2652,7 @@ QtObject {
     return out
   }
   function writeAutostart(commands) {
-    runCommand(["bash", setHyprAutostartScript, JSON.stringify({ commands: commands })], {
-      key: "autostart",
-      apply: {
-        autostart: SnapshotJs.patchReplaceManaged(autostart, commands),
-        autostartManaged: true
-      },
-      refresh: "none"
-    })
+    dispatchSetting("autostart", commands)
   }
   function addAutostart(command) {
     command = String(command || "").replace(/^\s+|\s+$/g, "")
@@ -2910,14 +2700,7 @@ QtObject {
   }
 
   function writeBindings(items) {
-    runCommand(["bash", setHyprBindingsScript, JSON.stringify({ items: items })], {
-      key: "bindings",
-      apply: {
-        bindings: SnapshotJs.patchReplaceManaged(bindings, items),
-        bindingsManaged: true
-      },
-      refresh: "none"
-    })
+    dispatchSetting("bindings", items)
   }
 
   function addBinding(keys, label, command, unbind) {
@@ -2967,14 +2750,7 @@ QtObject {
   }
 
   function writeWindowRules(items) {
-    runCommand(["bash", setHyprWindowsScript, JSON.stringify({ items: items })], {
-      key: "windowRules",
-      apply: {
-        windowRules: SnapshotJs.patchReplaceManaged(windowRules, items),
-        windowRulesManaged: true
-      },
-      refresh: "none"
-    })
+    dispatchSetting("windowRules", items)
   }
 
   function addWindowRule(match, placement, center, width, height, workspace) {
@@ -3054,12 +2830,7 @@ QtObject {
   function setPlymouth(name) {
     if (!name || name === "default") return
     if (name === plymouth) return
-    runCommand(["omarchy", "plymouth", "set", "by", "theme", name], {
-      key: "plymouth",
-      apply: { plymouth: name },
-      refresh: "none",
-      sudo: true
-    })
+    dispatchSetting("plymouth", name)
   }
 
   function resetPlymouth() {

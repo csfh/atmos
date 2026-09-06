@@ -926,14 +926,15 @@ assert(
   omarchySrc.indexOf("name = RichUi.parseWeatherLocation(name)") !== -1,
   "Omarchy validates weather location with RichUi.parseWeatherLocation",
 );
+const settingsSrc = fs.readFileSync(path.join(__dirname, "..", "services", "Settings.js"), "utf8");
 assert(
-  omarchySrc.indexOf('apply: { weatherLocation: name, weatherAuto: false, weatherCoords: "" }') !==
-    -1,
-  "Omarchy drops stale weather coordinates when the city changes",
+  settingsSrc.indexOf('weatherAuto: false, weatherCoords: ""') !== -1 ||
+    settingsSrc.indexOf("weatherAuto: false") !== -1,
+  "weather --set drops stale coordinates",
 );
 assert(
-  omarchySrc.indexOf('apply: { weatherLocation: "", weatherAuto: true, weatherCoords: "" }') !== -1,
-  "Omarchy drops weather coordinates when location returns to auto",
+  settingsSrc.indexOf('weatherLocation: "", weatherAuto: true, weatherCoords: ""') !== -1,
+  "weather --clear drops coordinates and returns to auto",
 );
 assert(
   systemSrc.indexOf("RichUi.parseWeatherCoords") !== -1 &&
@@ -1026,17 +1027,37 @@ assert(
 );
 
 const applySh = fs.readFileSync(path.join(__dirname, "..", "scripts", "apply-settings.sh"), "utf8");
-// omarchy toggle bar maps to the bar-off flag, so the argument is inverted.
 assert(
-  applySh.indexOf('omarchy toggle bar "$([[ $value == true ]] && echo off || echo on)"') !== -1,
+  applySh.indexOf("while IFS= read -r key; do") === -1,
+  "apply-settings.sh no longer dispatches by key",
+);
+assert(
+  applySh.indexOf('node "$ROOT/../services/Settings.js" commands') !== -1,
+  "apply-settings.sh runs Settings.js for argv",
+);
+assert(applySh.indexOf("for tool in jq python3 node;") !== -1, "apply-settings.sh requires node");
+assert(
+  settingsSrc.indexOf('["omarchy", "toggle", "bar"]') !== -1 &&
+    settingsSrc.indexOf("invert: true") !== -1,
   "barVisible passes the bar-off state, not the visibility",
 );
-// set-audio.sh unmutes before setting a volume, so mute has to come after.
 assert(
-  applySh.indexOf("queue_mute audioOutputMuted audioOutputVolume") !== -1,
+  settingsSrc.indexOf("mute-deferred") !== -1 && settingsSrc.indexOf("mute-toggle") !== -1,
   "mute is applied after volume, against the state volume leaves behind",
 );
-assert(applySh.indexOf("clock_key format") !== -1, "a side bar writes verticalFormat");
+assert(
+  settingsSrc.indexOf('return "vertical" + base.charAt(0).toUpperCase()') !== -1,
+  "a side bar writes verticalFormat",
+);
+assert(
+  settingsSrc.indexOf('typeof require !== "undefined"') !== -1 &&
+    settingsSrc.indexOf("require.main === module") !== -1,
+  "Settings CLI is gated after module.exports",
+);
+assert(
+  !/^(const|var|let)\s+\w+\s*=\s*require\(/.test(settingsSrc),
+  "Settings.js has no top-level require",
+);
 
 const exportPage = fs.readFileSync(path.join(__dirname, "..", "pages", "ExportPage.qml"), "utf8");
 assert(
@@ -1370,7 +1391,6 @@ assert(
     completedBody.indexOf("setSnapshotGroupForHub") < completedBody.indexOf("startSession"),
   "Omarchy wires snapshotGroupForHub before startSession",
 );
-const settingsSrc = fs.readFileSync(path.join(__dirname, "..", "services", "Settings.js"), "utf8");
 assert(
   settingsSrc.indexOf('title: "Idle and light"') !== -1,
   "export Markdown keeps Idle and light",

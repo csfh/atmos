@@ -53,7 +53,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-for tool in jq python3; do
+for tool in jq python3 node; do
   command -v "$tool" >/dev/null 2>&1 || { echo "apply-settings.sh: $tool is required" >&2; exit 1; }
 done
 
@@ -85,31 +85,6 @@ if [[ -n $SNAPSHOT_FILE ]]; then
 else
   SNAPSHOT=$(bash "$ROOT/snapshot.sh")
 fi
-
-plan_value() { jq -r --arg k "$1" '.changes[] | select(.key == $k) | .value' <<<"$PLAN"; }
-# A list value has to stay JSON on the way to its writer.
-plan_list() { jq -c --arg k "$1" '[.changes[] | select(.key == $k) | .value] | .[0] // []' <<<"$PLAN"; }
-plan_has() { jq -e --arg k "$1" 'any(.changes[]; .key == $k)' <<<"$PLAN" >/dev/null 2>&1; }
-snap_value() { jq -r --arg p "$1" 'getpath($p | split(".")) // empty' <<<"$SNAPSHOT"; }
-
-# The value the plan sets, or the machine's current value when the plan does
-# not mention it. A paired writer takes every value at once, so the halves the
-# plan left alone have to be read back rather than dropped.
-plan_or_snapshot() {
-  if plan_has "$1"; then plan_value "$1"; else snap_value "$1"; fi
-}
-
-# hypr-sentinel replaces the managed block wholesale, so a grouped writer has
-# to be handed the current object with the changes merged in. Sending only the
-# changed fields would drop every setting the plan did not mention.
-merged_group() {
-  local group=$1
-  jq -c --arg g "$group" '
-    (.snapshot[$g] // {}) as $base
-    | reduce (.plan.changes[] | select(.key | startswith($g + "."))) as $c
-        ($base; .[$c.key | split(".")[1]] = $c.value)
-  ' <<<"$(jq -n --argjson snapshot "$SNAPSHOT" --argjson plan "$PLAN" '{snapshot:$snapshot, plan:$plan}')"
-}
 
 # Files a writer may rewrite, so a copy exists before it does.
 backup_for() {
@@ -150,222 +125,58 @@ queue_stdin() {
   RUN_STDIN[${#RUN_STDIN[@]}-1]=$payload
 }
 
-bool_arg() { [[ $1 == true ]] && printf 'true\n' || printf 'false\n'; }
+PLAN_PATH=$PLAN_FILE
+SNAPSHOT_PATH=$SNAPSHOT_FILE
+PLAN_TEMP=""
+SNAP_TEMP=""
+cleanup_dispatch() {
+  [[ -n $PLAN_TEMP ]] && rm -f -- "$PLAN_TEMP"
+  [[ -n $SNAP_TEMP ]] && rm -f -- "$SNAP_TEMP"
+  return 0
+}
+trap cleanup_dispatch EXIT
+if [[ -z $PLAN_PATH ]]; then
+  PLAN_TEMP=$(mktemp)
+  printf '%s' "$PLAN" >"$PLAN_TEMP"
+  PLAN_PATH=$PLAN_TEMP
+fi
+if [[ -z $SNAPSHOT_PATH ]]; then
+  SNAP_TEMP=$(mktemp)
+  printf '%s' "$SNAPSHOT" >"$SNAP_TEMP"
+  SNAPSHOT_PATH=$SNAP_TEMP
+fi
 
-# format / formatAlt on a horizontal bar, verticalFormat / verticalFormatAlt
-# on one down the side.
-clock_key() {
-  local base=$1 position
-  position=$(plan_or_snapshot barPosition)
-  if [[ $position == left || $position == right ]]; then
-    printf 'vertical%s%s\n' "$(tr '[:lower:]' '[:upper:]' <<<"${base:0:1}")" "${base:1}"
-  else
-    printf '%s\n' "$base"
+# JSON on stdout only. cmd.sudo is ignored here: import already wraps the
+# whole job, and writers like set-hostname.sh call as-root.sh themselves.
+COMMANDS=$(node "$ROOT/../services/Settings.js" commands \
+  --plan "$PLAN_PATH" \
+  --snapshot "$SNAPSHOT_PATH" \
+  --scripts-root "$ROOT") || exit 1
+jq -e 'type == "array"' <<<"$COMMANDS" >/dev/null 2>&1 ||
+  { echo "apply-settings.sh: command plan was not a JSON array" >&2; exit 1; }
+
+cmd_count=$(jq -r 'length' <<<"$COMMANDS")
+for ((i = 0; i < cmd_count; i++)); do
+  key=$(jq -r --argjson i "$i" '.[$i].key' <<<"$COMMANDS")
+  backup=$(jq -r --argjson i "$i" '.[$i].backup // empty' <<<"$COMMANDS")
+  stdin_payload=$(jq -r --argjson i "$i" '.[$i].stdin // empty' <<<"$COMMANDS")
+  argv=()
+  if jq -e --argjson i "$i" '.[$i].argv | type == "array" and length > 0' <<<"$COMMANDS" >/dev/null; then
+    mapfile -d '' -t argv < <(jq -j --argjson i "$i" '.[$i].argv[] | tostring + "\u0000"' <<<"$COMMANDS")
+    if [[ ${#argv[@]} -gt 0 && -z ${argv[-1]} ]]; then
+      unset 'argv[-1]'
+    fi
   fi
-}
-
-# A toggle has no "set" verb, so it only runs when the plan actually flips it.
-toggle_needed() {
-  local key=$1
-  local want current
-  want=$(plan_value "$key")
-  current=$(snap_value "$key")
-  [[ $want != "$current" ]]
-}
-
-seen_group() {
-  local g=$1 i
-  for i in "${RUN_GROUPS[@]:-}"; do
-    [[ $i == "$g" ]] && return 0
-  done
-  return 1
-}
-
-while IFS= read -r key; do
-  value=$(plan_value "$key")
-  case $key in
-    theme) queue "$key" "" omarchy theme set "$value" ;;
-    background) queue "$key" "" omarchy theme bg set "$value" ;;
-    font) queue "$key" "" omarchy font set "$value" ;;
-    textSize) queue "$key" "" omarchy display text size "$value" ;;
-
-    hyprLook.*)
-      seen_group hyprLook || queue_stdin "$key" hyprLook "$(merged_group hyprLook)" bash "$ROOT/set-hypr-look.sh"
-      ;;
-    hyprInput.*)
-      seen_group hyprInput || queue_stdin "$key" hyprInput "$(merged_group hyprInput)" bash "$ROOT/set-hypr-input.sh"
-      ;;
-    hyprNoGaps) queue "$key" "" omarchy hyprland toggle window-no-gaps "$([[ $value == true ]] && echo on || echo off)" ;;
-    hyprSquareAspect) queue "$key" "" omarchy hyprland toggle single-window-aspect-ratio "$([[ $value == true ]] && echo on || echo off)" ;;
-
-    barPosition) queue "$key" "" omarchy bar position "$value" ;;
-    barTransparent) queue "$key" "" omarchy bar transparent "$(bool_arg "$value")" ;;
-    # The toggle is named bar-off, so the argument is the state being turned
-    # off. Passing the visibility straight through showed the bar when the
-    # plan asked to hide it.
-    barVisible)
-      toggle_needed "$key" && queue "$key" "" omarchy toggle bar "$([[ $value == true ]] && echo off || echo on)"
-      ;;
-    # A bar on the left or right draws the clock from verticalFormat, so
-    # writing format there changes a setting nobody can see.
-    clockFormat) queue "$key" clock omarchy bar set omarchy.clock "$(clock_key format)" "$value" ;;
-    clockFormatAlt) queue "$key" clock omarchy bar set omarchy.clock "$(clock_key formatAlt)" "$value" ;;
-    clockWeekStart) queue "$key" clock omarchy bar set omarchy.clock weekStartDay "$value" ;;
-
-    browser | terminal | editor | agent) queue "$key" "" omarchy default "$key" "$value" ;;
-    mimePdf) queue "$key" "" bash "$ROOT/set-mime-default.sh" pdf "$value" ;;
-    mimeImage) queue "$key" "" bash "$ROOT/set-mime-default.sh" image "$value" ;;
-    mimeVideo) queue "$key" "" bash "$ROOT/set-mime-default.sh" video "$value" ;;
-
-    idleScreensaver | idleLock)
-      if ! seen_group idle; then
-        screensaver=$(plan_or_snapshot idleScreensaver)
-        lock=$(plan_or_snapshot idleLock)
-        queue "$key" idle bash "$ROOT/set-idle.sh" "$screensaver" "$lock"
-      fi
-      ;;
-    stayAwake)
-      toggle_needed "$key" && queue "$key" "" omarchy toggle idle "$([[ $value == true ]] && echo stay-awake || echo allow-idle)"
-      ;;
-    screensaverEnabled)
-      toggle_needed "$key" && queue "$key" "" omarchy toggle screensaver-off "$([[ $value == true ]] && echo off || echo on)"
-      ;;
-    doNotDisturb)
-      toggle_needed "$key" && queue "$key" "" omarchy toggle notification silencing
-      ;;
-    nightlight)
-      toggle_needed "$key" && queue "$key" "" omarchy toggle nightlight
-      ;;
-    nightlightTemperature) queue "$key" nightlightTemp bash "$ROOT/set-nightlight-temp.sh" "$value" ;;
-    nightlightDay | nightlightNight | nightlightNightOn)
-      if ! seen_group nightlightSchedule; then
-        day=$(plan_or_snapshot nightlightDay)
-        night=$(plan_or_snapshot nightlightNight)
-        on=$(plan_or_snapshot nightlightNightOn)
-        # set-hyprsunset.sh rewrites the whole conf, including temperature.
-        # A plan that also changes warmth has to land there, not only in the
-        # live hyprsunset process, or a restart puts the old Kelvin back.
-        temp=$(plan_or_snapshot nightlightTemperature)
-        queue "$key" nightlightSchedule bash "$ROOT/set-hyprsunset.sh" \
-          "$(jq -nc --arg d "$day" --arg n "$night" --argjson o "${on:-false}" --argjson t "${temp:-0}" \
-            '{day:$d, night:$n, nightOn:$o, temperature:$t}')"
-      fi
-      ;;
-
-    # The sentinel writers take the whole list, so a list setting is one call.
-    # `managed` is a fact about where a row currently lives, not part of the
-    # row, so it never travels to the writer.
-    bindings)
-      queue_stdin "$key" bindings \
-        "$(jq -c '{items: [.[] | {keys, label, command, unbind}]}' <<<"$(plan_list "$key")")" \
-        bash "$ROOT/set-hypr-bindings.sh"
-      ;;
-    windowRules)
-      queue_stdin "$key" windowRules \
-        "$(jq -c '{items: [.[] | del(.managed)]}' <<<"$(plan_list "$key")")" \
-        bash "$ROOT/set-hypr-windows.sh"
-      ;;
-    autostart)
-      queue_stdin "$key" autostart \
-        "$(jq -c '{commands: [.[] | .command]}' <<<"$(plan_list "$key")")" \
-        bash "$ROOT/set-hypr-autostart.sh"
-      ;;
-
-    audioOutputVolume) queue "$key" "" bash "$ROOT/set-audio.sh" output-volume "$value" ;;
-    audioInputVolume) queue "$key" "" bash "$ROOT/set-audio.sh" input-volume "$value" ;;
-    # Deferred to the end of the run. set-audio.sh unmutes the device before
-    # it sets a volume, and the keys sort mute before volume, so muting first
-    # and then setting a volume left the device unmuted. There is only a
-    # toggle, no set, so the desired state is compared against what the
-    # volume write will have left behind.
-    audioOutputMuted | audioInputMuted) ;;
-    audioTuningOn) queue "$key" "" omarchy audio tuning "$([[ $value == true ]] && echo on || echo off)" ;;
-
-    powerProfileAc) queue "$key" "" omarchy powerprofiles set ac "$value" ;;
-    powerProfileBattery) queue "$key" "" omarchy powerprofiles set battery "$value" ;;
-    # The verb names the state being turned off, so the argument is inverted.
-    suspendEnabled)
-      toggle_needed "$key" && queue "$key" "" omarchy toggle suspend-off "$([[ $value == true ]] && echo off || echo on)"
-      ;;
-    crashCapture)
-      toggle_needed "$key" && queue "$key" "" omarchy toggle crash capture
-      ;;
-
-    clockBirthYear) queue "$key" clock omarchy bar set omarchy.clock birthYear "$value" --json ;;
-    clockLifeExpectancy) queue "$key" clock omarchy bar set omarchy.clock lifeExpectancy "$value" --json ;;
-    indicatorsAlwaysShow) queue "$key" clock omarchy bar set omarchy.indicators alwaysShow "$(bool_arg "$value")" --json ;;
-    powerShowPercentage) queue "$key" clock omarchy bar set omarchy.power showPercentage "$(bool_arg "$value")" --json ;;
-    spacerSize) queue "$key" clock omarchy bar set omarchy.spacer size "$value" --json ;;
-    weatherUnit) queue "$key" clock omarchy bar set omarchy.weather unit "$value" ;;
-    weatherRefreshMinutes) queue "$key" clock omarchy bar set omarchy.weather refreshMinutes "$value" --json ;;
-    weatherLocation)
-      if [[ -z $value ]]; then
-        queue "$key" "" omarchy weather location --clear
-      else
-        queue "$key" "" omarchy weather location --set "$value"
-      fi
-      ;;
-    agentsRefreshIntervalSec) queue "$key" clock omarchy bar set omarchy.agents refreshIntervalSec "$value" --json ;;
-    agentsSync) queue "$key" clock omarchy bar set omarchy.agents syncMode "$([[ $value == true ]] && echo On || echo Off)" ;;
-    agentsSyncDir) queue "$key" clock omarchy bar set omarchy.agents syncDir "$value" ;;
-    agentsSyncFileName) queue "$key" clock omarchy bar set omarchy.agents syncFileName "$value" ;;
-    agentsSyncDeviceId) queue "$key" clock omarchy bar set omarchy.agents syncDeviceId "$value" ;;
-
-    indicatorsItems)
-      queue "$key" clock bash "$ROOT/set-bar-widget.sh" omarchy.indicators items "$(plan_list "$key")"
-      ;;
-    trayHidden)
-      queue "$key" clock bash "$ROOT/set-bar-widget.sh" omarchy.tray hidden "$(plan_list "$key")"
-      ;;
-    trayPinned)
-      queue "$key" clock bash "$ROOT/set-bar-widget.sh" omarchy.tray pinned "$(plan_list "$key")"
-      ;;
-
-    plymouth) queue "$key" "" omarchy plymouth set by theme "$value" ;;
-
-    touchpadEnabled)
-      toggle_needed "$key" && queue "$key" "" omarchy toggle touchpad "$([[ $value == true ]] && echo on || echo off)"
-      ;;
-    touchscreenEnabled)
-      toggle_needed "$key" && queue "$key" "" omarchy toggle touchscreen "$([[ $value == true ]] && echo on || echo off)"
-      ;;
-    bluetooth)
-      toggle_needed "$key" && queue "$key" "" omarchy bluetooth power "$([[ $value == true ]] && echo on || echo off)"
-      ;;
-    wifiRadio)
-      toggle_needed "$key" && queue "$key" "" bash "$ROOT/set-wifi-connection.sh" radio "$([[ $value == true ]] && echo on || echo off)"
-      ;;
-
-    hostname) queue "$key" "" bash "$ROOT/set-hostname.sh" "$value" ;;
-    timezone) queue "$key" "" bash "$ROOT/set-timezone.sh" "$value" ;;
-    locale) queue "$key" "" bash "$ROOT/set-locale.sh" "$value" ;;
-    keyboardLayout) queue "$key" "" bash "$ROOT/set-keyboard-layout.sh" "$value" ;;
-    ntp) queue "$key" "" bash "$ROOT/set-ntp.sh" "$(bool_arg "$value")" ;;
-    fullName) queue "$key" "" bash "$ROOT/set-full-name.sh" "$value" ;;
-    parallelDownloads) queue "$key" "" bash "$ROOT/set-parallel-downloads.sh" "$value" ;;
-    dns) queue "$key" "" omarchy dns "$value" ;;
-
-    *)
-      echo "apply-settings.sh: no writer for $key" >&2
-      exit 1
-      ;;
-  esac
-done < <(jq -r '.changes[].key' <<<"$PLAN")
-
-# Mute last, against the state the volume writes leave behind.
-queue_mute() {
-  local key=$1 volume_key=$2
-  shift 2
-  plan_has "$key" || return 0
-  local want current
-  want=$(plan_value "$key")
-  # A volume write unmutes, so that is the state this is really starting from.
-  if plan_has "$volume_key"; then current=false; else current=$(snap_value "$key"); fi
-  [[ $want == "$current" ]] && return 0
-  queue "$key" "" "$@"
-}
-queue_mute audioOutputMuted audioOutputVolume omarchy audio output volume mute-toggle
-queue_mute audioInputMuted audioInputVolume omarchy audio input mute
+  # Prefer stdin when non-empty so a long list does not hit the 128 KiB argv cap.
+  if [[ -n $stdin_payload && ${#argv[@]} -gt 0 && ${argv[-1]} == "$stdin_payload" ]]; then
+    unset 'argv[-1]'
+  fi
+  if [[ -n $stdin_payload ]]; then
+    queue_stdin "$key" "$backup" "$stdin_payload" "${argv[@]}"
+  else
+    queue "$key" "$backup" "${argv[@]}"
+  fi
+done
 
 # The undo plan is the same plan with from and value swapped, so reversing an
 # import is the ordinary path rather than a special one.

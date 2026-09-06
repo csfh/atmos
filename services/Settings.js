@@ -1078,6 +1078,19 @@ function planImport(doc, snapshot, keys, options) {
       var to = values[key];
       var from = readValue(snap, key);
 
+      // Workspace gesture is a boolean, so unmanagedCount never fires. A
+      // live hl.gesture outside the Atmos block still owns HORIZONTAL;
+      // writing this key would either no-op or duplicate it. Skip instead.
+      if (key === "hyprInput.workspaceGesture" && snap.hyprWorkspaceGestureUnmanaged === true) {
+        warnings.push({
+          key: key,
+          message:
+            "Workspace gesture is written by hand in ~/.config/hypr/input.lua outside the Atmos block. " +
+            "Atmos leaves that line alone, so this setting is skipped.",
+        });
+        continue;
+      }
+
       // Settled before anything is validated. A value the machine already
       // holds needs no permission to stay: plymouth reports "default" as
       // its theme while the installable themes list does not contain it,

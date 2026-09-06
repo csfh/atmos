@@ -647,6 +647,65 @@ assertEqual(
   "planImport reads workspaceGesture from hyprInput, not a top-level key",
 );
 
+const unmanagedGestureOn = settings.planImport(
+  settings.parseSettingsMarkdown(
+    "```toml atmos:meta\nschema = 1\n```\n" +
+      "```toml atmos:input\nhyprInput.workspaceGesture = false\n```\n",
+  ),
+  {
+    hyprInput: { workspaceGesture: true },
+    hyprWorkspaceGestureUnmanaged: true,
+  },
+  null,
+  {},
+);
+assertEqual(
+  unmanagedGestureOn.changes.length,
+  0,
+  "import skips workspaceGesture when a live unmanaged gesture owns it",
+);
+assertEqual(
+  unmanagedGestureOn.unchanged.length,
+  0,
+  "an unmanaged gesture is not an unchanged write",
+);
+assertEqual(
+  unmanagedGestureOn.warnings.length,
+  1,
+  "import warns instead of rewriting a hand-written gesture",
+);
+assert(
+  unmanagedGestureOn.warnings[0].message.indexOf("written by hand") !== -1,
+  "the unmanaged gesture warning says the line is written by hand",
+);
+assert(
+  unmanagedGestureOn.warnings[0].message.indexOf("skipped") !== -1,
+  "the unmanaged gesture warning says the setting is skipped",
+);
+
+const unmanagedGestureSame = settings.planImport(
+  settings.parseSettingsMarkdown(
+    "```toml atmos:meta\nschema = 1\n```\n" +
+      "```toml atmos:input\nhyprInput.workspaceGesture = true\n```\n",
+  ),
+  {
+    hyprInput: { workspaceGesture: true },
+    hyprWorkspaceGestureUnmanaged: true,
+  },
+  null,
+  {},
+);
+assertEqual(
+  unmanagedGestureSame.changes.length,
+  0,
+  "import still skips workspaceGesture when the imported value already matches",
+);
+assertEqual(
+  unmanagedGestureSame.warnings.length,
+  1,
+  "matching an unmanaged gesture still warns instead of claiming a write",
+);
+
 const selected = planFor(
   "```toml atmos:meta\nschema = 1\n```\n" +
     '```toml atmos:appearance\ntheme = "catppuccin"\n```\n' +

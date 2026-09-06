@@ -244,7 +244,7 @@ function serializeLook(raw) {
   return lines.join("\n");
 }
 
-function serializeInput(raw) {
+function serializeInput(raw, existing) {
   var s = clampInput(raw);
   var inputLines = [
     "    sensitivity = " + luaNumber(s.sensitivity) + ",",
@@ -283,7 +283,10 @@ function serializeInput(raw) {
     "  },",
     "})",
   ];
-  if (s.workspaceGesture)
+  // A live unmanaged hl.gesture already owns HORIZONTAL. Writing ours
+  // would make Hyprland reject the second as "Previous HORIZONTAL shadows
+  // new HORIZONTAL". Option 2: Atmos defers and never comments the user line.
+  if (s.workspaceGesture && !inputHasUnmanagedWorkspaceGesture(existing))
     lines.push('hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })');
   lines.push(INPUT_END);
   return lines.join("\n");
@@ -339,12 +342,8 @@ function applyLookFile(text, raw) {
 }
 
 function applyInputFile(text, raw) {
-  return replaceSentinel(
-    stripSentinel(text, LEGACY_INPUT_BEGIN, LEGACY_INPUT_END),
-    INPUT_BEGIN,
-    INPUT_END,
-    serializeInput(raw),
-  );
+  var cleaned = stripSentinel(text, LEGACY_INPUT_BEGIN, LEGACY_INPUT_END);
+  return replaceSentinel(cleaned, INPUT_BEGIN, INPUT_END, serializeInput(raw, cleaned));
 }
 
 function resetLookFile(text) {
@@ -477,4 +476,23 @@ function inputHasWorkspaceGesture(text) {
   src = extractSentinel(text, LEGACY_INPUT_BEGIN, LEGACY_INPUT_END);
   if (src) return sentinelHasWorkspaceGesture(src);
   return false;
+}
+
+function inputOutsideSentinels(text) {
+  var src = stripSentinel(String(text || ""), INPUT_BEGIN, INPUT_END);
+  return stripSentinel(src, LEGACY_INPUT_BEGIN, LEGACY_INPUT_END);
+}
+
+function inputHasUnmanagedWorkspaceGesture(text) {
+  return sentinelHasWorkspaceGesture(inputOutsideSentinels(text));
+}
+
+function inputWorkspaceGestureState(text) {
+  var managed = inputHasWorkspaceGesture(text);
+  var unmanaged = inputHasUnmanagedWorkspaceGesture(text);
+  return {
+    workspaceGesture: managed || unmanaged,
+    workspaceGestureManaged: managed,
+    workspaceGestureUnmanaged: unmanaged,
+  };
 }

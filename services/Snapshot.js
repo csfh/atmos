@@ -374,6 +374,8 @@ var BOOL_ON_KEYS = {
   hyprLookManaged: true,
   hyprInputManaged: true,
   hyprWorkspaceGesture: true,
+  hyprWorkspaceGestureManaged: true,
+  hyprWorkspaceGestureUnmanaged: true,
   hyprNoGaps: true,
   hyprSquareAspect: true,
   fingerprintAvailable: true,

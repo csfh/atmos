@@ -152,7 +152,11 @@ assert(
 );
 assert(
   snapshotSh.indexOf('hypr-sentinel.py" input list') !== -1,
-  "snapshot.sh reads workspaceGesture from the input sentinel",
+  "snapshot.sh reads workspaceGesture from hypr-sentinel.py input list",
+);
+assert(
+  snapshotSh.indexOf("workspaceGestureUnmanaged") !== -1,
+  "snapshot.sh exposes an unmanaged workspace gesture separately from a managed one",
 );
 assert(
   snapshotSh.indexOf("grep -q 'action = \"workspace\"'") === -1,
@@ -984,6 +988,17 @@ assert(
   "Input disables layout Set when the list is invalid or unchanged",
 );
 assert(
+  inputPageSrc.indexOf("Omarchy.hyprWorkspaceGestureUnmanaged") !== -1 &&
+    inputPageSrc.indexOf("enabled: !Omarchy.hyprWorkspaceGestureUnmanaged") !== -1 &&
+    inputPageSrc.indexOf("outside the Atmos block") !== -1,
+  "Input shows an unmanaged workspace gesture as on and not managed",
+);
+assert(
+  omarchySrc.indexOf("property bool hyprWorkspaceGestureUnmanaged") !== -1 &&
+    omarchySrc.indexOf("if (hyprWorkspaceGestureUnmanaged) return") !== -1,
+  "Omarchy keeps unmanaged workspace gesture state and refuses to toggle it",
+);
+assert(
   omarchySrc.indexOf("layouts = HyprPrefs.sanitizeLayoutList(layouts)") !== -1,
   "Omarchy validates Hyprland layouts with HyprPrefs.sanitizeLayoutList",
 );
@@ -1247,6 +1262,8 @@ const copyProps = [
   "hyprLookManaged",
   "hyprInputManaged",
   "hyprWorkspaceGesture",
+  "hyprWorkspaceGestureManaged",
+  "hyprWorkspaceGestureUnmanaged",
   "hyprNoGaps",
   "hyprSquareAspect",
   "hyprWorkspaceLayout",

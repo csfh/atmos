@@ -377,7 +377,7 @@ function hubs() {
     },
     {
       id: "export",
-      title: "Transfer",
+      title: "Settings file",
       description: "Write settings to a Markdown file, or review and apply one.",
       navGroup: "general",
       snapshotGroup: "all",

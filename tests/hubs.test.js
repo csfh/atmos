@@ -26,12 +26,12 @@ function atmosSuffixes() {
 const catalog = hubs.hubs();
 assert(catalog.length > 0, "hubs() returns the catalog");
 assertEqual(hubs.hubTitle("idle"), "Idle", "idle hub title is Idle");
-assertEqual(hubs.hubTitle("export"), "Transfer", "export hub title is Transfer");
+assertEqual(hubs.hubTitle("export"), "Settings file", "export hub title is Settings file");
 assert(
   hubs.hubById("export").keywords.indexOf("import") !== -1 &&
     hubs.hubById("export").keywords.indexOf("export") !== -1 &&
     hubs.hubById("export").keywords.indexOf("transfer") !== -1,
-  "Transfer still matches import, export, and transfer in search",
+  "Settings file still matches import, export, and transfer in search",
 );
 assertEqual(
   hubs.hubTitle("windows/rules"),

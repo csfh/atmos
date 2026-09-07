@@ -49,7 +49,7 @@ PrefsPage {
     detail: "Export the settings you want, then Import that file later. Profiles are Markdown documents, not a second prefs store."
 
     SettingRow {
-      label: "Import and export"
+      label: "Transfer"
       description: "Write a Markdown file, or apply one you already have."
       hint: "atmos export"
       query: root.query

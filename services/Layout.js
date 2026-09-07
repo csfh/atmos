@@ -147,6 +147,7 @@ var NAV_GROUP_LABELS = {
   input: "Controls",
   device: "Machine",
   apps: "Apps",
+  general: "General",
   admin: "Admin",
 };
 

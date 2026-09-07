@@ -25,7 +25,14 @@ function atmosSuffixes() {
 
 const catalog = hubs.hubs();
 assert(catalog.length > 0, "hubs() returns the catalog");
-assertEqual(hubs.hubTitle("idle"), "Idle and lock", "idle hub title is Idle and lock");
+assertEqual(hubs.hubTitle("idle"), "Idle", "idle hub title is Idle");
+assertEqual(hubs.hubTitle("export"), "Transfer", "export hub title is Transfer");
+assert(
+  hubs.hubById("export").keywords.indexOf("import") !== -1 &&
+    hubs.hubById("export").keywords.indexOf("export") !== -1 &&
+    hubs.hubById("export").keywords.indexOf("transfer") !== -1,
+  "Transfer still matches import, export, and transfer in search",
+);
 assertEqual(
   hubs.hubTitle("windows/rules"),
   "Window rules",
@@ -39,6 +46,12 @@ assertEqual(hubs.snapshotGroupForHub("idle"), "look", "idle hub reads look");
 assertEqual(hubs.snapshotGroupForHub("hardware"), "all", "hardware hub reads all");
 assertEqual(hubs.snapshotGroupForHub(""), "look", "empty hub reads look");
 assertEqual(hubs.hubById("idle").navGroup, "device", "idle nav cluster is device");
+assertEqual(hubs.hubById("system").navGroup, "general", "system nav cluster is general");
+assertEqual(hubs.hubById("tweaks").navGroup, "general", "tweaks nav cluster is general");
+assertEqual(hubs.hubById("export").navGroup, "general", "export nav cluster is general");
+assertEqual(hubs.hubById("accounts").navGroup, "admin", "accounts nav cluster is admin");
+assertEqual(hubs.hubById("security").navGroup, "admin", "security nav cluster is admin");
+assertEqual(hubs.hubById("services").navGroup, "admin", "services nav cluster is admin");
 assertEqual(hubs.hubById("appearance").snapshotGroup, "look", "appearance snapshot group is look");
 
 catalog.forEach(function (hub) {
@@ -124,6 +137,34 @@ const nav = hubs.navPages();
 assertEqual(nav[0].id, "appearance", "navPages starts at appearance");
 assertEqual(nav[0].group, "look", "navPages uses navGroup as group");
 assert(nav[0].keywords.indexOf("wallpaper") !== -1, "navPages keywords include the union");
+function consecutiveNavGroup(group) {
+  const ids = nav
+    .filter(function (page) {
+      return page.group === group;
+    })
+    .map(function (page) {
+      return page.id;
+    });
+  const start = nav.findIndex(function (page) {
+    return page.group === group;
+  });
+  return nav
+    .slice(start, start + ids.length)
+    .map(function (page) {
+      return page.id;
+    })
+    .join(",");
+}
+assertEqual(
+  consecutiveNavGroup("general"),
+  "system,tweaks,export",
+  "general hubs stay consecutive in nav order",
+);
+assertEqual(
+  consecutiveNavGroup("admin"),
+  "accounts,security,services",
+  "admin hubs stay consecutive in nav order",
+);
 
 const search = hubs.searchHubs();
 assertEqual(search[0].description.indexOf("Theme") !== -1, true, "searchHubs keeps descriptions");

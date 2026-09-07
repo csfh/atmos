@@ -494,7 +494,7 @@ This page is inventory. Most of it is read-only.
 
 ---
 
-## Idle and lock
+## Idle
 
 ### Timings
 

@@ -2,7 +2,7 @@
 
 **Snapshot group** — Wire identity of a snapshot JSON payload: `look`, `rest`, `all`, `network`, `disks`, `accounts`, `system`. Not a UI cluster and not an export bucket.
 
-**Nav group** — Sidebar cluster in the prefs window: `look`, `input`, `device`, `apps`, `admin`.
+**Nav group** — Sidebar cluster in the prefs window: `look`, `input`, `device`, `apps`, `general`, `admin`.
 
 **Export tier** — Settings.js plan/export bucket: `look`, `behavior`, `identity`, `system`.
 

@@ -156,6 +156,7 @@ assertEqual(layout.navGroupLabel("look"), "Desktop", "navGroupLabel names look")
 assertEqual(layout.navGroupLabel("input"), "Controls", "navGroupLabel names input");
 assertEqual(layout.navGroupLabel("device"), "Machine", "navGroupLabel names device");
 assertEqual(layout.navGroupLabel("apps"), "Apps", "navGroupLabel names apps");
+assertEqual(layout.navGroupLabel("general"), "General", "navGroupLabel names general");
 assertEqual(layout.navGroupLabel("admin"), "Admin", "navGroupLabel names admin");
 assertEqual(layout.navGroupLabel("nope"), "", "navGroupLabel misses an unknown group");
 const clustered = layout.clusterByGroup([

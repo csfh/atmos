@@ -9,7 +9,7 @@ import "../services/RichUi.js" as RichUi
 
 PrefsPage {
   id: root
-  title: "Import and export"
+  title: "Transfer"
   description: "Write this machine's settings to a Markdown file you can read, keep, or hand to someone else. Importing shows you every change before anything happens."
 
   readonly property string home: Quickshell.env("HOME")

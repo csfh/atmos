@@ -72,9 +72,12 @@ assert(
   "TweaksPage does not open a PrefsGroup per catalog row",
 );
 
-const kernelPage = fs.readFileSync(path.join(__dirname, "..", "pages", "KernelPage.qml"), "utf8");
-assert(kernelPage.indexOf('label: "Direct EFI boot"') !== -1, "Kernel hub has Direct EFI boot");
-assert(kernelPage.indexOf('label: "Lower swappiness"') !== -1, "Kernel hub has swappiness");
+const kernelPage = fs.readFileSync(
+  path.join(__dirname, "..", "pages", "system", "KernelPage.qml"),
+  "utf8",
+);
+assert(kernelPage.indexOf('label: "Direct EFI boot"') !== -1, "Kernel page has Direct EFI boot");
+assert(kernelPage.indexOf('label: "Lower swappiness"') !== -1, "Kernel page has swappiness");
 const bootPage = fs.readFileSync(
   path.join(__dirname, "..", "pages", "appearance", "BootPage.qml"),
   "utf8",

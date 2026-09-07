@@ -1,7 +1,7 @@
 import QtQuick
-import "../components"
-import "../services"
-import "../services/Diagnostics.js" as DiagJs
+import "../../components"
+import "../../services"
+import "../../services/Diagnostics.js" as DiagJs
 
 PrefsPage {
   id: root

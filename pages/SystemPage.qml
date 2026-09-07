@@ -21,6 +21,7 @@ PrefsPage {
     if (!stack) return
     if (id === "diagnostics") stack.push(diagnosticsPage)
     else if (id === "environment") stack.push(environmentPage)
+    else if (id === "kernel") stack.push(kernelPage)
   }
 
   readonly property string diagnosticsDescription: {
@@ -34,6 +35,7 @@ PrefsPage {
 
   Component { id: diagnosticsPage; Sys.DiagnosticsPage {} }
   Component { id: environmentPage; Sys.EnvironmentPage {} }
+  Component { id: kernelPage; Sys.KernelPage {} }
 
   PrefsConfirm {
     id: channelConfirm
@@ -775,6 +777,19 @@ PrefsPage {
       PrefsButton {
         text: "Open…"
         onClicked: root.openSubpage("environment")
+      }
+    }
+
+    SettingRow {
+      label: "Kernel"
+      description: "Running image, direct EFI boot, and swappiness."
+      hint: "omarchy setup direct boot"
+      query: root.query
+      keywords: ["kernel", "uki", "efi", "swappiness", "limine"]
+
+      PrefsButton {
+        text: "Open…"
+        onClicked: root.openSubpage("kernel")
       }
     }
 

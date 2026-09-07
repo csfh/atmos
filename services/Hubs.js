@@ -354,26 +354,13 @@ function hubs() {
       file: "SystemPage.qml",
       keywords: keywordList(
         "crash capture diagnostics coredump weather location city forecast coordinates latitude longitude gps units celsius fahrenheit metric imperial refresh interval about logo branding fastfetch timezone tz utc region city date time zoneinfo timedatectl hostname computer machine device name hostnamectl keyboard layout keymap xkb qwerty language input localectl ntp timesync synchronize automatic clock network time locale lang utf-8 i18n translation pacman parallel downloads packages mirrors aur update channel firmware orphan prune version printer cups print restore hyprland shell restart atmos git pull reset sentinel overrides report journal systemd portal pipewire kernel gpu environment path editor shell",
-        ["hostname", "locale", "update", "diagnostics"],
+        ["hostname", "locale", "update", "diagnostics", "kernel", "uki"],
       ),
       children: [
         child("system/environment", "Environment", "system/EnvironmentPage.qml"),
+        child("system/kernel", "Kernel", "system/KernelPage.qml"),
         child("system/diagnostics", "Diagnostics", "system/DiagnosticsPage.qml"),
       ],
-    },
-    {
-      id: "kernel",
-      title: "Kernel",
-      description: "Running image, direct EFI boot, and swappiness.",
-      navGroup: "general",
-      snapshotGroup: "all",
-      icon: "code-box-line",
-      file: "KernelPage.qml",
-      keywords: keywordList(
-        "kernel uname linux uki efi efibootmgr direct boot limine snapshot swappiness sysctl vm swap memory initramfs",
-        ["kernel", "uki", "swappiness"],
-      ),
-      children: [],
     },
     {
       id: "tweaks",

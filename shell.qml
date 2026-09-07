@@ -169,7 +169,6 @@ ShellRoot {
   Component { id: accountsPage; AccountsPage { query: root.query } }
   Component { id: hooksPage; HooksPage { query: root.query } }
   Component { id: systemPage; SystemPage { query: root.query; stack: pageStack; navigator: prefsNavigator } }
-  Component { id: kernelPage; KernelPage { query: root.query } }
   Component { id: exportPage; ExportPage { query: root.query } }
   Component { id: searchPage; SearchPage { query: root.query; navigator: prefsNavigator } }
 
@@ -201,7 +200,6 @@ ShellRoot {
     accounts: accountsPage,
     hooks: hooksPage,
     system: systemPage,
-    kernel: kernelPage,
     export: exportPage,
   })
 

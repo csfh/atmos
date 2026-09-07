@@ -68,6 +68,11 @@ assertEqual(
   "behavior",
   "preserve split is a behavior setting",
 );
+assertEqual(
+  byKey["hyprLook.cursorWarpOnFocus"],
+  undefined,
+  "catalog has no hyprLook.cursorWarpOnFocus",
+);
 const hypr = load("services/HyprPrefs.js");
 assertEqual(
   hypr.clampLook({ layout: "scrolling" }).layout,

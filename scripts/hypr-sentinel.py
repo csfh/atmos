@@ -143,7 +143,6 @@ def serialize_look(raw: dict) -> str:
         "focusOnActivate": as_bool(src.get("focusOnActivate"), False),
         "enableSwallow": as_bool(src.get("enableSwallow"), False),
         "swallowRegex": sanitize_swallow_regex(src.get("swallowRegex")),
-        "cursorWarpOnFocus": as_bool(src.get("cursorWarpOnFocus"), False),
         "onFocusUnderFullscreen": clamp_int(src.get("onFocusUnderFullscreen"), 0, 2, 1),
     }
     misc = [
@@ -193,7 +192,6 @@ def serialize_look(raw: dict) -> str:
             "  cursor = {",
             f"    hide_on_key_press = {lua_bool(s['cursorHideOnKey'])},",
             f"    warp_on_change_workspace = {1 if s['cursorWarp'] else 0},",
-            f"    warp_on_focus_change = {lua_bool(s['cursorWarpOnFocus'])},",
             "  },",
             "})",
             f'hl.env({lua_string("HYPRCURSOR_SIZE")}, {lua_string(str(s["cursorSize"]))})',

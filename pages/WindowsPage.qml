@@ -510,19 +510,6 @@ PrefsPage {
     }
 
     SettingRow {
-      label: "Cursor follows focus"
-      description: "The pointer jumps to a window when focus changes."
-      hint: "~/.config/hypr/looknfeel.lua · cursor.warp_on_focus_change"
-      query: root.query
-      keywords: ["cursor", "warp", "focus"]
-
-      PrefsToggle {
-        checked: Omarchy.hyprCursorWarpOnFocus
-        onToggled: Omarchy.setHyprCursorWarpOnFocus(!Omarchy.hyprCursorWarpOnFocus)
-      }
-    }
-
-    SettingRow {
       label: "Swallow terminals"
       description: "A terminal that launches a GUI app is swallowed into that window."
       hint: "~/.config/hypr/looknfeel.lua · misc.enable_swallow"

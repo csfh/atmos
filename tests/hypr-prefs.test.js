@@ -33,6 +33,15 @@ assert(lookLua.indexOf('layout = "scrolling"') !== -1, "serializeLook writes scr
 assert(lookLua.indexOf("column_width = 0.97") !== -1, "serializeLook writes column width");
 assert(lookLua.indexOf("warp_on_change_workspace = 1") !== -1, "serializeLook writes cursor warp");
 assert(
+  lookLua.indexOf("warp_on_focus_change") === -1,
+  "serializeLook omits unknown cursor.warp_on_focus_change",
+);
+assertEqual(
+  Object.prototype.hasOwnProperty.call(hypr.defaultLook(), "cursorWarpOnFocus"),
+  false,
+  "defaultLook has no cursorWarpOnFocus field",
+);
+assert(
   lookLua.indexOf('hl.env("HYPRCURSOR_SIZE", "24")') !== -1,
   "serializeLook writes default cursor size",
 );
@@ -339,6 +348,31 @@ assertEqual(
   pythonSentinel("look", lookLock),
   hypr.serializeLook(lookLock),
   "hypr-sentinel.py look matches serializeLook",
+);
+assert(
+  hypr.serializeLook({ cursorWarpOnFocus: true }).indexOf("warp_on_focus_change") === -1,
+  "serializeLook ignores leftover cursorWarpOnFocus in look JSON",
+);
+assert(
+  pythonSentinel("look", { cursorWarpOnFocus: true }).indexOf("warp_on_focus_change") === -1,
+  "hypr-sentinel.py look ignores leftover cursorWarpOnFocus in look JSON",
+);
+const windowsPageSrc = fs.readFileSync(
+  path.join(__dirname, "..", "pages", "WindowsPage.qml"),
+  "utf8",
+);
+assert(
+  windowsPageSrc.indexOf("warp_on_focus_change") === -1,
+  "WindowsPage does not mention cursor.warp_on_focus_change",
+);
+assert(
+  windowsPageSrc.indexOf("hyprCursorWarpOnFocus") === -1,
+  "WindowsPage does not toggle hyprCursorWarpOnFocus",
+);
+const omarchySrc = fs.readFileSync(path.join(__dirname, "..", "services", "Omarchy.qml"), "utf8");
+assert(
+  omarchySrc.indexOf("hyprCursorWarpOnFocus") === -1,
+  "Omarchy does not keep hyprCursorWarpOnFocus",
 );
 
 const inputLock = {

@@ -291,7 +291,6 @@ QtObject {
   property bool hyprFocusOnActivate: false
   property bool hyprEnableSwallow: false
   property string hyprSwallowRegex: ""
-  property bool hyprCursorWarpOnFocus: false
   property int hyprOnFocusUnderFullscreen: 1
   property bool hyprLookManaged: false
   property real hyprSensitivity: 0
@@ -601,7 +600,6 @@ QtObject {
     hyprFocusOnActivate = SnapshotJs.adoptValue(hyprFocusOnActivate, look ? look.focusOnActivate : undefined)
     hyprEnableSwallow = SnapshotJs.adoptValue(hyprEnableSwallow, look ? look.enableSwallow : undefined)
     hyprSwallowRegex = SnapshotJs.adoptValue(hyprSwallowRegex, look ? look.swallowRegex : undefined)
-    hyprCursorWarpOnFocus = SnapshotJs.adoptValue(hyprCursorWarpOnFocus, look ? look.cursorWarpOnFocus : undefined)
     hyprOnFocusUnderFullscreen = SnapshotJs.adoptValue(hyprOnFocusUnderFullscreen, look ? look.onFocusUnderFullscreen : undefined)
     hyprLookManaged = SnapshotJs.adoptValue(hyprLookManaged, next.hyprLookManaged)
     hyprInputManaged = SnapshotJs.adoptValue(hyprInputManaged, next.hyprInputManaged)
@@ -911,7 +909,6 @@ QtObject {
       focusOnActivate: hyprFocusOnActivate,
       enableSwallow: hyprEnableSwallow,
       swallowRegex: hyprSwallowRegex,
-      cursorWarpOnFocus: hyprCursorWarpOnFocus,
       onFocusUnderFullscreen: hyprOnFocusUnderFullscreen
     }
     if (patch && typeof patch === "object") {
@@ -1793,10 +1790,6 @@ QtObject {
     text = String(text || "")
     if (text === hyprSwallowRegex) return
     writeHyprLook({ swallowRegex: text })
-  }
-  function setHyprCursorWarpOnFocus(on) {
-    if (on === hyprCursorWarpOnFocus) return
-    writeHyprLook({ cursorWarpOnFocus: on })
   }
   function setHyprOnFocusUnderFullscreen(n) {
     n = Math.round(Number(n))

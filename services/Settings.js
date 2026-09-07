@@ -91,10 +91,6 @@ function settingsCatalog() {
       type: "string",
       consequence: "Only terminal classes matching this regex are swallowed.",
     }),
-    entry("hyprLook.cursorWarpOnFocus", "windows", "Cursor follows focus", "behavior", {
-      type: "boolean",
-      consequence: "The pointer jumps when a different window takes focus.",
-    }),
     entry("hyprLook.onFocusUnderFullscreen", "windows", "Focus under fullscreen", "behavior", {
       type: "integer",
       consequence: "Focus can steal a fullscreen window or stay underneath it.",

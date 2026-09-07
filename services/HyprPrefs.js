@@ -34,7 +34,6 @@ function defaultLook() {
     focusOnActivate: false,
     enableSwallow: false,
     swallowRegex: "",
-    cursorWarpOnFocus: false,
     onFocusUnderFullscreen: 1,
   };
 }
@@ -113,7 +112,6 @@ function clampLook(raw) {
     focusOnActivate: asBool(src.focusOnActivate, base.focusOnActivate),
     enableSwallow: asBool(src.enableSwallow, base.enableSwallow),
     swallowRegex: sanitizeSwallowRegex(src.swallowRegex),
-    cursorWarpOnFocus: asBool(src.cursorWarpOnFocus, base.cursorWarpOnFocus),
     onFocusUnderFullscreen: clampInt(src.onFocusUnderFullscreen, 0, 2, base.onFocusUnderFullscreen),
   };
 }
@@ -254,7 +252,6 @@ function serializeLook(raw) {
     "  cursor = {",
     "    hide_on_key_press = " + luaBool(s.cursorHideOnKey) + ",",
     "    warp_on_change_workspace = " + (s.cursorWarp ? "1" : "0") + ",",
-    "    warp_on_focus_change = " + luaBool(s.cursorWarpOnFocus) + ",",
     "  },",
     "})",
     "hl.env(" + luaString("HYPRCURSOR_SIZE") + ", " + luaString(String(s.cursorSize)) + ")",

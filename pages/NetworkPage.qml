@@ -3,6 +3,7 @@ import QtQuick.Dialogs
 import "../components"
 import "../services"
 import "../services/RichUi.js" as RichUi
+import "../services/NetworkPrefs.js" as NetPrefs
 import "network" as Net
 
 PrefsPage {
@@ -12,8 +13,18 @@ PrefsPage {
 
   property var stack: null
   property var navigator: null
+  property string hotspotSsid: "Atmos"
+  property string hotspotPassword: ""
+  property string hotspotError: ""
+  property string wgError: ""
 
   function openSubpage(id) {
+    if (id === "bluetooth") {
+      if (root.navigator && root.navigator.go) {
+        root.navigator.go("bluetooth")
+        return
+      }
+    }
     if (root.navigator && root.navigator.go) {
       root.navigator.go("network/" + id)
       return
@@ -123,6 +134,24 @@ PrefsPage {
         onClicked: Omarchy.copyText(Omarchy.netIp)
       }
     }
+
+    SettingRow {
+      available: Omarchy.netGateway.length > 0
+      label: "Gateway"
+      description: Omarchy.netGateway
+      hint: "nmcli IP4.GATEWAY"
+      query: root.query
+      keywords: ["gateway", "route"]
+    }
+
+    SettingRow {
+      available: Omarchy.netDnsServers.length > 0
+      label: "DNS"
+      description: Omarchy.netDnsServers.join(", ")
+      hint: "nmcli IP4.DNS"
+      query: root.query
+      keywords: ["dns", "resolver"]
+    }
   }
 
   PrefsGroup {
@@ -183,6 +212,84 @@ PrefsPage {
       PrefsButton {
         text: "Test…"
         onClicked: root.openSubpage("speedtest")
+      }
+    }
+  }
+
+  FileDialog {
+    id: wgDialog
+    title: "Import WireGuard"
+    nameFilters: ["WireGuard configs (*.conf *.nmconnection)"]
+    onAccepted: {
+      var path = RichUi.pathFromUrl(selectedFile)
+      if (!NetPrefs.argvFor("wireguard-import", { path: path })) {
+        root.wgError = "Pick an absolute .conf file."
+        return
+      }
+      root.wgError = ""
+      Omarchy.importWireGuard(path)
+    }
+  }
+
+  PrefsGroup {
+    title: "VPN and hotspot"
+    query: Omarchy.wifiHw ? root.query : "."
+    detail: "WireGuard import uses nmcli. Hotspot needs a Wi-Fi adapter that can AP."
+    hint: "nmcli connection import · nmcli device wifi hotspot"
+
+    SettingRow {
+      label: "WireGuard"
+      description: root.wgError.length ? root.wgError : "Import a .conf from the tunnel you already have."
+      hint: "nmcli connection import type wireguard"
+      query: root.query
+      keywords: ["vpn", "wireguard", "import"]
+
+      PrefsButton {
+        text: "Import…"
+        onClicked: wgDialog.open()
+      }
+    }
+
+    SettingRow {
+      available: Omarchy.wifiHw
+      label: "Hotspot"
+      description: root.hotspotError.length ? root.hotspotError : "Share this machine's connection. Password needs 8 to 63 characters."
+      hint: "nmcli device wifi hotspot"
+      query: root.query
+      keywords: ["hotspot", "ap", "tether"]
+
+      Column {
+        spacing: Theme.space
+        PrefsField {
+          width: 160
+          placeholder: "SSID"
+          value: root.hotspotSsid
+          onEdited: function(value) { root.hotspotSsid = value }
+        }
+        PrefsField {
+          width: 160
+          placeholder: "Password"
+          onEdited: function(value) { root.hotspotPassword = value }
+        }
+        Row {
+          spacing: Theme.space
+          PrefsButton {
+            text: "Start"
+            primary: true
+            onClicked: {
+              if (!NetPrefs.argvFor("hotspot", { on: true, ssid: root.hotspotSsid, password: root.hotspotPassword })) {
+                root.hotspotError = "SSID and an 8–63 character password."
+                return
+              }
+              root.hotspotError = ""
+              Omarchy.setHotspot(true, root.hotspotSsid, root.hotspotPassword)
+            }
+          }
+          PrefsButton {
+            text: "Stop"
+            onClicked: Omarchy.setHotspot(false)
+          }
+        }
       }
     }
   }

@@ -3,6 +3,7 @@ import Quickshell.Networking
 import "../../components"
 import "../../services"
 import "../../services/RichUi.js" as RichUi
+import "../../services/NetworkPrefs.js" as NetPrefs
 
 PrefsPage {
   id: root
@@ -38,6 +39,8 @@ PrefsPage {
   readonly property bool qrLoading: Omarchy.jobKind === "wifi-qr" && Omarchy.jobBusy
   property bool enterpriseBusy: Omarchy.jobKind === "wifi-enterprise"
   property bool wifiJoinBusy: Omarchy.jobKind === "wifi-join" || Omarchy.jobKind === "wifi-enterprise"
+  property string staticUuid: ""
+  property string staticError: ""
   readonly property var networkDevices: Networking.devices ? Networking.devices.values : []
   readonly property var wifiDevice: findWifiDevice()
   readonly property var wifiNetworkObjects: wifiDevice && wifiDevice.networks ? wifiDevice.networks.values : []
@@ -462,6 +465,135 @@ PrefsPage {
         text: "Restart"
         enabled: Omarchy.wifiHw
         onClicked: Omarchy.restartWifi()
+      }
+    }
+  }
+
+  PrefsDialog {
+    id: staticDialog
+    title: "Static IPv4"
+
+    PrefsText {
+      width: parent.width
+      text: root.staticError.length ? root.staticError : "Address and prefix are required. Leave gateway or DNS blank to skip them."
+      color: root.staticError.length ? Theme.urgent : Theme.muted
+      font.family: Theme.fontFamily
+      font.pixelSize: Theme.captionSize
+    }
+
+    PrefsField { id: staticAddr; width: parent.width; placeholder: "10.0.0.8" }
+    PrefsField { id: staticPrefix; width: parent.width; placeholder: "24" }
+    PrefsField { id: staticGateway; width: parent.width; placeholder: "10.0.0.1" }
+    PrefsField { id: staticDns; width: parent.width; placeholder: "1.1.1.1" }
+
+    Row {
+      anchors.right: parent.right
+      spacing: Theme.space
+      PrefsButton {
+        text: "Cancel"
+        onClicked: staticDialog.close()
+      }
+      PrefsButton {
+        text: "Apply"
+        primary: true
+        onClicked: {
+          var spec = {
+            method: "manual",
+            address: staticAddr.currentText(),
+            prefix: staticPrefix.currentText(),
+            gateway: staticGateway.currentText(),
+            dns: staticDns.currentText()
+          }
+          if (!NetPrefs.argvFor("ipv4", { uuid: root.staticUuid, method: "manual", address: spec.address, prefix: spec.prefix, gateway: spec.gateway, dns: spec.dns })) {
+            root.staticError = "Check the address and prefix."
+            return
+          }
+          root.staticError = ""
+          Omarchy.setConnectionIpv4(root.staticUuid, spec)
+          staticDialog.close()
+        }
+      }
+    }
+  }
+
+  PrefsGroup {
+    framed: true
+    title: "Saved connections"
+    query: root.query
+    detail: "Metered, priority, MAC randomization, and static IPv4 write through nmcli. Forget is still on the scan list."
+    hint: "nmcli connection modify"
+
+    SettingRow {
+      available: Omarchy.wifiConnections.length === 0
+      label: "Saved networks"
+      description: "No saved connections."
+      query: root.query
+      keywords: ["saved", "empty"]
+    }
+
+    Repeater {
+      model: Omarchy.wifiConnections
+
+      SettingRow {
+        required property var modelData
+        label: modelData && modelData.name ? modelData.name : "Connection"
+        description: modelData && modelData.active ? "Active now." : "Saved."
+        hint: modelData && modelData.uuid ? modelData.uuid : "nmcli"
+        query: root.query
+        keywords: ["metered", "priority", "mac", "static", "ipv4"]
+
+        Column {
+          spacing: Theme.space
+          PrefsSelect {
+            value: modelData && modelData.metered ? String(modelData.metered) : "unknown"
+            options: [
+              { value: "unknown", label: "Metered: auto" },
+              { value: "yes", label: "Metered" },
+              { value: "no", label: "Not metered" }
+            ]
+            onChanged: function(value) {
+              if (modelData && modelData.uuid) Omarchy.setConnectionMetered(modelData.uuid, value)
+            }
+          }
+          PrefsField {
+            width: 80
+            placeholder: "Priority"
+            value: modelData && modelData.priority != null ? String(modelData.priority) : "0"
+            onSubmitted: function(value) {
+              if (modelData && modelData.uuid) Omarchy.setConnectionPriority(modelData.uuid, value)
+            }
+          }
+          PrefsSelect {
+            value: modelData && modelData.mac ? String(modelData.mac) : "default"
+            options: [
+              { value: "default", label: "MAC default" },
+              { value: "random", label: "Random MAC" },
+              { value: "stable", label: "Stable random" },
+              { value: "permanent", label: "Permanent" },
+              { value: "preserve", label: "Preserve" }
+            ]
+            onChanged: function(value) {
+              if (modelData && modelData.uuid) Omarchy.setConnectionMac(modelData.uuid, value)
+            }
+          }
+          Row {
+            spacing: Theme.space
+            PrefsButton {
+              text: "DHCP"
+              onClicked: {
+                if (modelData && modelData.uuid) Omarchy.setConnectionIpv4(modelData.uuid, { method: "auto" })
+              }
+            }
+            PrefsButton {
+              text: "Static…"
+              onClicked: {
+                root.staticUuid = modelData.uuid
+                root.staticError = ""
+                staticDialog.open()
+              }
+            }
+          }
+        }
       }
     }
   }

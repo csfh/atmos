@@ -34,6 +34,12 @@ assertEqual(
   1,
   "parseFile keeps unmanaged commands",
 );
+const delayed = auto.serialize([{ command: "mako", delay: 5, enabled: true }]);
+assert(delayed.indexOf('o.launch_on_start("sleep 5 && mako")') !== -1, "serialize writes a delay");
+const disabled = auto.serialize([{ command: "mako", delay: 0, enabled: false }]);
+assert(disabled.indexOf("-- o.launch_on_start") !== -1, "serialize comments a disabled launch");
+const parsedDelay = auto.parseFile(delayed);
+assertEqual(parsedDelay[0].delay, 5, "parseFile reads a delay");
 assertEqual(auto.sanitizeCommand("bad\ncmd"), "", "sanitizeCommand rejects a newline");
 assertEqual(
   auto.sanitizeCommand("x".repeat(257)),
@@ -43,7 +49,7 @@ assertEqual(
 assertEqual(auto.unescapeLua('\\"quoted\\"'), '"quoted"', "unescapeLua restores escaped quotes");
 assertEqual(auto.luaString('say "hi"'), '"say \\"hi\\""', "luaString escapes quotes");
 const quotedLaunch = auto.parseCalls('o.launch_on_start("echo \\"hi\\"")\n');
-assertEqual(quotedLaunch[0], 'echo "hi"', "parseCalls unescapes a quoted command");
+assertEqual(quotedLaunch[0].command, 'echo "hi"', "parseCalls unescapes a quoted command");
 const managed = auto.managedCommands([
   { command: "waybar", managed: false },
   { command: "mako", managed: true },
@@ -52,7 +58,11 @@ const managed = auto.managedCommands([
   null,
 ]);
 assertEqual(
-  managed.join(","),
+  managed
+    .map(function (row) {
+      return row.command;
+    })
+    .join(","),
   "mako,hyprsunset",
   "managedCommands keeps only managed or string rows",
 );
@@ -143,12 +153,12 @@ assertEqual(
   "parseCalls drops a launch whose Lua \\n is a newline",
 );
 assertEqual(
-  auto.parseCalls('o.launch_on_start("echo hello\\\\nworld")')[0],
+  auto.parseCalls('o.launch_on_start("echo hello\\\\nworld")')[0].command,
   "echo hello\\nworld",
   "parseCalls keeps a Lua \\\\n as a literal backslash-n",
 );
 assertEqual(
-  auto.parseCalls('o.launch_on_start("echo a\\tb")')[0],
+  auto.parseCalls('o.launch_on_start("echo a\\tb")')[0].command,
   "echo a\tb",
   "parseCalls turns Lua \\t into a tab",
 );

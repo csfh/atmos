@@ -102,7 +102,9 @@ assert(lookKeys.indexOf("disks") === -1, "look emit does not include disks");
 assert(lookKeys.indexOf("group") === -1, "look emit does not include group");
 assert(groups.emitKeys("accounts").indexOf("hostname") === -1, "accounts emit omits hostname");
 assert(groups.emitKeys("system").indexOf("hostname") !== -1, "system emit includes hostname");
+assert(groups.emitKeys("system").indexOf("diagnostics") !== -1, "system emit includes diagnostics");
 assert(groups.emitKeys("rest").indexOf("hardware") !== -1, "rest emit still carries hardware");
+assert(groups.emitKeys("rest").indexOf("diagnostics") !== -1, "rest emit includes diagnostics");
 assert(
   groups.emitKeys("rest").indexOf("barPosition") !== -1,
   "rest emit still carries barPosition",
@@ -172,14 +174,14 @@ const paths = {
   pacmanConfFile: "/etc/pacman.conf",
 };
 const specs = groups.watchSpecs(paths);
-assertEqual(specs.length, 42, "watchSpecs drops extraThemesDir and keeps 42 path/group pairs");
+assertEqual(specs.length, 44, "watchSpecs drops extraThemesDir and keeps 44 path/group pairs");
 assertEqual(
   specs
     .map(function (row) {
       return row.group;
     })
     .join(","),
-  "look,look,look,look,look,look,look,look,look,look,look,look,look,look,look,look,look,look,look,look,look,look,all,rest,rest,rest,rest,rest,rest,rest,rest,rest,rest,rest,rest,rest,rest,rest,rest,rest,rest,rest",
+  "look,look,look,look,look,look,look,look,look,look,look,look,look,look,look,look,look,look,look,look,look,look,all,rest,rest,rest,rest,rest,rest,rest,rest,rest,rest,rest,rest,rest,rest,rest,system,look,rest,rest,rest,rest",
   "watchSpecs group order matches today's Omarchy array",
 );
 assertEqual(specs[0].path, "/u/shell.json", "watchSpecs uses the passed userShellJson path");

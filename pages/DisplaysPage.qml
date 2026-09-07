@@ -2,6 +2,7 @@ import QtQuick
 import "../components"
 import "../services"
 import "../services/RichUi.js" as RichUi
+import "../services/Monitors.js" as MonJs
 import "rows"
 
 PrefsPage {
@@ -59,7 +60,59 @@ PrefsPage {
     var summary = root.monitorSummary(monitor)
     var n = monitor && Array.isArray(monitor.availableModes) ? monitor.availableModes.length : 0
     var modes = n > 1 ? (n + " modes on this output. ") : ""
-    return summary + " " + modes + "Atmos cannot change the panel mode here. Edit ~/.config/hypr/monitors.lua, then reload Hyprland."
+    return summary + " " + modes + "Picking a mode writes a monitor rule in ~/.config/hypr/monitors.lua."
+  }
+
+  function ruleFor(monitor) {
+    var name = monitor && monitor.name ? String(monitor.name) : ""
+    var list = Omarchy.monitorRules || []
+    for (var i = 0; i < list.length; i++) {
+      if (list[i] && String(list[i].output || "") === name) return list[i]
+    }
+    return null
+  }
+
+  function ruleTransform(monitor) {
+    var rule = root.ruleFor(monitor)
+    if (rule && rule.transform != null) return String(rule.transform)
+    return String(Math.round(Number(monitor && monitor.transform)) || 0)
+  }
+
+  function ruleDisabled(monitor) {
+    var rule = root.ruleFor(monitor)
+    if (rule) return rule.disabled === true
+    return monitor && monitor.enabled === false
+  }
+
+  function ruleVrr(monitor) {
+    var rule = root.ruleFor(monitor)
+    if (rule && rule.vrr != null) return String(rule.vrr)
+    return String(Math.round(Number(monitor && monitor.vrr)) || 0)
+  }
+
+  function ruleBitdepth(monitor) {
+    var rule = root.ruleFor(monitor)
+    if (rule && rule.bitdepth === 10) return "10"
+    return "8"
+  }
+
+  function ruleCm(monitor) {
+    var rule = root.ruleFor(monitor)
+    return rule && rule.cm ? String(rule.cm) : ""
+  }
+
+  function vrrAvailable(monitor) {
+    if (!monitor) return false
+    if (monitor.vrr === true || Number(monitor.vrr) > 0) return true
+    if (monitor.availableVrr === true) return true
+    var modes = Array.isArray(monitor.availableModes) ? monitor.availableModes : []
+    return modes.length > 0
+  }
+
+  function hdrAvailable(monitor) {
+    if (!monitor) return false
+    var cm = String(monitor.currentFormat || monitor.cm || "")
+    return /hdr|bt2020|10/i.test(cm) || monitor.hdr === true || root.ruleCm(monitor) === "hdr"
   }
 
   PrefsGroup {
@@ -99,13 +152,13 @@ PrefsPage {
       readonly property var modelData: Omarchy.monitors[index] || ({})
       title: root.monitorTitle(modelData)
       query: root.query
-      detail: "This output's current mode. Scale only shows when the monitor is focused. Brightness works on the built-in panel and on some external monitors. Resolution is set in ~/.config/hypr/monitors.lua."
+      detail: "Mode, scale, rotation, and disable write a monitor rule in ~/.config/hypr/monitors.lua. Brightness works on the built-in panel and on some external monitors."
 
       SettingRow {
         label: "Resolution"
         description: root.resolutionDescription(modelData)
         hint: "~/.config/hypr/monitors.lua"
-        detail: "Hyprland picks a mode from this output's EDID list. Atmos cannot change it here because there is no omarchy monitor-mode command. Edit ~/.config/hypr/monitors.lua, then reload Hyprland. Copy puts the current mode on the clipboard."
+        detail: "Hyprland's EDID list for this output. Atmos writes the pick as hl.monitor mode."
         query: root.query
         keywords: ["monitor", "display", "hdmi", "dp", "edp", "resolution", "refresh"]
 
@@ -114,24 +167,128 @@ PrefsPage {
           PrefsSelect {
             value: RichUi.currentMonitorModeValue(modelData)
             options: RichUi.monitorModeOptions(modelData)
-            enabled: false
+            enabled: !!(modelData && modelData.name)
+            onChanged: function(value) {
+              var mode = MonJs.modeFromHyprctl(value)
+              if (mode) Omarchy.patchMonitorRule(modelData.name, { mode: mode, disabled: false })
+            }
           }
           PrefsButton {
             text: "Copy"
             enabled: RichUi.monitorModeCopyText(modelData).length > 0
             onClicked: Omarchy.copyText(RichUi.monitorModeCopyText(modelData))
           }
-          PrefsButton {
-            text: "Edit"
-            onClicked: Omarchy.editMonitorsLua()
+        }
+      }
+
+      SettingRow {
+        available: !!(modelData && modelData.name)
+        label: "Rotation"
+        description: "How this panel is turned."
+        hint: "hl.monitor transform"
+        query: root.query
+        keywords: ["rotate", "transform", "portrait"]
+
+        PrefsSelect {
+          value: root.ruleTransform(modelData)
+          options: [
+            { value: "0", label: "Normal" },
+            { value: "1", label: "90°" },
+            { value: "2", label: "180°" },
+            { value: "3", label: "270°" }
+          ]
+          onChanged: function(value) {
+            Omarchy.patchMonitorRule(modelData.name, { transform: Math.round(Number(value)) || 0 })
           }
         }
       }
 
       SettingRow {
-        available: modelData && modelData.focused === true
+        available: !!(modelData && modelData.name)
+        label: "Disable this display"
+        description: "Keeps the rule so you can turn it back on. Does not delete the output from the file."
+        hint: "hl.monitor disabled"
+        query: root.query
+        keywords: ["disable", "off", "lid"]
+
+        PrefsToggle {
+          checked: root.ruleDisabled(modelData)
+          onToggled: Omarchy.patchMonitorRule(modelData.name, { disabled: !root.ruleDisabled(modelData) })
+        }
+      }
+
+      SettingRow {
+        available: !!(modelData && modelData.name && root.vrrAvailable(modelData))
+        label: "Variable refresh"
+        description: "VRR when this output supports it. Fullscreen-only is the safer game setting."
+        hint: "hl.monitor vrr"
+        query: root.query
+        keywords: ["vrr", "freesync", "g-sync"]
+
+        PrefsSelect {
+          value: root.ruleVrr(modelData)
+          options: [
+            { value: "0", label: "Off" },
+            { value: "1", label: "On" },
+            { value: "2", label: "Fullscreen" },
+            { value: "3", label: "Fullscreen games" }
+          ]
+          onChanged: function(value) {
+            Omarchy.patchMonitorRule(modelData.name, { vrr: Math.round(Number(value)) || 0 })
+          }
+        }
+      }
+
+      SettingRow {
+        available: !!(modelData && modelData.name)
+        label: "Bit depth"
+        description: "10-bit when the panel and cable can do it."
+        hint: "hl.monitor bitdepth"
+        query: root.query
+        keywords: ["bitdepth", "10-bit", "hdr"]
+
+        PrefsSelect {
+          value: root.ruleBitdepth(modelData)
+          options: [
+            { value: "8", label: "8-bit" },
+            { value: "10", label: "10-bit" }
+          ]
+          onChanged: function(value) {
+            Omarchy.patchMonitorRule(modelData.name, { bitdepth: value === "10" ? 10 : 8 })
+          }
+        }
+      }
+
+      SettingRow {
+        available: !!(modelData && modelData.name)
+        label: "Color"
+        description: root.hdrAvailable(modelData)
+          ? "This output can take HDR. Auto leaves Hyprland's default."
+          : "Color profile for this output. HDR stays off unless the panel reports it."
+        hint: "hl.monitor cm"
+        query: root.query
+        keywords: ["hdr", "color", "srgb", "wide"]
+
+        PrefsSelect {
+          value: root.ruleCm(modelData)
+          options: [
+            { value: "", label: "Auto" },
+            { value: "srgb", label: "sRGB" },
+            { value: "wide", label: "Wide" },
+            { value: "dcip3", label: "DCI-P3" },
+            { value: "hdr", label: "HDR" },
+            { value: "hdredid", label: "HDR EDID" }
+          ]
+          onChanged: function(value) {
+            Omarchy.patchMonitorRule(modelData.name, { cm: value })
+          }
+        }
+      }
+
+      SettingRow {
+        available: !!(modelData && modelData.name)
         label: "Scale"
-        description: "How large the interface looks on the focused monitor. Hyprland snaps to a factor it can draw cleanly."
+        description: "How large the interface looks on this monitor. The focused output uses omarchy hyprland monitor scaling. Other outputs write a monitor rule."
         hint: "omarchy hyprland monitor scaling"
         detail: "Scale is Hyprland's factor of UI pixels over physical pixels. 200% on a 4K panel makes chrome and text about the size they would be at 1080p. Hyprland snaps to a factor it can render cleanly, so 125% or 160% can land a little off the number you pick. This control only applies to the focused output. Other monitors keep their own scale."
         query: root.query
@@ -140,9 +297,40 @@ PrefsPage {
         PrefsSelect {
           value: root.scaleValue(modelData)
           options: root.scaleOptions(modelData)
-          enabled: modelData && modelData.focused === true
+          enabled: !!(modelData && modelData.name)
           onChanged: function(value) {
-            if (value !== root.scaleValue(modelData)) Omarchy.setMonitorScale(value)
+            if (value !== root.scaleValue(modelData)) {
+              if (modelData.focused === true) Omarchy.setMonitorScale(value)
+              else {
+                var rules = []
+                var list = Omarchy.monitorRules || []
+                var found = false
+                for (var i = 0; i < list.length; i++) {
+                  var row = list[i] || {}
+                  if (row.output === modelData.name) {
+                    var next = {}
+                    for (var k in row) next[k] = row[k]
+                    next.scale = Number(value)
+                    rules.push(next)
+                    found = true
+                  } else rules.push(row)
+                }
+                if (!found) {
+                  rules.push({
+                    output: modelData.name,
+                    mode: "preferred",
+                    position: "auto",
+                    scale: Number(value),
+                    transform: 0,
+                    disabled: modelData.enabled === false,
+                    vrr: 0,
+                    bitdepth: 8,
+                    cm: ""
+                  })
+                }
+                Omarchy.writeMonitorRules(rules)
+              }
+            }
           }
         }
       }
@@ -162,6 +350,7 @@ PrefsPage {
           to: 100
           stepSize: 1
           live: true
+          showTicks: false
           value: modelData && modelData.brightness ? modelData.brightness : 1
           valueText: (modelData && modelData.brightness ? modelData.brightness : 0) + "%"
           enabled: modelData && modelData.brightnessAvailable === true
@@ -170,6 +359,37 @@ PrefsPage {
             if (!modelData || next === modelData.brightness) return
             Omarchy.setDisplayBrightness(modelData.name, next)
           }
+        }
+      }
+    }
+  }
+
+  PrefsGroup {
+    title: "Layouts"
+    query: Omarchy.monitors.length ? root.query : "."
+    detail: "Desk keeps every output on. Laptop keeps the built-in panel. Docked turns the built-in panel off. Each write is a monitor rule in ~/.config/hypr/monitors.lua."
+    hint: "~/.config/hypr/monitors.lua"
+
+    SettingRow {
+      label: "Apply a layout"
+      description: "Uses the outputs Hyprland sees right now."
+      hint: "hl.monitor"
+      query: root.query
+      keywords: ["desk", "laptop", "docked", "layout", "profile"]
+
+      Row {
+        spacing: Theme.space
+        PrefsButton {
+          text: "Desk"
+          onClicked: Omarchy.applyMonitorLayout("desk")
+        }
+        PrefsButton {
+          text: "Laptop"
+          onClicked: Omarchy.applyMonitorLayout("laptop")
+        }
+        PrefsButton {
+          text: "Docked"
+          onClicked: Omarchy.applyMonitorLayout("docked")
         }
       }
     }

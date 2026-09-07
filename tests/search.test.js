@@ -197,7 +197,7 @@ assert(
 );
 assert(
   qmlCatalog.some(function (row) {
-    return row.label === "Add a binding" && row.hub === "windows/bindings";
+    return row.label === "Add a binding" && row.hub === "keybindings";
   }),
   "qml catalog sends binding rows to the keybindings subpage",
 );
@@ -221,13 +221,19 @@ assert(
 );
 assert(
   qmlCatalog.some(function (row) {
+    return row.label === "Copy report" && row.hub === "system/diagnostics";
+  }),
+  "qml catalog sends diagnostic report rows to the diagnostics subpage",
+);
+assert(
+  qmlCatalog.some(function (row) {
     return row.label === "Wi-Fi radio" && row.hub === "network/wifi";
   }),
   "qml catalog sends Wi-Fi rows to the wifi subpage",
 );
 assert(
   qmlCatalog.some(function (row) {
-    return row.label === "Bluetooth radio" && row.hub === "network/bluetooth";
+    return row.label === "Bluetooth radio" && row.hub === "bluetooth";
   }),
   "qml catalog sends Bluetooth rows to the bluetooth subpage",
 );
@@ -240,9 +246,7 @@ assert(
 assert(
   qmlCatalog.some(function (row) {
     return (
-      row.label === "Add a binding" &&
-      row.hub === "windows/bindings" &&
-      row.hubTitle === "Keybindings"
+      row.label === "Add a binding" && row.hub === "keybindings" && row.hubTitle === "Keybindings"
     );
   }),
   "binding search hits show the keybindings page title",
@@ -261,8 +265,8 @@ search.ingestRows(staleIndex, [
 ]);
 search.replaceRows(staleIndex, [
   {
-    id: "windows/bindings/add-a-binding-PrefsRow-0",
-    hub: "windows/bindings",
+    id: "keybindings/add-a-binding-PrefsRow-0",
+    hub: "keybindings",
     hubTitle: "Keybindings",
     label: "Add a binding",
     description: "live hub path",
@@ -272,7 +276,7 @@ search.replaceRows(staleIndex, [
 ]);
 const replaced = search.queryRows(staleIndex, "binding");
 assert(
-  replaced.length === 1 && replaced[0].hub === "windows/bindings",
+  replaced.length === 1 && replaced[0].hub === "keybindings",
   "replaceRows drops stale search rows whose ids changed",
 );
 staleIndex.close();

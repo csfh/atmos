@@ -10,6 +10,30 @@ assertEqual(
   "SUPER + SHIFT + R",
   "sanitizeKeys keeps a chord",
 );
+assertEqual(binds.sanitizeKeys("SUPER + comma"), "SUPER + comma", "sanitizeKeys keeps comma");
+assertEqual(binds.recordChord(["Super", ","]), "SUPER + comma", "recordChord maps comma");
+assertEqual(
+  binds.recordKeyEvent({ key: 0x46, text: "f", modifiers: 0x10000000 }),
+  "SUPER + F",
+  "recordKeyEvent maps Super+F from a key press",
+);
+assertEqual(
+  binds.recordKeyEvent({ key: 0x01000020, text: "", modifiers: 0x02000000 }),
+  "",
+  "recordKeyEvent ignores a lone Shift",
+);
+assertEqual(
+  binds.recordKeyEvent({ key: 0x2c, text: ",", modifiers: 0x10000000 }),
+  "SUPER + comma",
+  "recordKeyEvent maps Super+comma",
+);
+assertEqual(binds.categoryFromAction("Close window"), "Window", "categoryFromAction window");
+assert(
+  binds
+    .generatedBindText({ keys: "SUPER + F", command: "nautilus", unbind: true })
+    .indexOf("hl.unbind") !== -1,
+  "generatedBindText includes unbind",
+);
 assertEqual(binds.sanitizeKeys("SUPER + F\n"), "", "sanitizeKeys rejects a newline");
 assertEqual(binds.sanitizeCommand("bad\ncmd"), "", "sanitizeCommand rejects a newline");
 const bindSeed =

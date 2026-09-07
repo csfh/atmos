@@ -32,6 +32,10 @@ function defaultLook() {
     inactiveOpacity: 1,
     preserveSplit: false,
     focusOnActivate: false,
+    enableSwallow: false,
+    swallowRegex: "",
+    cursorWarpOnFocus: false,
+    onFocusUnderFullscreen: 1,
   };
 }
 
@@ -107,7 +111,19 @@ function clampLook(raw) {
     inactiveOpacity: clampFloat(src.inactiveOpacity, 0.2, 1, base.inactiveOpacity),
     preserveSplit: asBool(src.preserveSplit, base.preserveSplit),
     focusOnActivate: asBool(src.focusOnActivate, base.focusOnActivate),
+    enableSwallow: asBool(src.enableSwallow, base.enableSwallow),
+    swallowRegex: sanitizeSwallowRegex(src.swallowRegex),
+    cursorWarpOnFocus: asBool(src.cursorWarpOnFocus, base.cursorWarpOnFocus),
+    onFocusUnderFullscreen: clampInt(src.onFocusUnderFullscreen, 0, 2, base.onFocusUnderFullscreen),
   };
+}
+
+function sanitizeSwallowRegex(raw) {
+  var text = String(raw || "");
+  if (text.indexOf("\n") !== -1 || text.indexOf("\r") !== -1) return "";
+  text = text.replace(/^\s+|\s+$/g, "");
+  if (text.length > 128) return "";
+  return text;
 }
 
 function sanitizeLayoutList(raw) {
@@ -231,17 +247,26 @@ function serializeLook(raw) {
     "  },",
     "  misc = {",
     "    focus_on_activate = " + luaBool(s.focusOnActivate) + ",",
+    "    enable_swallow = " + luaBool(s.enableSwallow) + ",",
+    s.swallowRegex ? "    swallow_regex = " + luaString(s.swallowRegex) + "," : "",
+    "    on_focus_under_fullscreen = " + luaNumber(s.onFocusUnderFullscreen) + ",",
     "  },",
     "  cursor = {",
     "    hide_on_key_press = " + luaBool(s.cursorHideOnKey) + ",",
     "    warp_on_change_workspace = " + (s.cursorWarp ? "1" : "0") + ",",
+    "    warp_on_focus_change = " + luaBool(s.cursorWarpOnFocus) + ",",
     "  },",
     "})",
     "hl.env(" + luaString("HYPRCURSOR_SIZE") + ", " + luaString(String(s.cursorSize)) + ")",
     "hl.env(" + luaString("XCURSOR_SIZE") + ", " + luaString(String(s.cursorSize)) + ")",
     LOOK_END,
   ];
-  return lines.join("\n");
+  var out = [];
+  var i;
+  for (i = 0; i < lines.length; i++) {
+    if (lines[i] !== "") out.push(lines[i]);
+  }
+  return out.join("\n");
 }
 
 function serializeInput(raw) {

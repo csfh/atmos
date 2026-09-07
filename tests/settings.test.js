@@ -1,4 +1,6 @@
+const { spawnSync } = require("child_process");
 const fs = require("fs");
+const os = require("os");
 const path = require("path");
 const { load, assert, assertEqual } = require("./harness");
 
@@ -676,6 +678,70 @@ for (const item of s_catalog) {
   if (!cmd) undispatched = item.key;
 }
 assertEqual(undispatched, "", "every importable setting has a non-null commandFor");
+
+const wsCmd = settings.commandFor(
+  "workspaces",
+  [{ id: "1", name: "code", persistent: true }],
+  { workspaces: [] },
+  {},
+);
+assert(
+  wsCmd && wsCmd.argv && wsCmd.argv.join(" ").indexOf("set-hypr-workspaces.sh") !== -1,
+  "workspaces uses the sentinel writer",
+);
+const shrinkItems = [
+  { id: "1", name: "code", persistent: true },
+  { id: "2", persistent: true },
+  { id: "3", persistent: true },
+];
+const shrinkCmd = settings.commandFor("workspaces", shrinkItems, { workspaces: [] }, {});
+const shrinkPayload = JSON.parse(shrinkCmd.argv[shrinkCmd.argv.length - 1]);
+assertEqual(shrinkPayload.count, 3, "commandFor workspaces JSON carries count 3");
+assertEqual(shrinkPayload.items.length, 3, "commandFor workspaces JSON keeps three items");
+const shrinkFile = path.join(os.tmpdir(), "atmos-ws-shrink-" + process.pid + ".lua");
+fs.writeFileSync(shrinkFile, "");
+const shrinkPy = spawnSync(
+  "python3",
+  [
+    path.join(__dirname, "..", "scripts", "hypr-sentinel.py"),
+    "workspaces",
+    "apply",
+    shrinkFile,
+    shrinkCmd.argv[shrinkCmd.argv.length - 1],
+  ],
+  { encoding: "utf8" },
+);
+assertEqual(shrinkPy.status, 0, "hypr-sentinel.py apply of commandFor shrink payload exits 0");
+const shrinkLua = fs.readFileSync(shrinkFile, "utf8");
+fs.unlinkSync(shrinkFile);
+assert(shrinkLua.indexOf('workspace = "3"') !== -1, "shrink write keeps workspace 3");
+assert(shrinkLua.indexOf('workspace = "4"') === -1, "shrink write does not refill workspace 4");
+assert(shrinkLua.indexOf('workspace = "10"') === -1, "shrink write does not refill workspace 10");
+const monCmd = settings.commandFor(
+  "monitorRules",
+  [{ output: "DP-1", mode: "preferred", scale: 1 }],
+  { monitorRules: [] },
+  {},
+);
+assert(
+  monCmd && monCmd.argv && monCmd.argv.join(" ").indexOf("set-hypr-monitors.sh") !== -1,
+  "monitorRules uses the sentinel writer",
+);
+const tweakCmd = settings.commandFor("tweaks.middlePaste", true, {}, {});
+assert(
+  tweakCmd && tweakCmd.argv && tweakCmd.argv.join(" ").indexOf("gtk-middle-paste") !== -1,
+  "tweaks.middlePaste uses set-tweaks.sh",
+);
+const envCmd = settings.commandFor(
+  "envVars",
+  [{ key: "EDITOR", value: "nvim" }],
+  { envVars: [] },
+  {},
+);
+assert(
+  envCmd && envCmd.argv && envCmd.argv.join(" ").indexOf("set-env.sh") !== -1,
+  "envVars uses set-env.sh",
+);
 
 assertEqual(
   settings.commandFor("sshdEnabled", true, { sshdEnabled: false }),

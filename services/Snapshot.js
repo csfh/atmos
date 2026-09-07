@@ -813,6 +813,12 @@ function adopt(currentRecord, patch, adapters) {
   if (hasOwn(filtered, "hardware") && typeof adapters.normalizeHardware === "function")
     merged.hardware = adoptValue(current.hardware, adapters.normalizeHardware(filtered.hardware));
 
+  if (hasOwn(filtered, "diagnostics") && typeof adapters.normalizeDiagnostics === "function")
+    merged.diagnostics = adoptValue(
+      current.diagnostics,
+      adapters.normalizeDiagnostics(filtered.diagnostics),
+    );
+
   return merged;
 }
 

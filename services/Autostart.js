@@ -69,15 +69,39 @@ function inLineComment(src, at) {
   return false;
 }
 
-function parseCalls(text) {
+function splitDelay(raw) {
+  var text = String(raw || "").replace(/^\s+|\s+$/g, "");
+  var m = text.match(/^sleep\s+(\d+)\s+&&\s+(.+)$/);
+  if (!m) return { delay: 0, command: sanitizeCommand(text) };
+  var delay = Math.round(Number(m[1]));
+  if (!isFinite(delay) || delay < 0) delay = 0;
+  if (delay > 600) delay = 600;
+  return { delay: delay, command: sanitizeCommand(m[2]) };
+}
+
+function joinDelay(command, delay) {
+  var cmd = sanitizeCommand(command);
+  var n = Math.round(Number(delay));
+  if (!isFinite(n) || n < 0) n = 0;
+  if (n > 600) n = 600;
+  if (!cmd) return "";
+  if (n > 0) return "sleep " + n + " && " + cmd;
+  return cmd;
+}
+
+function parseCalls(text, disabled) {
   var src = String(text || "");
   var out = [];
   var re = /o\.launch_on_start\(\s*"((?:\\.|[^"\\])*)"\s*\)/g;
   var m;
   while ((m = re.exec(src))) {
-    if (inLineComment(src, m.index)) continue;
-    var cmd = sanitizeCommand(unescapeLua(m[1]));
-    if (cmd) out.push(cmd);
+    var commented = inLineComment(src, m.index);
+    if (disabled === true) {
+      if (!commented) continue;
+    } else if (commented) continue;
+    var split = splitDelay(unescapeLua(m[1]));
+    if (split.command)
+      out.push({ command: split.command, delay: split.delay, enabled: disabled !== true });
   }
   return out;
 }
@@ -110,17 +134,60 @@ function parseFile(text) {
   }
   var items = [];
   var i;
-  for (i = 0; i < unmanaged.length; i++) items.push({ command: unmanaged[i], managed: false });
-  for (i = 0; i < managed.length; i++) items.push({ command: managed[i], managed: true });
+  var disabled = bounds ? parseCalls(src.substring(bounds.start, bounds.stop), true) : [];
+  for (i = 0; i < unmanaged.length; i++) {
+    items.push({
+      command: unmanaged[i].command,
+      delay: unmanaged[i].delay,
+      enabled: true,
+      managed: false,
+    });
+  }
+  for (i = 0; i < managed.length; i++) {
+    items.push({
+      command: managed[i].command,
+      delay: managed[i].delay,
+      enabled: true,
+      managed: true,
+    });
+  }
+  for (i = 0; i < disabled.length; i++) {
+    items.push({
+      command: disabled[i].command,
+      delay: disabled[i].delay,
+      enabled: false,
+      managed: true,
+    });
+  }
   return items;
+}
+
+function normalizeItem(row) {
+  if (typeof row === "string") {
+    var split = splitDelay(row);
+    if (!split.command) return null;
+    return { command: split.command, delay: split.delay, enabled: true };
+  }
+  if (!row || typeof row !== "object") return null;
+  var command = sanitizeCommand(row.command);
+  if (!command) return null;
+  var delay = Math.round(Number(row.delay || 0));
+  if (!isFinite(delay) || delay < 0) delay = 0;
+  if (delay > 600) delay = 600;
+  return { command: command, delay: delay, enabled: row.enabled !== false };
 }
 
 function serialize(commands) {
   var list = Array.isArray(commands) ? commands : [];
   var lines = [BEGIN];
   for (var i = 0; i < list.length; i++) {
-    var cmd = sanitizeCommand(list[i]);
-    if (cmd) lines.push("o.launch_on_start(" + luaString(cmd) + ")");
+    var row = normalizeItem(list[i]);
+    if (!row) continue;
+    var cmd = joinDelay(row.command, row.delay);
+    if (!cmd) continue;
+    var line = "o.launch_on_start(" + luaString(cmd) + ")";
+    if (row.enabled === false) line = "-- " + line;
+    lines.push(line);
   }
   lines.push(END);
   return lines.join("\n");
@@ -147,8 +214,9 @@ function managedCommands(items) {
   for (var i = 0; i < list.length; i++) {
     var row = list[i];
     if (!row) continue;
-    var cmd = sanitizeCommand(typeof row === "string" ? row : row.command);
-    if (cmd && (typeof row === "string" || row.managed === true)) out.push(cmd);
+    if (typeof row === "object" && row.managed === false) continue;
+    var next = normalizeItem(typeof row === "string" ? row : row);
+    if (next) out.push(next);
   }
   return out;
 }

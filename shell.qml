@@ -11,6 +11,8 @@ import "services/Layout.js" as LayoutJs
 import "services/RichUi.js" as RichUi
 import "components"
 import "pages"
+import "pages/windows" as Win
+import "pages/network" as Net
 
 ShellRoot {
   id: root
@@ -143,8 +145,11 @@ ShellRoot {
   Component { id: appearancePage; AppearancePage { query: root.query; stack: pageStack } }
   Component { id: displayPage; DisplaysPage { query: root.query } }
   Component { id: hardwarePage; HardwarePage { query: root.query } }
-  Component { id: windowsPage; WindowsPage { query: root.query; stack: pageStack } }
+  Component { id: windowsPage; WindowsPage { query: root.query; stack: pageStack; navigator: prefsNavigator } }
+  Component { id: workspacesPage; WorkspacesPage { query: root.query } }
   Component { id: inputPage; InputPage { query: root.query } }
+  Component { id: keybindingsPage; Win.BindingsPage { query: root.query } }
+  Component { id: profilesPage; ProfilesPage { query: root.query; navigator: prefsNavigator } }
   Component { id: accessibilityPage; AccessibilityPage { query: root.query } }
   Component { id: soundPage; SoundPage { query: root.query } }
   Component { id: capturePage; CapturePage { query: root.query } }
@@ -152,15 +157,18 @@ ShellRoot {
   Component { id: barPage; BarPage { query: root.query } }
   Component { id: notificationsPage; NotificationsPage { query: root.query } }
   Component { id: defaultsPage; DefaultsPage { query: root.query } }
-  Component { id: applicationsPage; ApplicationsPage { query: root.query } }
+  Component { id: applicationsPage; ApplicationsPage { query: root.query; stack: pageStack; navigator: prefsNavigator } }
   Component { id: softwarePage; SoftwarePage { query: root.query } }
-  Component { id: networkPage; NetworkPage { query: root.query; stack: pageStack } }
+  Component { id: networkPage; NetworkPage { query: root.query; stack: pageStack; navigator: prefsNavigator } }
+  Component { id: bluetoothPage; Net.BluetoothPage { query: root.query } }
   Component { id: powerPage; PowerPage { query: root.query } }
   Component { id: idlePage; IdlePage { query: root.query } }
+  Component { id: tweaksPage; TweaksPage { query: root.query } }
+  Component { id: servicesPage; ServicesPage { query: root.query } }
   Component { id: securityPage; SecurityPage { query: root.query } }
   Component { id: accountsPage; AccountsPage { query: root.query } }
   Component { id: hooksPage; HooksPage { query: root.query } }
-  Component { id: systemPage; SystemPage { query: root.query } }
+  Component { id: systemPage; SystemPage { query: root.query; stack: pageStack; navigator: prefsNavigator } }
   Component { id: exportPage; ExportPage { query: root.query } }
   Component { id: searchPage; SearchPage { query: root.query; navigator: prefsNavigator } }
 
@@ -169,19 +177,25 @@ ShellRoot {
     display: displayPage,
     hardware: hardwarePage,
     windows: windowsPage,
+    workspaces: workspacesPage,
     input: inputPage,
+    keybindings: keybindingsPage,
     accessibility: accessibilityPage,
     sound: soundPage,
     capture: capturePage,
     disks: disksPage,
     bar: barPage,
     notifications: notificationsPage,
+    profiles: profilesPage,
     defaults: defaultsPage,
     applications: applicationsPage,
     software: softwarePage,
     network: networkPage,
+    bluetooth: bluetoothPage,
     power: powerPage,
     idle: idlePage,
+    tweaks: tweaksPage,
+    services: servicesPage,
     security: securityPage,
     accounts: accountsPage,
     hooks: hooksPage,

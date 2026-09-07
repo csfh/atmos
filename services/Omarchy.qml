@@ -4,6 +4,7 @@ import Quickshell
 import Quickshell.Io
 import "Accounts.js" as AccountsJs
 import "AtmosUpdate.js" as AtmosUpdate
+import "Diagnostics.js" as DiagnosticsJs
 import "Hardware.js" as HardwareJs
 import "Hooks.js" as HooksJs
 import "Hubs.js" as HubsJs
@@ -11,6 +12,8 @@ import "HyprPrefs.js" as HyprPrefs
 import "HyprSunset.js" as HyprSunset
 import "RichUi.js" as RichUi
 import "Settings.js" as SettingsJs
+import "NetworkPrefs.js" as NetworkPrefs
+import "Monitors.js" as MonitorsJs
 import "Snapshot.js" as SnapshotJs
 import "SnapshotGroups.js" as SnapshotGroups
 import "Theme.js" as ThemeJs
@@ -45,6 +48,12 @@ QtObject {
   readonly property string setHyprAutostartScript: shellDir + "/scripts/set-hypr-autostart.sh"
   readonly property string setHyprBindingsScript: shellDir + "/scripts/set-hypr-bindings.sh"
   readonly property string setHyprWindowsScript: shellDir + "/scripts/set-hypr-windows.sh"
+  readonly property string setHyprWorkspacesScript: shellDir + "/scripts/set-hypr-workspaces.sh"
+  readonly property string setHyprMonitorsScript: shellDir + "/scripts/set-hypr-monitors.sh"
+  readonly property string setEnvScript: shellDir + "/scripts/set-env.sh"
+  readonly property string setTweaksScript: shellDir + "/scripts/set-tweaks.sh"
+  readonly property string setPresentationScript: shellDir + "/scripts/set-presentation.sh"
+  readonly property string setChargeLimitScript: shellDir + "/scripts/set-charge-limit.sh"
   readonly property string refreshHyprlandScript: shellDir + "/scripts/refresh-hyprland.sh"
   readonly property string resetAtmosScript: shellDir + "/scripts/reset-atmos.sh"
   readonly property string setHyprsunsetScript: shellDir + "/scripts/set-hyprsunset.sh"
@@ -58,6 +67,9 @@ QtObject {
   readonly property string setPasswordlessSudoScript: shellDir + "/scripts/set-passwordless-sudo.sh"
   readonly property string createHookScript: shellDir + "/scripts/create-hook.sh"
   readonly property string setHookSampleScript: shellDir + "/scripts/set-hook-sample.sh"
+  readonly property string diagReportScript: shellDir + "/scripts/diag-report.sh"
+  readonly property string envFile: Quickshell.env("HOME") + "/.config/environment.d/10-atmos.conf"
+  readonly property string presentationFile: Quickshell.env("HOME") + "/.local/state/omarchy/atmos-presentation.json"
   readonly property string looknfeelLuaFile: Quickshell.env("HOME") + "/.config/hypr/looknfeel.lua"
   readonly property string inputLuaFile: Quickshell.env("HOME") + "/.config/hypr/input.lua"
   readonly property string autostartLuaFile: Quickshell.env("HOME") + "/.config/hypr/autostart.lua"
@@ -184,6 +196,7 @@ QtObject {
   property string audioSource: ""
   property var disks: []
   property var hardware: ({})
+  property var diagnostics: ({})
   property var luksDevices: []
   property var swapDevices: []
   property bool snapperPresent: false
@@ -276,6 +289,10 @@ QtObject {
   property real hyprInactiveOpacity: 1
   property bool hyprPreserveSplit: false
   property bool hyprFocusOnActivate: false
+  property bool hyprEnableSwallow: false
+  property string hyprSwallowRegex: ""
+  property bool hyprCursorWarpOnFocus: false
+  property int hyprOnFocusUnderFullscreen: 1
   property bool hyprLookManaged: false
   property real hyprSensitivity: 0
   property string hyprAccelProfile: ""
@@ -370,6 +387,24 @@ QtObject {
   property bool bindingsManaged: false
   property var windowRules: []
   property bool windowRulesManaged: false
+  property var workspaces: []
+  property bool workspacesManaged: false
+  property bool workspaceWrapSwitch: true
+  property bool workspaceWheelSwitch: true
+  property var monitorRules: []
+  property bool monitorRulesManaged: false
+  property var tweaks: ({})
+  property var envVars: []
+  property string envPathPrepend: ""
+  property var envDetected: ({})
+  property var systemdUnits: []
+  property bool presentationMode: false
+  property string powerGovernor: ""
+  property string amdPstate: ""
+  property int chargeLimit: 0
+  property bool chargeLimitAvailable: false
+  property string netGateway: ""
+  property var netDnsServers: []
   property var keybindings: []
   property string focusedClass: ""
   property bool cupsActive: false
@@ -386,6 +421,7 @@ QtObject {
     clampInput: HyprPrefs.clampInput,
     applyAccountPatch: AccountsJs.applyAccountPatch,
     normalizeHardware: HardwareJs.normalize,
+    normalizeDiagnostics: DiagnosticsJs.normalize,
     parseTime: HyprSunset.parseTime,
     parseChannel: AtmosUpdate.parseChannel,
     parseWeatherCoords: RichUi.parseWeatherCoords,
@@ -483,6 +519,7 @@ QtObject {
     audioTuningOn = SnapshotJs.adoptValue(audioTuningOn, next.audioTuningOn)
     disks = SnapshotJs.adoptArray(disks, next.disks)
     hardware = SnapshotJs.adoptValue(hardware, next.hardware)
+    diagnostics = SnapshotJs.adoptValue(diagnostics, next.diagnostics)
     luksDevices = SnapshotJs.adoptArray(luksDevices, next.luksDevices)
     swapDevices = SnapshotJs.adoptArray(swapDevices, next.swapDevices)
     snapperPresent = SnapshotJs.adoptValue(snapperPresent, next.snapperPresent)
@@ -560,6 +597,10 @@ QtObject {
     hyprInactiveOpacity = SnapshotJs.adoptValue(hyprInactiveOpacity, look ? look.inactiveOpacity : undefined)
     hyprPreserveSplit = SnapshotJs.adoptValue(hyprPreserveSplit, look ? look.preserveSplit : undefined)
     hyprFocusOnActivate = SnapshotJs.adoptValue(hyprFocusOnActivate, look ? look.focusOnActivate : undefined)
+    hyprEnableSwallow = SnapshotJs.adoptValue(hyprEnableSwallow, look ? look.enableSwallow : undefined)
+    hyprSwallowRegex = SnapshotJs.adoptValue(hyprSwallowRegex, look ? look.swallowRegex : undefined)
+    hyprCursorWarpOnFocus = SnapshotJs.adoptValue(hyprCursorWarpOnFocus, look ? look.cursorWarpOnFocus : undefined)
+    hyprOnFocusUnderFullscreen = SnapshotJs.adoptValue(hyprOnFocusUnderFullscreen, look ? look.onFocusUnderFullscreen : undefined)
     hyprLookManaged = SnapshotJs.adoptValue(hyprLookManaged, next.hyprLookManaged)
     hyprInputManaged = SnapshotJs.adoptValue(hyprInputManaged, next.hyprInputManaged)
     hyprWorkspaceGesture = SnapshotJs.adoptValue(hyprWorkspaceGesture, next.hyprWorkspaceGesture !== undefined ? next.hyprWorkspaceGesture : (input ? input.workspaceGesture : undefined))
@@ -646,6 +687,24 @@ QtObject {
     bindingsManaged = SnapshotJs.adoptValue(bindingsManaged, next.bindingsManaged)
     windowRules = SnapshotJs.adoptArray(windowRules, next.windowRules)
     windowRulesManaged = SnapshotJs.adoptValue(windowRulesManaged, next.windowRulesManaged)
+    workspaces = SnapshotJs.adoptArray(workspaces, next.workspaces)
+    workspacesManaged = SnapshotJs.adoptValue(workspacesManaged, next.workspacesManaged)
+    workspaceWrapSwitch = SnapshotJs.adoptValue(workspaceWrapSwitch, next.workspaceWrapSwitch)
+    workspaceWheelSwitch = SnapshotJs.adoptValue(workspaceWheelSwitch, next.workspaceWheelSwitch)
+    monitorRules = SnapshotJs.adoptArray(monitorRules, next.monitorRules)
+    monitorRulesManaged = SnapshotJs.adoptValue(monitorRulesManaged, next.monitorRulesManaged)
+    tweaks = SnapshotJs.adoptValue(tweaks, next.tweaks)
+    envVars = SnapshotJs.adoptArray(envVars, next.envVars)
+    envPathPrepend = SnapshotJs.adoptValue(envPathPrepend, next.envPathPrepend)
+    envDetected = SnapshotJs.adoptValue(envDetected, next.envDetected)
+    systemdUnits = SnapshotJs.adoptArray(systemdUnits, next.systemdUnits)
+    presentationMode = SnapshotJs.adoptValue(presentationMode, next.presentationMode)
+    powerGovernor = SnapshotJs.adoptValue(powerGovernor, next.powerGovernor)
+    amdPstate = SnapshotJs.adoptValue(amdPstate, next.amdPstate)
+    chargeLimit = SnapshotJs.adoptValue(chargeLimit, next.chargeLimit)
+    chargeLimitAvailable = SnapshotJs.adoptValue(chargeLimitAvailable, next.chargeLimitAvailable)
+    netGateway = SnapshotJs.adoptValue(netGateway, next.netGateway)
+    netDnsServers = SnapshotJs.adoptArray(netDnsServers, next.netDnsServers)
     keybindings = SnapshotJs.adoptArray(keybindings, next.keybindings)
     focusedClass = SnapshotJs.adoptValue(focusedClass, next.focusedClass)
     cupsActive = SnapshotJs.adoptValue(cupsActive, next.cupsActive)
@@ -757,6 +816,12 @@ QtObject {
         bindings: setHyprBindingsScript,
         windows: setHyprWindowsScript,
         autostart: setHyprAutostartScript,
+        workspaces: setHyprWorkspacesScript,
+        monitors: setHyprMonitorsScript,
+        env: setEnvScript,
+        tweaks: setTweaksScript,
+        presentation: setPresentationScript,
+        chargeLimit: setChargeLimitScript,
         idle: setIdleScript,
         hyprsunset: setHyprsunsetScript,
         nightlightTemp: setNightlightTempScript,
@@ -815,7 +880,11 @@ QtObject {
       activeOpacity: hyprActiveOpacity,
       inactiveOpacity: hyprInactiveOpacity,
       preserveSplit: hyprPreserveSplit,
-      focusOnActivate: hyprFocusOnActivate
+      focusOnActivate: hyprFocusOnActivate,
+      enableSwallow: hyprEnableSwallow,
+      swallowRegex: hyprSwallowRegex,
+      cursorWarpOnFocus: hyprCursorWarpOnFocus,
+      onFocusUnderFullscreen: hyprOnFocusUnderFullscreen
     }
     if (patch && typeof patch === "object") {
       var k
@@ -1688,6 +1757,24 @@ QtObject {
     if (on === hyprPreserveSplit) return
     writeHyprLook({ preserveSplit: on })
   }
+  function setHyprEnableSwallow(on) {
+    if (on === hyprEnableSwallow) return
+    writeHyprLook({ enableSwallow: on })
+  }
+  function setHyprSwallowRegex(text) {
+    text = String(text || "")
+    if (text === hyprSwallowRegex) return
+    writeHyprLook({ swallowRegex: text })
+  }
+  function setHyprCursorWarpOnFocus(on) {
+    if (on === hyprCursorWarpOnFocus) return
+    writeHyprLook({ cursorWarpOnFocus: on })
+  }
+  function setHyprOnFocusUnderFullscreen(n) {
+    n = Math.round(Number(n))
+    if (!isFinite(n) || n < 0 || n > 2 || n === hyprOnFocusUnderFullscreen) return
+    writeHyprLook({ onFocusUnderFullscreen: n })
+  }
   function setHyprFocusOnActivate(on) {
     if (on === hyprFocusOnActivate) return
     writeHyprLook({ focusOnActivate: on })
@@ -2036,10 +2123,189 @@ QtObject {
     runCommand(["bash", "-c", "printf '%s' \"$1\" | wl-copy -n", "copy-text", text])
   }
 
+  function writeWorkspaces(items, wrap, wheel) {
+    var list = Array.isArray(items) ? items : workspaces
+    var wrapOn = wrap === true || wrap === false ? wrap : workspaceWrapSwitch !== false
+    var wheelOn = wheel === true || wheel === false ? wheel : workspaceWheelSwitch !== false
+    snapshotData = SnapshotJs.mergeSnapshot(snapshotData, {
+      workspaces: list,
+      workspaceWrapSwitch: wrapOn,
+      workspaceWheelSwitch: wheelOn
+    })
+    workspaceWrapSwitch = wrapOn
+    workspaceWheelSwitch = wheelOn
+    dispatchSetting("workspaces", list)
+  }
+  function writeMonitorRules(items) {
+    dispatchSetting("monitorRules", items)
+  }
+
+  function patchMonitorRule(output, patch) {
+    output = String(output || "")
+    if (!output || !/^[A-Za-z0-9._-]+$/.test(output)) return
+    patch = patch && typeof patch === "object" ? patch : {}
+    var list = Array.isArray(monitorRules) ? monitorRules : []
+    var next = []
+    var found = false
+    var i, k, row, merged
+    for (i = 0; i < list.length; i++) {
+      row = list[i] || {}
+      if (String(row.output || "") === output) {
+        merged = {}
+        for (k in row) merged[k] = row[k]
+        for (k in patch) merged[k] = patch[k]
+        next.push(merged)
+        found = true
+      } else next.push(row)
+    }
+    if (!found) {
+      var live = null
+      var monitorsList = Array.isArray(monitors) ? monitors : []
+      for (i = 0; i < monitorsList.length; i++) {
+        if (monitorsList[i] && String(monitorsList[i].name || "") === output) {
+          live = monitorsList[i]
+          break
+        }
+      }
+      merged = {
+        output: output,
+        mode: live ? (MonitorsJs.modeFromHyprctl(RichUi.currentMonitorModeValue(live)) || "preferred") : "preferred",
+        position: "auto",
+        scale: live && live.scale ? Number(live.scale) : 1,
+        transform: live ? Math.round(Number(live.transform)) || 0 : 0,
+        disabled: live ? live.enabled === false : false,
+        vrr: live ? Math.round(Number(live.vrr)) || 0 : 0,
+        bitdepth: 8,
+        cm: ""
+      }
+      for (k in patch) merged[k] = patch[k]
+      next.push(merged)
+    }
+    writeMonitorRules(next)
+  }
+
+  function setConnectionMetered(uuid, value) {
+    var argv = NetworkPrefs.argvFor("metered", { uuid: uuid, value: value })
+    if (!argv) return
+    runCommand(["bash", setWifiConnectionScript].concat(argv), { key: "wifi-metered:" + uuid, refresh: "network" })
+  }
+  function setConnectionPriority(uuid, value) {
+    var argv = NetworkPrefs.argvFor("priority", { uuid: uuid, value: value })
+    if (!argv) return
+    runCommand(["bash", setWifiConnectionScript].concat(argv), { key: "wifi-priority:" + uuid, refresh: "network" })
+  }
+  function setConnectionMac(uuid, value) {
+    var argv = NetworkPrefs.argvFor("mac", { uuid: uuid, value: value })
+    if (!argv) return
+    runCommand(["bash", setWifiConnectionScript].concat(argv), { key: "wifi-mac:" + uuid, refresh: "network" })
+  }
+  function setConnectionIpv4(uuid, spec) {
+    spec = spec && typeof spec === "object" ? spec : {}
+    spec.uuid = uuid
+    var argv = NetworkPrefs.argvFor("ipv4", spec)
+    if (!argv) return
+    runCommand(["bash", setWifiConnectionScript].concat(argv), { key: "wifi-ipv4:" + uuid, refresh: "network" })
+  }
+  function importWireGuard(path) {
+    var argv = NetworkPrefs.argvFor("wireguard-import", { path: path })
+    if (!argv) return
+    runCommand(["bash", setWifiConnectionScript].concat(argv), { key: "wireguard-import", refresh: "network" })
+  }
+  function setHotspot(on, ssid, password) {
+    var argv = NetworkPrefs.argvFor("hotspot", { on: on === true, ssid: ssid, password: password })
+    if (!argv) return
+    runCommand(["bash", setWifiConnectionScript].concat(argv), { key: "wifi-hotspot", refresh: "network" })
+  }
+  function applyMonitorLayout(name) {
+    var items = []
+    var live = Array.isArray(monitors) ? monitors : []
+    var key = String(name || "")
+    var i
+    for (i = 0; i < live.length; i++) {
+      var src = live[i] || {}
+      var output = String(src.name || "")
+      if (!output) continue
+      var internal = src.internal === true || /^eDP/i.test(output)
+      var disabled = false
+      if (key === "laptop") disabled = !internal
+      else if (key === "docked") disabled = internal
+      var mode = "preferred"
+      var w = Math.round(Number(src.width))
+      var h = Math.round(Number(src.height))
+      var hz = Number(src.refreshRate)
+      if (isFinite(w) && isFinite(h) && w >= 640 && h >= 480)
+        mode = w + "x" + h + (isFinite(hz) && hz > 0 ? "@" + Math.round(hz) : "")
+      items.push({
+        output: output,
+        mode: mode,
+        position: "auto",
+        scale: Number(src.scale) || 1,
+        transform: Math.round(Number(src.transform)) || 0,
+        disabled: disabled,
+        vrr: Math.round(Number(src.vrr)) || 0,
+        bitdepth: 8,
+        cm: ""
+      })
+    }
+    if (items.length) writeMonitorRules(items)
+  }
+  function setPresentationMode(on) {
+    if (on === presentationMode) return
+    dispatchSetting("presentationMode", on === true)
+  }
+  function setChargeLimit(n) {
+    n = Math.round(Number(n))
+    if (!isFinite(n) || n < 50 || n > 100 || n === chargeLimit) return
+    dispatchSetting("chargeLimit", n)
+  }
+  function setEnvVars(vars, pathPrepend) {
+    if (Array.isArray(vars)) dispatchSetting("envVars", vars)
+    if (pathPrepend != null) dispatchSetting("envPathPrepend", String(pathPrepend))
+  }
+  function setTweak(id, on) {
+    dispatchSetting("tweaks." + String(id || ""), on === true)
+  }
+  function systemdAction(action, unit, scope) {
+    var argv = ["systemctl"]
+    if (scope === "user") argv.push("--user")
+    if (action !== "start" && action !== "stop" && action !== "restart" && action !== "enable" && action !== "disable") return
+    unit = String(unit || "")
+    if (!/^[A-Za-z0-9:_.@\\-]+$/.test(unit)) return
+    argv.push(action, unit)
+    runCommand(argv, { key: "systemd:" + unit, refresh: "all", sudo: scope !== "user" })
+  }
+  function applyProfileValues(values) {
+    if (!values || typeof values !== "object") return
+    var key
+    for (key in values) {
+      if (!Object.prototype.hasOwnProperty.call(values, key)) continue
+      dispatchSetting(key, values[key])
+    }
+  }
   function copyLastError() {
     var text = RichUi.clipboardPayload(lastError, { maxLength: 8192 })
     if (!text) return
     runCommand(["bash", "-c", "printf '%s' \"$1\" | wl-copy -n", "copy-text", text])
+  }
+
+  function copyDiagnosticReport() {
+    var header = DiagnosticsJs.reportText(diagnostics)
+    if (!header) return
+    runJob(["bash", diagReportScript, "copy"], header, "diag-report", { refresh: "none" })
+  }
+
+  function saveDiagnosticReport(path) {
+    var dest = String(path || "")
+    if (!dest || dest.indexOf("\n") !== -1 || dest.charAt(0) !== "/") return
+    var header = DiagnosticsJs.reportText(diagnostics)
+    if (!header) return
+    runJob(["bash", diagReportScript, "save", dest], header, "diag-report", { refresh: "none" })
+  }
+
+  function askAgentAboutDiagnostics() {
+    var header = DiagnosticsJs.reportText(diagnostics)
+    if (!header) return
+    runJob(["bash", diagReportScript, "agent"], header, "diag-report", { refresh: "none" })
   }
 
   function clearLastError() {
@@ -2210,6 +2476,11 @@ QtObject {
       apply: { bluetoothDevices: SnapshotJs.patchRowField(bluetoothDevices, "address", address, "connected", false) },
       refresh: "none"
     })
+  }
+  function trustBluetoothDevice(address) {
+    address = String(address || "")
+    if (!/^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/.test(address)) return
+    runCommand(["bluetoothctl", "trust", address], { key: "bluetooth-trust:" + address, refresh: "network" })
   }
   function forgetBluetoothDevice(address) {
     address = String(address || "")
@@ -2666,36 +2937,74 @@ QtObject {
     runSettingCommand(SettingsJs.commandFor("nightlightDay", day, snap, scriptOpts()), "nightlightDay")
   }
 
-  function autostartCommands() {
+  function managedAutostart() {
     var list = Array.isArray(autostart) ? autostart : []
     var out = []
     for (var i = 0; i < list.length; i++) {
       if (list[i] && list[i].managed === true && list[i].command)
-        out.push(String(list[i].command))
+        out.push({
+          command: String(list[i].command),
+          delay: Math.round(Number(list[i].delay || 0)) || 0,
+          enabled: list[i].enabled !== false
+        })
     }
     return out
   }
-  function writeAutostart(commands) {
-    dispatchSetting("autostart", commands)
+  function writeAutostart(items) {
+    dispatchSetting("autostart", items)
   }
-  function addAutostart(command) {
+  function addAutostart(command, delay) {
     command = String(command || "").replace(/^\s+|\s+$/g, "")
     if (!command || command.length > 256 || command.indexOf("\n") !== -1) return
-    var next = autostartCommands()
+    var n = Math.round(Number(delay || 0))
+    if (!isFinite(n) || n < 0) n = 0
+    if (n > 600) n = 600
+    var next = managedAutostart()
     for (var i = 0; i < next.length; i++) {
-      if (next[i] === command) return
+      if (next[i].command === command) return
     }
-    next.push(command)
+    next.push({ command: command, delay: n, enabled: true })
     writeAutostart(next)
   }
   function removeAutostart(command) {
     command = String(command || "")
-    var cur = autostartCommands()
+    var cur = managedAutostart()
     var next = []
     for (var i = 0; i < cur.length; i++) {
-      if (cur[i] !== command) next.push(cur[i])
+      if (cur[i].command !== command) next.push(cur[i])
     }
     if (next.length === cur.length) return
+    writeAutostart(next)
+  }
+  function setAutostartEnabled(command, on) {
+    command = String(command || "")
+    var cur = managedAutostart()
+    var next = []
+    var found = false
+    for (var i = 0; i < cur.length; i++) {
+      if (cur[i].command === command) {
+        next.push({ command: cur[i].command, delay: cur[i].delay, enabled: on !== false })
+        found = true
+      } else next.push(cur[i])
+    }
+    if (!found) return
+    writeAutostart(next)
+  }
+  function setAutostartDelay(command, delay) {
+    command = String(command || "")
+    var n = Math.round(Number(delay || 0))
+    if (!isFinite(n) || n < 0) n = 0
+    if (n > 600) n = 600
+    var cur = managedAutostart()
+    var next = []
+    var found = false
+    for (var i = 0; i < cur.length; i++) {
+      if (cur[i].command === command) {
+        next.push({ command: cur[i].command, delay: n, enabled: cur[i].enabled })
+        found = true
+      } else next.push(cur[i])
+    }
+    if (!found) return
     writeAutostart(next)
   }
 
@@ -2767,7 +3076,11 @@ QtObject {
           center: list[i].center === true,
           width: Math.round(Number(list[i].width)) || 0,
           height: Math.round(Number(list[i].height)) || 0,
-          workspace: String(list[i].workspace || "")
+          workspace: String(list[i].workspace || ""),
+          title: String(list[i].title || ""),
+          pin: list[i].pin === true,
+          fullscreen: list[i].fullscreen === true,
+          opacity: String(list[i].opacity || "")
         })
     }
     return out
@@ -2777,19 +3090,22 @@ QtObject {
     dispatchSetting("windowRules", items)
   }
 
-  function addWindowRule(match, placement, center, width, height, workspace) {
+  function addWindowRule(match, placement, center, width, height, workspace, extras) {
     match = String(match || "").replace(/^\s+|\s+$/g, "")
     placement = String(placement || "")
     if (placement !== "float" && placement !== "tile") placement = ""
     workspace = String(workspace || "").replace(/^\s+|\s+$/g, "")
     width = Math.round(Number(width)) || 0
     height = Math.round(Number(height)) || 0
+    extras = extras && typeof extras === "object" ? extras : {}
+    var title = String(extras.title || "").replace(/^\s+|\s+$/g, "")
+    var opacity = String(extras.opacity || "").replace(/^\s+|\s+$/g, "")
     if (!match || match.length > 128 || match.indexOf("\n") !== -1 || match.indexOf("]]") !== -1) return
     if (!(width >= 100 && height >= 100)) {
       width = 0
       height = 0
     }
-    if (!placement && center !== true && !width && !workspace) return
+    if (!placement && center !== true && !width && !workspace && !title && extras.pin !== true && extras.fullscreen !== true && !opacity) return
     var cur = managedWindowRules()
     var next = []
     for (var i = 0; i < cur.length; i++) {
@@ -2797,11 +3113,15 @@ QtObject {
     }
     next.push({
       match: match,
+      title: title,
       placement: placement,
       center: center === true,
       width: width,
       height: height,
-      workspace: workspace
+      workspace: workspace,
+      pin: extras.pin === true,
+      fullscreen: extras.fullscreen === true,
+      opacity: opacity
     })
     writeWindowRules(next)
   }
@@ -2928,6 +3248,8 @@ QtObject {
     autostartLuaFile: autostartLuaFile,
     bindingsLuaFile: bindingsLuaFile,
     windowsLuaFile: windowsLuaFile,
+    envFile: envFile,
+    presentationFile: presentationFile,
     localtimeFile: localtimeFile,
     vconsoleFile: vconsoleFile,
     localeConfFile: localeConfFile,

@@ -70,13 +70,24 @@ function hubs() {
       icon: "layout-grid-line",
       file: "WindowsPage.qml",
       keywords: keywordList(
-        "gaps border rounding blur shadow tiling dwindle scrolling niri column opacity transparency fullscreen tight square aspect dim animations cursor tearing looknfeel preserve split focus activate keybinding hotkey shortcut bind unbind chord window rule float tile class",
-        ["gaps", "bind", "window"],
+        "gaps border rounding blur shadow tiling dwindle scrolling niri column opacity transparency fullscreen tight square aspect dim animations cursor tearing looknfeel preserve split focus activate swallow window rule float tile class",
+        ["gaps", "window"],
       ),
-      children: [
-        child("windows/bindings", "Keybindings", "windows/BindingsPage.qml"),
-        child("windows/rules", "Window rules", "windows/RulesPage.qml"),
-      ],
+      children: [child("windows/rules", "Window rules", "windows/RulesPage.qml")],
+    },
+    {
+      id: "workspaces",
+      title: "Workspaces",
+      description: "Count, names, monitors, and how you switch.",
+      navGroup: "look",
+      snapshotGroup: "look",
+      icon: "layout-grid-line",
+      file: "WorkspacesPage.qml",
+      keywords: keywordList(
+        "workspace named persistent monitor scratch special wrap wheel switch default login",
+        ["workspace"],
+      ),
+      children: [],
     },
     {
       id: "bar",
@@ -107,6 +118,20 @@ function hubs() {
       children: [],
     },
     {
+      id: "profiles",
+      title: "Profiles",
+      description: "Apply a bundle of settings at once.",
+      navGroup: "look",
+      snapshotGroup: "all",
+      icon: "file-transfer-line",
+      file: "ProfilesPage.qml",
+      keywords: keywordList(
+        "profile coding gaming battery bundle apply import stay awake performance",
+        ["profile"],
+      ),
+      children: [],
+    },
+    {
       id: "input",
       title: "Input",
       description: "Pointer, keyboard, and gestures.",
@@ -117,6 +142,20 @@ function hubs() {
       keywords: keywordList(
         "mouse pointer sensitivity acceleration natural scroll inertia wheel high-res discrete smooth touchpad clickfinger repeat delay numlock follow dpms gesture swipe layout xkb",
         ["mouse", "keyboard", "scroll", "inertia"],
+      ),
+      children: [],
+    },
+    {
+      id: "keybindings",
+      title: "Keybindings",
+      description: "Search, add, and override Hyprland chords.",
+      navGroup: "input",
+      snapshotGroup: "all",
+      icon: "keyboard-box-line",
+      file: "windows/BindingsPage.qml",
+      keywords: keywordList(
+        "keybinding hotkey shortcut bind unbind chord record conflict reset window workspace launcher media system",
+        ["bind", "shortcut"],
       ),
       children: [],
     },
@@ -193,7 +232,7 @@ function hubs() {
     {
       id: "network",
       title: "Network",
-      description: "Wi-Fi, Bluetooth, DNS, and speed test.",
+      description: "Wi-Fi, DNS, VPN, and speed test.",
       navGroup: "device",
       snapshotGroup: "network",
       icon: "wifi-line",
@@ -204,9 +243,22 @@ function hubs() {
       ),
       children: [
         child("network/wifi", "Wi-Fi", "network/WifiPage.qml"),
-        child("network/bluetooth", "Bluetooth", "network/BluetoothPage.qml"),
         child("network/speedtest", "Speed test", "network/SpeedtestPage.qml"),
       ],
+    },
+    {
+      id: "bluetooth",
+      title: "Bluetooth",
+      description: "Adapter, pairing, and trusted devices.",
+      navGroup: "device",
+      snapshotGroup: "network",
+      icon: "wifi-line",
+      file: "network/BluetoothPage.qml",
+      keywords: keywordList(
+        "bluetooth radio pair connect disconnect forget trust battery discoverable headset mouse",
+        ["bluetooth"],
+      ),
+      children: [],
     },
     {
       id: "power",
@@ -262,7 +314,7 @@ function hubs() {
         "desktop app tui webapp web app add install create remove uninstall launcher shortcut delete autostart startup launch",
         ["app", "launcher"],
       ),
-      children: [],
+      children: [child("applications/startup", "Startup", "applications/StartupPage.qml")],
     },
     {
       id: "software",
@@ -289,6 +341,34 @@ function hubs() {
       keywords: keywordList(
         "hook script theme-set font-set post-boot post-update pacman battery-low",
         ["hook", "script"],
+      ),
+      children: [],
+    },
+    {
+      id: "tweaks",
+      title: "Tweaks",
+      description: "Overflow settings with a one-click reset.",
+      navGroup: "admin",
+      snapshotGroup: "all",
+      icon: "settings-3-line",
+      file: "TweaksPage.qml",
+      keywords: keywordList(
+        "tweak acceleration natural scroll paste electron wayland cursor sysctl swappiness nvidia amd laptop",
+        ["tweak"],
+      ),
+      children: [],
+    },
+    {
+      id: "services",
+      title: "Services",
+      description: "User and system units Atmos can start safely.",
+      navGroup: "admin",
+      snapshotGroup: "all",
+      icon: "box-3-line",
+      file: "ServicesPage.qml",
+      keywords: keywordList(
+        "systemd unit service enable disable start stop restart failed logs pipewire portal bluetooth",
+        ["systemd", "service"],
       ),
       children: [],
     },
@@ -329,10 +409,13 @@ function hubs() {
       icon: "settings-3-line",
       file: "SystemPage.qml",
       keywords: keywordList(
-        "crash capture diagnostics coredump weather location city forecast coordinates latitude longitude gps units celsius fahrenheit metric imperial refresh interval about logo branding fastfetch timezone tz utc region city date time zoneinfo timedatectl hostname computer machine device name hostnamectl keyboard layout keymap xkb qwerty language input localectl ntp timesync synchronize automatic clock network time locale lang utf-8 i18n translation pacman parallel downloads packages mirrors aur update channel firmware orphan prune version printer cups print restore hyprland shell restart atmos git pull reset sentinel overrides",
-        ["hostname", "locale", "update"],
+        "crash capture diagnostics coredump weather location city forecast coordinates latitude longitude gps units celsius fahrenheit metric imperial refresh interval about logo branding fastfetch timezone tz utc region city date time zoneinfo timedatectl hostname computer machine device name hostnamectl keyboard layout keymap xkb qwerty language input localectl ntp timesync synchronize automatic clock network time locale lang utf-8 i18n translation pacman parallel downloads packages mirrors aur update channel firmware orphan prune version printer cups print restore hyprland shell restart atmos git pull reset sentinel overrides report journal systemd portal pipewire kernel gpu environment path editor shell",
+        ["hostname", "locale", "update", "diagnostics"],
       ),
-      children: [],
+      children: [
+        child("system/environment", "Environment", "system/EnvironmentPage.qml"),
+        child("system/diagnostics", "Diagnostics", "system/DiagnosticsPage.qml"),
+      ],
     },
     {
       id: "export",
@@ -402,6 +485,8 @@ function fileHub(rel) {
   if (base.indexOf("appearance/") === 0) return "appearance";
   if (base.indexOf("network/") === 0) return "network";
   if (base.indexOf("windows/") === 0) return "windows";
+  if (base.indexOf("applications/") === 0) return "applications";
+  if (base.indexOf("system/") === 0) return "system";
   return "";
 }
 

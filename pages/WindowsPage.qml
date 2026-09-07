@@ -13,6 +13,12 @@ PrefsPage {
   property var navigator: null
 
   function openSubpage(id) {
+    if (id === "bindings") {
+      if (root.navigator && root.navigator.go) {
+        root.navigator.go("keybindings")
+        return
+      }
+    }
     if (root.navigator && root.navigator.go) {
       root.navigator.go("windows/" + id)
       return
@@ -500,6 +506,70 @@ PrefsPage {
       PrefsToggle {
         checked: Omarchy.hyprFocusOnActivate
         onToggled: Omarchy.setHyprFocusOnActivate(!Omarchy.hyprFocusOnActivate)
+      }
+    }
+
+    SettingRow {
+      label: "Cursor follows focus"
+      description: "The pointer jumps to a window when focus changes."
+      hint: "~/.config/hypr/looknfeel.lua · cursor.warp_on_focus_change"
+      query: root.query
+      keywords: ["cursor", "warp", "focus"]
+
+      PrefsToggle {
+        checked: Omarchy.hyprCursorWarpOnFocus
+        onToggled: Omarchy.setHyprCursorWarpOnFocus(!Omarchy.hyprCursorWarpOnFocus)
+      }
+    }
+
+    SettingRow {
+      label: "Swallow terminals"
+      description: "A terminal that launches a GUI app is swallowed into that window."
+      hint: "~/.config/hypr/looknfeel.lua · misc.enable_swallow"
+      query: root.query
+      keywords: ["swallow", "terminal"]
+
+      PrefsToggle {
+        checked: Omarchy.hyprEnableSwallow
+        onToggled: Omarchy.setHyprEnableSwallow(!Omarchy.hyprEnableSwallow)
+      }
+    }
+
+    SettingRow {
+      available: Omarchy.hyprEnableSwallow
+      stretchControl: true
+      label: "Swallow regex"
+      description: "Which terminal classes Hyprland swallows. Empty keeps the Hyprland default."
+      hint: "~/.config/hypr/looknfeel.lua · misc.swallow_regex"
+      query: root.query
+      keywords: ["swallow", "regex"]
+
+      PrefsField {
+        width: parent.width
+        placeholder: "kitty|alacritty"
+        value: Omarchy.hyprSwallowRegex
+        onSubmitted: function(value) { Omarchy.setHyprSwallowRegex(value) }
+      }
+    }
+
+    SettingRow {
+      label: "Focus under fullscreen"
+      description: "What happens when focus moves to a window under a fullscreen one. 0 ignores it, 1 takes over, 2 stays underneath."
+      hint: "~/.config/hypr/looknfeel.lua · misc.on_focus_under_fullscreen"
+      query: root.query
+      keywords: ["fullscreen", "focus"]
+
+      PrefsSelect {
+        value: String(Omarchy.hyprOnFocusUnderFullscreen)
+        options: [
+          { value: "0", label: "Ignore" },
+          { value: "1", label: "Take over" },
+          { value: "2", label: "Stay under" }
+        ]
+        onChanged: function(value) {
+          var n = Math.round(Number(value))
+          if (n !== Omarchy.hyprOnFocusUnderFullscreen) Omarchy.setHyprOnFocusUnderFullscreen(n)
+        }
       }
     }
   }

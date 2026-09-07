@@ -22,6 +22,10 @@ BINDINGS_BEGIN = "-- atmos:bindings begin"
 BINDINGS_END = "-- atmos:bindings end"
 WINDOWS_BEGIN = "-- atmos:windows begin"
 WINDOWS_END = "-- atmos:windows end"
+WORKSPACES_BEGIN = "-- atmos:workspaces begin"
+WORKSPACES_END = "-- atmos:workspaces end"
+MONITORS_BEGIN = "-- atmos:monitors begin"
+MONITORS_END = "-- atmos:monitors end"
 REQUIRE_LINE = 'require("hypr.atmos")'
 LAYOUT_REQUIRE = 'require("hypr.atmos_layout")'
 OMARCHY_LINE = 'require("default.hypr.omarchy")'
@@ -137,7 +141,18 @@ def serialize_look(raw: dict) -> str:
         "inactiveOpacity": clamp_float(src.get("inactiveOpacity"), 0.2, 1, 1),
         "preserveSplit": as_bool(src.get("preserveSplit"), False),
         "focusOnActivate": as_bool(src.get("focusOnActivate"), False),
+        "enableSwallow": as_bool(src.get("enableSwallow"), False),
+        "swallowRegex": sanitize_swallow_regex(src.get("swallowRegex")),
+        "cursorWarpOnFocus": as_bool(src.get("cursorWarpOnFocus"), False),
+        "onFocusUnderFullscreen": clamp_int(src.get("onFocusUnderFullscreen"), 0, 2, 1),
     }
+    misc = [
+        f"    focus_on_activate = {lua_bool(s['focusOnActivate'])},",
+        f"    enable_swallow = {lua_bool(s['enableSwallow'])},",
+    ]
+    if s["swallowRegex"]:
+        misc.append(f"    swallow_regex = {lua_string(s['swallowRegex'])},")
+    misc.append(f"    on_focus_under_fullscreen = {lua_number(s['onFocusUnderFullscreen'])},")
     return "\n".join(
         [
             LOOK_BEGIN,
@@ -173,11 +188,12 @@ def serialize_look(raw: dict) -> str:
             f"    preserve_split = {lua_bool(s['preserveSplit'])},",
             "  },",
             "  misc = {",
-            f"    focus_on_activate = {lua_bool(s['focusOnActivate'])},",
+            *misc,
             "  },",
             "  cursor = {",
             f"    hide_on_key_press = {lua_bool(s['cursorHideOnKey'])},",
             f"    warp_on_change_workspace = {1 if s['cursorWarp'] else 0},",
+            f"    warp_on_focus_change = {lua_bool(s['cursorWarpOnFocus'])},",
             "  },",
             "})",
             f'hl.env({lua_string("HYPRCURSOR_SIZE")}, {lua_string(str(s["cursorSize"]))})',
@@ -185,6 +201,16 @@ def serialize_look(raw: dict) -> str:
             LOOK_END,
         ]
     )
+
+
+def sanitize_swallow_regex(raw) -> str:
+    text = str(raw or "")
+    if "\n" in text or "\r" in text:
+        return ""
+    text = text.strip()
+    if len(text) > 128:
+        return ""
+    return text
 
 
 def sanitize_layouts(raw) -> str:
@@ -381,28 +407,91 @@ def input_has_workspace_gesture(text: str) -> bool:
     return False
 
 
-def parse_launch_calls(text: str) -> list[str]:
+def split_delay(raw: str) -> tuple[str, int]:
+    text = str(raw or "").strip()
+    match = re.fullmatch(r"sleep\s+(\d+)\s+&&\s+(.+)", text)
+    if not match:
+        return sanitize_command(text), 0
+    delay = int(match.group(1))
+    if delay < 0:
+        delay = 0
+    if delay > 600:
+        delay = 600
+    return sanitize_command(match.group(2)), delay
+
+
+def join_delay(command: str, delay: int) -> str:
+    cmd = sanitize_command(command)
+    n = delay if isinstance(delay, int) else 0
+    if n < 0:
+        n = 0
+    if n > 600:
+        n = 600
+    if not cmd:
+        return ""
+    if n > 0:
+        return f"sleep {n} && {cmd}"
+    return cmd
+
+
+def parse_launch_calls(text: str, disabled: bool = False) -> list[dict]:
     src = text or ""
     out = []
     for match in re.finditer(r'o\.launch_on_start\(\s*"((?:\\.|[^"\\])*)"\s*\)', src):
-        if in_line_comment(src, match.start()):
+        commented = in_line_comment(src, match.start())
+        if disabled:
+            if not commented:
+                continue
+        elif commented:
             continue
-        cmd = sanitize_command(unescape_lua(match.group(1)))
-        if cmd:
-            out.append(cmd)
+        command, delay = split_delay(unescape_lua(match.group(1)))
+        if command:
+            out.append({"command": command, "delay": delay, "enabled": not disabled})
     return out
+
+
+def normalize_autostart_item(item):
+    if isinstance(item, str):
+        command, delay = split_delay(item)
+        if not command:
+            return None
+        return {"command": command, "delay": delay, "enabled": True}
+    if not isinstance(item, dict):
+        return None
+    command = sanitize_command(item.get("command"))
+    if not command:
+        return None
+    delay = item.get("delay") or 0
+    try:
+        delay = int(delay)
+    except (TypeError, ValueError):
+        delay = 0
+    if delay < 0:
+        delay = 0
+    if delay > 600:
+        delay = 600
+    return {"command": command, "delay": delay, "enabled": item.get("enabled") is not False}
 
 
 def serialize_autostart(raw: dict) -> str:
     src = raw if isinstance(raw, dict) else {}
-    commands = src.get("commands")
+    commands = src.get("items")
+    if not isinstance(commands, list):
+        commands = src.get("commands")
     if not isinstance(commands, list):
         commands = []
     lines = [AUTOSTART_BEGIN]
     for item in commands:
-        cmd = sanitize_command(item)
-        if cmd:
-            lines.append(f"o.launch_on_start({lua_string(cmd)})")
+        row = normalize_autostart_item(item)
+        if not row:
+            continue
+        cmd = join_delay(row["command"], row["delay"])
+        if not cmd:
+            continue
+        line = f"o.launch_on_start({lua_string(cmd)})"
+        if row["enabled"] is False:
+            line = "-- " + line
+        lines.append(line)
     lines.append(AUTOSTART_END)
     return "\n".join(lines)
 
@@ -413,11 +502,23 @@ def parse_autostart(text: str) -> list[dict]:
         start, stop = bounds
         managed = parse_launch_calls(text[start:stop])
         unmanaged = parse_launch_calls(text[:start] + "\n" + text[stop:])
+        disabled = parse_launch_calls(text[start:stop], True)
     else:
         managed = []
         unmanaged = parse_launch_calls(text)
-    items = [{"command": cmd, "managed": False} for cmd in unmanaged]
-    items.extend({"command": cmd, "managed": True} for cmd in managed)
+        disabled = []
+    items = [
+        {"command": row["command"], "delay": row["delay"], "enabled": True, "managed": False}
+        for row in unmanaged
+    ]
+    items.extend(
+        {"command": row["command"], "delay": row["delay"], "enabled": True, "managed": True}
+        for row in managed
+    )
+    items.extend(
+        {"command": row["command"], "delay": row["delay"], "enabled": False, "managed": True}
+        for row in disabled
+    )
     return items
 
 
@@ -787,16 +888,47 @@ def normalize_window(row) -> dict | None:
         height = 0
     workspace = sanitize_workspace(row.get("workspace"))
     center = row.get("center") is True
-    if not placement and not center and not width and not workspace:
+    title = sanitize_match(row.get("title"))
+    pin = row.get("pin") is True
+    fullscreen = row.get("fullscreen") is True
+    opacity = sanitize_opacity(row.get("opacity"))
+    if (
+        not placement
+        and not center
+        and not width
+        and not workspace
+        and not title
+        and not pin
+        and not fullscreen
+        and not opacity
+    ):
         return None
     return {
         "match": match,
+        "title": title,
         "placement": placement,
         "center": center,
         "width": width,
         "height": height,
         "workspace": workspace,
+        "pin": pin,
+        "fullscreen": fullscreen,
+        "opacity": opacity,
     }
+
+
+def sanitize_opacity(raw) -> str:
+    if raw is None or raw == "":
+        return ""
+    if isinstance(raw, (int, float)):
+        n = float(raw)
+        if n < 0.2 or n > 1:
+            return ""
+        return str(round(n * 100) / 100)
+    text = str(raw).strip()
+    if not re.fullmatch(r"[0-9.]+( [0-9.]+)?", text) or len(text) > 16:
+        return ""
+    return text
 
 
 def row_from_window_args(args) -> dict | None:
@@ -812,12 +944,16 @@ def row_from_window_args(args) -> dict | None:
     return normalize_window(
         {
             "match": args[0],
+            "title": rules.get("title"),
             "float": rules.get("float") is True,
             "tile": rules.get("tile") is True,
             "center": rules.get("center") is True,
             "width": width,
             "height": height,
             "workspace": rules.get("workspace"),
+            "pin": rules.get("pin") is True,
+            "fullscreen": rules.get("fullscreen") is True,
+            "opacity": rules.get("opacity"),
         }
     )
 
@@ -860,6 +996,8 @@ def parse_windows(text: str) -> list[dict]:
 
 def serialize_window(row: dict) -> str:
     parts = []
+    if row.get("title"):
+        parts.append(f"title = {lua_string(row['title'])}")
     if row["placement"] == "float":
         parts.append("float = true")
     if row["placement"] == "tile":
@@ -870,6 +1008,12 @@ def serialize_window(row: dict) -> str:
         parts.append(f"size = {{ {row['width']}, {row['height']} }}")
     if row["workspace"]:
         parts.append(f"workspace = {lua_string(row['workspace'])}")
+    if row.get("pin"):
+        parts.append("pin = true")
+    if row.get("fullscreen"):
+        parts.append("fullscreen = true")
+    if row.get("opacity"):
+        parts.append(f"opacity = {lua_string(row['opacity'])}")
     if not parts:
         return ""
     return f'o.window({lua_string(row["match"])}, {{ {", ".join(parts)} }})'
@@ -932,6 +1076,206 @@ def ensure_layout_require(text: str) -> str:
     return text.rstrip() + "\n\n" + LAYOUT_REQUIRE + "\n"
 
 
+def serialize_workspaces(raw: dict) -> str:
+    src = raw if isinstance(raw, dict) else {}
+    items = src.get("items") if isinstance(src.get("items"), list) else []
+
+    def count_from_items(rows: list) -> int:
+        m = 0
+        for item in rows:
+            if not isinstance(item, dict):
+                continue
+            try:
+                n = int(str(item.get("id") or item.get("workspace") or ""))
+            except (TypeError, ValueError):
+                continue
+            if 1 <= n <= 10 and n > m:
+                m = n
+        return m if m >= 1 else 10
+
+    if "count" in src and src.get("count") is not None and src.get("count") != "":
+        try:
+            count = int(src.get("count"))
+        except (TypeError, ValueError):
+            count = count_from_items(items)
+    else:
+        count = count_from_items(items)
+    if count < 1:
+        count = 1
+    if count > 10:
+        count = 10
+    wrap = src.get("wrapSwitch") is not False
+    wheel = src.get("wheelSwitch") is not False
+    wrap_next = "r+1" if not wrap else "e+1"
+    wrap_prev = "r-1" if not wrap else "e-1"
+    lines = [
+        WORKSPACES_BEGIN,
+        "-- atmos:wrapSwitch = " + ("true" if wrap else "false"),
+        "-- atmos:wheelSwitch = " + ("true" if wheel else "false"),
+    ]
+    seen = set()
+    rows = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        wid = str(item.get("id") or item.get("workspace") or "").strip()
+        if not wid or wid in seen:
+            continue
+        seen.add(wid)
+        rows.append(item)
+    for i in range(1, count + 1):
+        sid = str(i)
+        if sid not in seen:
+            rows.append({"id": sid, "persistent": True})
+            seen.add(sid)
+    for item in rows:
+        wid = str(item.get("id") or "").strip()
+        if re.fullmatch(r"[1-9]|10", wid) and int(wid) > count:
+            continue
+        parts = [f"workspace = {lua_string(wid)}"]
+        if item.get("persistent") is not False:
+            parts.append("persistent = true")
+        name = str(item.get("name") or "").strip()
+        if name:
+            parts.append(f"default_name = {lua_string(name)}")
+        monitor = str(item.get("monitor") or "").strip()
+        if monitor:
+            parts.append(f"monitor = {lua_string(monitor)}")
+        if item.get("isDefault") is True or item.get("default") is True:
+            parts.append("default = true")
+        empty = str(item.get("onCreatedEmpty") or item.get("on_created_empty") or "").strip()
+        if empty:
+            parts.append(f"on_created_empty = {lua_string(empty)}")
+        lines.append("hl.workspace_rule({ " + ", ".join(parts) + " })")
+    lines.append('hl.unbind("SUPER + TAB")')
+    lines.append('hl.unbind("SUPER + SHIFT + TAB")')
+    lines.append(f'o.bind("SUPER + TAB", "Next workspace", "hyprctl dispatch workspace {wrap_next}")')
+    lines.append(
+        f'o.bind("SUPER + SHIFT + TAB", "Previous workspace", "hyprctl dispatch workspace {wrap_prev}")'
+    )
+    lines.append('hl.unbind("SUPER + mouse_down")')
+    lines.append('hl.unbind("SUPER + mouse_up")')
+    if wheel:
+        lines.append(
+            f'o.bind("SUPER + mouse_down", "Scroll active workspace forward", "hyprctl dispatch workspace {wrap_next}")'
+        )
+        lines.append(
+            f'o.bind("SUPER + mouse_up", "Scroll active workspace backward", "hyprctl dispatch workspace {wrap_prev}")'
+        )
+    lines.append(WORKSPACES_END)
+    return "\n".join(lines)
+
+
+def serialize_monitors(raw: dict) -> str:
+    src = raw if isinstance(raw, dict) else {}
+    items = src.get("items") if isinstance(src.get("items"), list) else []
+    lines = [MONITORS_BEGIN]
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        output = str(item.get("output") or "").strip()
+        if not re.fullmatch(r"[A-Za-z0-9._-]+", output or ""):
+            continue
+        mode = str(item.get("mode") or "preferred")
+        position = str(item.get("position") or "auto")
+        try:
+            scale = float(item.get("scale") or 1)
+        except (TypeError, ValueError):
+            scale = 1.0
+        parts = [
+            f"output = {lua_string(output)}",
+            f"mode = {lua_string(mode)}",
+            f"position = {lua_string(position)}",
+            f"scale = {lua_number(scale)}",
+        ]
+        transform = int(item.get("transform") or 0)
+        if transform:
+            parts.append(f"transform = {transform}")
+        if item.get("disabled") is True:
+            parts.append("disabled = true")
+        mirror = str(item.get("mirror") or "").strip()
+        if mirror:
+            parts.append(f"mirror = {lua_string(mirror)}")
+        vrr = int(item.get("vrr") or 0)
+        if vrr:
+            parts.append(f"vrr = {vrr}")
+        if int(item.get("bitdepth") or 8) == 10:
+            parts.append("bitdepth = 10")
+        cm = str(item.get("cm") or "").strip()
+        if cm:
+            parts.append(f"cm = {lua_string(cm)}")
+        lines.append("hl.monitor({ " + ", ".join(parts) + " })")
+    lines.append(MONITORS_END)
+    return "\n".join(lines)
+
+
+def _lua_str_field(body: str, name: str) -> str:
+    m = re.search(rf'{name}\s*=\s*"((?:\\.|[^"\\])*)"', body)
+    return m.group(1) if m else ""
+
+
+def _lua_num_field(body: str, name: str) -> str:
+    m = re.search(rf"{name}\s*=\s*([0-9.]+)", body)
+    return m.group(1) if m else ""
+
+
+def parse_workspaces(text: str) -> list:
+    start = text.find(WORKSPACES_BEGIN)
+    stop = text.find(WORKSPACES_END)
+    body = text[start:stop] if start >= 0 and stop > start else ""
+    out = []
+    for m in re.finditer(r"hl\.workspace_rule\(\s*\{([^}]*)\}\s*\)", body):
+        chunk = m.group(1)
+        wid = _lua_str_field(chunk, "workspace")
+        if not wid:
+            continue
+        row = {
+            "id": wid,
+            "name": _lua_str_field(chunk, "default_name"),
+            "monitor": _lua_str_field(chunk, "monitor"),
+            "persistent": bool(re.search(r"persistent\s*=\s*true", chunk)),
+            "isDefault": bool(re.search(r"default\s*=\s*true", chunk)),
+            "onCreatedEmpty": _lua_str_field(chunk, "on_created_empty"),
+            "special": wid.startswith("special:"),
+        }
+        out.append(row)
+    return out
+
+
+def parse_monitors(text: str) -> list:
+    start = text.find(MONITORS_BEGIN)
+    stop = text.find(MONITORS_END)
+    body = text[start:stop] if start >= 0 and stop > start else ""
+    out = []
+    for m in re.finditer(r"hl\.monitor\(\s*\{([^}]*)\}\s*\)", body):
+        chunk = m.group(1)
+        output = _lua_str_field(chunk, "output")
+        if not output:
+            continue
+        scale_raw = _lua_num_field(chunk, "scale")
+        try:
+            scale = float(scale_raw) if scale_raw else 1.0
+        except ValueError:
+            scale = 1.0
+        transform_raw = _lua_num_field(chunk, "transform")
+        vrr_raw = _lua_num_field(chunk, "vrr")
+        bit_raw = _lua_num_field(chunk, "bitdepth")
+        row = {
+            "output": output,
+            "mode": _lua_str_field(chunk, "mode") or "preferred",
+            "position": _lua_str_field(chunk, "position") or "auto",
+            "scale": scale,
+            "transform": int(float(transform_raw)) if transform_raw else 0,
+            "disabled": bool(re.search(r"disabled\s*=\s*true", chunk)),
+            "mirror": _lua_str_field(chunk, "mirror"),
+            "vrr": int(float(vrr_raw)) if vrr_raw else 0,
+            "bitdepth": int(float(bit_raw)) if bit_raw else 8,
+            "cm": _lua_str_field(chunk, "cm"),
+        }
+        out.append(row)
+    return out
+
+
 def apply(kind: str, path: Path, payload: dict | None, reset: bool) -> str:
     text = path.read_text() if path.exists() else ""
     if kind == "windows" and not text.strip():
@@ -945,6 +1289,10 @@ def apply(kind: str, path: Path, payload: dict | None, reset: bool) -> str:
         begin, end, serialize = BINDINGS_BEGIN, BINDINGS_END, serialize_bindings
     elif kind == "windows":
         begin, end, serialize = WINDOWS_BEGIN, WINDOWS_END, serialize_windows
+    elif kind == "workspaces":
+        begin, end, serialize = WORKSPACES_BEGIN, WORKSPACES_END, serialize_workspaces
+    elif kind == "monitors":
+        begin, end, serialize = MONITORS_BEGIN, MONITORS_END, serialize_monitors
     else:
         text = strip_sentinel(text, LEGACY_INPUT_BEGIN, LEGACY_INPUT_END)
         begin, end, serialize = INPUT_BEGIN, INPUT_END, serialize_input
@@ -956,15 +1304,15 @@ def apply(kind: str, path: Path, payload: dict | None, reset: bool) -> str:
 def main() -> int:
     if len(sys.argv) < 4:
         print(
-            "Usage: hypr-sentinel.py look|input|autostart|bindings|windows|require apply|reset|list <file> [json]",
+            "Usage: hypr-sentinel.py look|input|autostart|bindings|windows|workspaces|monitors|require apply|reset|list <file> [json]",
             file=sys.stderr,
         )
         return 2
     kind, action, dest = sys.argv[1], sys.argv[2], Path(sys.argv[3])
-    kinds = ("look", "input", "autostart", "bindings", "windows", "require")
+    kinds = ("look", "input", "autostart", "bindings", "windows", "workspaces", "monitors", "require")
     if kind not in kinds or action not in ("apply", "reset", "list"):
         print(
-            "hypr-sentinel.py: kind must be look|input|autostart|bindings|windows|require and action apply|reset|list",
+            "hypr-sentinel.py: kind must be look|input|autostart|bindings|windows|workspaces|monitors|require and action apply|reset|list",
             file=sys.stderr,
         )
         return 2
@@ -990,11 +1338,15 @@ def main() -> int:
             print(json.dumps(parse_windows(text)))
         elif kind == "autostart":
             print(json.dumps(parse_autostart(text)))
+        elif kind == "workspaces":
+            print(json.dumps(parse_workspaces(text)))
+        elif kind == "monitors":
+            print(json.dumps(parse_monitors(text)))
         elif kind == "input":
             print(json.dumps(input_has_workspace_gesture(text)))
         else:
             print(
-                "hypr-sentinel.py: list is for autostart|bindings|windows|input",
+                "hypr-sentinel.py: list is for autostart|bindings|windows|workspaces|monitors|input",
                 file=sys.stderr,
             )
             return 2

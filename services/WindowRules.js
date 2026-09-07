@@ -177,12 +177,16 @@ function rowFromArgs(args) {
   }
   return normalize({
     match: args[0],
+    title: rules.title,
     float: rules.float === true,
     tile: rules.tile === true,
     center: rules.center === true,
     width: width,
     height: height,
     workspace: rules.workspace,
+    pin: rules.pin === true,
+    fullscreen: rules.fullscreen === true,
+    opacity: rules.opacity,
   });
 }
 
@@ -229,15 +233,36 @@ function normalize(row) {
   }
   var workspace = sanitizeWorkspace(row.workspace);
   var center = row.center === true;
-  if (!placement && !center && !width && !workspace) return null;
+  var title = sanitizeMatch(row.title);
+  var pin = row.pin === true;
+  var fullscreen = row.fullscreen === true;
+  var opacity = sanitizeOpacity(row.opacity);
+  if (!placement && !center && !width && !workspace && !title && !pin && !fullscreen && !opacity)
+    return null;
   return {
     match: match,
+    title: title,
     placement: placement,
     center: center,
     width: width,
     height: height,
     workspace: workspace,
+    pin: pin,
+    fullscreen: fullscreen,
+    opacity: opacity,
   };
+}
+
+function sanitizeOpacity(raw) {
+  if (raw == null || raw === "") return "";
+  if (typeof raw === "number") {
+    var n = Number(raw);
+    if (!isFinite(n) || n < 0.2 || n > 1) return "";
+    return String(Math.round(n * 100) / 100);
+  }
+  var text = String(raw).replace(/^\s+|\s+$/g, "");
+  if (!/^[0-9.]+( [0-9.]+)?$/.test(text) || text.length > 16) return "";
+  return text;
 }
 
 function sentinelBounds(text) {
@@ -265,22 +290,30 @@ function parseFile(text) {
   for (i = 0; i < unmanaged.length; i++) {
     items.push({
       match: unmanaged[i].match,
+      title: unmanaged[i].title,
       placement: unmanaged[i].placement,
       center: unmanaged[i].center,
       width: unmanaged[i].width,
       height: unmanaged[i].height,
       workspace: unmanaged[i].workspace,
+      pin: unmanaged[i].pin,
+      fullscreen: unmanaged[i].fullscreen,
+      opacity: unmanaged[i].opacity,
       managed: false,
     });
   }
   for (i = 0; i < managed.length; i++) {
     items.push({
       match: managed[i].match,
+      title: managed[i].title,
       placement: managed[i].placement,
       center: managed[i].center,
       width: managed[i].width,
       height: managed[i].height,
       workspace: managed[i].workspace,
+      pin: managed[i].pin,
+      fullscreen: managed[i].fullscreen,
+      opacity: managed[i].opacity,
       managed: true,
     });
   }
@@ -289,11 +322,15 @@ function parseFile(text) {
 
 function serializeRule(row) {
   var parts = [];
+  if (row.title) parts.push("title = " + luaString(row.title));
   if (row.placement === "float") parts.push("float = true");
   if (row.placement === "tile") parts.push("tile = true");
   if (row.center) parts.push("center = true");
   if (row.width && row.height) parts.push("size = { " + row.width + ", " + row.height + " }");
   if (row.workspace) parts.push("workspace = " + luaString(row.workspace));
+  if (row.pin) parts.push("pin = true");
+  if (row.fullscreen) parts.push("fullscreen = true");
+  if (row.opacity) parts.push("opacity = " + luaString(row.opacity));
   if (!parts.length) return "";
   return "o.window(" + luaString(row.match) + ", { " + parts.join(", ") + " })";
 }
@@ -378,5 +415,9 @@ function describe(row) {
   if (row.center) bits.push("center");
   if (row.width && row.height) bits.push(row.width + "\u00d7" + row.height);
   if (row.workspace) bits.push("workspace " + row.workspace);
+  if (row.title) bits.push("title " + row.title);
+  if (row.pin) bits.push("pin");
+  if (row.fullscreen) bits.push("fullscreen");
+  if (row.opacity) bits.push("opacity " + row.opacity);
   return bits.join(" \u00b7 ");
 }

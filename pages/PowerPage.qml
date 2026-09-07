@@ -88,6 +88,74 @@ PrefsPage {
   }
 
   PrefsGroup {
+    title: "Presentation"
+    query: root.query
+    detail: "Stay awake, silence notifications, and stop the screensaver. This is session state, not a saved prefs file."
+
+    SettingRow {
+      label: "Presentation Mode"
+      description: Omarchy.presentationMode
+        ? "Idle, lock, and notifications are held off until you turn this off."
+        : "A timed stay-awake plus do-not-disturb for talks and sharing a screen."
+      hint: "~/.local/state/omarchy/atmos-presentation.json"
+      query: root.query
+      keywords: ["presentation", "stay awake", "dnd", "caffeine"]
+
+      PrefsToggle {
+        checked: Omarchy.presentationMode
+        onToggled: Omarchy.setPresentationMode(!Omarchy.presentationMode)
+      }
+    }
+  }
+
+  PrefsGroup {
+    title: "Hardware"
+    query: (Omarchy.powerGovernor || Omarchy.amdPstate || Omarchy.chargeLimitAvailable) ? root.query : "."
+    detail: "Governor and energy preference are what power-profiles-daemon is using. Atmos does not write CPU sysfs while PPD is running."
+
+    SettingRow {
+      available: Omarchy.powerGovernor.length > 0
+      label: "CPU governor"
+      description: Omarchy.powerGovernor || "not reported"
+      hint: "scaling_governor"
+      query: root.query
+      keywords: ["governor", "cpu", "schedutil"]
+    }
+
+    SettingRow {
+      available: Omarchy.amdPstate.length > 0
+      label: "Energy preference"
+      description: Omarchy.amdPstate || "not reported"
+      hint: "energy_performance_preference"
+      query: root.query
+      keywords: ["amd", "pstate", "epp"]
+    }
+
+    SettingRow {
+      available: Omarchy.chargeLimitAvailable
+      stretchControl: true
+      label: "Charge limit"
+      description: "Stop charging past this percent. Only on hardware that exposes a threshold."
+      hint: "charge_control_end_threshold"
+      query: root.query
+      keywords: ["charge", "limit", "battery"]
+
+      PrefsSlider {
+        width: parent.width
+        from: 50
+        to: 100
+        stepSize: 5
+        value: Omarchy.chargeLimit || 100
+        valueText: (Omarchy.chargeLimit || 100) + "%"
+        onChanged: function(value) {
+          var next = Math.round(value)
+          if (next !== Omarchy.chargeLimit) Omarchy.setChargeLimit(next)
+        }
+      }
+    }
+  }
+
+  PrefsGroup {
     title: "Battery"
     query: (Omarchy.batteryPresent || (Omarchy.powerPresent && Omarchy.isLaptop)) ? root.query : "."
     detail: "A one-shot notification with charge and draw. The percentage toggle is the number next to the bar's power icon."

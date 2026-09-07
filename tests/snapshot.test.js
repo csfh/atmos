@@ -169,6 +169,7 @@ assertEqual(replacedBinds[1].managed, true, "patchReplaceManaged marks replaceme
 const hypr = load("services/HyprPrefs.js");
 const accounts = load("services/Accounts.js");
 const hardware = load("services/Hardware.js");
+const diagnostics = load("services/Diagnostics.js");
 const sunset = load("services/HyprSunset.js");
 const atmosUpdate = load("services/AtmosUpdate.js");
 const richUi = load("services/RichUi.js");
@@ -178,6 +179,7 @@ const adapters = {
   clampInput: hypr.clampInput,
   applyAccountPatch: accounts.applyAccountPatch,
   normalizeHardware: hardware.normalize,
+  normalizeDiagnostics: diagnostics.normalize,
   parseTime: sunset.parseTime,
   parseChannel: atmosUpdate.parseChannel,
   parseWeatherCoords: richUi.parseWeatherCoords,
@@ -188,6 +190,13 @@ const fresh = snapshot.adopt({}, { theme: "tokyo", extraThemes: ["a"] }, adapter
 assertEqual(fresh.theme, "tokyo", "adopt sets theme from an empty record");
 assertEqual(fresh.extraThemes.join(","), "a", "adopt sets extraThemes from an empty record");
 assert(!("hardware" in fresh), "adopt from {} leaves hardware absent");
+
+const withDiag = snapshot.adopt(
+  {},
+  { diagnostics: { hyprland: { version: "0.56.2", configErrors: [] } } },
+  adapters,
+);
+assertEqual(withDiag.diagnostics.hyprland.version, "0.56.2", "adopt normalizes diagnostics");
 
 const full = {
   hardware: { cpu: { model: "X" } },

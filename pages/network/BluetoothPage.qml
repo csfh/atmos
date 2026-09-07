@@ -100,6 +100,23 @@ PrefsPage {
     }
 
     SettingRow {
+      available: !!root.adapter
+      label: "Discoverable"
+      description: "Other devices can see this adapter while this is on."
+      hint: "adapter.discoverable"
+      query: root.query
+      keywords: ["discoverable", "visible", "pair"]
+
+      PrefsToggle {
+        checked: !!(root.adapter && root.adapter.discoverable)
+        enabled: Omarchy.bluetooth && !!root.adapter
+        onToggled: {
+          if (root.adapter) root.adapter.discoverable = !root.adapter.discoverable
+        }
+      }
+    }
+
+    SettingRow {
       label: "Restart Bluetooth"
       description: "Unblock rfkill and restart BlueZ. Try this if the adapter looks stuck."
       hint: "omarchy restart bluetooth"
@@ -137,7 +154,7 @@ PrefsPage {
         available: true
         sectionHelp: false
         label: modelData && modelData.name ? modelData.name : "Bluetooth device"
-        description: modelData && modelData.connected ? "Connected and ready." : "Paired. Connect when you want to use it."
+        description: (modelData && modelData.connected ? "Connected. " : "Paired. ") + (modelData && modelData.battery != null && modelData.battery !== "" ? ("Battery " + modelData.battery + ". ") : "") + "Trust keeps it auto-connecting."
         hint: "omarchy bluetooth device"
         query: root.query
         keywords: ["bt", "headset", "mouse", "keyboard", "forget"]
@@ -152,6 +169,11 @@ PrefsPage {
               if (modelData.connected) Omarchy.disconnectBluetoothDevice(modelData.address)
               else Omarchy.connectBluetoothDevice(modelData.address)
             }
+          }
+          PrefsButton {
+            text: "Trust"
+            enabled: modelData && modelData.address
+            onClicked: Omarchy.trustBluetoothDevice(modelData.address)
           }
           PrefsButton {
             text: "Forget…"

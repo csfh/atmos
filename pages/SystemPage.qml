@@ -1,12 +1,39 @@
 import QtQuick
 import "../components"
 import "../services"
+import "../services/Diagnostics.js" as DiagJs
 import "../services/RichUi.js" as RichUi
+import "system" as Sys
 
 PrefsPage {
   id: root
   title: "System"
-  description: "This machine's name, language, and clock. Account name and face are on Accounts. Printers, weather, crash capture, and Omarchy updates are further down."
+  description: "This machine's name, language, and clock. Account name and face are on Accounts. Printers, weather, diagnostics, and Omarchy updates are further down."
+
+  property var stack: null
+  property var navigator: null
+
+  function openSubpage(id) {
+    if (root.navigator && root.navigator.go) {
+      root.navigator.go("system/" + id)
+      return
+    }
+    if (!stack) return
+    if (id === "diagnostics") stack.push(diagnosticsPage)
+    else if (id === "environment") stack.push(environmentPage)
+  }
+
+  readonly property string diagnosticsDescription: {
+    var diag = DiagJs.normalize(Omarchy.diagnostics)
+    var n = DiagJs.failedCount(diag)
+    if (n === 1) return "One failed unit. Copy a report for Discord or an agent."
+    if (n > 1) return n + " failed units. Copy a report for Discord or an agent."
+    if (!DiagJs.hyprOk(diag)) return "Hyprland has config errors. Copy a report for Discord or an agent."
+    return "Copy a report for Discord or an agent."
+  }
+
+  Component { id: diagnosticsPage; Sys.DiagnosticsPage {} }
+  Component { id: environmentPage; Sys.EnvironmentPage {} }
 
   PrefsConfirm {
     id: channelConfirm
@@ -736,18 +763,31 @@ PrefsPage {
   PrefsGroup {
     title: "Diagnostics"
     query: root.query
-    detail: "When a process dumps core, Omarchy can notify you so a coding agent can look at the crash."
+    detail: "Health, failed units, Hyprland errors, and a copyable report. Crash capture lives on that page."
 
     SettingRow {
-      label: "Crash capture"
-      description: "A notification when a process crashes, so a coding agent can look at the dump."
-      hint: "omarchy toggle crash capture"
+      label: "Environment"
+      description: "Detected session values and a user overlay for extra variables."
+      hint: "~/.config/environment.d/10-atmos.conf"
       query: root.query
-      keywords: ["crash", "coredump", "agent", "watch"]
+      keywords: ["environment", "path", "shell", "xdg"]
 
-      PrefsToggle {
-        checked: Omarchy.crashCapture
-        onToggled: Omarchy.setCrashCapture(!Omarchy.crashCapture)
+      PrefsButton {
+        text: "Open…"
+        onClicked: root.openSubpage("environment")
+      }
+    }
+
+    SettingRow {
+      label: "Health report"
+      description: root.diagnosticsDescription
+      hint: "omarchy debug --no-sudo --print"
+      query: root.query
+      keywords: ["diagnostics", "report", "discord", "journal", "systemd", "hyprland", "crash"]
+
+      PrefsButton {
+        text: "Open…"
+        onClicked: root.openSubpage("diagnostics")
       }
     }
   }

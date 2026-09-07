@@ -27,10 +27,11 @@ const catalog = hubs.hubs();
 assert(catalog.length > 0, "hubs() returns the catalog");
 assertEqual(hubs.hubTitle("idle"), "Idle and lock", "idle hub title is Idle and lock");
 assertEqual(
-  hubs.hubTitle("windows/bindings"),
-  "Keybindings",
+  hubs.hubTitle("windows/rules"),
+  "Window rules",
   "child hub titles come from the catalog",
 );
+assertEqual(hubs.hubTitle("keybindings"), "Keybindings", "keybindings is a first-class hub");
 assertEqual(hubs.rootHub("appearance/boot"), "appearance", "rootHub strips the child tail");
 assertEqual(hubs.snapshotGroupForHub("appearance/boot"), "look", "appearance/boot reads look");
 assertEqual(hubs.snapshotGroupForHub("network"), "network", "network hub reads network");
@@ -82,6 +83,13 @@ const pageFiles = [
   "network/SpeedtestPage.qml",
   "windows/BindingsPage.qml",
   "windows/RulesPage.qml",
+  "system/DiagnosticsPage.qml",
+  "system/EnvironmentPage.qml",
+  "applications/StartupPage.qml",
+  "WorkspacesPage.qml",
+  "TweaksPage.qml",
+  "ServicesPage.qml",
+  "ProfilesPage.qml",
 ];
 pageFiles.forEach(function (file) {
   const id = hubs.fileHub(file);

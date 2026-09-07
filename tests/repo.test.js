@@ -26,6 +26,15 @@ assert(
   "startSession follows look with rest",
 );
 assert(
+  omarchyQml.indexOf("function copyDiagnosticReport()") !== -1 &&
+    omarchyQml.indexOf("diag-report.sh") !== -1,
+  "Omarchy copies a diagnostic report through diag-report.sh",
+);
+assert(
+  omarchyQml.indexOf("Diagnostics.js") !== -1 && omarchyQml.indexOf("normalizeDiagnostics") !== -1,
+  "Omarchy normalizes diagnostics through Diagnostics.js",
+);
+assert(
   omarchyQml.indexOf("hyprsunsetConfFile") !== -1 && omarchyQml.indexOf("hyprsunset.conf") !== -1,
   "Omarchy watches hyprsunset.conf for the night-light schedule",
 );
@@ -898,6 +907,24 @@ assert(
   "Omarchy validates theme URLs with RichUi.parseGitUrl",
 );
 const systemSrc = fs.readFileSync(path.join(__dirname, "..", "pages", "SystemPage.qml"), "utf8");
+const diagPageSrc = fs.readFileSync(
+  path.join(__dirname, "..", "pages", "system", "DiagnosticsPage.qml"),
+  "utf8",
+);
+assert(
+  systemSrc.indexOf('label: "Health report"') !== -1 &&
+    systemSrc.indexOf('openSubpage("diagnostics")') !== -1,
+  "System opens the Diagnostics child page",
+);
+assert(
+  systemSrc.indexOf('label: "Crash capture"') === -1,
+  "Crash capture moved off System onto Diagnostics",
+);
+assert(
+  diagPageSrc.indexOf('label: "Crash capture"') !== -1 &&
+    diagPageSrc.indexOf('label: "Copy report"') !== -1,
+  "Diagnostics has Copy report and crash capture",
+);
 assert(
   systemSrc.indexOf("RichUi.parseHostname") !== -1 && systemSrc.indexOf("hostnameValid") !== -1,
   "System validates hostname before Set",
@@ -1198,6 +1225,7 @@ const copyProps = [
   "keyboardBacklightPresent",
   "keyboardBrightness",
   "crashCapture",
+  "diagnostics",
   "doNotDisturb",
   "weatherLocation",
   "weatherCoords",

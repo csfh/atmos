@@ -420,6 +420,158 @@ fill_look_surface() {
   [[ $reminder_count =~ ^[0-9]+$ ]] || reminder_count=0
   [[ $reminder_active == true ]] || reminder_active=false
   [[ -n $reminders_json ]] || reminders_json='[]'
+  fill_atmos_control look
+}
+
+# Workspaces, monitor rules, presentation, env, tweaks, power extras.
+fill_atmos_control() {
+  local scope=${1:-all}
+  workspaces_json='[]'
+  workspaces_managed=false
+  workspace_wrap=true
+  workspace_wheel=true
+  monitor_rules_json='[]'
+  monitor_rules_managed=false
+  presentation_mode=false
+  env_vars_json='[]'
+  env_path_prepend=""
+  env_detected_json='{}'
+  tweaks_json='{"middlePaste":false,"electronWayland":true,"forceZeroScaling":true,"swappiness":false}'
+  systemd_units_json='[]'
+  power_governor=""
+  amd_pstate=""
+  charge_limit=0
+  charge_limit_available=false
+  net_gateway=""
+  net_dns_servers_json='[]'
+
+  local windows_file monitors_file env_file gtk_file sysctl_file presentation_file
+  windows_file=${ATMOS_WINDOWS_FILE:-"$HOME/.config/hypr/atmos.lua"}
+  monitors_file=${ATMOS_MONITORS_FILE:-"$HOME/.config/hypr/monitors.lua"}
+  env_file=${ATMOS_ENV_FILE:-"$HOME/.config/environment.d/10-atmos.conf"}
+  gtk_file=${ATMOS_GTK4_FILE:-"$HOME/.config/gtk-4.0/settings.ini"}
+  sysctl_file=/etc/sysctl.d/99-atmos-swappiness.conf
+  presentation_file=${ATMOS_PRESENTATION_FILE:-"$HOME/.local/state/omarchy/atmos-presentation.json"}
+
+  if present python3; then
+    workspaces_json=$(python3 "$SNAP_DIR/hypr-sentinel.py" workspaces list "$windows_file" 2>/dev/null || echo '[]')
+    monitor_rules_json=$(python3 "$SNAP_DIR/hypr-sentinel.py" monitors list "$monitors_file" 2>/dev/null || echo '[]')
+  fi
+  [[ -n $workspaces_json ]] || workspaces_json='[]'
+  [[ -n $monitor_rules_json ]] || monitor_rules_json='[]'
+  if [[ -f $windows_file ]] && grep -q -- '-- atmos:workspaces begin' "$windows_file"; then
+    workspaces_managed=true
+  fi
+  if [[ -f $windows_file ]] && grep -q -- '-- atmos:wrapSwitch = false' "$windows_file"; then
+    workspace_wrap=false
+  fi
+  if [[ -f $windows_file ]] && grep -q -- '-- atmos:wheelSwitch = false' "$windows_file"; then
+    workspace_wheel=false
+  fi
+  if [[ -f $monitors_file ]] && grep -q -- '-- atmos:monitors begin' "$monitors_file"; then
+    monitor_rules_managed=true
+  fi
+  if [[ -f $presentation_file ]] && present jq; then
+    presentation_mode=$(jq -r '.on // false' "$presentation_file" 2>/dev/null || true)
+  fi
+  [[ $presentation_mode == true ]] || presentation_mode=false
+
+  if [[ $scope != look ]]; then
+    if [[ -f $env_file ]]; then
+      env_path_prepend=$(awk -F= '/^PATH=/{sub(/:\$PATH$/, "", $2); sub(/:\$\{PATH\}$/, "", $2); print $2; exit}' "$env_file" || true)
+      env_vars_json=$(awk -F= '
+        /^#/ { next }
+        NF < 2 { next }
+        $1 == "PATH" { next }
+        $1 ~ /^[A-Za-z_][A-Za-z0-9_]*$/ { printf "%s\t%s\n", $1, substr($0, index($0, "=") + 1) }
+      ' "$env_file" | jq -R -s -c '
+        split("\n")
+        | map(select(length > 0) | split("\t"))
+        | map(select(length >= 2) | {key: .[0], value: .[1]})
+      ' 2>/dev/null || echo '[]')
+    fi
+    [[ -n $env_vars_json ]] || env_vars_json='[]'
+    env_detected_json=$(jq -n \
+      --arg sessionType "${XDG_SESSION_TYPE:-}" \
+      --arg desktop "${XDG_CURRENT_DESKTOP:-}" \
+      --arg path "${PATH:-}" \
+      --arg xdgHome "${XDG_DATA_HOME:-}" \
+      --arg xdgConfig "${XDG_CONFIG_HOME:-}" \
+      --arg xdgData "${XDG_DATA_HOME:-}" \
+      --arg editor "${EDITOR:-}" \
+      --arg browser "${BROWSER:-}" \
+      --arg terminal "${TERMINAL:-}" \
+      --arg shell "${SHELL:-}" \
+      '{sessionType:$sessionType,desktop:$desktop,path:$path,xdgHome:$xdgHome,xdgConfig:$xdgConfig,xdgData:$xdgData,editor:$editor,browser:$browser,terminal:$terminal,shell:$shell}')
+    [[ -n $env_detected_json ]] || env_detected_json='{}'
+    local middle electron zero swap
+    middle=false
+    electron=true
+    zero=true
+    swap=false
+    if [[ -f $gtk_file ]] && grep -q 'gtk-enable-primary-paste=false' "$gtk_file"; then
+      middle=true
+    fi
+    if [[ -f $env_file ]] && grep -q '^ELECTRON_OZONE_PLATFORM_HINT=auto' "$env_file"; then
+      electron=false
+    fi
+    if [[ -f $sysctl_file ]]; then
+      swap=true
+    fi
+    tweaks_json=$(jq -n --argjson middlePaste "$middle" --argjson electronWayland "$electron" --argjson forceZeroScaling "$zero" --argjson swappiness "$swap" \
+      '{middlePaste:$middlePaste,electronWayland:$electronWayland,forceZeroScaling:$forceZeroScaling,swappiness:$swappiness}')
+    [[ -n $tweaks_json ]] || tweaks_json='{}'
+    if present systemctl && present python3; then
+      systemd_units_json=$(
+        {
+          systemctl --user --no-legend --no-pager list-units --type=service --all 2>/dev/null || true
+          echo '---'
+          systemctl --no-legend --no-pager list-units --type=service --state=failed 2>/dev/null || true
+        } | python3 -c '
+import json, sys
+user, _, rest = sys.stdin.read().partition("---\n")
+rows = []
+for line, scope in ((user, "user"), (rest, "system")):
+    for raw in line.splitlines():
+        cols = raw.split()
+        if not cols:
+            continue
+        rows.append({
+            "unit": cols[0],
+            "scope": scope,
+            "load": cols[1] if len(cols) > 1 else "",
+            "active": cols[2] if len(cols) > 2 else "",
+            "sub": cols[3] if len(cols) > 3 else "",
+            "description": " ".join(cols[4:]),
+        })
+print(json.dumps(rows[:80]))
+' 2>/dev/null || echo '[]'
+      )
+    fi
+    [[ -n $systemd_units_json ]] || systemd_units_json='[]'
+    if [[ -r /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor ]]; then
+      power_governor=$(< /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor)
+      power_governor=${power_governor%$'\n'}
+    fi
+    if [[ -r /sys/devices/system/cpu/cpu0/cpufreq/energy_performance_preference ]]; then
+      amd_pstate=$(< /sys/devices/system/cpu/cpu0/cpufreq/energy_performance_preference)
+      amd_pstate=${amd_pstate%$'\n'}
+    fi
+    local bat
+    for bat in /sys/class/power_supply/BAT*/charge_control_end_threshold; do
+      [[ -r $bat ]] || continue
+      charge_limit_available=true
+      charge_limit=$(< "$bat")
+      charge_limit=${charge_limit%$'\n'}
+      [[ $charge_limit =~ ^[0-9]+$ ]] || charge_limit=0
+      break
+    done
+    if present nmcli; then
+      net_gateway=$(nmcli -g IP4.GATEWAY device show 2>/dev/null | awk 'NF{print; exit}' || true)
+      net_dns_servers_json=$(nmcli -g IP4.DNS device show 2>/dev/null | awk 'NF' | jq -R -s -c 'split("\n") | map(select(length>0))' 2>/dev/null || echo '[]')
+    fi
+    [[ -n $net_dns_servers_json ]] || net_dns_servers_json='[]'
+  fi
 }
 
 GROUP=${1:-all}
@@ -548,6 +700,13 @@ emit_look_snapshot() {
     --argjson batteryPresent "$battery_present" \
     --argjson weatherPresent "$weather_present" \
     --argjson doNotDisturb "$dnd" \
+    --argjson presentationMode "$presentation_mode" \
+    --argjson workspaces "$workspaces_json" \
+    --argjson workspacesManaged "$workspaces_managed" \
+    --argjson workspaceWrapSwitch "$workspace_wrap" \
+    --argjson workspaceWheelSwitch "$workspace_wheel" \
+    --argjson monitorRules "$monitor_rules_json" \
+    --argjson monitorRulesManaged "$monitor_rules_managed" \
     --argjson reminderCount "$reminder_count" \
     --argjson reminderActive "$reminder_active" \
     --argjson reminders "$reminders_json" \
@@ -602,6 +761,12 @@ emit_look_snapshot() {
       hyprNoGaps: $hyprNoGaps,
       hyprSquareAspect: $hyprSquareAspect,
       hyprWorkspaceLayout: $hyprWorkspaceLayout,
+      workspaces: $workspaces,
+      workspacesManaged: $workspacesManaged,
+      workspaceWrapSwitch: $workspaceWrapSwitch,
+      workspaceWheelSwitch: $workspaceWheelSwitch,
+      monitorRules: $monitorRules,
+      monitorRulesManaged: $monitorRulesManaged,
       monitors: $monitors,
       internalPresent: $internalPresent,
       internalEnabled: $internalEnabled,
@@ -617,6 +782,7 @@ emit_look_snapshot() {
       batteryPresent: $batteryPresent,
       weatherPresent: $weatherPresent,
       doNotDisturb: $doNotDisturb,
+      presentationMode: $presentationMode,
       reminderCount: $reminderCount,
       reminderActive: $reminderActive,
       reminders: $reminders
@@ -695,6 +861,13 @@ emit_network_snapshot() {
   [[ $net_iface =~ ^[a-zA-Z0-9._-]+$ ]] || net_iface=""
   [[ $net_ip =~ ^[0-9a-fA-F:.]+$ ]] || net_ip=""
   [[ $net_speed =~ ^[0-9]+$ ]] || net_speed=""
+  net_gateway=""
+  net_dns_servers_json='[]'
+  if present nmcli; then
+    net_gateway=$(nmcli -g IP4.GATEWAY device show 2>/dev/null | awk 'NF{print; exit}' || true)
+    net_dns_servers_json=$(nmcli -g IP4.DNS device show 2>/dev/null | awk 'NF' | jq -R -s -c 'split("\n") | map(select(length>0))' 2>/dev/null || echo '[]')
+  fi
+  [[ -n $net_dns_servers_json ]] || net_dns_servers_json='[]'
   wifi_hw=false
   wifi_radio=false
   wifi_radio_out=$(nmcli radio wifi 2>/dev/null || true)
@@ -769,6 +942,8 @@ emit_network_snapshot() {
     --arg netSsid "$net_ssid" \
     --arg netSignal "$net_signal" \
     --arg netIp "$net_ip" \
+    --arg netGateway "$net_gateway" \
+    --argjson netDnsServers "$net_dns_servers_json" \
     --arg netSpeed "$net_speed" \
     --argjson wifiHw "$wifi_hw" \
     --argjson wifiRadio "$wifi_radio" \
@@ -791,6 +966,8 @@ emit_network_snapshot() {
       netSsid: $netSsid,
       netSignal: $netSignal,
       netIp: $netIp,
+      netGateway: $netGateway,
+      netDnsServers: $netDnsServers,
       netSpeed: $netSpeed,
       wifiHw: $wifiHw,
       wifiRadio: $wifiRadio,
@@ -929,6 +1106,19 @@ emit_accounts_snapshot() {
     }'
 }
 
+diagnostics_json='{}'
+fill_diagnostics() {
+  diagnostics_json='{}'
+  if present python3 && [[ -x $SNAP_DIR/diag-inventory.py ]]; then
+    local inv
+    inv=$(python3 "$SNAP_DIR/diag-inventory.py" 2>/dev/null || true)
+    if [[ -n $inv ]]; then
+      diagnostics_json=$(jq -c '.' <<<"$inv" 2>/dev/null || echo '{}')
+    fi
+  fi
+  [[ -n $diagnostics_json ]] || diagnostics_json='{}'
+}
+
 emit_system_snapshot() {
   local hostname timezone timezones_json ntp ntp_available ntp_synchronized
   local ntp_can ntp_val ntp_sync locale locales_json supported
@@ -1040,6 +1230,8 @@ emit_system_snapshot() {
   if omarchy toggle enabled crash-capture-off >/dev/null 2>&1; then
     crash_capture=false
   fi
+  fill_atmos_control all
+  fill_diagnostics
   jq -n \
     --arg group "$GROUP" \
     --arg hostname "$hostname" \
@@ -1054,6 +1246,10 @@ emit_system_snapshot() {
     --arg keyboardLayout "$keyboard_layout" \
     --argjson keyboardLayouts "$keyboard_layouts_json" \
     --argjson crashCapture "$crash_capture" \
+    --argjson diagnostics "$diagnostics_json" \
+    --argjson envVars "$env_vars_json" \
+    --arg envPathPrepend "$env_path_prepend" \
+    --argjson envDetected "$env_detected_json" \
     '{
       group: $group,
       hostname: $hostname,
@@ -1067,7 +1263,11 @@ emit_system_snapshot() {
       parallelDownloads: $parallelDownloads,
       keyboardLayout: $keyboardLayout,
       keyboardLayouts: $keyboardLayouts,
-      crashCapture: $crashCapture
+      crashCapture: $crashCapture,
+      diagnostics: $diagnostics,
+      envVars: $envVars,
+      envPathPrepend: $envPathPrepend,
+      envDetected: $envDetected
     }'
 }
 
@@ -1385,6 +1585,7 @@ if present python3 && [[ -x $SNAP_DIR/hw-inventory.py ]]; then
   fi
 fi
 [[ -n $hardware_json ]] || hardware_json='{}'
+fill_diagnostics
 
 desktop_apps_json='[]'
 tui_apps_json='[]'
@@ -2437,6 +2638,8 @@ if [[ -f $windows_file ]] && grep -q -- '-- atmos:windows begin' "$windows_file"
   window_rules_managed=true
 fi
 
+fill_atmos_control all
+
 keybindings_json='[]'
 if present omarchy && present python3; then
   print_cmd=(omarchy menu keybindings --print)
@@ -2549,6 +2752,7 @@ snapshot_json=$(jq -n \
   --argjson audioTuningOn "$audio_tuning_on" \
   --argjson disks "$disks_json" \
   --argjson hardware "$hardware_json" \
+  --argjson diagnostics "$diagnostics_json" \
   --argjson luksDevices "$luks_devices_json" \
   --argjson swapDevices "$swap_devices_json" \
   --argjson snapperPresent "$snapper_present" \
@@ -2690,6 +2894,24 @@ snapshot_json=$(jq -n \
   --argjson bindingsManaged "$bindings_managed" \
   --argjson windowRules "$window_rules_json" \
   --argjson windowRulesManaged "$window_rules_managed" \
+  --argjson workspaces "$workspaces_json" \
+  --argjson workspacesManaged "$workspaces_managed" \
+  --argjson workspaceWrapSwitch "$workspace_wrap" \
+  --argjson workspaceWheelSwitch "$workspace_wheel" \
+  --argjson monitorRules "$monitor_rules_json" \
+  --argjson monitorRulesManaged "$monitor_rules_managed" \
+  --argjson tweaks "$tweaks_json" \
+  --argjson envVars "$env_vars_json" \
+  --arg envPathPrepend "$env_path_prepend" \
+  --argjson envDetected "$env_detected_json" \
+  --argjson systemdUnits "$systemd_units_json" \
+  --argjson presentationMode "$presentation_mode" \
+  --arg powerGovernor "$power_governor" \
+  --arg amdPstate "$amd_pstate" \
+  --argjson chargeLimit "$charge_limit" \
+  --argjson chargeLimitAvailable "$charge_limit_available" \
+  --arg netGateway "$net_gateway" \
+  --argjson netDnsServers "$net_dns_servers_json" \
   --argjson keybindings "$keybindings_json" \
   --arg focusedClass "$focused_class" \
   --argjson cupsActive "$cups_active" \
@@ -2769,6 +2991,8 @@ snapshot_json=$(jq -n \
     netSsid: $netSsid,
     netSignal: $netSignal,
     netIp: $netIp,
+    netGateway: $netGateway,
+    netDnsServers: $netDnsServers,
     netSpeed: $netSpeed,
     wifiHw: $wifiHw,
     wifiRadio: $wifiRadio,
@@ -2784,6 +3008,7 @@ snapshot_json=$(jq -n \
     audioTuningOn: $audioTuningOn,
     disks: $disks,
     hardware: $hardware,
+    diagnostics: $diagnostics,
     luksDevices: $luksDevices,
     swapDevices: $swapDevices,
     snapperPresent: $snapperPresent,
@@ -2837,6 +3062,11 @@ snapshot_json=$(jq -n \
     powerProfileAc: $powerProfileAc,
     powerProfileBattery: $powerProfileBattery,
     powerProfiles: $powerProfiles,
+    powerGovernor: $powerGovernor,
+    amdPstate: $amdPstate,
+    chargeLimit: $chargeLimit,
+    chargeLimitAvailable: $chargeLimitAvailable,
+    presentationMode: $presentationMode,
     plymouth: $plymouth,
     plymouthThemes: $plymouthThemes,
     hasAether: $hasAether,
@@ -2867,6 +3097,12 @@ snapshot_json=$(jq -n \
     hyprNoGaps: $hyprNoGaps,
     hyprSquareAspect: $hyprSquareAspect,
     hyprWorkspaceLayout: $hyprWorkspaceLayout,
+    workspaces: $workspaces,
+    workspacesManaged: $workspacesManaged,
+    workspaceWrapSwitch: $workspaceWrapSwitch,
+    workspaceWheelSwitch: $workspaceWheelSwitch,
+    monitorRules: $monitorRules,
+    monitorRulesManaged: $monitorRulesManaged,
     fingerprintAvailable: $fingerprintAvailable,
     fingerprintConfigured: $fingerprintConfigured,
     fido2Configured: $fido2Configured,
@@ -2930,6 +3166,11 @@ snapshot_json=$(jq -n \
     bindingsManaged: $bindingsManaged,
     windowRules: $windowRules,
     windowRulesManaged: $windowRulesManaged,
+    tweaks: $tweaks,
+    envVars: $envVars,
+    envPathPrepend: $envPathPrepend,
+    envDetected: $envDetected,
+    systemdUnits: $systemdUnits,
     keybindings: $keybindings,
     focusedClass: $focusedClass,
     cupsActive: $cupsActive,

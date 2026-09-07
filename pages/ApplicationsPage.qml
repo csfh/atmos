@@ -2,11 +2,26 @@ import QtQuick
 import "../components"
 import "../services"
 import "../services/RichUi.js" as RichUi
+import "applications" as Apps
 
 PrefsPage {
   id: root
   title: "Applications"
   description: "Launchers you added yourself under ~/.local/share/applications. Remove deletes that desktop file. Packages from the repos stay on the system."
+
+  property var stack: null
+  property var navigator: null
+
+  function openSubpage(id) {
+    if (root.navigator && root.navigator.go) {
+      root.navigator.go("applications/" + id)
+      return
+    }
+    if (!stack) return
+    if (id === "startup") stack.push(startupPage)
+  }
+
+  Component { id: startupPage; Apps.StartupPage {} }
 
   property string pendingKind: ""
   property string pendingId: ""
@@ -199,6 +214,26 @@ PrefsPage {
         primary: true
         enabled: !Omarchy.jobBusy
         onClicked: root.submitAdd()
+      }
+    }
+  }
+
+  PrefsGroup {
+    title: "Startup"
+    query: root.query
+    detail: "Enable, delay, and failures live on the Startup page. The list below is the Atmos block in autostart.lua."
+    hint: "~/.config/hypr/autostart.lua"
+
+    SettingRow {
+      label: "Startup programs"
+      description: Omarchy.autostart.length === 1 ? "One command at login." : (Omarchy.autostart.length + " commands at login.")
+      hint: "~/.config/hypr/autostart.lua"
+      query: root.query
+      keywords: ["autostart", "startup", "delay"]
+
+      PrefsButton {
+        text: "Configure…"
+        onClicked: root.openSubpage("startup")
       }
     }
   }

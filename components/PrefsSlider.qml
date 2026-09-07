@@ -30,6 +30,10 @@ Item {
   property var liveState: RichUi.sliderLiveState(liveInterval)
 
   function rebuildTicks() {
+    if (!showTicks) {
+      ticks = []
+      return
+    }
     ticks = RichUi.sliderTickValues(from, to, _step)
   }
 

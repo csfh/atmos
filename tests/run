@@ -220,6 +220,8 @@ isLaptop
 keyboardBacklightPresent
 keyboardBrightness
 mirroring
+monitorRules
+monitorRulesManaged
 monitors
 nightlight
 nightlightDay
@@ -228,6 +230,7 @@ nightlightNightOn
 nightlightTemperature
 plymouth
 plymouthThemes
+presentationMode
 reminderActive
 reminderCount
 reminders
@@ -248,6 +251,10 @@ trayHidden
 trayPinned
 trayPresent
 weatherPresent
+workspaceWheelSwitch
+workspaceWrapSwitch
+workspaces
+workspacesManaged
 EOF
 )
 if [[ "$look_emit_keys" != "$look_fixture" ]]; then
@@ -269,6 +276,7 @@ agentsSync
 agentsSyncDeviceId
 agentsSyncDir
 agentsSyncFileName
+amdPstate
 atmosChannel
 atmosInstalled
 atmosRevision
@@ -293,6 +301,8 @@ bluetooth
 bluetoothDevices
 browser
 browsers
+chargeLimit
+chargeLimitAvailable
 clockBirthYear
 clockFormat
 clockFormatAlt
@@ -305,6 +315,7 @@ crashCapture
 cupsActive
 currentUser
 desktopApps
+diagnostics
 directBoot
 directBootAvailable
 disks
@@ -315,6 +326,9 @@ dns
 doNotDisturb
 editor
 editors
+envDetected
+envPathPrepend
+envVars
 externalPresent
 extras
 fido2Configured
@@ -377,7 +391,11 @@ mimePdfOptions
 mimeVideo
 mimeVideoOptions
 mirroring
+monitorRules
+monitorRulesManaged
 monitors
+netDnsServers
+netGateway
 netIface
 netIp
 netKind
@@ -394,12 +412,14 @@ parallelDownloads
 passwordlessSudo
 picturesDir
 plugins
+powerGovernor
 powerPresent
 powerProfile
 powerProfileAc
 powerProfileBattery
 powerProfiles
 powerShowPercentage
+presentationMode
 printerSetup
 recordingActive
 reminderActive
@@ -419,6 +439,7 @@ sshdEnabled
 sudolessDocker
 suspendEnabled
 swapDevices
+systemdUnits
 tailscaleInstalled
 tailscalePeers
 tailscaleRunning
@@ -434,6 +455,7 @@ trayHidden
 trayPinned
 trayPresent
 tuiApps
+tweaks
 updateAvailable
 updateSummary
 users
@@ -457,6 +479,10 @@ wifiIface
 wifiRadio
 windowRules
 windowRulesManaged
+workspaceWheelSwitch
+workspaceWrapSwitch
+workspaces
+workspacesManaged
 EOF
 )
 if [[ "$rest_emit_keys" != "$rest_fixture" ]]; then
@@ -513,7 +539,7 @@ if [[ -x scripts/snapshot.sh ]] && command -v omarchy >/dev/null 2>&1 && command
   fi
   echo "ok - snapshot.sh accounts emits users without disks"
   json=$(bash scripts/snapshot.sh)
-  echo "$json" | jq -e '.theme and .themes and has("extraThemes") and (.extraThemes | type == "array") and has("desktopApps") and (.desktopApps | type == "array") and has("tuiApps") and (.tuiApps | type == "array") and has("webApps") and (.webApps | type == "array") and .barPosition and .idleScreensaver and has("stayAwake") and has("nightlight") and has("nightlightTemperature") and has("screensaverEnabled") and has("barVisible") and has("dns") and has("bluetooth") and has("suspendEnabled") and has("powerProfile") and has("powerProfileAc") and has("powerProfileBattery") and (.powerProfiles | type == "array") and has("crashCapture") and has("plymouth") and (.plymouthThemes | type == "array") and has("doNotDisturb") and has("weatherLocation") and has("weatherCoords") and has("weatherAuto") and has("weatherPresent") and has("weatherUnit") and has("weatherRefreshMinutes") and has("reminderCount") and has("reminderActive") and has("reminders") and (.reminders | type == "array") and has("clockFormat") and has("clockFormatAlt") and has("clockWeekStart") and has("clockPresent") and has("clockBirthYear") and has("clockLifeExpectancy") and has("indicatorsPresent") and has("indicatorsAlwaysShow") and has("indicatorsItems") and (.indicatorsItems | type == "array") and has("agentsPresent") and has("agentsRefreshIntervalSec") and has("agentsSync") and has("agentsSyncDir") and has("agentsSyncFileName") and has("agentsSyncDeviceId") and has("spacerPresent") and has("spacerSize") and has("trayPresent") and has("trayHidden") and (.trayHidden | type == "array") and has("trayPinned") and (.trayPinned | type == "array") and has("powerPresent") and has("powerShowPercentage") and has("isLaptop") and has("batteryPresent") and has("monitors") and (.monitors | type == "array") and has("internalPresent") and has("internalEnabled") and has("externalPresent") and has("mirroring") and has("touchpadPresent") and has("touchpadEnabled") and has("touchscreenPresent") and has("touchscreenEnabled") and has("keyboardBacklightPresent") and has("keyboardBrightness") and has("wifiConnected") and has("wifiBandSelected") and (.wifiBands | type == "array") and has("wifiIface") and has("netKind") and has("netIface") and has("netIp") and has("wifiHw") and has("wifiRadio") and has("wifiConnections") and (.wifiConnections | type == "array") and has("bluetoothDevices") and (.bluetoothDevices | type == "array") and has("audioSinks") and (.audioSinks | type == "array") and has("audioSources") and (.audioSources | type == "array") and has("audioOutputVolume") and has("audioOutputMuted") and has("audioInputVolume") and has("audioInputMuted") and has("audioTuningMatch") and has("audioTuningOn") and has("disks") and (.disks | type == "array") and has("hardware") and (.hardware | type == "object") and has("luksDevices") and (.luksDevices | type == "array") and has("swapDevices") and (.swapDevices | type == "array") and has("snapperPresent") and has("snapperConfigs") and (.snapperConfigs | type == "array") and has("snapshots") and (.snapshots | type == "array") and has("hibernationAvailable") and has("hibernationSupported") and has("hibernationConfigured") and has("screensaverBranded") and has("aboutBranded") and has("timezone") and has("timezones") and (.timezones | type == "array") and has("hostname") and has("keyboardLayout") and has("keyboardLayouts") and (.keyboardLayouts | type == "array") and has("ntp") and has("ntpAvailable") and has("ntpSynchronized") and has("locale") and has("locales") and (.locales | type == "array") and has("parallelDownloads") and has("fullName") and has("currentUser") and has("avatarPath") and has("users") and (.users | type == "array") and has("groups") and (.groups | type == "array") and has("hyprLook") and has("hyprInput") and has("hyprLookManaged") and has("hyprNoGaps") and has("fingerprintAvailable") and has("sshdEnabled") and has("omarchyChannel") and has("updateAvailable") and has("plugins") and (.plugins | type == "array") and has("voxtypeInstalled") and has("fstrimEnabled") and has("directBootAvailable") and has("mimePdf") and has("picturesDir") and has("videosDir") and has("recordingActive") and has("webcamOverlay") and has("services") and has("gaming") and has("extras") and has("hooks") and (.hooks | type == "array") and has("autostart") and (.autostart | type == "array") and has("autostartManaged") and has("nightlightDay") and has("nightlightNight") and has("nightlightNightOn") and has("tailscalePeers") and (.tailscalePeers | type == "array") and (.hyprLook | has("cursorSize")) and (.hyprLook | has("activeOpacity")) and (.hyprLook | has("inactiveOpacity")) and (.hyprInput | has("workspaceGesture")) and (.hyprInput | has("kbLayoutOverride")) and has("bindings") and (.bindings | type == "array") and has("bindingsManaged") and has("windowRules") and (.windowRules | type == "array") and has("windowRulesManaged") and has("keybindings") and (.keybindings | type == "array") and has("focusedClass") and has("cupsActive") and has("printerSetup") and has("hwNvidia") and has("hwVulkan") and has("hwIntel") and has("dmiProduct") and has("cpuStat") and has("memoryStat") and has("cpuIdentity") and has("gpuIdentity") and has("npuIdentity") and has("atmosRevision") and has("atmosChannel") and has("atmosInstalled")' >/dev/null
+  echo "$json" | jq -e '.theme and .themes and has("extraThemes") and (.extraThemes | type == "array") and has("desktopApps") and (.desktopApps | type == "array") and has("tuiApps") and (.tuiApps | type == "array") and has("webApps") and (.webApps | type == "array") and .barPosition and .idleScreensaver and has("stayAwake") and has("nightlight") and has("nightlightTemperature") and has("screensaverEnabled") and has("barVisible") and has("dns") and has("bluetooth") and has("suspendEnabled") and has("powerProfile") and has("powerProfileAc") and has("powerProfileBattery") and (.powerProfiles | type == "array") and has("crashCapture") and has("plymouth") and (.plymouthThemes | type == "array") and has("doNotDisturb") and has("weatherLocation") and has("weatherCoords") and has("weatherAuto") and has("weatherPresent") and has("weatherUnit") and has("weatherRefreshMinutes") and has("reminderCount") and has("reminderActive") and has("reminders") and (.reminders | type == "array") and has("clockFormat") and has("clockFormatAlt") and has("clockWeekStart") and has("clockPresent") and has("clockBirthYear") and has("clockLifeExpectancy") and has("indicatorsPresent") and has("indicatorsAlwaysShow") and has("indicatorsItems") and (.indicatorsItems | type == "array") and has("agentsPresent") and has("agentsRefreshIntervalSec") and has("agentsSync") and has("agentsSyncDir") and has("agentsSyncFileName") and has("agentsSyncDeviceId") and has("spacerPresent") and has("spacerSize") and has("trayPresent") and has("trayHidden") and (.trayHidden | type == "array") and has("trayPinned") and (.trayPinned | type == "array") and has("powerPresent") and has("powerShowPercentage") and has("isLaptop") and has("batteryPresent") and has("monitors") and (.monitors | type == "array") and has("internalPresent") and has("internalEnabled") and has("externalPresent") and has("mirroring") and has("touchpadPresent") and has("touchpadEnabled") and has("touchscreenPresent") and has("touchscreenEnabled") and has("keyboardBacklightPresent") and has("keyboardBrightness") and has("wifiConnected") and has("wifiBandSelected") and (.wifiBands | type == "array") and has("wifiIface") and has("netKind") and has("netIface") and has("netIp") and has("wifiHw") and has("wifiRadio") and has("wifiConnections") and (.wifiConnections | type == "array") and has("bluetoothDevices") and (.bluetoothDevices | type == "array") and has("audioSinks") and (.audioSinks | type == "array") and has("audioSources") and (.audioSources | type == "array") and has("audioOutputVolume") and has("audioOutputMuted") and has("audioInputVolume") and has("audioInputMuted") and has("audioTuningMatch") and has("audioTuningOn") and has("disks") and (.disks | type == "array") and has("hardware") and (.hardware | type == "object") and has("diagnostics") and (.diagnostics | type == "object") and has("luksDevices") and (.luksDevices | type == "array") and has("swapDevices") and (.swapDevices | type == "array") and has("snapperPresent") and has("snapperConfigs") and (.snapperConfigs | type == "array") and has("snapshots") and (.snapshots | type == "array") and has("hibernationAvailable") and has("hibernationSupported") and has("hibernationConfigured") and has("screensaverBranded") and has("aboutBranded") and has("timezone") and has("timezones") and (.timezones | type == "array") and has("hostname") and has("keyboardLayout") and has("keyboardLayouts") and (.keyboardLayouts | type == "array") and has("ntp") and has("ntpAvailable") and has("ntpSynchronized") and has("locale") and has("locales") and (.locales | type == "array") and has("parallelDownloads") and has("fullName") and has("currentUser") and has("avatarPath") and has("users") and (.users | type == "array") and has("groups") and (.groups | type == "array") and has("hyprLook") and has("hyprInput") and has("hyprLookManaged") and has("hyprNoGaps") and has("fingerprintAvailable") and has("sshdEnabled") and has("omarchyChannel") and has("updateAvailable") and has("plugins") and (.plugins | type == "array") and has("voxtypeInstalled") and has("fstrimEnabled") and has("directBootAvailable") and has("mimePdf") and has("picturesDir") and has("videosDir") and has("recordingActive") and has("webcamOverlay") and has("services") and has("gaming") and has("extras") and has("hooks") and (.hooks | type == "array") and has("autostart") and (.autostart | type == "array") and has("autostartManaged") and has("nightlightDay") and has("nightlightNight") and has("nightlightNightOn") and has("tailscalePeers") and (.tailscalePeers | type == "array") and (.hyprLook | has("cursorSize")) and (.hyprLook | has("activeOpacity")) and (.hyprLook | has("inactiveOpacity")) and (.hyprInput | has("workspaceGesture")) and (.hyprInput | has("kbLayoutOverride")) and has("bindings") and (.bindings | type == "array") and has("bindingsManaged") and has("windowRules") and (.windowRules | type == "array") and has("windowRulesManaged") and has("keybindings") and (.keybindings | type == "array") and has("focusedClass") and has("cupsActive") and has("printerSetup") and has("hwNvidia") and has("hwVulkan") and has("hwIntel") and has("dmiProduct") and has("cpuStat") and has("memoryStat") and has("cpuIdentity") and has("gpuIdentity") and has("npuIdentity") and has("atmosRevision") and has("atmosChannel") and has("atmosInstalled")' >/dev/null
   echo "ok - snapshot.sh emits a usable JSON object"
 else
   echo "ok - skipping live snapshot (omarchy/jq not available)"
@@ -558,6 +584,27 @@ if [[ -x scripts/set-wifi-connection.sh ]]; then
     exit 1
   fi
   echo "ok - set-wifi-connection.sh rejects bad radio and uuid values"
+  if bash scripts/set-wifi-connection.sh metered aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee maybe >/dev/null 2>&1; then
+    echo "not ok - set-wifi-connection.sh accepted a bad metered value"
+    exit 1
+  fi
+  if bash scripts/set-wifi-connection.sh mac aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee spoof >/dev/null 2>&1; then
+    echo "not ok - set-wifi-connection.sh accepted a bad mac value"
+    exit 1
+  fi
+  if bash scripts/set-wifi-connection.sh ipv4 aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee manual 10.0.0.8 99 >/dev/null 2>&1; then
+    echo "not ok - set-wifi-connection.sh accepted a bad static prefix"
+    exit 1
+  fi
+  if bash scripts/set-wifi-connection.sh wireguard-import wg0.conf >/dev/null 2>&1; then
+    echo "not ok - set-wifi-connection.sh accepted a relative WireGuard path"
+    exit 1
+  fi
+  if bash scripts/set-wifi-connection.sh hotspot on bad $'pass\nword' >/dev/null 2>&1; then
+    echo "not ok - set-wifi-connection.sh accepted a hotspot password with a newline"
+    exit 1
+  fi
+  echo "ok - set-wifi-connection.sh rejects bad metered, mac, ipv4, WireGuard, and hotspot values"
 else
   echo "ok - skipping set-wifi-connection.sh"
 fi
@@ -626,6 +673,21 @@ if [[ -x scripts/disk-inventory.py ]] && command -v python3 >/dev/null 2>&1 && c
   echo "ok - disk-inventory.py emits disks, luksDevices, swapDevices, and snapshots"
 else
   echo "ok - skipping disk-inventory.py"
+fi
+
+if [[ -x scripts/diag-inventory.py ]] && command -v python3 >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
+  ATMOS_DIAG_SKIP_CMDS=1 python3 scripts/diag-inventory.py | jq -e '
+    (.kernel | type == "object") and (.omarchy | type == "object") and
+    (.atmos | type == "object") and (.hyprland | type == "object") and
+    (.failedUnits | type == "array") and (.disk | type == "object") and
+    (.memory | type == "object") and (.gpu | type == "object") and
+    (.portals | type == "object") and (.pipewire | type == "object") and
+    (.network | type == "object") and (.pacman | type == "object") and
+    (.recentErrors | type == "array") and has("hostname")
+  ' >/dev/null
+  echo "ok - diag-inventory.py emits a health object"
+else
+  echo "ok - skipping diag-inventory.py"
 fi
 
 if [[ -x scripts/hw-inventory.py ]] && command -v python3 >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then

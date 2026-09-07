@@ -3,7 +3,9 @@ const path = require("path");
 const vm = require("vm");
 
 function load(rel) {
-  const src = fs.readFileSync(path.join(__dirname, "..", rel), "utf8");
+  const src = fs
+    .readFileSync(path.join(__dirname, "..", rel), "utf8")
+    .replace(/^\.pragma library\s*$/m, "");
   const ctx = {};
   vm.runInNewContext(src, ctx, { filename: rel });
   return ctx;

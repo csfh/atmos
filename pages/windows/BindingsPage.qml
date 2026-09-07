@@ -17,6 +17,7 @@ PrefsPage {
   property string catalogFilter: ""
   property string pendingKeys: ""
   property string pendingLabel: ""
+  property bool recordingKeys: false
 
   readonly property var overrideRows: {
     var list = Omarchy.bindings || []
@@ -34,11 +35,13 @@ PrefsPage {
     for (var i = 0; i < list.length; i++) {
       var row = list[i]
       if (!row || !row.keys) continue
+      var cat = BindJs.categoryFromAction(row.action)
+      row = { keys: row.keys, action: row.action, category: cat }
       if (q.length === 0) {
         out.push(row)
         continue
       }
-      var hay = (String(row.keys) + " " + String(row.action || "")).toLowerCase()
+      var hay = (String(row.keys) + " " + String(row.action || "") + " " + cat).toLowerCase()
       if (hay.indexOf(q) !== -1) out.push(row)
     }
     return out
@@ -58,7 +61,25 @@ PrefsPage {
     keysField.setText(chord)
     labelField.setText("")
     commandField.setText("")
+    root.recordingKeys = true
     addDialog.open()
+  }
+
+  function captureKey(event) {
+    if (!root.recordingKeys || !event) return
+    var chord = BindJs.recordKeyEvent({
+      key: event.key,
+      text: event.text,
+      modifiers: event.modifiers
+    })
+    if (!chord) {
+      event.accepted = true
+      return
+    }
+    event.accepted = true
+    root.keysDraft = chord
+    keysField.setText(chord)
+    root.recordingKeys = false
   }
 
   function submitAdd() {
@@ -198,7 +219,7 @@ PrefsPage {
         required property var modelData
         sectionHelp: false
         label: modelData && modelData.keys ? modelData.keys : "chord"
-        description: modelData && modelData.action ? modelData.action : ""
+        description: (modelData && modelData.category ? modelData.category + " · " : "") + (modelData && modelData.action ? modelData.action : "")
         hint: "omarchy menu keybindings --print"
         query: root.query
         keywords: ["keybinding", "hotkey", "shortcut"]
@@ -224,11 +245,21 @@ PrefsPage {
     id: addDialog
     title: "Add a binding"
 
+    Item {
+      id: keyGrab
+      width: 1
+      height: 1
+      focus: root.recordingKeys
+      Keys.onPressed: function(event) { root.captureKey(event) }
+    }
+
     PrefsText {
       width: parent.width
       text: root.conflictText().length
         ? (root.keysDraft + " already runs “" + root.conflictText() + "”. Add will unbind that first.")
-        : "Use the same chord form as bindings.lua, for example SUPER + SHIFT + R."
+        : (root.recordingKeys
+          ? "Press the shortcut now. Super, Ctrl, Alt, and Shift count as modifiers."
+          : "Use the same chord form as bindings.lua, or press Record shortcut.")
       color: Theme.muted
       font.family: Theme.fontFamily
       font.pixelSize: Theme.captionSize
@@ -238,8 +269,31 @@ PrefsPage {
       id: keysField
       width: parent.width
       placeholder: "SUPER + F"
+      enabled: !root.recordingKeys
       onEdited: function(value) { root.keysDraft = value }
       onSubmitted: function() { root.submitAdd() }
+    }
+
+    PrefsButton {
+      text: root.recordingKeys ? "Listening…" : "Record shortcut"
+      primary: root.recordingKeys
+      onClicked: {
+        root.recordingKeys = true
+        keyGrab.forceActiveFocus()
+      }
+    }
+
+    PrefsText {
+      width: parent.width
+      text: BindJs.generatedBindText({
+        keys: BindJs.sanitizeKeys(root.keysDraft),
+        label: root.labelDraft,
+        command: root.commandDraft,
+        unbind: root.unbindOnly || !!root.conflictText()
+      }) || "The Hyprland line appears here once the chord is valid."
+      color: Theme.muted
+      font.family: Theme.fontFamily
+      font.pixelSize: Theme.captionSize
     }
 
     PrefsField {

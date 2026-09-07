@@ -900,12 +900,12 @@ function sliderNiceGridTicks(from, to, step, parts) {
 // Major tick values for a full-width slider. Always includes the endpoints.
 // The slider itself keeps `step`; this only picks labels.
 function sliderTickValues(from, to, step) {
-  from = Number(from);
-  to = Number(to);
-  step = Number(step);
-  if (!isFinite(from)) from = 0;
-  if (!isFinite(to)) to = 0;
-  if (!(step > 0) || !isFinite(step)) step = 1;
+  from = +from;
+  to = +to;
+  step = +step;
+  if (from !== from) from = 0;
+  if (to !== to) to = 0;
+  if (!(step > 0) || step !== step) step = 1;
   if (!(to > from)) return [from];
   var n = Math.round((to - from) / step);
   if (n <= 4) {

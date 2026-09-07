@@ -83,6 +83,22 @@ function settingsCatalog() {
       consequence:
         "The dwindle split stays after the last window in a branch closes. New windows then open in that leftover split.",
     }),
+    entry("hyprLook.enableSwallow", "windows", "Swallow terminals", "behavior", {
+      type: "boolean",
+      consequence: "A terminal that launches a GUI app is swallowed into that window.",
+    }),
+    entry("hyprLook.swallowRegex", "windows", "Swallow regex", "behavior", {
+      type: "string",
+      consequence: "Only terminal classes matching this regex are swallowed.",
+    }),
+    entry("hyprLook.cursorWarpOnFocus", "windows", "Cursor follows focus", "behavior", {
+      type: "boolean",
+      consequence: "The pointer jumps when a different window takes focus.",
+    }),
+    entry("hyprLook.onFocusUnderFullscreen", "windows", "Focus under fullscreen", "behavior", {
+      type: "integer",
+      consequence: "Focus can steal a fullscreen window or stay underneath it.",
+    }),
     entry("hyprLook.focusOnActivate", "windows", "Focus on activate", "behavior", {
       type: "boolean",
       consequence:
@@ -438,10 +454,64 @@ function settingsCatalog() {
     listEntry("trayPinned", "Pinned tray icons", {
       consequence: "Replaces which tray icons stay visible.",
     }),
+    entry("powerProfile", "power", "Power profile", "behavior", {
+      type: "string",
+      choices: ["performance", "balanced", "power-saver"],
+      consequence: "How hard the machine works right now.",
+    }),
+    listEntry("workspaces", "Workspaces", {
+      consequence: "Named persistent workspaces and monitor assignment are replaced.",
+    }),
+    entry("workspaceWrapSwitch", "workspaces", "Wrap workspace switching", "behavior", {
+      type: "boolean",
+      consequence: "The last workspace wraps to the first when you keep switching.",
+    }),
+    entry("workspaceWheelSwitch", "workspaces", "Mouse-wheel workspace switching", "behavior", {
+      type: "boolean",
+      consequence: "Super and the mouse wheel move between workspaces.",
+    }),
+    listEntry("monitorRules", "Displays", {
+      hostBound: true,
+      consequence: "Monitor modes, scale, and layout are replaced.",
+    }),
     listEntry("autostart", "Startup programs", {
       extraConfirm: true,
       consequence:
         "The programs Hyprland launches at login are replaced. A program you do not have installed fails quietly at the next login.",
+    }),
+    listEntry("envVars", "Environment variables", {
+      consequence: "User environment.d overlay variables are replaced.",
+    }),
+    entry("envPathPrepend", "envVars", "PATH prepend", "behavior", {
+      type: "string",
+      hostBound: true,
+      consequence: "Directories are prepended to PATH for the next login.",
+    }),
+    entry("tweaks.middlePaste", "tweaks", "Disable middle-click paste", "behavior", {
+      type: "boolean",
+      consequence: "GTK apps stop pasting the primary selection on a middle click.",
+    }),
+    entry("tweaks.electronWayland", "tweaks", "Electron Wayland", "behavior", {
+      type: "boolean",
+      consequence: "Electron apps follow or ignore the Ozone Wayland hint on the next login.",
+    }),
+    entry("tweaks.forceZeroScaling", "tweaks", "XWayland zero scaling", "behavior", {
+      type: "boolean",
+      consequence: "XWayland apps stay at 1x and the compositor scales them.",
+    }),
+    entry("tweaks.swappiness", "tweaks", "Lower swappiness", "behavior", {
+      type: "boolean",
+      needsRoot: true,
+      consequence: "Writes vm.swappiness=10, so the kernel waits longer before using swap.",
+    }),
+    entry("presentationMode", "power", "Presentation Mode", "behavior", {
+      type: "boolean",
+      consequence: "Stay awake, silence notifications, and stop the screensaver for a while.",
+    }),
+    entry("chargeLimit", "power", "Charge limit", "behavior", {
+      type: "integer",
+      hostBound: true,
+      consequence: "Stops charging past this percent on hardware that exposes a charge threshold.",
     }),
 
     // Report only. No importer, by design.
@@ -567,6 +637,22 @@ function settingsSections() {
     },
     { id: "trayPinned", title: "Pinned tray icons", note: "Tray icons kept visible." },
     { id: "autostart", title: "Startup programs", note: "What Hyprland launches when you log in." },
+    {
+      id: "workspaces",
+      title: "Workspaces",
+      note: "How many workspaces Hyprland keeps, and where they live.",
+    },
+    {
+      id: "monitorRules",
+      title: "Displays",
+      note: "Per-output mode, scale, and disable-without-forgetting.",
+    },
+    {
+      id: "envVars",
+      title: "Environment",
+      note: "A user overlay on top of the session environment.",
+    },
+    { id: "tweaks", title: "Tweaks", note: "Overflow settings that do not need their own page." },
     { id: "system", title: "System", note: "Machine identity. Off by default when you import." },
     {
       id: "security",
@@ -1422,12 +1508,26 @@ function canonicalizeList(item, value) {
   return { value: out };
 }
 
+function workspaceCountFromItems(list) {
+  var rows = Array.isArray(list) ? list : [];
+  var max = 0;
+  var i, n;
+  for (i = 0; i < rows.length; i++) {
+    n = Number(rows[i] && (rows[i].id || rows[i].workspace));
+    if (isFinite(n) && n >= 1 && n <= 10 && n > max) max = n;
+  }
+  return max < 1 ? 10 : max;
+}
+
 function canonicalizeListRow(item, row, index) {
   var n = index + 1;
   var key = item.key;
   if (key === "bindings") return canonicalizeBindingRow(row, n, item.label);
   if (key === "autostart") return canonicalizeAutostartRow(row, n, item.label);
   if (key === "windowRules") return canonicalizeWindowRuleRow(row, n, item.label);
+  if (key === "workspaces") return canonicalizeWorkspaceRow(row, n, item.label);
+  if (key === "monitorRules") return canonicalizeMonitorRow(row, n, item.label);
+  if (key === "envVars") return canonicalizeEnvVarRow(row, n, item.label);
   if (key === "indicatorsItems") return canonicalizeIndicatorRow(row, n, item.label);
   if (key === "trayHidden" || key === "trayPinned")
     return canonicalizeStringIdRow(row, n, item.label);
@@ -1443,7 +1543,7 @@ function sanitizeBindingKeys(raw) {
   if (text.indexOf("\n") !== -1 || text.indexOf("\r") !== -1) return "";
   text = text.replace(/^\s+|\s+$/g, "").replace(/\s+/g, " ");
   if (!text || text.length > 64) return "";
-  if (!/^[A-Za-z0-9_ +.:-]+$/.test(text)) return "";
+  if (!/^[A-Za-z0-9_ +.:,-]+$/.test(text)) return "";
   return text;
 }
 
@@ -1523,7 +1623,15 @@ function canonicalizeAutostartRow(row, n, label) {
   if (typeof row.command !== "string") return { error: prefix + "has no command." };
   var command = sanitizeListCommand(row.command);
   if (!command) return { error: prefix + "has a command Atmos will not write." };
-  return { value: { command: command } };
+  var delay = 0;
+  if (row.delay != null && row.delay !== "") {
+    delay = Math.round(Number(row.delay));
+    if (!isFinite(delay) || delay < 0 || delay > 600)
+      return { error: prefix + "has a delay Atmos will not write." };
+  }
+  if (row.enabled != null && row.enabled !== true && row.enabled !== false)
+    return { error: prefix + "has a bad enabled flag." };
+  return { value: { command: command, delay: delay, enabled: row.enabled !== false } };
 }
 
 function canonicalizeWindowRuleRow(row, n, label) {
@@ -1558,17 +1666,136 @@ function canonicalizeWindowRuleRow(row, n, label) {
     workspace = sanitizeWindowWorkspace(row.workspace);
     if (!workspace) return { error: prefix + "is not a valid workspace." };
   }
-  if (!placement && !center && !width && !workspace) return { error: prefix + "does nothing." };
+  var title = "";
+  if (row.title != null && row.title !== "") {
+    title = sanitizeWindowMatch(row.title);
+    if (!title) return { error: prefix + "has a title Atmos will not write." };
+  }
+  if (row.pin != null && row.pin !== true && row.pin !== false)
+    return { error: prefix + "has a bad pin flag." };
+  if (row.fullscreen != null && row.fullscreen !== true && row.fullscreen !== false)
+    return { error: prefix + "has a bad fullscreen flag." };
+  var opacity = "";
+  if (row.opacity != null && row.opacity !== "") {
+    opacity = String(row.opacity).replace(/^\s+|\s+$/g, "");
+    if (!/^[0-9.]+( [0-9.]+)?$/.test(opacity) || opacity.length > 16)
+      return { error: prefix + "has an opacity Atmos will not write." };
+  }
+  if (
+    !placement &&
+    !center &&
+    !width &&
+    !workspace &&
+    !title &&
+    row.pin !== true &&
+    row.fullscreen !== true &&
+    !opacity
+  )
+    return { error: prefix + "does nothing." };
   return {
     value: normalizeListRow({
       match: match,
+      title: title,
       placement: placement,
       center: center,
       width: width,
       height: height,
       workspace: workspace,
+      pin: row.pin === true,
+      fullscreen: row.fullscreen === true,
+      opacity: opacity,
     }),
   };
+}
+
+function canonicalizeWorkspaceRow(row, n, label) {
+  var prefix = listRowPrefix(label, n);
+  if (!row || typeof row !== "object" || Array.isArray(row))
+    return { error: prefix + "is not a workspace." };
+  var id = String(row.id || row.workspace || "").replace(/^\s+|\s+$/g, "");
+  if (!/^special:[A-Za-z0-9_-]{1,24}$/.test(id) && !/^[1-9]$|^10$/.test(id))
+    return { error: prefix + "is not a valid workspace id." };
+  var name = "";
+  if (row.name != null && row.name !== "") {
+    name = String(row.name);
+    if (name.indexOf("\n") !== -1 || name.length > 32 || !/^[A-Za-z0-9 _.-]+$/.test(name))
+      return { error: prefix + "has a name Atmos will not write." };
+  }
+  var monitor = "";
+  if (row.monitor != null && row.monitor !== "") {
+    monitor = String(row.monitor).replace(/^\s+|\s+$/g, "");
+    if (!/^[A-Za-z0-9._-]+$/.test(monitor))
+      return { error: prefix + "has a monitor Atmos will not write." };
+  }
+  return {
+    value: normalizeListRow({
+      id: id,
+      name: name,
+      persistent: row.persistent !== false,
+      monitor: monitor,
+      isDefault: row.isDefault === true || row.default === true,
+      special: id.indexOf("special:") === 0,
+      onCreatedEmpty: sanitizeListCommand(row.onCreatedEmpty || row.on_created_empty || ""),
+    }),
+  };
+}
+
+function canonicalizeMonitorRow(row, n, label) {
+  var prefix = listRowPrefix(label, n);
+  if (!row || typeof row !== "object" || Array.isArray(row))
+    return { error: prefix + "is not a monitor rule." };
+  var output = String(row.output || "").replace(/^\s+|\s+$/g, "");
+  if (!/^[A-Za-z0-9._-]+$/.test(output) || output.length > 64)
+    return { error: prefix + "has no output name." };
+  var mode = String(row.mode || "preferred").replace(/^\s+|\s+$/g, "");
+  if (mode !== "preferred" && mode !== "highres" && mode !== "highrr") {
+    if (!/^[0-9]{3,5}x[0-9]{3,5}(@[0-9]+(\.[0-9]+)?)?$/.test(mode))
+      return { error: prefix + "has a mode Atmos will not write." };
+  }
+  var scale = Number(row.scale);
+  if (!isFinite(scale) || scale <= 0) scale = 1;
+  if (scale > 4) scale = 4;
+  scale = Math.round(scale * 1000) / 1000;
+  var transform = Math.round(Number(row.transform || 0));
+  if (!isFinite(transform) || transform < 0 || transform > 7) transform = 0;
+  var vrr = Math.round(Number(row.vrr || 0));
+  if (!isFinite(vrr) || vrr < 0 || vrr > 3) vrr = 0;
+  var bitdepth = Math.round(Number(row.bitdepth || 8)) === 10 ? 10 : 8;
+  var cm = String(row.cm || "");
+  if (["", "auto", "srgb", "dcip3", "wide", "hdr", "hdredid"].indexOf(cm) === -1) cm = "";
+  var mirror = String(row.mirror || "").replace(/^\s+|\s+$/g, "");
+  if (mirror && !/^[A-Za-z0-9._-]+$/.test(mirror))
+    return { error: prefix + "has a mirror output Atmos will not write." };
+  var position = String(row.position || "auto").replace(/^\s+|\s+$/g, "");
+  if (position !== "auto" && position !== "0x0" && !/^-?[0-9]+x-?[0-9]+$/.test(position))
+    position = "auto";
+  return {
+    value: normalizeListRow({
+      output: output,
+      mode: mode,
+      position: position,
+      scale: scale,
+      transform: transform,
+      disabled: row.disabled === true,
+      mirror: mirror,
+      vrr: vrr,
+      bitdepth: bitdepth,
+      cm: cm,
+    }),
+  };
+}
+
+function canonicalizeEnvVarRow(row, n, label) {
+  var prefix = listRowPrefix(label, n);
+  if (!row || typeof row !== "object" || Array.isArray(row))
+    return { error: prefix + "is not an environment variable." };
+  var key = String(row.key || "").replace(/^\s+|\s+$/g, "");
+  if (!/^[A-Za-z_][A-Za-z0-9_]{0,63}$/.test(key) || key === "PATH")
+    return { error: prefix + "has a name Atmos will not write." };
+  var value = String(row.value == null ? "" : row.value);
+  if (value.indexOf("\n") !== -1 || value.indexOf("\r") !== -1 || value.length > 512)
+    return { error: prefix + "has a value Atmos will not write." };
+  return { value: { key: key, value: value } };
 }
 
 function canonicalizeIndicatorRow(row, n, label) {
@@ -1826,7 +2053,13 @@ var SCRIPT_FILES = {
   bindings: "set-hypr-bindings.sh",
   windows: "set-hypr-windows.sh",
   autostart: "set-hypr-autostart.sh",
+  workspaces: "set-hypr-workspaces.sh",
+  monitors: "set-hypr-monitors.sh",
+  env: "set-env.sh",
+  tweaks: "set-tweaks.sh",
   idle: "set-idle.sh",
+  presentation: "set-presentation.sh",
+  chargeLimit: "set-charge-limit.sh",
   hyprsunset: "set-hyprsunset.sh",
   nightlightTemp: "set-nightlight-temp.sh",
   mime: "set-mime-default.sh",
@@ -1895,6 +2128,13 @@ var APPLY_GROUP = {
   parallelDownloads: "system",
   crashCapture: "system",
   fullName: "accounts",
+  workspaces: "look",
+  workspaceWrapSwitch: "look",
+  workspaceWheelSwitch: "look",
+  monitorRules: "look",
+  envVars: "system",
+  envPathPrepend: "system",
+  presentationMode: "look",
 };
 
 var WRITERS;
@@ -1993,6 +2233,7 @@ function writers() {
     },
     audioInputMuted: { kind: "mute-deferred", prefix: ["omarchy", "audio", "input", "mute"] },
     audioTuningOn: omarchyArgv(["omarchy", "audio", "tuning"], "", "on-off"),
+    powerProfile: omarchyArgv(["omarchy", "powerprofiles", "set", "autodetect"], ""),
     powerProfileAc: omarchyArgv(["omarchy", "powerprofiles", "set", "ac"], ""),
     powerProfileBattery: omarchyArgv(["omarchy", "powerprofiles", "set", "battery"], ""),
     suspendEnabled: {
@@ -2094,6 +2335,43 @@ function writers() {
     bindings: { kind: "list-stdin", script: "bindings", backup: "bindings" },
     windowRules: { kind: "list-stdin", script: "windows", backup: "windowRules" },
     autostart: { kind: "list-stdin", script: "autostart", backup: "autostart" },
+    workspaces: { kind: "list-stdin", script: "workspaces", backup: "workspaces" },
+    workspaceWrapSwitch: {
+      kind: "workspaces-meta",
+      field: "wrapSwitch",
+      script: "workspaces",
+      snapshotGroup: "look",
+      backup: "workspaces",
+    },
+    workspaceWheelSwitch: {
+      kind: "workspaces-meta",
+      field: "wheelSwitch",
+      script: "workspaces",
+      snapshotGroup: "look",
+      backup: "workspaces",
+    },
+    monitorRules: { kind: "list-stdin", script: "monitors", backup: "monitorRules" },
+    envVars: {
+      kind: "env-group",
+      field: "vars",
+      script: "env",
+      snapshotGroup: "system",
+      backup: "envVars",
+    },
+    envPathPrepend: {
+      kind: "env-group",
+      field: "pathPrepend",
+      script: "env",
+      snapshotGroup: "system",
+      backup: "envVars",
+    },
+    presentationMode: {
+      kind: "script",
+      script: "presentation",
+      bool: "on-off",
+      snapshotGroup: "look",
+    },
+    chargeLimit: { kind: "script", script: "chargeLimit", snapshotGroup: "" },
   };
   return WRITERS;
 }
@@ -2135,6 +2413,15 @@ function writerSpec(key) {
       script: "input",
       snapshotGroup: "rest",
       backup: "hyprInput",
+    };
+  }
+  if (String(key || "").indexOf("tweaks.") === 0) {
+    return {
+      kind: "tweak",
+      id: String(key).slice("tweaks.".length),
+      script: "tweaks",
+      snapshotGroup: "rest",
+      backup: "tweaks",
     };
   }
   return writers()[key] || null;
@@ -2272,13 +2559,28 @@ function listPayload(key, value) {
     return JSON.stringify({ items: rules });
   }
   if (key === "autostart") {
-    var commands = [];
+    var items = [];
     for (i = 0; i < list.length; i++) {
       var item = list[i];
-      if (typeof item === "string") commands.push(item);
-      else if (item && item.command != null) commands.push(String(item.command));
+      if (typeof item === "string") items.push({ command: item, delay: 0, enabled: true });
+      else if (item && item.command != null) {
+        items.push({
+          command: String(item.command),
+          delay: Math.round(Number(item.delay || 0)) || 0,
+          enabled: item.enabled !== false,
+        });
+      }
     }
-    return JSON.stringify({ commands: commands });
+    return JSON.stringify({ items: items, commands: items });
+  }
+  if (key === "workspaces") {
+    return JSON.stringify({ items: list.map(stripManagedRow) });
+  }
+  if (key === "monitorRules") {
+    return JSON.stringify({ items: list.map(stripManagedRow) });
+  }
+  if (key === "envVars") {
+    return JSON.stringify({ vars: list.map(stripManagedRow) });
   }
   return JSON.stringify(list);
 }
@@ -2518,6 +2820,20 @@ function commandFor(key, value, snapshot, opts) {
 
   if (spec.kind === "list-stdin") {
     var listJson = listPayload(key, value);
+    if (key === "workspaces") {
+      var wrap = readValue(snapshot, "workspaceWrapSwitch");
+      var wheel = readValue(snapshot, "workspaceWheelSwitch");
+      var parsedWs = {};
+      try {
+        parsedWs = JSON.parse(listJson);
+      } catch (e) {
+        parsedWs = { items: [] };
+      }
+      parsedWs.wrapSwitch = wrap !== false;
+      parsedWs.wheelSwitch = wheel !== false;
+      parsedWs.count = workspaceCountFromItems(parsedWs.items);
+      listJson = JSON.stringify(parsedWs);
+    }
     var listApply = {};
     listApply[key] = mergeUnmanaged(snapshot[key], value, key);
     listApply[key + "Managed"] = true;
@@ -2527,6 +2843,64 @@ function commandFor(key, value, snapshot, opts) {
       backup: spec.backup,
       apply: listApply,
       sudo: sudo,
+    });
+  }
+
+  if (spec.kind === "workspaces-meta") {
+    var items = readValue(snapshot, "workspaces") || [];
+    var wrapSwitch = readValue(snapshot, "workspaceWrapSwitch") !== false;
+    var wheelSwitch = readValue(snapshot, "workspaceWheelSwitch") !== false;
+    if (spec.field === "wrapSwitch") wrapSwitch = value !== false;
+    if (spec.field === "wheelSwitch") wheelSwitch = value !== false;
+    var wsItems = Array.isArray(items) ? items.map(stripManagedRow) : [];
+    var wsPayload = JSON.stringify({
+      items: wsItems,
+      count: workspaceCountFromItems(wsItems),
+      wrapSwitch: wrapSwitch,
+      wheelSwitch: wheelSwitch,
+    });
+    var wsApply = { workspaceWrapSwitch: wrapSwitch, workspaceWheelSwitch: wheelSwitch };
+    return commandRecord(key, bashScript(opts, spec.script).concat([wsPayload]), spec, {
+      stdin: wsPayload,
+      mergeGroup: "workspaces",
+      coalesceKey: "workspaces",
+      apply: wsApply,
+      sudo: sudo,
+    });
+  }
+
+  if (spec.kind === "env-group") {
+    var vars = readValue(snapshot, "envVars") || [];
+    var pathPrepend = String(readValue(snapshot, "envPathPrepend") || "");
+    if (spec.field === "vars") vars = Array.isArray(value) ? value : [];
+    if (spec.field === "pathPrepend") pathPrepend = String(value || "");
+    var envPayload = JSON.stringify({
+      vars: Array.isArray(vars) ? vars.map(stripManagedRow) : [],
+      pathPrepend: pathPrepend,
+    });
+    return commandRecord(key, bashScript(opts, spec.script).concat([envPayload]), spec, {
+      stdin: envPayload,
+      mergeGroup: "env",
+      coalesceKey: "env",
+      apply: { envVars: vars, envPathPrepend: pathPrepend },
+      sudo: sudo,
+    });
+  }
+
+  if (spec.kind === "tweak") {
+    var tweakId = String(spec.id || "");
+    var action = "";
+    if (tweakId === "middlePaste") action = "gtk-middle-paste";
+    else if (tweakId === "electronWayland") action = "electron-wayland";
+    else if (tweakId === "forceZeroScaling") action = "force-zero-scaling";
+    else if (tweakId === "swappiness") action = "swappiness";
+    else return null;
+    var on = value === true ? "on" : "off";
+    var tweakApply = {};
+    tweakApply[key] = value === true;
+    return commandRecord(key, bashScript(opts, spec.script).concat([action, on]), spec, {
+      apply: tweakApply,
+      sudo: sudo || tweakId === "swappiness",
     });
   }
 

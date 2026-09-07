@@ -21,7 +21,7 @@ function sanitizeKeys(raw) {
   if (text.indexOf("\n") !== -1 || text.indexOf("\r") !== -1) return "";
   text = text.replace(/^\s+|\s+$/g, "").replace(/\s+/g, " ");
   if (!text || text.length > 64) return "";
-  if (!/^[A-Za-z0-9_ +.:-]+$/.test(text)) return "";
+  if (!/^[A-Za-z0-9_ +.:,-]+$/.test(text)) return "";
   return text;
 }
 
@@ -393,4 +393,141 @@ function catalogConflict(catalog, keys) {
     if (list[i] && sanitizeKeys(list[i].keys) === chord) return String(list[i].action || "");
   }
   return "";
+}
+
+function overrideConflict(overrides, keys, skipKeys) {
+  var list = Array.isArray(overrides) ? overrides : [];
+  var chord = sanitizeKeys(keys);
+  var skip = sanitizeKeys(skipKeys);
+  if (!chord) return "";
+  for (var i = 0; i < list.length; i++) {
+    if (!list[i] || !list[i].keys) continue;
+    var other = sanitizeKeys(list[i].keys);
+    if (!other || other === skip) continue;
+    if (other === chord) return other;
+  }
+  return "";
+}
+
+function generatedBindText(row) {
+  var n = normalize(typeof row === "object" ? row : null);
+  if (!n) return "";
+  var lines = [];
+  if (n.unbind) lines.push("hl.unbind(" + luaString(n.keys) + ")");
+  if (n.command) {
+    var labelArg = n.label ? luaString(n.label) : "nil";
+    lines.push("o.bind(" + luaString(n.keys) + ", " + labelArg + ", " + luaString(n.command) + ")");
+  }
+  return lines.join("\n");
+}
+
+function categoryFromAction(action) {
+  var t = String(action || "").toLowerCase();
+  if (/workspace|scratch|special workspace/.test(t)) return "Workspace";
+  if (/launch|terminal|browser|file manager|menu|app|webapp|tui/.test(t)) return "Launcher";
+  if (/volume|mute|media|play|track|brightness|audio/.test(t)) return "Media";
+  if (/screenshot|record|capture|ocr|color picker/.test(t)) return "Capture";
+  if (/lock|suspend|power|system|idle|shutdown|reboot/.test(t)) return "System";
+  if (/window|float|tile|focus|split|fullscreen|close|swap/.test(t)) return "Window";
+  return "Other";
+}
+
+function recordChord(parts) {
+  var list = Array.isArray(parts) ? parts : String(parts || "").split("+");
+  var out = [];
+  var i;
+  for (i = 0; i < list.length; i++) {
+    var p = String(list[i] || "")
+      .replace(/^\s+|\s+$/g, "")
+      .replace(/\s+/g, " ");
+    if (!p) continue;
+    if (p === "Meta" || p === "Super_L" || p === "Super_R" || p === "Super") p = "SUPER";
+    else if (p === "Control" || p === "Ctrl") p = "CTRL";
+    else if (p === "Alt" || p === "Alt_L" || p === "Alt_R") p = "ALT";
+    else if (p === "Shift") p = "SHIFT";
+    else if (p === ",") p = "comma";
+    else if (p === ".") p = "period";
+    else if (p === " ") p = "SPACE";
+    out.push(p);
+  }
+  return sanitizeKeys(out.join(" + "));
+}
+
+var QT_SHIFT = 0x02000000;
+var QT_CTRL = 0x04000000;
+var QT_ALT = 0x08000000;
+var QT_META = 0x10000000;
+var QT_KEY_SHIFT = 0x01000020;
+var QT_KEY_CTRL = 0x01000021;
+var QT_KEY_META = 0x01000022;
+var QT_KEY_ALT = 0x01000023;
+var QT_KEY_SUPER_L = 0x01000053;
+var QT_KEY_SUPER_R = 0x01000054;
+var QT_KEY_SPACE = 0x20;
+var QT_KEY_COMMA = 0x2c;
+var QT_KEY_PERIOD = 0x2e;
+var QT_KEY_TAB = 0x01000001;
+var QT_KEY_ESC = 0x01000000;
+var QT_KEY_RETURN = 0x01000004;
+var QT_KEY_ENTER = 0x01000005;
+var QT_KEY_BACKSPACE = 0x01000003;
+var QT_KEY_DELETE = 0x01000007;
+var QT_KEY_LEFT = 0x01000012;
+var QT_KEY_UP = 0x01000013;
+var QT_KEY_RIGHT = 0x01000014;
+var QT_KEY_DOWN = 0x01000015;
+var QT_KEY_F1 = 0x01000030;
+
+function isModifierKey(key) {
+  return (
+    key === QT_KEY_SHIFT ||
+    key === QT_KEY_CTRL ||
+    key === QT_KEY_META ||
+    key === QT_KEY_ALT ||
+    key === QT_KEY_SUPER_L ||
+    key === QT_KEY_SUPER_R
+  );
+}
+
+function keyToken(key, text) {
+  var n = Math.round(Number(key));
+  if (n === QT_KEY_SPACE) return "SPACE";
+  if (n === QT_KEY_COMMA) return "comma";
+  if (n === QT_KEY_PERIOD) return "period";
+  if (n === QT_KEY_TAB) return "TAB";
+  if (n === QT_KEY_ESC) return "ESCAPE";
+  if (n === QT_KEY_RETURN || n === QT_KEY_ENTER) return "RETURN";
+  if (n === QT_KEY_BACKSPACE) return "BACKSPACE";
+  if (n === QT_KEY_DELETE) return "DELETE";
+  if (n === QT_KEY_LEFT) return "LEFT";
+  if (n === QT_KEY_UP) return "UP";
+  if (n === QT_KEY_RIGHT) return "RIGHT";
+  if (n === QT_KEY_DOWN) return "DOWN";
+  if (n >= QT_KEY_F1 && n <= QT_KEY_F1 + 11) return "F" + (n - QT_KEY_F1 + 1);
+  var raw = String(text || "").replace(/^\s+|\s+$/g, "");
+  if (raw.length === 1) {
+    if (raw === ",") return "comma";
+    if (raw === ".") return "period";
+    if (/^[a-zA-Z0-9]$/.test(raw)) return raw.toUpperCase();
+  }
+  if (n >= 0x41 && n <= 0x5a) return String.fromCharCode(n);
+  if (n >= 0x30 && n <= 0x39) return String.fromCharCode(n);
+  return "";
+}
+
+function recordKeyEvent(evt) {
+  var src = evt && typeof evt === "object" ? evt : {};
+  var key = Math.round(Number(src.key));
+  if (!isFinite(key)) return "";
+  if (isModifierKey(key)) return "";
+  var token = keyToken(key, src.text);
+  if (!token) return "";
+  var mods = Math.round(Number(src.modifiers)) || 0;
+  var parts = [];
+  if (mods & QT_META) parts.push("SUPER");
+  if (mods & QT_CTRL) parts.push("CTRL");
+  if (mods & QT_ALT) parts.push("ALT");
+  if (mods & QT_SHIFT) parts.push("SHIFT");
+  parts.push(token);
+  return recordChord(parts);
 }

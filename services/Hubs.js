@@ -81,7 +81,7 @@ function hubs() {
       description: "Count, names, monitors, and how you switch.",
       navGroup: "look",
       snapshotGroup: "look",
-      icon: "layout-grid-line",
+      icon: "layout-masonry-line",
       file: "WorkspacesPage.qml",
       keywords: keywordList(
         "workspace named persistent monitor scratch special wrap wheel switch default login",
@@ -123,7 +123,7 @@ function hubs() {
       description: "Apply a bundle of settings at once.",
       navGroup: "look",
       snapshotGroup: "all",
-      icon: "file-transfer-line",
+      icon: "profile-line",
       file: "ProfilesPage.qml",
       keywords: keywordList(
         "profile coding gaming battery bundle apply import stay awake performance",
@@ -137,7 +137,7 @@ function hubs() {
       description: "Pointer, keyboard, and gestures.",
       navGroup: "input",
       snapshotGroup: "all",
-      icon: "keyboard-box-line",
+      icon: "mouse-line",
       file: "InputPage.qml",
       keywords: keywordList(
         "mouse pointer sensitivity acceleration natural scroll inertia wheel high-res discrete smooth touchpad clickfinger repeat delay numlock follow dpms gesture swipe layout xkb",
@@ -252,7 +252,7 @@ function hubs() {
       description: "Adapter, pairing, and trusted devices.",
       navGroup: "device",
       snapshotGroup: "network",
-      icon: "wifi-line",
+      icon: "bluetooth-line",
       file: "network/BluetoothPage.qml",
       keywords: keywordList(
         "bluetooth radio pair connect disconnect forget trust battery discoverable headset mouse",
@@ -367,7 +367,7 @@ function hubs() {
       description: "Overflow settings with a one-click reset.",
       navGroup: "general",
       snapshotGroup: "all",
-      icon: "settings-3-line",
+      icon: "equalizer-line",
       file: "TweaksPage.qml",
       keywords: keywordList(
         "tweak acceleration natural scroll paste electron wayland cursor sysctl swappiness nvidia amd laptop",
@@ -423,7 +423,7 @@ function hubs() {
       description: "Search, filter, and control user and system units.",
       navGroup: "admin",
       snapshotGroup: "all",
-      icon: "box-3-line",
+      icon: "server-line",
       file: "ServicesPage.qml",
       keywords: keywordList(
         "systemd unit service enable disable start stop restart failed logs pipewire portal bluetooth search filter",

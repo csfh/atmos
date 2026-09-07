@@ -54,8 +54,11 @@ assertEqual(hubs.hubById("security").navGroup, "admin", "security nav cluster is
 assertEqual(hubs.hubById("services").navGroup, "admin", "services nav cluster is admin");
 assertEqual(hubs.hubById("appearance").snapshotGroup, "look", "appearance snapshot group is look");
 
+const seenIcons = {};
 catalog.forEach(function (hub) {
   assert(fs.existsSync(path.join(iconsDir, hub.icon + ".svg")), "icon file exists for " + hub.id);
+  assert(!seenIcons[hub.icon], "hub icon is unique for " + hub.id);
+  seenIcons[hub.icon] = hub.id;
   assert(fs.existsSync(path.join(pagesDir, hub.file)), "page file exists for " + hub.id);
   const kids = hub.children || [];
   for (let i = 0; i < kids.length; i++) {

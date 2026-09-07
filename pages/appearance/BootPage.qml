@@ -99,42 +99,7 @@ PrefsPage {
     }
   }
 
-  PrefsGroup {
-    title: "Advanced"
-    query: Omarchy.directBootAvailable ? root.query : "."
-    detail: "Direct boot adds an EFI entry for the Omarchy UKI. Snapshot picking then happens in firmware."
-
-    SettingRow {
-      available: Omarchy.directBootAvailable
-      label: "Direct EFI boot"
-      description: Omarchy.directBoot
-        ? "Firmware has an Omarchy UKI entry. Run this again to remove it."
-        : "Add an EFI entry that boots the Omarchy UKI directly."
-      hint: "omarchy setup direct boot"
-      query: root.query
-      keywords: ["efi", "uki", "efibootmgr", "direct", "boot"]
-
-      PrefsButton {
-        text: Omarchy.directBoot ? "Remove…" : "Set up…"
-        danger: Omarchy.directBoot
-        enabled: !Omarchy.jobBusy && Omarchy.directBootAvailable
-        onClicked: directBootConfirm.ask()
-      }
-    }
-  }
-
-  PrefsConfirm {
-    id: directBootConfirm
-    title: Omarchy.directBoot ? "Remove direct boot" : "Set up direct boot"
-    message: Omarchy.directBoot
-      ? "Delete the Omarchy EFI entry. The machine will boot through the usual menu again."
-      : "Create an EFI entry for the Omarchy UKI. Snapshot booting then goes through firmware."
-    confirmText: Omarchy.directBoot ? "Remove" : "Set up"
-    onConfirmed: Omarchy.setupDirectBoot()
-  }
-
   Component.onCompleted: {
     resetPlymouthConfirm.parent = root.prefsOverlay
-    directBootConfirm.parent = root.prefsOverlay
   }
 }

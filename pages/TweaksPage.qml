@@ -8,7 +8,7 @@ PrefsPage {
   title: "Tweaks"
   description: "Settings that do not deserve their own sidebar entry. Each row says what it writes. Reset puts that one tweak back."
 
-  readonly property var rows: TweaksJs.catalog()
+  readonly property var groups: TweaksJs.groupedCatalog()
 
   function currentOn(tweak) {
     if (!tweak) return false
@@ -41,30 +41,36 @@ PrefsPage {
   }
 
   Repeater {
-    model: root.rows
+    model: root.groups
 
     PrefsGroup {
       required property var modelData
-      title: modelData && modelData.group ? modelData.group : "Tweak"
+      readonly property var group: modelData
+      title: group && group.group ? group.group : "Tweak"
       query: root.query
-      detail: modelData && modelData.modifies ? ("Writes " + modelData.modifies + ".") : ""
+      detail: "Each row names the file it writes."
 
-      SettingRow {
-        label: modelData && modelData.label ? modelData.label : "Tweak"
-        description: modelData && modelData.description ? modelData.description : ""
-        hint: modelData && modelData.modifies ? modelData.modifies : ""
-        query: root.query
-        keywords: ["tweak", "reset"]
+      Repeater {
+        model: group && group.items ? group.items : []
 
-        Row {
-          spacing: Theme.space
-          PrefsToggle {
-            checked: root.currentOn(modelData)
-            onToggled: root.setTweak(modelData, !root.currentOn(modelData))
-          }
-          PrefsButton {
-            text: "Reset"
-            onClicked: root.resetTweak(modelData)
+        SettingRow {
+          required property var modelData
+          label: modelData && modelData.label ? modelData.label : "Tweak"
+          description: modelData && modelData.description ? modelData.description : ""
+          hint: modelData && modelData.modifies ? modelData.modifies : ""
+          query: root.query
+          keywords: ["tweak", "reset"]
+
+          Row {
+            spacing: Theme.space
+            PrefsToggle {
+              checked: root.currentOn(modelData)
+              onToggled: root.setTweak(modelData, !root.currentOn(modelData))
+            }
+            PrefsButton {
+              text: "Reset"
+              onClicked: root.resetTweak(modelData)
+            }
           }
         }
       }

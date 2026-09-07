@@ -59,19 +59,27 @@ function catalog() {
       offValue: false,
       kind: "tweak",
     },
-    {
-      id: "swappiness",
-      group: "Kernel",
-      label: "Lower swappiness",
-      description: "Sets vm.swappiness=10 in a sysctl drop-in. Reset removes the drop-in.",
-      modifies: "/etc/sysctl.d/99-atmos-swappiness.conf",
-      key: "tweaks.swappiness",
-      onValue: true,
-      offValue: false,
-      kind: "tweak",
-      needsRoot: true,
-    },
   ];
+}
+
+function groupedCatalog() {
+  var list = catalog();
+  var groups = [];
+  var index = {};
+  var i, item, name, bucket;
+  for (i = 0; i < list.length; i++) {
+    item = list[i];
+    if (!item) continue;
+    name = String(item.group || "Tweak");
+    bucket = index[name];
+    if (!bucket) {
+      bucket = { group: name, items: [] };
+      index[name] = bucket;
+      groups.push(bucket);
+    }
+    bucket.items.push(item);
+  }
+  return groups;
 }
 
 function byId(id) {
@@ -135,6 +143,7 @@ function resetValue(tweak) {
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     catalog: catalog,
+    groupedCatalog: groupedCatalog,
     byId: byId,
     defaultState: defaultState,
     clampState: clampState,

@@ -27,6 +27,7 @@ const catalog = hubs.hubs();
 assert(catalog.length > 0, "hubs() returns the catalog");
 assertEqual(hubs.hubTitle("idle"), "Idle", "idle hub title is Idle");
 assertEqual(hubs.hubTitle("export"), "Omafile", "export hub title is Omafile");
+assertEqual(hubs.hubTitle("kernel"), "Kernel", "kernel hub title is Kernel");
 assert(
   hubs.hubById("export").keywords.indexOf("omafile") !== -1 &&
     hubs.hubById("export").keywords.indexOf("import") !== -1 &&
@@ -47,6 +48,7 @@ assertEqual(hubs.snapshotGroupForHub("hardware"), "all", "hardware hub reads all
 assertEqual(hubs.snapshotGroupForHub(""), "look", "empty hub reads look");
 assertEqual(hubs.hubById("idle").navGroup, "device", "idle nav cluster is device");
 assertEqual(hubs.hubById("system").navGroup, "general", "system nav cluster is general");
+assertEqual(hubs.hubById("kernel").navGroup, "general", "kernel nav cluster is general");
 assertEqual(hubs.hubById("tweaks").navGroup, "general", "tweaks nav cluster is general");
 assertEqual(hubs.hubById("export").navGroup, "general", "export nav cluster is general");
 assertEqual(hubs.hubById("accounts").navGroup, "admin", "accounts nav cluster is admin");
@@ -104,6 +106,7 @@ const pageFiles = [
   "applications/StartupPage.qml",
   "WorkspacesPage.qml",
   "TweaksPage.qml",
+  "KernelPage.qml",
   "ServicesPage.qml",
   "ProfilesPage.qml",
 ];
@@ -160,7 +163,7 @@ function consecutiveNavGroup(group) {
 }
 assertEqual(
   consecutiveNavGroup("general"),
-  "system,tweaks,export",
+  "system,kernel,tweaks,export",
   "general hubs stay consecutive in nav order",
 );
 assertEqual(

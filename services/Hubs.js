@@ -362,6 +362,20 @@ function hubs() {
       ],
     },
     {
+      id: "kernel",
+      title: "Kernel",
+      description: "Running image, direct EFI boot, and swappiness.",
+      navGroup: "general",
+      snapshotGroup: "all",
+      icon: "code-box-line",
+      file: "KernelPage.qml",
+      keywords: keywordList(
+        "kernel uname linux uki efi efibootmgr direct boot limine snapshot swappiness sysctl vm swap memory initramfs",
+        ["kernel", "uki", "swappiness"],
+      ),
+      children: [],
+    },
+    {
       id: "tweaks",
       title: "Tweaks",
       description: "Overflow settings with a one-click reset.",

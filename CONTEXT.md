@@ -6,6 +6,8 @@
 
 **Export tier** — Settings.js plan/export bucket: `look`, `behavior`, `identity`, `system`.
 
+**Omafile** — Markdown document of an Omarchy system's settings. Written and applied from the Omafile hub. Fenced `atmos:` blocks are the payload. Security settings are reported as prose and never imported.
+
 **Adopt** — `Snapshot.adopt(current, patch, adapters)` merges a patch into the last record, clamps only patched keys, and keeps unpatched object/array references.
 
 **Emit** — Producing snapshot JSON for a group (`scripts/snapshot.sh`, later SnapshotGroups).

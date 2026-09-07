@@ -6,7 +6,7 @@ import "../services/Profiles.js" as ProfilesJs
 PrefsPage {
   id: root
   title: "Profiles"
-  description: "A profile is a named bundle of Settings keys. Apply goes through the same writers as Import. Coding, Gaming, and Battery ship with Atmos. Save your own as a Markdown export."
+  description: "A profile is a named bundle of Settings keys. Apply goes through the same writers as an Omafile. Coding, Gaming, and Battery ship with Atmos. Save your own as an Omafile."
 
   property var navigator: null
 
@@ -46,14 +46,14 @@ PrefsPage {
   PrefsGroup {
     title: "Your own"
     query: root.query
-    detail: "Export the settings you want, then Import that file later. Profiles are Markdown documents, not a second prefs store."
+    detail: "Write an Omafile, then apply it later. An Omafile is a Markdown document of an Omarchy system, not a second prefs store."
 
     SettingRow {
-      label: "Settings file"
-      description: "Write a Markdown file, or apply one you already have."
+      label: "Omafile"
+      description: "Write this Omarchy system to a file, or apply one you already have."
       hint: "atmos export"
       query: root.query
-      keywords: ["import", "export", "markdown"]
+      keywords: ["omafile", "import", "export", "markdown"]
 
       PrefsButton {
         text: "Open…"

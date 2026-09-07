@@ -241,7 +241,11 @@ const exported = settings.exportMarkdown(
     hardware: "abc123",
   },
 );
-assert(exported.indexOf("# Atmos settings") === 0, "exportMarkdown opens with a heading");
+assert(exported.indexOf("# Omafile") === 0, "exportMarkdown opens with an Omafile heading");
+assert(
+  exported.indexOf("Omarchy configuration from") !== -1,
+  "exportMarkdown names the file as Omarchy configuration",
+);
 assert(exported.indexOf("```toml atmos:meta") !== -1, "exportMarkdown writes a meta block");
 assert(exported.indexOf('theme = "tokyo-night"') !== -1, "exportMarkdown writes a selected string");
 assert(exported.indexOf("hyprLook.gapsIn = 4") !== -1, "exportMarkdown writes a dotted key");
@@ -1476,40 +1480,15 @@ function overlappingControlRows() {
 const overlapping = overlappingControlRows();
 assertEqual(overlapping.join(" "), "", "no PrefsRow stacks two controls on top of each other");
 
-// An exported file should say what it is, where it came from, and when.
-const when = new Date(2026, 8, 3, 19, 30);
 assertEqual(
-  settings.exportFileName("vic", when),
-  "atmos-export-vic-2026-09-03-1930.md",
-  "exportFileName names the machine and the moment",
+  settings.exportFileName("vic", new Date(2026, 8, 3, 19, 30)),
+  "Omafile.md",
+  "exportFileName is Omafile.md",
 );
 assertEqual(
-  settings.exportFileName("Fred's Laptop!", when),
-  "atmos-export-fred-s-laptop-2026-09-03-1930.md",
-  "exportFileName makes an awkward hostname into a filename",
-);
-assertEqual(
-  settings.exportFileName("", when),
-  "atmos-export-2026-09-03-1930.md",
-  "exportFileName drops the host when there is not one",
-);
-assertEqual(
-  settings.exportFileName("---", when),
-  "atmos-export-2026-09-03-1930.md",
-  "a hostname of only punctuation leaves no stray dashes",
-);
-assertEqual(
-  settings.exportFileName("vic", new Date(2026, 0, 7, 4, 5)),
-  "atmos-export-vic-2026-01-07-0405.md",
-  "exportFileName pads single digits so the names sort",
-);
-assert(
-  /^atmos-export-vic-\d{4}-\d{2}-\d{2}-\d{4}\.md$/.test(settings.exportFileName("vic", null)),
-  "exportFileName falls back to now when given no date",
-);
-assert(
-  /^atmos-export-vic-\d{4}/.test(settings.exportFileName("vic", new Date("nonsense"))),
-  "exportFileName survives an unusable date",
+  settings.exportFileName("", null),
+  "Omafile.md",
+  "exportFileName stays Omafile.md without a host",
 );
 assertEqual(settings.fileSafe("a".repeat(80)).length, 40, "a very long hostname is trimmed");
 

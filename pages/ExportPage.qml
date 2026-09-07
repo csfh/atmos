@@ -9,8 +9,8 @@ import "../services/RichUi.js" as RichUi
 
 PrefsPage {
   id: root
-  title: "Settings file"
-  description: "Write this machine's settings to a Markdown file you can read, keep, or hand to someone else. Importing shows you every change before anything happens."
+  title: "Omafile"
+  description: "An Omafile is this Omarchy system's configuration as a Markdown file. Write one to share the desktop, or apply one from another machine. Review every change before anything happens."
 
   readonly property string home: Quickshell.env("HOME")
   readonly property string applyScript: Omarchy.shellDir + "/scripts/apply-settings.sh"
@@ -93,7 +93,7 @@ PrefsPage {
   }
 
   // The save dialog has no default suffix, so a name typed without one
-  // would produce a file nothing recognises as a settings file.
+  // would produce a file nothing recognises as an Omafile.
   function withMarkdownSuffix(path) {
     var text = String(path || "")
     if (text.length === 0) return root.home + "/" + root.suggestedName()
@@ -317,7 +317,7 @@ PrefsPage {
     framed: true
     title: "Export"
     query: root.query
-    detail: "Atmos writes a Markdown file. The settings live in fenced blocks, so you can read the file, edit it, and hand it to someone without it being able to do anything you cannot see. Security settings are written down for you to read but Atmos will never import them."
+    detail: "Writes an Omafile of this Omarchy system. Settings live in fenced blocks you can read and edit. Security settings are written as prose and never applied."
 
     SettingRow {
       label: "Sections"
@@ -409,7 +409,7 @@ PrefsPage {
     framed: true
     title: "Import"
     query: root.query
-    detail: "Nothing is applied until you have read the plan. Atmos compares the file against this machine, shows every change with what it will do, and writes a way back before it touches anything."
+    detail: "Apply an Omafile from another Omarchy machine. Nothing is written until you have read the plan. Atmos shows every change and keeps a way back."
 
     SettingRow {
       label: "File to read"
@@ -570,24 +570,24 @@ PrefsPage {
 
   FileDialog {
     id: exportFileDialog
-    title: "Write the settings file"
+    title: "Write an Omafile"
     fileMode: FileDialog.SaveFile
-    nameFilters: ["Settings files (*.md)", "All files (*)"]
+    nameFilters: ["Omafile (*.md)", "All files (*)"]
     onAccepted: root.exportPath = root.withMarkdownSuffix(RichUi.pathFromUrl(selectedFile))
   }
 
   FileDialog {
     id: importFileDialog
-    title: "Open a settings file"
+    title: "Open an Omafile"
     fileMode: FileDialog.OpenFile
-    nameFilters: ["Settings files (*.md)", "All files (*)"]
+    nameFilters: ["Omafile (*.md)", "All files (*)"]
     currentFolder: root.folderUrl(root.importPath)
     onAccepted: root.importPath = RichUi.pathFromUrl(selectedFile)
   }
 
   PrefsConfirm {
     id: applyConfirm
-    title: "Apply these settings?"
+    title: "Apply this Omafile?"
     message: root.plan ? SettingsJs.applyConfirmMessage(root.plan) : ""
     confirmText: "Apply"
     onConfirmed: {

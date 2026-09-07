@@ -1,4 +1,4 @@
-// Settings export and import.
+// Omafile: Markdown export and import of an Omarchy system's settings.
 //
 // One catalog says which snapshot keys leave the machine, which may come
 // back, and what changes when they do. Everything else in this file reads
@@ -14,7 +14,7 @@
 //             Off by default even under "Everything".
 //   system    Security and system state. Exported as a report, never
 //             imported. There is no writer path for these on purpose:
-//             a settings file that can enable sshd and passwordless sudo
+//             an Omafile that can enable sshd and passwordless sudo
 //             is a privilege escalation delivered as a document.
 //
 // `key` is a snapshot key. A dot walks into a nested object, so
@@ -757,14 +757,16 @@ function exportMarkdown(snapshot, keys, meta) {
   var sections = settingsSections();
   var lines = [];
 
-  lines.push("# Atmos settings");
+  lines.push("# Omafile");
   lines.push("");
   lines.push(
-    "Settings exported from " +
+    "Omarchy configuration from " +
       quotedOr(info.hostname || snap.hostname, "an Omarchy machine") +
       ".",
   );
-  lines.push("Read it before you import it. Atmos shows you every change first.");
+  lines.push(
+    "This file is how you share a whole Omarchy desktop. Read it before you apply it. Atmos shows every change first.",
+  );
   lines.push("");
 
   var metaBody = [
@@ -1839,30 +1841,10 @@ function sameValue(a, b) {
   return a === b;
 }
 
-// A name that says what the file is, whose machine it came from, and when
-// it was taken, because these files pile up in a downloads folder and
-// "atmos-settings.md" tells you nothing about which one you want.
-//
-//   atmos-export-vic-2026-09-03-1930.md
-//
-// Local time rather than UTC: the person reading the folder listing is the
-// person who made it. The date leads the time so the names sort by age.
-function exportFileName(hostname, when) {
-  var host = fileSafe(hostname);
-  // Duck-typed rather than instanceof: a Date made in another QML or JS
-  // context is not an instance of this context's Date.
-  var usable = !!when && typeof when.getTime === "function" && !isNaN(when.getTime());
-  var date = usable ? when : new Date();
-  var stamp =
-    date.getFullYear() +
-    "-" +
-    pad2(date.getMonth() + 1) +
-    "-" +
-    pad2(date.getDate()) +
-    "-" +
-    pad2(date.getHours()) +
-    pad2(date.getMinutes());
-  return "atmos-export-" + (host.length > 0 ? host + "-" : "") + stamp + ".md";
+// The document people share is an Omafile, the same way a Brewfile is a
+// Brewfile. The save dialog can still pick another path.
+function exportFileName(_hostname, _when) {
+  return "Omafile.md";
 }
 
 // Hostnames are usually tame, but a name is only useful if it is also a
@@ -1875,13 +1857,9 @@ function fileSafe(value) {
     .slice(0, 40);
 }
 
-function pad2(n) {
-  return n < 10 ? "0" + n : String(n);
-}
-
 // What the file says about itself. A plan tells you what would change; this
 // tells you what you are about to trust, which is the other half of reading
-// a settings file before running it.
+// an Omafile before running it.
 function fileSummary(doc, plan) {
   var meta = (doc && doc.meta) || {};
   var sections = (doc && doc.sections) || {};

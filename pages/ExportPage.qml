@@ -302,7 +302,8 @@ PrefsPage {
       var doc = SettingsJs.parseSettingsMarkdown(String(readOut.text || ""))
       root.lastDoc = doc
       root.plan = SettingsJs.planImport(doc, Omarchy.snapshotData, null, {
-        hardware: Omarchy.dmiProduct
+        hardware: Omarchy.dmiProduct,
+        workspaceGestureUnmanaged: Omarchy.liveWorkspaceGestureUnmanaged(),
       })
       root.importStatus = root.plan.changes.length === 0
         ? "Nothing to change. " + root.plan.summary

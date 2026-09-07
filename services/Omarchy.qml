@@ -313,6 +313,8 @@ QtObject {
   property string hyprKbOptions: ""
   property bool hyprKbGroupToggle: false
   property bool hyprWorkspaceGesture: false
+  property bool hyprWorkspaceGestureManaged: false
+  property bool hyprWorkspaceGestureUnmanaged: false
   property bool hyprInputManaged: false
   property bool hyprNoGaps: false
   property bool hyprSquareAspect: false
@@ -604,6 +606,8 @@ QtObject {
     hyprLookManaged = SnapshotJs.adoptValue(hyprLookManaged, next.hyprLookManaged)
     hyprInputManaged = SnapshotJs.adoptValue(hyprInputManaged, next.hyprInputManaged)
     hyprWorkspaceGesture = SnapshotJs.adoptValue(hyprWorkspaceGesture, next.hyprWorkspaceGesture !== undefined ? next.hyprWorkspaceGesture : (input ? input.workspaceGesture : undefined))
+    hyprWorkspaceGestureManaged = SnapshotJs.adoptValue(hyprWorkspaceGestureManaged, next.hyprWorkspaceGestureManaged)
+    hyprWorkspaceGestureUnmanaged = SnapshotJs.adoptValue(hyprWorkspaceGestureUnmanaged, next.hyprWorkspaceGestureUnmanaged)
     hyprNoGaps = SnapshotJs.adoptValue(hyprNoGaps, next.hyprNoGaps)
     hyprSquareAspect = SnapshotJs.adoptValue(hyprSquareAspect, next.hyprSquareAspect)
     hyprWorkspaceLayout = SnapshotJs.adoptValue(hyprWorkspaceLayout, next.hyprWorkspaceLayout)
@@ -854,9 +858,33 @@ QtObject {
     runSettingCommand(SettingsJs.commandFor(key, value, snapshotData, scriptOpts()), key)
   }
 
+  function inputLuaText() {
+    inputLuaView.reload()
+    if (typeof inputLuaView.waitForJob === "function")
+      inputLuaView.waitForJob()
+    var src = typeof inputLuaView.text === "function" ? inputLuaView.text() : inputLuaView.text
+    return String(src || "")
+  }
+
+  function applyHyprWorkspaceGestureFromFile() {
+    var state = HyprPrefs.inputWorkspaceGestureState(root.inputLuaText())
+    hyprWorkspaceGesture = state.workspaceGesture === true
+    hyprWorkspaceGestureManaged = state.workspaceGestureManaged === true
+    hyprWorkspaceGestureUnmanaged = state.workspaceGestureUnmanaged === true
+  }
+
+  function liveWorkspaceGestureUnmanaged() {
+    return HyprPrefs.inputHasUnmanagedWorkspaceGesture(root.inputLuaText())
+  }
+
   function applyWritePatch(job) {
     if (!job || !job.apply) return
     applySnapshot(JSON.stringify(job.apply))
+    // refresh: "none" leaves these flags stale. Commenting the stock line
+    // out and then touching Sensitivity would take ownership in the file
+    // while the row stayed disabled. Re-scan after every input write.
+    if (job.key === "hyprInput" || job.key === "hyprInputManaged")
+      root.applyHyprWorkspaceGestureFromFile()
   }
 
   function lookState(patch) {
@@ -1890,6 +1918,7 @@ QtObject {
     })
   }
   function setHyprWorkspaceGesture(on) {
+    if (hyprWorkspaceGestureUnmanaged) return
     if (on === hyprWorkspaceGesture) return
     writeHyprInput({ workspaceGesture: on })
   }
@@ -3343,6 +3372,13 @@ QtObject {
       root.snapshotReady = true
       root.ioFinished()
     }
+  }
+
+  FileView {
+    id: inputLuaView
+    path: root.inputLuaFile
+    watchChanges: false
+    printErrors: false
   }
 
   property Process mutProc: Process {

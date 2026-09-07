@@ -388,7 +388,7 @@ assert(
 function pythonInputGesture(text) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "atmos-gesture-"));
   const file = path.join(dir, "input.lua");
-  let parsed = false;
+  let parsed = { workspaceGesture: false, workspaceGestureManaged: false };
   try {
     fs.writeFileSync(file, text);
     const result = spawnSync(
@@ -397,28 +397,77 @@ function pythonInputGesture(text) {
       { encoding: "utf8" },
     );
     assertEqual(result.status, 0, "hypr-sentinel.py input list exits 0");
-    parsed = String(result.stdout || "").replace(/^\s+|\s+$/g, "") === "true";
+    parsed = JSON.parse(String(result.stdout || "").replace(/^\s+|\s+$/g, "") || "{}");
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
   return parsed;
 }
 
+function pythonApplyInput(existing, payload) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "atmos-input-apply-"));
+  const file = path.join(dir, "input.lua");
+  let text = "";
+  try {
+    fs.writeFileSync(file, existing);
+    const result = spawnSync(
+      "python3",
+      [path.join(__dirname, "..", "scripts", "hypr-sentinel.py"), "input", "apply", file],
+      { input: JSON.stringify(payload), encoding: "utf8" },
+    );
+    assertEqual(result.status, 0, "hypr-sentinel.py input apply exits 0");
+    text = fs.readFileSync(file, "utf8");
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+  return text;
+}
+
+function assertGestureState(state, expected, description) {
+  assertEqual(state.workspaceGesture, expected.workspaceGesture, description + " · on");
+  assertEqual(
+    state.workspaceGestureManaged,
+    expected.workspaceGestureManaged,
+    description + " · managed",
+  );
+  assertEqual(
+    state.workspaceGestureUnmanaged,
+    expected.workspaceGestureUnmanaged,
+    description + " · unmanaged",
+  );
+}
+
+const onManaged = {
+  workspaceGesture: true,
+  workspaceGestureManaged: true,
+  workspaceGestureUnmanaged: false,
+};
+const off = {
+  workspaceGesture: false,
+  workspaceGestureManaged: false,
+  workspaceGestureUnmanaged: false,
+};
+const onUnmanaged = {
+  workspaceGesture: true,
+  workspaceGestureManaged: false,
+  workspaceGestureUnmanaged: true,
+};
+
 const liveGesture = hypr.serializeInput({ workspaceGesture: true });
-assertEqual(
-  hypr.inputHasWorkspaceGesture(liveGesture),
-  true,
-  "inputHasWorkspaceGesture sees a live managed gesture",
+assertGestureState(
+  hypr.inputWorkspaceGestureState(liveGesture),
+  onManaged,
+  "inputWorkspaceGestureState sees a live managed gesture",
 );
-assertEqual(
+assertGestureState(
   pythonInputGesture(liveGesture),
-  true,
+  onManaged,
   "hypr-sentinel.py input list sees a live managed gesture",
 );
-assertEqual(
-  hypr.inputHasWorkspaceGesture(hypr.serializeInput({ workspaceGesture: false })),
-  false,
-  "inputHasWorkspaceGesture misses a managed block with no gesture",
+assertGestureState(
+  hypr.inputWorkspaceGestureState(hypr.serializeInput({ workspaceGesture: false })),
+  off,
+  "inputWorkspaceGestureState misses a managed block with no gesture",
 );
 
 const commentedGesture = `-- atmos:input begin
@@ -428,14 +477,14 @@ hl.config({
 -- hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })
 -- atmos:input end
 `;
-assertEqual(
-  hypr.inputHasWorkspaceGesture(commentedGesture),
-  false,
-  "inputHasWorkspaceGesture skips a commented gesture in the sentinel",
+assertGestureState(
+  hypr.inputWorkspaceGestureState(commentedGesture),
+  off,
+  "inputWorkspaceGestureState skips a commented gesture in the sentinel",
 );
-assertEqual(
+assertGestureState(
   pythonInputGesture(commentedGesture),
-  false,
+  off,
   "hypr-sentinel.py input list skips a commented gesture in the sentinel",
 );
 
@@ -443,14 +492,14 @@ const trailingGesture = `-- atmos:input begin
 hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" }) -- keep
 -- atmos:input end
 `;
-assertEqual(
-  hypr.inputHasWorkspaceGesture(trailingGesture),
-  true,
-  "inputHasWorkspaceGesture keeps a live gesture with a trailing comment",
+assertGestureState(
+  hypr.inputWorkspaceGestureState(trailingGesture),
+  onManaged,
+  "inputWorkspaceGestureState keeps a live gesture with a trailing comment",
 );
-assertEqual(
+assertGestureState(
   pythonInputGesture(trailingGesture),
-  true,
+  onManaged,
   "hypr-sentinel.py input list keeps a live gesture with a trailing comment",
 );
 
@@ -458,14 +507,14 @@ const stringDashGesture = `-- atmos:input begin
 hint = "flags --help"; hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })
 -- atmos:input end
 `;
-assertEqual(
-  hypr.inputHasWorkspaceGesture(stringDashGesture),
-  true,
-  "inputHasWorkspaceGesture keeps a gesture after -- inside a string",
+assertGestureState(
+  hypr.inputWorkspaceGestureState(stringDashGesture),
+  onManaged,
+  "inputWorkspaceGestureState keeps a gesture after -- inside a string",
 );
-assertEqual(
+assertGestureState(
   pythonInputGesture(stringDashGesture),
-  true,
+  onManaged,
   "hypr-sentinel.py input list keeps a gesture after -- inside a string",
 );
 
@@ -479,27 +528,32 @@ hl.config({
 assertEqual(
   hypr.inputHasWorkspaceGesture(unmanagedGesture),
   false,
-  "inputHasWorkspaceGesture ignores an unmanaged gesture outside the sentinel",
+  "inputHasWorkspaceGesture is the managed bit and stays false for a bare gesture",
 );
-assertEqual(
+assertGestureState(
+  hypr.inputWorkspaceGestureState(unmanagedGesture),
+  onUnmanaged,
+  "inputWorkspaceGestureState reports a bare gesture as on and not managed",
+);
+assertGestureState(
   pythonInputGesture(unmanagedGesture),
-  false,
-  "hypr-sentinel.py input list ignores an unmanaged gesture outside the sentinel",
+  onUnmanaged,
+  "hypr-sentinel.py input list reports a bare gesture as on and not managed",
 );
 
 const legacyGesture = `-- omarchy-prefs:input begin
 hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })
 -- omarchy-prefs:input end
 `;
-assertEqual(
-  hypr.inputHasWorkspaceGesture(legacyGesture),
-  true,
-  "inputHasWorkspaceGesture reads a leftover omarchy-prefs input gesture",
+assertGestureState(
+  hypr.inputWorkspaceGestureState(legacyGesture),
+  onManaged,
+  "inputWorkspaceGestureState reads a leftover omarchy-prefs input gesture as managed",
 );
-assertEqual(
+assertGestureState(
   pythonInputGesture(legacyGesture),
-  true,
-  "hypr-sentinel.py input list reads a leftover omarchy-prefs input gesture",
+  onManaged,
+  "hypr-sentinel.py input list reads a leftover omarchy-prefs input gesture as managed",
 );
 
 const leftoverAtmosOff = [
@@ -513,25 +567,155 @@ const leftoverAtmosOff = [
   "-- atmos:input end",
   "",
 ].join("\n");
-assertEqual(
-  hypr.inputHasWorkspaceGesture(leftoverAtmosOff),
-  false,
-  "inputHasWorkspaceGesture prefers the atmos sentinel over a leftover gesture",
+assertGestureState(
+  hypr.inputWorkspaceGestureState(leftoverAtmosOff),
+  off,
+  "inputWorkspaceGestureState prefers the atmos sentinel over a leftover gesture",
 );
-assertEqual(
+assertGestureState(
   pythonInputGesture(leftoverAtmosOff),
-  false,
+  off,
   "hypr-sentinel.py input list prefers the atmos sentinel over a leftover gesture",
 );
+assertGestureState(
+  hypr.inputWorkspaceGestureState(""),
+  off,
+  "inputWorkspaceGestureState misses an empty file",
+);
+
+const bareStock = 'hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })\n';
 assertEqual(
-  hypr.inputHasWorkspaceGesture(""),
+  hypr.inputHasWorkspaceGesture(bareStock),
   false,
-  "inputHasWorkspaceGesture misses an empty file",
+  "inputHasWorkspaceGesture is false for a gesture with no sentinel",
+);
+assertGestureState(
+  hypr.inputWorkspaceGestureState(bareStock),
+  onUnmanaged,
+  "a live stock line with no sentinel is on and not managed",
+);
+assertGestureState(
+  pythonInputGesture(bareStock),
+  onUnmanaged,
+  "hypr-sentinel.py input list treats a live stock line as on and not managed",
+);
+
+const commentedStock = `-- Enable touchpad gestures for changing workspaces.
+-- hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })
+`;
+assertGestureState(
+  hypr.inputWorkspaceGestureState(commentedStock),
+  off,
+  "the commented Omarchy stock line is not an unmanaged gesture",
+);
+assertGestureState(
+  pythonInputGesture(commentedStock),
+  off,
+  "hypr-sentinel.py input list ignores the commented Omarchy stock line",
+);
+
+const unmanagedWritten = hypr.applyInputFile(unmanagedGesture, {
+  sensitivity: -0.5,
+  workspaceGesture: true,
+});
+assertEqual(
+  (unmanagedWritten.match(/hl\.gesture\(/g) || []).length,
+  1,
+  "applyInputFile does not write a managed gesture when an unmanaged one is live",
+);
+assert(
+  unmanagedWritten.indexOf(
+    'hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })',
+  ) ===
+    unmanagedWritten.lastIndexOf(
+      'hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })',
+    ),
+  "applyInputFile keeps the single unmanaged gesture line",
+);
+assert(
+  /-- atmos:input begin[\s\S]*hl\.gesture[\s\S]*-- atmos:input end/.test(unmanagedWritten) ===
+    false,
+  "applyInputFile omits hl.gesture from the atmos block when unmanaged",
+);
+assertGestureState(
+  hypr.inputWorkspaceGestureState(unmanagedWritten),
+  onUnmanaged,
+  "after a write, the unmanaged gesture is still on and not managed",
+);
+const unmanagedPython = pythonApplyInput(unmanagedGesture, {
+  sensitivity: -0.5,
+  workspaceGesture: true,
+});
+assertEqual(
+  unmanagedPython.replace(/\s+$/, ""),
+  unmanagedWritten.replace(/\s+$/, ""),
+  "hypr-sentinel.py apply matches applyInputFile when deferring to an unmanaged gesture",
+);
+
+const managedOnlyWritten = hypr.applyInputFile("-- keep input comments\n", {
+  workspaceGesture: true,
+});
+assert(
+  /-- atmos:input begin[\s\S]*hl\.gesture\(\{ fingers = 3[\s\S]*-- atmos:input end/.test(
+    managedOnlyWritten,
+  ),
+  "applyInputFile still writes a managed gesture when nothing unmanaged is live",
+);
+assertGestureState(
+  hypr.inputWorkspaceGestureState(managedOnlyWritten),
+  onManaged,
+  "a managed-only write reports on and managed",
+);
+const managedOnlyPython = pythonApplyInput("-- keep input comments\n", { workspaceGesture: true });
+assertEqual(
+  managedOnlyPython.replace(/\s+$/, ""),
+  managedOnlyWritten.replace(/\s+$/, ""),
+  "hypr-sentinel.py apply matches applyInputFile on the managed-only path",
+);
+
+const commentedStockWritten = hypr.applyInputFile(commentedStock, { workspaceGesture: true });
+assertEqual(
+  (commentedStockWritten.match(/^\s*hl\.gesture\(/gm) || []).length,
+  1,
+  "a commented stock line does not count as unmanaged, so Atmos still writes",
+);
+assert(
+  commentedStockWritten.indexOf(
+    '-- hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })',
+  ) !== -1,
+  "applyInputFile leaves the commented stock line where it is",
+);
+assertGestureState(
+  hypr.inputWorkspaceGestureState(commentedStockWritten),
+  onManaged,
+  "writing over a commented stock line is managed",
 );
 assertEqual(
-  hypr.inputHasWorkspaceGesture(
-    'hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })\n',
-  ),
-  false,
-  "inputHasWorkspaceGesture misses a gesture with no sentinel",
+  pythonApplyInput(commentedStock, { workspaceGesture: true }).replace(/\s+$/, ""),
+  commentedStockWritten.replace(/\s+$/, ""),
+  "hypr-sentinel.py apply matches applyInputFile over a commented stock line",
+);
+
+const commentedOutUnmanaged = unmanagedWritten.replace(
+  'hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })\n',
+  '-- hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })\n',
+);
+const recovered = hypr.applyInputFile(commentedOutUnmanaged, { workspaceGesture: true });
+assert(
+  /-- atmos:input begin[\s\S]*hl\.gesture\(\{ fingers = 3[\s\S]*-- atmos:input end/.test(recovered),
+  "after the unmanaged line is commented out, applyInputFile writes a managed gesture",
+);
+assertGestureState(
+  hypr.inputWorkspaceGestureState(recovered),
+  onManaged,
+  "commenting the stock line out lets Atmos own the gesture",
+);
+
+assert(
+  hypr.serializeInput({ workspaceGesture: true }, unmanagedGesture).indexOf("hl.gesture(") === -1,
+  "serializeInput omits the Atmos gesture when existing text has an unmanaged one",
+);
+assert(
+  hypr.serializeInput({ workspaceGesture: true }).indexOf("hl.gesture(") !== -1,
+  "serializeInput still writes the Atmos gesture with no existing unmanaged line",
 );

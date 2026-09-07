@@ -287,6 +287,8 @@ var ALL_KEYS = Object.freeze([
   "hyprLookManaged",
   "hyprInputManaged",
   "hyprWorkspaceGesture",
+  "hyprWorkspaceGestureManaged",
+  "hyprWorkspaceGestureUnmanaged",
   "hyprNoGaps",
   "hyprSquareAspect",
   "hyprWorkspaceLayout",

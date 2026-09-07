@@ -2238,13 +2238,23 @@ hypr_input_managed=false
 if [[ -f $input_file ]] && grep -q -- '-- atmos:input begin' "$input_file"; then
   hypr_input_managed=true
 fi
-# Only a live hl.gesture in the managed input sentinel. A commented Omarchy
-# example or an unmanaged line elsewhere would stick the toggle on.
+# Managed vs unmanaged: a live hl.gesture outside the atmos/legacy input
+# sentinels is still on, but Atmos does not own it. A commented Omarchy
+# stock example is neither.
 hypr_workspace_gesture=false
+hypr_workspace_gesture_managed=false
+hypr_workspace_gesture_unmanaged=false
 if [[ -f $input_file ]] && present python3; then
   parsed=$(python3 "$SNAP_DIR/hypr-sentinel.py" input list "$input_file" 2>/dev/null || true)
-  [[ $parsed == true ]] && hypr_workspace_gesture=true
+  if [[ -n $parsed ]]; then
+    hypr_workspace_gesture=$(jq -r '.workspaceGesture // false' <<<"$parsed" 2>/dev/null || echo false)
+    hypr_workspace_gesture_managed=$(jq -r '.workspaceGestureManaged // false' <<<"$parsed" 2>/dev/null || echo false)
+    hypr_workspace_gesture_unmanaged=$(jq -r '.workspaceGestureUnmanaged // false' <<<"$parsed" 2>/dev/null || echo false)
+  fi
 fi
+[[ $hypr_workspace_gesture == true ]] || hypr_workspace_gesture=false
+[[ $hypr_workspace_gesture_managed == true ]] || hypr_workspace_gesture_managed=false
+[[ $hypr_workspace_gesture_unmanaged == true ]] || hypr_workspace_gesture_unmanaged=false
 # Writer field names live next to the hyprctl names applyHyprInput reads.
 # merged_group hands this object to set-hypr-input.sh; without kbLayoutOverride
 # and workspaceGesture, importing any other input key would drop them.
@@ -2828,6 +2838,8 @@ snapshot_json=$(jq -n \
   --argjson hyprLookManaged "$hypr_look_managed" \
   --argjson hyprInputManaged "$hypr_input_managed" \
   --argjson hyprWorkspaceGesture "$hypr_workspace_gesture" \
+  --argjson hyprWorkspaceGestureManaged "$hypr_workspace_gesture_managed" \
+  --argjson hyprWorkspaceGestureUnmanaged "$hypr_workspace_gesture_unmanaged" \
   --argjson hyprNoGaps "$hypr_no_gaps" \
   --argjson hyprSquareAspect "$hypr_square_aspect" \
   --arg hyprWorkspaceLayout "$hypr_workspace_layout" \
@@ -3094,6 +3106,8 @@ snapshot_json=$(jq -n \
     hyprLookManaged: $hyprLookManaged,
     hyprInputManaged: $hyprInputManaged,
     hyprWorkspaceGesture: $hyprWorkspaceGesture,
+    hyprWorkspaceGestureManaged: $hyprWorkspaceGestureManaged,
+    hyprWorkspaceGestureUnmanaged: $hyprWorkspaceGestureUnmanaged,
     hyprNoGaps: $hyprNoGaps,
     hyprSquareAspect: $hyprSquareAspect,
     hyprWorkspaceLayout: $hyprWorkspaceLayout,

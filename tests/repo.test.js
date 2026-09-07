@@ -161,7 +161,11 @@ assert(
 );
 assert(
   snapshotSh.indexOf('hypr-sentinel.py" input list') !== -1,
-  "snapshot.sh reads workspaceGesture from the input sentinel",
+  "snapshot.sh reads workspaceGesture from hypr-sentinel.py input list",
+);
+assert(
+  snapshotSh.indexOf("workspaceGestureUnmanaged") !== -1,
+  "snapshot.sh exposes an unmanaged workspace gesture separately from a managed one",
 );
 assert(
   snapshotSh.indexOf("grep -q 'action = \"workspace\"'") === -1,
@@ -1011,6 +1015,39 @@ assert(
   "Input disables layout Set when the list is invalid or unchanged",
 );
 assert(
+  inputPageSrc.indexOf("checked: Omarchy.hyprWorkspaceGesture") !== -1,
+  "Input checks the workspace gesture from hyprWorkspaceGesture",
+);
+assert(
+  inputPageSrc.indexOf("enabled: !Omarchy.hyprWorkspaceGestureUnmanaged") !== -1,
+  "Input disables the workspace gesture switch when the line is unmanaged",
+);
+const gestureRowAt = inputPageSrc.indexOf('label: "Three-finger swipe"');
+assert(gestureRowAt !== -1, "Input has a Three-finger swipe row");
+const gestureRow = inputPageSrc.slice(
+  gestureRowAt,
+  inputPageSrc.indexOf("keywords: [", gestureRowAt),
+);
+assert(
+  gestureRow.indexOf("stays on and Atmos will not change it") !== -1,
+  "Input unmanaged workspace-gesture copy says the switch stays on and Atmos will not change it",
+);
+assert(
+  gestureRow.indexOf("stays off") === -1,
+  "Three-finger swipe description does not say the switch stays off",
+);
+assert(
+  omarchySrc.indexOf("property bool hyprWorkspaceGestureUnmanaged") !== -1 &&
+    omarchySrc.indexOf("if (hyprWorkspaceGestureUnmanaged) return") !== -1,
+  "Omarchy keeps unmanaged workspace gesture state and refuses to toggle it",
+);
+assert(
+  omarchySrc.indexOf("applyHyprWorkspaceGestureFromFile") !== -1 &&
+    omarchySrc.indexOf("inputLuaView.waitForJob") !== -1 &&
+    omarchySrc.indexOf('job.key === "hyprInput"') !== -1,
+  "Omarchy refreshes workspace gesture ownership from the file after an input write",
+);
+assert(
   omarchySrc.indexOf("layouts = HyprPrefs.sanitizeLayoutList(layouts)") !== -1,
   "Omarchy validates Hyprland layouts with HyprPrefs.sanitizeLayoutList",
 );
@@ -1085,11 +1122,20 @@ assert(
   !/^(const|var|let)\s+\w+\s*=\s*require\(/.test(settingsSrc),
   "Settings.js has no top-level require",
 );
+assert(
+  settingsSrc.indexOf("workspaceGestureUnmanaged") !== -1 &&
+    applySh.indexOf('status:"skipped"') !== -1,
+  "apply-settings.sh reports a no-op workspace gesture as skipped after a live re-scan",
+);
 
 const exportPage = fs.readFileSync(path.join(__dirname, "..", "pages", "ExportPage.qml"), "utf8");
 assert(
   exportPage.indexOf("writeProc.stdinEnabled = true") !== -1,
   "export re-arms stdin, so a second export is not an empty file",
+);
+assert(
+  exportPage.indexOf("workspaceGestureUnmanaged: Omarchy.liveWorkspaceGestureUnmanaged()") !== -1,
+  "import re-scans input.lua for an unmanaged workspace gesture",
 );
 
 assert(omarchySrc.indexOf("function applyLookPatch") === -1, "applyLookPatch is gone");
@@ -1275,6 +1321,8 @@ const copyProps = [
   "hyprLookManaged",
   "hyprInputManaged",
   "hyprWorkspaceGesture",
+  "hyprWorkspaceGestureManaged",
+  "hyprWorkspaceGestureUnmanaged",
   "hyprNoGaps",
   "hyprSquareAspect",
   "hyprWorkspaceLayout",

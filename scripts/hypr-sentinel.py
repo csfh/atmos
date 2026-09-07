@@ -239,7 +239,7 @@ def sanitize_variants(raw, layout_count: int) -> str:
     return ",".join(parts)
 
 
-def serialize_input(raw: dict) -> str:
+def serialize_input(raw: dict, existing: str = "") -> str:
     src = raw if isinstance(raw, dict) else {}
     accel = str(src.get("accelProfile") or "")
     if accel not in ("flat", "adaptive"):
@@ -307,7 +307,10 @@ def serialize_input(raw: dict) -> str:
         "  },",
         "})",
     ]
-    if s["workspaceGesture"]:
+    # A live unmanaged hl.gesture already owns HORIZONTAL. Writing ours
+    # would make Hyprland reject the second as "Previous HORIZONTAL shadows
+    # new HORIZONTAL". Option 2: Atmos defers and never comments the user line.
+    if s["workspaceGesture"] and not input_has_unmanaged_workspace_gesture(existing):
         lines.append('hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })')
     lines.append(INPUT_END)
     return "\n".join(lines)
@@ -390,6 +393,10 @@ def sentinel_has_workspace_gesture(src: str) -> bool:
             continue
         end = text.find(")", at)
         body = text[at : end + 1 if end >= 0 else len(text)]
+        # Any live workspace action means defer. Hyprland clashes on
+        # HORIZONTAL, so a vertical/left/right workspace line over-defers
+        # and blocks a non-shadowing Atmos swipe. That is the rule: do not
+        # emit a second workspace gesture when one already exists.
         if re.search(r"""action\s*=\s*["']workspace["']""", body):
             return True
         i = at + 11
@@ -405,6 +412,26 @@ def input_has_workspace_gesture(text: str) -> bool:
     if bounds:
         return sentinel_has_workspace_gesture(src[bounds[0] : bounds[1]])
     return False
+
+
+def input_outside_sentinels(text: str) -> str:
+    src = text or ""
+    src = strip_sentinel(src, INPUT_BEGIN, INPUT_END)
+    return strip_sentinel(src, LEGACY_INPUT_BEGIN, LEGACY_INPUT_END)
+
+
+def input_has_unmanaged_workspace_gesture(text: str) -> bool:
+    return sentinel_has_workspace_gesture(input_outside_sentinels(text))
+
+
+def input_workspace_gesture_state(text: str) -> dict:
+    managed = input_has_workspace_gesture(text)
+    unmanaged = input_has_unmanaged_workspace_gesture(text)
+    return {
+        "workspaceGesture": managed or unmanaged,
+        "workspaceGestureManaged": managed,
+        "workspaceGestureUnmanaged": unmanaged,
+    }
 
 
 def split_delay(raw: str) -> tuple[str, int]:
@@ -1298,6 +1325,8 @@ def apply(kind: str, path: Path, payload: dict | None, reset: bool) -> str:
         begin, end, serialize = INPUT_BEGIN, INPUT_END, serialize_input
     if reset:
         return strip_sentinel(text, begin, end)
+    if kind == "input":
+        return replace_sentinel(text, begin, end, serialize_input(payload or {}, text))
     return replace_sentinel(text, begin, end, serialize(payload or {}))
 
 
@@ -1343,7 +1372,7 @@ def main() -> int:
         elif kind == "monitors":
             print(json.dumps(parse_monitors(text)))
         elif kind == "input":
-            print(json.dumps(input_has_workspace_gesture(text)))
+            print(json.dumps(input_workspace_gesture_state(text)))
         else:
             print(
                 "hypr-sentinel.py: list is for autostart|bindings|windows|workspaces|monitors|input",

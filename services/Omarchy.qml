@@ -3374,8 +3374,7 @@ QtObject {
     }
   }
 
-  FileView {
-    id: inputLuaView
+  property FileView inputLuaView: FileView {
     path: root.inputLuaFile
     watchChanges: false
     printErrors: false

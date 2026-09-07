@@ -6,7 +6,7 @@ import "../services/Workspaces.js" as WsJs
 PrefsPage {
   id: root
   title: "Workspaces"
-  description: "Named persistent workspaces, monitor assignment, and how you switch. Writes a managed block in ~/.config/hypr/atmos.lua."
+  description: "How many numbered workspaces stay around, what the bar calls them, and which monitor they live on."
 
   property string specialDraft: ""
   property string specialError: ""
@@ -88,7 +88,7 @@ PrefsPage {
   PrefsGroup {
     title: "Count and switching"
     query: root.query
-    detail: "Omarchy keeps numbered workspaces 1–10. Atmos writes persistent rules for the ones you keep."
+    detail: "Omarchy keeps numbered workspaces 1–10. Atmos writes a persistent rule for each one you keep, so Super+N still has somewhere to go when that workspace is empty."
     hint: "~/.config/hypr/atmos.lua"
 
     SettingRow {
@@ -138,44 +138,65 @@ PrefsPage {
         onToggled: Omarchy.writeWorkspaces(Omarchy.workspaces, Omarchy.workspaceWrapSwitch, !Omarchy.workspaceWheelSwitch)
       }
     }
+
+    SettingRow {
+      label: "Open on login"
+      description: "Which numbered workspace Hyprland focuses after you log in."
+      hint: "hl.workspace_rule · default"
+      query: root.query
+      keywords: ["default", "login", "start"]
+
+      PrefsSelect {
+        value: WsJs.defaultId(root.numbered)
+        options: WsJs.defaultOptions(root.numbered)
+        onChanged: function(value) {
+          if (value === WsJs.defaultId(root.numbered)) return
+          var state = root.currentState()
+          root.writeItems(WsJs.withDefault(state.items, value), state.wrapSwitch, state.wheelSwitch)
+        }
+      }
+    }
   }
 
   PrefsGroup {
-    framed: true
-    title: "Named workspaces"
+    title: "Names and monitors"
     query: root.query
-    detail: "A name is what the bar shows. Persistent keeps the workspace even when it is empty. Default is the workspace Hyprland opens on login."
+    detail: "A name is what the bar shows instead of the number. A monitor pins that workspace to one output. Leave either blank."
 
     Repeater {
       model: root.numbered
 
       SettingRow {
         required property var modelData
-        stretchControl: true
-        label: modelData && modelData.id ? ("Workspace " + modelData.id) : "Workspace"
-        description: (modelData && modelData.monitor ? ("Monitor " + modelData.monitor + ". ") : "") + (modelData && modelData.isDefault ? "Opens on login." : "Persistent while this list includes it.")
+        label: modelData && modelData.id ? modelData.id : "Workspace"
+        description: modelData && modelData.monitor
+          ? ("Pinned to " + modelData.monitor + ".")
+          : "Number in the bar unless you name it."
         hint: "~/.config/hypr/atmos.lua"
         query: root.query
-        keywords: ["name", "persistent", "monitor", "default"]
+        keywords: ["name", "monitor", "bar", "label"]
 
-        Column {
-          width: parent.width
+        Row {
           spacing: Theme.space
           PrefsField {
-            width: parent.width
-            placeholder: "Name"
+            id: workspaceNameField
+            width: 120
+            placeholder: "Bar name"
             value: modelData && modelData.name ? modelData.name : ""
             onSubmitted: function(value) { root.patchItem(modelData.id, { name: value }) }
           }
-          PrefsField {
-            width: parent.width
-            placeholder: "Monitor (DP-1)"
-            value: modelData && modelData.monitor ? modelData.monitor : ""
-            onSubmitted: function(value) { root.patchItem(modelData.id, { monitor: value }) }
+          PrefsButton {
+            text: "Set"
+            onClicked: root.patchItem(modelData.id, { name: workspaceNameField.currentText() })
           }
-          PrefsToggle {
-            checked: modelData && modelData.isDefault
-            onToggled: root.patchItem(modelData.id, { isDefault: !(modelData && modelData.isDefault) })
+          PrefsSelect {
+            width: 120
+            value: modelData && modelData.monitor ? modelData.monitor : ""
+            options: WsJs.monitorOptions(Omarchy.monitors, modelData && modelData.monitor)
+            onChanged: function(value) {
+              var cur = modelData && modelData.monitor ? modelData.monitor : ""
+              if (value !== cur) root.patchItem(modelData.id, { monitor: value })
+            }
           }
         }
       }

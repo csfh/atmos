@@ -71,6 +71,45 @@ assertEqual(parsed.items[0].isDefault, true, "parseFile reads default");
 assertEqual(parsed.wrapSwitch, true, "parseFile defaults wrapSwitch on");
 assertEqual(parsed.wheelSwitch, true, "parseFile defaults wheelSwitch on");
 
+const twoDefaults = ws.clampState({
+  count: 3,
+  items: [{ id: "1", isDefault: true }, { id: "2", isDefault: true }, { id: "3" }],
+});
+assertEqual(ws.defaultId(twoDefaults.items), "1", "clampState keeps the first login workspace");
+assertEqual(
+  twoDefaults.items.filter(function (row) {
+    return row.isDefault;
+  }).length,
+  1,
+  "clampState allows only one login workspace",
+);
+const switched = ws.withDefault(twoDefaults.items, "3");
+assertEqual(ws.defaultId(switched), "3", "withDefault moves the login workspace");
+assertEqual(
+  ws.defaultOptions(switched)[0].value,
+  "",
+  "defaultOptions starts with Hyprland default",
+);
+assertEqual(
+  ws
+    .monitorOptions([{ name: "eDP-1" }, { name: "DP-1" }], "HDMI-A-1")
+    .map(function (row) {
+      return row.value;
+    })
+    .join(","),
+  ",eDP-1,DP-1,HDMI-A-1",
+  "monitorOptions lists Any, connected outputs, and a kept assignment",
+);
+
+const pageSrc = fs.readFileSync(path.join(__dirname, "..", "pages", "WorkspacesPage.qml"), "utf8");
+assert(pageSrc.indexOf('label: "Open on login"') !== -1, "Open on login is one select");
+assert(
+  pageSrc.indexOf("Persistent while this list includes it") === -1,
+  "rows do not repeat the persistent caption",
+);
+assert(pageSrc.indexOf('placeholder: "Bar name"') !== -1, "workspace names use a bar-name field");
+assert(pageSrc.indexOf("Monitor (DP-1)") === -1, "monitor is a select, not a typed DP-1 field");
+
 const noWrap = ws.serialize({
   count: 2,
   wrapSwitch: false,

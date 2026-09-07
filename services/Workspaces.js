@@ -133,6 +133,16 @@ function clampState(raw) {
     if (isFinite(an) && isFinite(bn)) return an - bn;
     return a.id < b.id ? -1 : 1;
   });
+  var defaultSeen = false;
+  for (i = 0; i < items.length; i++) {
+    if (items[i].special) {
+      items[i].isDefault = false;
+      continue;
+    }
+    if (!items[i].isDefault) continue;
+    if (defaultSeen) items[i].isDefault = false;
+    else defaultSeen = true;
+  }
   return {
     count: count,
     wrapSwitch: src.wrapSwitch !== false,
@@ -140,6 +150,60 @@ function clampState(raw) {
     tracking: clampTracking(src.tracking),
     items: items,
   };
+}
+
+function defaultId(items) {
+  var list = Array.isArray(items) ? items : [];
+  var i;
+  for (i = 0; i < list.length; i++) {
+    if (list[i] && list[i].isDefault && !list[i].special) return String(list[i].id);
+  }
+  return "";
+}
+
+function withDefault(items, id) {
+  var list = Array.isArray(items) ? items : [];
+  var want = String(id || "");
+  var out = [];
+  var i, row, copy, k;
+  for (i = 0; i < list.length; i++) {
+    row = list[i];
+    if (!row) continue;
+    copy = {};
+    for (k in row) copy[k] = row[k];
+    copy.isDefault = !copy.special && copy.id === want && want.length > 0;
+    out.push(copy);
+  }
+  return out;
+}
+
+function defaultOptions(items) {
+  var list = Array.isArray(items) ? items : [];
+  var out = [{ value: "", label: "Hyprland default" }];
+  var i, row, label;
+  for (i = 0; i < list.length; i++) {
+    row = list[i];
+    if (!row || row.special) continue;
+    label = row.name ? String(row.id) + " · " + row.name : String(row.id);
+    out.push({ value: String(row.id), label: label });
+  }
+  return out;
+}
+
+function monitorOptions(monitors, current) {
+  var out = [{ value: "", label: "Any" }];
+  var seen = { "": true };
+  var list = Array.isArray(monitors) ? monitors : [];
+  var i, name;
+  for (i = 0; i < list.length; i++) {
+    name = String((list[i] && (list[i].name || list[i].id)) || "");
+    if (!name || seen[name]) continue;
+    seen[name] = true;
+    out.push({ value: name, label: name });
+  }
+  var extra = String(current || "");
+  if (extra && !seen[extra]) out.push({ value: extra, label: extra });
+  return out;
 }
 
 function serializeRule(row) {
@@ -281,5 +345,9 @@ if (typeof module !== "undefined" && module.exports) {
     applyFile: applyFile,
     wrapBind: wrapBind,
     defaultState: defaultState,
+    defaultId: defaultId,
+    withDefault: withDefault,
+    defaultOptions: defaultOptions,
+    monitorOptions: monitorOptions,
   };
 }

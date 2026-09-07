@@ -2,6 +2,34 @@
 
 Notable changes to Atmos. Each section is a git tag on `main` and `alpha`. Install and in-app Update follow the `alpha` branch.
 
+## [v0.0.1-alpha.12] - 2026-09-07
+
+### Added
+
+- **Diagnostics** under System. One page for Omarchy, Atmos, Hyprland, failed units, disk, memory, kernel, GPU, portals, PipeWire, network, pacman, and recent errors. Copy report puts an Atmos summary plus `omarchy-debug --no-sudo --print` on the clipboard. Save and Ask my Agent use the same text.
+- **Workspaces** hub. Count (1–10), names, persistent rules, monitor assignment, default-on-login, scratch workspaces, wrap switching, and Super+mouse-wheel. Writes `-- atmos:workspaces` in `~/.config/hypr/atmos.lua`.
+- **Keybindings** as a Controls hub. Search by category, add or reset an Atmos override, show the generated `hl.unbind` / `o.bind` text, and Record shortcut from a key press.
+- **Bluetooth** as a Machine hub (Network still links to it). Radio, discoverable, pair, connect, disconnect, forget, trust, and battery when BlueZ reports it.
+- **Startup** under Applications. Enable without delete, delay (`sleep N &&`), and failed units this boot. Still `o.launch_on_start` in the autostart sentinel.
+- **Tweaks** (Admin). Overflow settings that name the file they write and have Reset: flat pointer accel, natural scroll, middle-click paste, Electron Wayland, XWayland zero scaling, swappiness.
+- **Services** (Admin). Failed units always listed. Start, stop, restart, enable, disable only for an allowlist (PipeWire, portals, NetworkManager, Bluetooth, CUPS, Docker, Tailscale, TRIM timer). Others stay status and logs.
+- **Environment** under System. Read-only session values plus a user overlay in `~/.config/environment.d/10-atmos.conf` (PATH prepend and extra vars).
+- **Profiles**. Coding, Gaming, and Battery apply through `Settings.commandFor`. Your own profiles are Markdown import documents.
+- **Presentation Mode** on Power. Stay awake, do-not-disturb, screensaver off for the session (`~/.local/state/omarchy/atmos-presentation.json`).
+- Per-output monitor rules in `~/.config/hypr/monitors.lua`: mode, scale, rotation, disable without deleting, VRR, bit depth, color. Desk, Laptop, and Docked layouts apply from the live outputs.
+- Network extras on Wi-Fi and Network: this-link gateway and DNS, saved-connection metered / priority / MAC / static IPv4, WireGuard import, hotspot when the adapter can AP.
+- Power read-only CPU governor and energy preference. Charge limit when the kernel exposes `charge_control_end_threshold`.
+- Window leftovers: swallow, swallow regex, cursor-follows-focus, focus-under-fullscreen. Window rules can match title and set pin, fullscreen, opacity.
+
+### Changed
+
+- Sidebar order puts Workspaces and Profiles with the desktop hubs, Keybindings with Controls, Bluetooth with Machine, Tweaks and Services with Admin.
+- Displays scale and mode apply per output, not only the focused monitor.
+
+### Fixed
+
+- Shrinking the workspace count no longer refilled 4–10. `commandFor` and `hypr-sentinel.py` now carry `count` (or derive it from numbered ids).
+
 ## [v0.0.1-alpha.11] - 2026-09-06
 
 ### Changed
@@ -179,6 +207,7 @@ First public alpha. Standalone [Quickshell](https://quickshell.org) preferences 
 - Keyboard use on controls (tab focus and activation). File watching of Omarchy/Hyprland paths so outside changes can refresh the snapshot. Shared page routing and content-column layout.
 - MIT license. Contributions assign copyright to Christoffer Hallas ([CLA](CLA.md)).
 
+[v0.0.1-alpha.12]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.11...v0.0.1-alpha.12
 [v0.0.1-alpha.11]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.10...v0.0.1-alpha.11
 [v0.0.1-alpha.10]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.9...v0.0.1-alpha.10
 [v0.0.1-alpha.9]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.8...v0.0.1-alpha.9

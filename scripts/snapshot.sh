@@ -522,31 +522,7 @@ fill_atmos_control() {
       '{middlePaste:$middlePaste,electronWayland:$electronWayland,forceZeroScaling:$forceZeroScaling,swappiness:$swappiness}')
     [[ -n $tweaks_json ]] || tweaks_json='{}'
     if present systemctl && present python3; then
-      systemd_units_json=$(
-        {
-          systemctl --user --no-legend --no-pager list-units --type=service --all 2>/dev/null || true
-          echo '---'
-          systemctl --no-legend --no-pager list-units --type=service --state=failed 2>/dev/null || true
-        } | python3 -c '
-import json, sys
-user, _, rest = sys.stdin.read().partition("---\n")
-rows = []
-for line, scope in ((user, "user"), (rest, "system")):
-    for raw in line.splitlines():
-        cols = raw.split()
-        if not cols:
-            continue
-        rows.append({
-            "unit": cols[0],
-            "scope": scope,
-            "load": cols[1] if len(cols) > 1 else "",
-            "active": cols[2] if len(cols) > 2 else "",
-            "sub": cols[3] if len(cols) > 3 else "",
-            "description": " ".join(cols[4:]),
-        })
-print(json.dumps(rows[:80]))
-' 2>/dev/null || echo '[]'
-      )
+      systemd_units_json=$(python3 "$SNAP_DIR/systemd-inventory.py" 2>/dev/null || echo '[]')
     fi
     [[ -n $systemd_units_json ]] || systemd_units_json='[]'
     if [[ -r /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor ]]; then

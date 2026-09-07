@@ -420,13 +420,13 @@ function hubs() {
     {
       id: "services",
       title: "Services",
-      description: "User and system units Atmos can start safely.",
+      description: "Search, filter, and control user and system units.",
       navGroup: "admin",
       snapshotGroup: "all",
       icon: "box-3-line",
       file: "ServicesPage.qml",
       keywords: keywordList(
-        "systemd unit service enable disable start stop restart failed logs pipewire portal bluetooth",
+        "systemd unit service enable disable start stop restart failed logs pipewire portal bluetooth search filter",
         ["systemd", "service"],
       ),
       children: [],

@@ -1,4 +1,6 @@
 import QtQuick
+import Quickshell
+import Quickshell.Io
 import "../components"
 import "../services"
 import "../services/Systemd.js" as SystemdJs
@@ -6,135 +8,223 @@ import "../services/Systemd.js" as SystemdJs
 PrefsPage {
   id: root
   title: "Services"
-  description: "Failed units always show. Start, stop, and enable only work for the allowlist Atmos considers safe."
+  description: "Start, stop, and enable stay on the allowlist. Other units are status and logs."
 
   property string unitFilter: ""
+  property string stateFilter: "all"
+  property string outputTitle: ""
+  property string outputText: ""
 
-  readonly property var rows: {
-    var q = String(root.unitFilter || "").toLowerCase()
+  readonly property var allRows: {
     var list = Omarchy.systemdUnits || []
     var out = []
-    var i
+    var i, row
     for (i = 0; i < list.length; i++) {
-      var row = SystemdJs.normalizeUnit(list[i])
-      if (!row) continue
-      if (q.length && (row.unit + " " + row.description).toLowerCase().indexOf(q) === -1) continue
-      out.push(row)
+      row = SystemdJs.normalizeUnit(list[i])
+      if (row) out.push(row)
     }
     return out
   }
 
-  readonly property var failedRows: {
-    var list = root.rows
-    var out = []
-    for (var i = 0; i < list.length; i++) {
-      if (list[i].active === "failed" || list[i].sub === "failed") out.push(list[i])
+  readonly property var rows: SystemdJs.listUnits(root.allRows, root.unitFilter, root.stateFilter)
+  readonly property var summary: SystemdJs.summarize(root.allRows)
+  readonly property var summaryBits: SystemdJs.summaryParts(root.summary)
+  readonly property var chips: SystemdJs.filterChips()
+
+  function actOn(row, action) {
+    if (!row || !action) return
+    if (action === "copy") {
+      Omarchy.copyText(row.unit)
+      return
     }
-    return out
+    if (action === "status") {
+      root.showOutput("Status · " + row.unit, root.statusArgv(row))
+      return
+    }
+    if (action === "logs") {
+      root.showOutput("Logs · " + row.unit, root.logsArgv(row))
+      return
+    }
+    if (!row.allowed) return
+    Omarchy.systemdAction(action, row.unit, row.scope)
   }
 
-  function unitHint(row) {
-    if (!row) return ""
-    if (row.allowed) return row.scope === "user" ? "systemctl --user" : "systemctl"
-    return "status and logs only"
+  function statusArgv(row) {
+    var argv = ["systemctl"]
+    if (row.scope === "user") argv.push("--user")
+    argv.push("--no-pager", "--full", "status", row.unit)
+    return argv
+  }
+
+  function logsArgv(row) {
+    var argv = ["journalctl"]
+    if (row.scope === "user") argv.push("--user")
+    else argv.push("--system")
+    argv.push("-u", row.unit, "-n", "80", "--no-pager")
+    return argv
+  }
+
+  function showOutput(title, argv) {
+    root.outputTitle = title
+    root.outputText = "Reading…"
+    outputProc.command = argv
+    outputProc.running = true
+    outputDialog.open()
+  }
+
+  function selectFilter(id) {
+    root.stateFilter = String(id || "all")
   }
 
   PrefsGroup {
-    title: "Failed"
+    title: ""
     query: root.query
-    detail: "Units that failed this boot. Atmos will not mask or edit unit files."
+    framed: false
+    catalog: false
 
-    SettingRow {
-      available: root.failedRows.length === 0
-      label: "Failed units"
-      description: "Nothing failed."
-      query: root.query
-      keywords: ["failed", "empty"]
-    }
+    Column {
+      width: parent.width - Theme.copyInset * 2
+      x: Theme.copyInset
+      spacing: Theme.headingGap
 
-    Repeater {
-      model: root.failedRows
+      Flow {
+        width: parent.width
+        spacing: Theme.spaceMd
 
-      SettingRow {
-        required property var modelData
-        label: modelData && modelData.unit ? modelData.unit : "unit"
-        description: (modelData && modelData.description ? modelData.description + ". " : "") + (modelData && modelData.allowed ? "Atmos can restart this one." : "Logs only.")
-        hint: root.unitHint(modelData)
-        query: root.query
-        keywords: ["failed", "systemd"]
+        Repeater {
+          model: root.summaryBits
 
-        Row {
-          spacing: Theme.space
-          PrefsButton {
-            text: "Restart"
-            enabled: modelData && modelData.allowed
-            onClicked: Omarchy.systemdAction("restart", modelData.unit, modelData.scope)
-          }
-          PrefsButton {
-            text: "Logs"
-            onClicked: Omarchy.runCommand(["journalctl", modelData.scope === "user" ? "--user" : "--system", "-u", modelData.unit, "-n", "40", "--no-pager"], { refresh: "none" })
+          Item {
+            required property var modelData
+            implicitWidth: bitText.implicitWidth
+            implicitHeight: Math.max(Theme.descriptionSize + 4, bitText.implicitHeight)
+            width: implicitWidth
+            height: implicitHeight
+            activeFocusOnTab: !!(modelData && modelData.id === "failed" && modelData.failed)
+
+            Text {
+              id: bitText
+              anchors.verticalCenter: parent.verticalCenter
+              text: modelData && modelData.text ? modelData.text : ""
+              color: modelData && modelData.failed ? Theme.urgent : Theme.muted
+              font.family: Theme.fontFamily
+              font.pixelSize: Theme.descriptionSize
+            }
+
+            MouseArea {
+              anchors.fill: parent
+              enabled: !!(modelData && modelData.id === "failed" && modelData.failed)
+              hoverEnabled: enabled
+              cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+              onClicked: root.selectFilter("failed")
+            }
+
+            Keys.onReturnPressed: {
+              if (modelData && modelData.failed) root.selectFilter("failed")
+            }
+            Keys.onSpacePressed: {
+              if (modelData && modelData.failed) root.selectFilter("failed")
+            }
+
+            Accessible.role: modelData && modelData.failed ? Accessible.Button : Accessible.StaticText
+            Accessible.name: modelData && modelData.text ? modelData.text : ""
+            Accessible.onPressAction: {
+              if (modelData && modelData.failed) root.selectFilter("failed")
+            }
           }
         }
       }
-    }
-  }
-
-  PrefsGroup {
-    framed: true
-    title: "Allowlist"
-    query: root.query
-    detail: "Search the units Atmos listed. Enable and start stay on the allowlist."
-
-    SettingRow {
-      stretchControl: true
-      label: "Filter"
-      description: root.rows.length + " units."
-      query: root.query
-      keywords: ["search", "filter"]
 
       PrefsField {
         width: parent.width
-        placeholder: "pipewire or bluetooth"
+        placeholder: "Search services…"
         onEdited: function(value) { root.unitFilter = value }
+      }
+
+      Flow {
+        width: parent.width
+        spacing: Theme.space
+
+        Repeater {
+          model: root.chips
+
+          PrefsButton {
+            required property var modelData
+            text: modelData && modelData.label ? modelData.label : ""
+            primary: root.stateFilter === (modelData && modelData.id ? modelData.id : "")
+            onClicked: root.selectFilter(modelData.id)
+          }
+        }
       }
     }
 
     Repeater {
       model: root.rows
 
-      SettingRow {
+      ServiceRow {
         required property var modelData
-        available: !(modelData && (modelData.active === "failed" || modelData.sub === "failed"))
-        label: modelData && modelData.unit ? modelData.unit : "unit"
-        description: (modelData && modelData.active ? modelData.active : "") + (modelData && modelData.sub ? " / " + modelData.sub : "") + (modelData && modelData.allowed ? "." : ". Status and logs only.")
-        hint: root.unitHint(modelData)
+        unitRow: modelData
         query: root.query
-        keywords: ["systemd", "enable", "start"]
-
-        Row {
-          spacing: Theme.space
-          PrefsButton {
-            text: "Start"
-            enabled: modelData && modelData.allowed
-            onClicked: Omarchy.systemdAction("start", modelData.unit, modelData.scope)
-          }
-          PrefsButton {
-            text: "Stop"
-            enabled: modelData && modelData.allowed
-            onClicked: Omarchy.systemdAction("stop", modelData.unit, modelData.scope)
-          }
-          PrefsButton {
-            text: "Enable"
-            enabled: modelData && modelData.allowed
-            onClicked: Omarchy.systemdAction("enable", modelData.unit, modelData.scope)
-          }
-          PrefsButton {
-            text: "Disable"
-            enabled: modelData && modelData.allowed
-            onClicked: Omarchy.systemdAction("disable", modelData.unit, modelData.scope)
-          }
-        }
+        onActed: function(action) { root.actOn(modelData, action) }
       }
+    }
+
+    SettingRow {
+      available: root.rows.length === 0
+      sectionHelp: false
+      label: "No matching services"
+      description: root.allRows.length === 0
+        ? "No units were reported for this session."
+        : "Nothing matches that search or filter."
+      query: root.query
+      keywords: ["empty", "search", "filter"]
+    }
+  }
+
+  PrefsDialog {
+    id: outputDialog
+    title: root.outputTitle
+
+    PrefsFlickable {
+      width: parent.width
+      height: Math.min(320, Math.max(Theme.rowHeight * 6, Math.min(outputBody.implicitHeight, 320)))
+      contentHeight: outputBody.implicitHeight
+      clip: true
+
+      PrefsText {
+        id: outputBody
+        width: parent.width
+        text: root.outputText
+        font.family: Theme.fontFamily
+        font.pixelSize: Theme.captionSize
+        color: Theme.foreground
+      }
+    }
+
+    PrefsButton {
+      text: "Close"
+      onClicked: outputDialog.close()
+    }
+  }
+
+  Process {
+    id: outputProc
+    command: ["true"]
+    stdout: StdioCollector {
+      id: outputOut
+      waitForEnd: true
+    }
+    stderr: StdioCollector {
+      id: outputErr
+      waitForEnd: true
+    }
+    onExited: function(code) {
+      var text = String(outputOut.text || "")
+      var err = String(outputErr.text || "")
+      if (text.replace(/^\s+|\s+$/g, "").length === 0) text = err
+      if (text.replace(/^\s+|\s+$/g, "").length === 0)
+        text = code === 0 ? "No output." : "Could not read that unit."
+      root.outputText = text
     }
   }
 }

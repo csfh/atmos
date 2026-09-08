@@ -2,6 +2,31 @@
 
 Notable changes to Atmos. Each section is a git tag on `main` and `alpha`. Install and in-app Update follow the `alpha` branch.
 
+## [v0.0.1-alpha.13] - 2026-09-07
+
+### Added
+
+- **General** hub. System, Tweaks, and Omafile live there. Admin is Accounts, Security, and Services.
+- **Omafile**. A shareable Markdown settings document. Identity starts off. Security is never imported.
+- **Kernel** under System. Running kernel, Direct EFI/UKI boot, and swappiness. Direct EFI boot left Boot Advanced.
+- Unique Remix line icon for each hub.
+
+### Changed
+
+- Idle is titled Idle.
+- Tweaks Pointer rows share one Pointer section. Swappiness is on Kernel.
+- Services is a compact list with search, filters, and a context menu.
+- Named workspaces: one Open on login select, a bar name with Set, and a monitor picker from connected outputs.
+- Night light schedule is the two times. Use schedule is the on switch.
+
+### Fixed
+
+- Atmos did not start on alpha.12: `inputLuaView` was a bare child of a `QtObject`. ([#24](https://github.com/csfh/atmos/pull/24)) by Fred Nix ([@nixfred](https://github.com/nixfred)).
+- Extra-theme selector vanished after snapshot load because SettingRow walked child visibility while the row was hidden.
+- Reset rows hid their button when the setting was already default.
+- Hyprland 0.56.2 has no `cursor.warp_on_focus_change`. Atmos no longer writes it. Cursor follows focus is gone from Windows.
+- Named workspace cards repeated persistence copy and treated Open on login as ten independent toggles.
+
 ## [v0.0.1-alpha.12] - 2026-09-07
 
 ### Added
@@ -207,6 +232,7 @@ First public alpha. Standalone [Quickshell](https://quickshell.org) preferences 
 - Keyboard use on controls (tab focus and activation). File watching of Omarchy/Hyprland paths so outside changes can refresh the snapshot. Shared page routing and content-column layout.
 - MIT license. Contributions assign copyright to Christoffer Hallas ([CLA](CLA.md)).
 
+[v0.0.1-alpha.13]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.12...v0.0.1-alpha.13
 [v0.0.1-alpha.12]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.11...v0.0.1-alpha.12
 [v0.0.1-alpha.11]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.10...v0.0.1-alpha.11
 [v0.0.1-alpha.10]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.9...v0.0.1-alpha.10

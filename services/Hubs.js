@@ -31,6 +31,17 @@ function child(id, title, file) {
 function hubs() {
   return [
     {
+      id: "favorites",
+      title: "Favorites",
+      description: "Settings you starred, in one place.",
+      navGroup: "look",
+      snapshotGroup: "look",
+      icon: "star-line",
+      file: "FavoritesPage.qml",
+      keywords: keywordList("favorite favourite star pin bookmark saved", ["favorite", "star"]),
+      children: [],
+    },
+    {
       id: "appearance",
       title: "Appearance",
       description: "Theme, wallpaper, fonts, and how the desktop looks.",

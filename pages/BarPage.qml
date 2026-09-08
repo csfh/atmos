@@ -6,6 +6,7 @@ import "../services/RichUi.js" as RichUi
 
 PrefsPage {
   id: root
+  hubId: "bar"
   title: "Bar"
   description: "Where the bar sits and what it shows. The clock format and a few widgets live further down."
 

@@ -7,6 +7,7 @@ import "rows"
 
 PrefsPage {
   id: root
+  hubId: "display"
   title: "Displays"
   description: "Each monitor keeps its own resolution. Scale and brightness apply to the one you are looking at. On a laptop you also get the built-in panel and its input devices. GPU switching is on Drivers."
 

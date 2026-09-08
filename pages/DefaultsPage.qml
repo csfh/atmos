@@ -4,6 +4,7 @@ import "../services"
 
 PrefsPage {
   id: root
+  hubId: "defaults"
   title: "Defaults"
   description: "The programs Omarchy opens when something asks for a default. The coding agent is a separate pick."
 

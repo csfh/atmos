@@ -142,6 +142,7 @@ ShellRoot {
       root.loadHub(root.currentPage)
   }
 
+  Component { id: favoritesPage; FavoritesPage { query: root.query; navigator: prefsNavigator } }
   Component { id: appearancePage; AppearancePage { query: root.query; stack: pageStack } }
   Component { id: displayPage; DisplaysPage { query: root.query } }
   Component { id: hardwarePage; HardwarePage { query: root.query; navigator: prefsNavigator } }
@@ -174,6 +175,7 @@ ShellRoot {
   Component { id: searchPage; SearchPage { query: root.query; navigator: prefsNavigator } }
 
   readonly property var pageById: ({
+    favorites: favoritesPage,
     appearance: appearancePage,
     display: displayPage,
     hardware: hardwarePage,

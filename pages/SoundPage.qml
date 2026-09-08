@@ -4,6 +4,7 @@ import "../services"
 
 PrefsPage {
   id: root
+  hubId: "sound"
   title: "Sound"
   description: "Speaker and microphone levels. You can pick devices here too. If USB audio hangs, restart PipeWire from the bottom of the page."
 

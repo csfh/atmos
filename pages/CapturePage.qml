@@ -4,6 +4,7 @@ import "../services"
 
 PrefsPage {
   id: root
+  hubId: "capture"
   title: "Capture"
   description: "Screenshots, a recording, and a couple of readers for text and QR codes. Pictures go to your Pictures folder. Recordings go to Videos."
 

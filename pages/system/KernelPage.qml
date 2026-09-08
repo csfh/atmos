@@ -5,6 +5,7 @@ import "../../services/Diagnostics.js" as DiagJs
 
 PrefsPage {
   id: root
+  hubId: "system/kernel"
   title: "Kernel"
   description: "The running image, how firmware starts it, and a couple of knobs that change kernel behavior."
 

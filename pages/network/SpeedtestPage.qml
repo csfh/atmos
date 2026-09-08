@@ -6,6 +6,7 @@ import "../../services/RichUi.js" as RichUi
 
 PrefsPage {
   id: root
+  hubId: "network/speedtest"
   title: "Speed test"
   description: "A short download, then an upload, on whatever you are connected to now. Opening this page starts a run."
 

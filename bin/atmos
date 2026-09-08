@@ -23,8 +23,8 @@ if ! command -v quickshell >/dev/null 2>&1; then
 fi
 
 HUB=${PAGE%%/*}
-if [[ -n $PAGE && $HUB != appearance && $HUB != display && $HUB != windows && $HUB != workspaces && $HUB != bar && $HUB != notifications && $HUB != profiles && $HUB != input && $HUB != keybindings && $HUB != accessibility && $HUB != sound && $HUB != capture && $HUB != hardware && $HUB != drivers && $HUB != disks && $HUB != network && $HUB != bluetooth && $HUB != power && $HUB != idle && $HUB != defaults && $HUB != applications && $HUB != software && $HUB != hooks && $HUB != system && $HUB != tweaks && $HUB != export && $HUB != accounts && $HUB != security && $HUB != services ]]; then
-  echo "Usage: atmos [appearance|display|hardware|drivers|windows|workspaces|input|keybindings|accessibility|sound|capture|disks|bar|notifications|profiles|defaults|applications|software|network|bluetooth|power|idle|security|accounts|hooks|tweaks|services|system|export][/theme|background|boot|gpu|cpu|npu|machine|speedtest|wifi|bindings|rules|startup|environment|kernel|diagnostics]" >&2
+if [[ -n $PAGE && $HUB != favorites && $HUB != appearance && $HUB != display && $HUB != windows && $HUB != workspaces && $HUB != bar && $HUB != notifications && $HUB != profiles && $HUB != input && $HUB != keybindings && $HUB != accessibility && $HUB != sound && $HUB != capture && $HUB != hardware && $HUB != drivers && $HUB != disks && $HUB != network && $HUB != bluetooth && $HUB != power && $HUB != idle && $HUB != defaults && $HUB != applications && $HUB != software && $HUB != hooks && $HUB != system && $HUB != tweaks && $HUB != export && $HUB != accounts && $HUB != security && $HUB != services ]]; then
+  echo "Usage: atmos [favorites|appearance|display|hardware|drivers|windows|workspaces|input|keybindings|accessibility|sound|capture|disks|bar|notifications|profiles|defaults|applications|software|network|bluetooth|power|idle|security|accounts|hooks|tweaks|services|system|export][/theme|background|boot|gpu|cpu|npu|machine|speedtest|wifi|bindings|rules|startup|environment|kernel|diagnostics]" >&2
   exit 1
 fi
 

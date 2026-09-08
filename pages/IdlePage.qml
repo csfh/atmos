@@ -5,6 +5,7 @@ import "../services/Theme.js" as ThemeJs
 
 PrefsPage {
   id: root
+  hubId: "idle"
   title: "Idle"
   description: "How long the machine waits before the screensaver and lock. You can also keep it awake or change the screensaver logo."
 

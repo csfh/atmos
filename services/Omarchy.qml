@@ -5,6 +5,7 @@ import Quickshell.Io
 import "Accounts.js" as AccountsJs
 import "AtmosUpdate.js" as AtmosUpdate
 import "Diagnostics.js" as DiagnosticsJs
+import "Favorites.js" as FavoritesJs
 import "Hardware.js" as HardwareJs
 import "Hooks.js" as HooksJs
 import "Hubs.js" as HubsJs
@@ -53,6 +54,7 @@ QtObject {
   readonly property string setEnvScript: shellDir + "/scripts/set-env.sh"
   readonly property string setTweaksScript: shellDir + "/scripts/set-tweaks.sh"
   readonly property string setPresentationScript: shellDir + "/scripts/set-presentation.sh"
+  readonly property string setFavoritesScript: shellDir + "/scripts/set-favorites.sh"
   readonly property string setChargeLimitScript: shellDir + "/scripts/set-charge-limit.sh"
   readonly property string refreshHyprlandScript: shellDir + "/scripts/refresh-hyprland.sh"
   readonly property string resetAtmosScript: shellDir + "/scripts/reset-atmos.sh"
@@ -70,6 +72,7 @@ QtObject {
   readonly property string diagReportScript: shellDir + "/scripts/diag-report.sh"
   readonly property string envFile: Quickshell.env("HOME") + "/.config/environment.d/10-atmos.conf"
   readonly property string presentationFile: Quickshell.env("HOME") + "/.local/state/omarchy/atmos-presentation.json"
+  readonly property string favoritesFile: Quickshell.env("HOME") + "/.local/state/omarchy/atmos-favorites.json"
   readonly property string looknfeelLuaFile: Quickshell.env("HOME") + "/.config/hypr/looknfeel.lua"
   readonly property string inputLuaFile: Quickshell.env("HOME") + "/.config/hypr/input.lua"
   readonly property string autostartLuaFile: Quickshell.env("HOME") + "/.config/hypr/autostart.lua"
@@ -400,6 +403,7 @@ QtObject {
   property var envDetected: ({})
   property var systemdUnits: []
   property bool presentationMode: false
+  property var favoriteItems: []
   property string powerGovernor: ""
   property string amdPstate: ""
   property int chargeLimit: 0
@@ -2272,6 +2276,16 @@ QtObject {
     }
     if (items.length) writeMonitorRules(items)
   }
+  function loadFavorites(raw) {
+    favoriteItems = FavoritesJs.parseDocument(raw)
+  }
+
+  function toggleFavorite(row) {
+    var next = FavoritesJs.toggleItem(favoriteItems, row)
+    favoriteItems = next
+    runCommand(["bash", setFavoritesScript, "write", FavoritesJs.serialize(next)], { key: "favorites" })
+  }
+
   function setPresentationMode(on) {
     on = on === true
     if (on === presentationMode) return
@@ -3374,6 +3388,16 @@ QtObject {
     path: root.inputLuaFile
     watchChanges: false
     printErrors: false
+  }
+
+  property FileView favoritesView: FileView {
+    path: root.favoritesFile
+    watchChanges: true
+    preload: true
+    printErrors: false
+    onLoaded: root.loadFavorites(text())
+    onLoadFailed: root.favoriteItems = []
+    onFileChanged: reload()
   }
 
   property Process mutProc: Process {

@@ -5,6 +5,7 @@ import "../services/Profiles.js" as ProfilesJs
 
 PrefsPage {
   id: root
+  hubId: "profiles"
   title: "Profiles"
   description: "A profile is a named bundle of Settings keys. Apply goes through the same writers as an Omafile. Coding, Gaming, and Battery ship with Atmos. Save your own as an Omafile."
 

@@ -6,6 +6,7 @@ import "../../services/RichUi.js" as RichUi
 
 PrefsPage {
   id: root
+  hubId: "keybindings"
   title: "Keybindings"
   description: "The list is what Hyprland is running now. Add writes a managed block at the end of ~/.config/hypr/bindings.lua. Lines you typed yourself stay. Remove only deletes a row Atmos added."
 

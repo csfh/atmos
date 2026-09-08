@@ -6,6 +6,7 @@ import "../../services/RichUi.js" as RichUi
 
 PrefsPage {
   id: root
+  hubId: "appearance/boot"
   title: "Boot screen"
   description: "What you see while the machine unlocks, including the logo on the Plymouth screen."
 

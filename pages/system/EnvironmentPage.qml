@@ -5,6 +5,7 @@ import "../../services/EnvPrefs.js" as EnvJs
 
 PrefsPage {
   id: root
+  hubId: "system/environment"
   title: "Environment"
   description: "Detected session values are read-only. Extra variables and a PATH prepend write ~/.config/environment.d/10-atmos.conf and apply on the next login."
 

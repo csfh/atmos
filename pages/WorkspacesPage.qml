@@ -5,6 +5,7 @@ import "../services/Workspaces.js" as WsJs
 
 PrefsPage {
   id: root
+  hubId: "workspaces"
   title: "Workspaces"
   description: "How many numbered workspaces stay around, what the bar calls them, and which monitor they live on."
 

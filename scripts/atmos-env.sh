@@ -11,6 +11,7 @@
 : "${ATMOS_WINDOWS_FILE:=$HOME/.config/hypr/atmos.lua}"
 : "${ATMOS_MONITORS_FILE:=$HOME/.config/hypr/monitors.lua}"
 : "${ATMOS_SEARCH_INDEX:=${XDG_CACHE_HOME:-$HOME/.cache}/atmos/search.sqlite}"
+: "${ATMOS_FAVORITES_FILE:=${XDG_STATE_HOME:-$HOME/.local/state}/omarchy/atmos-favorites.json}"
 ATMOS_HYPR_JSON=""
 
 atmos_hypr_apply() {

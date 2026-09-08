@@ -7,6 +7,7 @@ Item {
   property string title: ""
   property string description: ""
   property string query: ""
+  property string hubId: ""
   property bool embed: false
   default property alias extra: sections.data
   readonly property alias prefsOverlay: overlayLayer

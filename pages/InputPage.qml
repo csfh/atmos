@@ -5,6 +5,7 @@ import "../services/HyprPrefs.js" as HyprPrefs
 
 PrefsPage {
   id: root
+  hubId: "input"
   title: "Input"
   description: "How the mouse, touchpad, and keyboard feel. Turning the laptop trackpad off is on Displays. The system layout picker is on System."
 

@@ -6,6 +6,7 @@ import "../../services/RichUi.js" as RichUi
 
 PrefsPage {
   id: root
+  hubId: "appearance/background"
   title: "Background"
   description: "The picture behind your windows. These controls apply to the current theme."
 

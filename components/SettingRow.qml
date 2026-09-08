@@ -1,5 +1,7 @@
 import QtQuick
 import "../services"
+import "../services/Favorites.js" as FavJs
+import "../services/Hubs.js" as HubsJs
 import "../services/ShellConfig.js" as ShellConfigJs
 
 Item {
@@ -45,6 +47,29 @@ Item {
 
   readonly property bool matches: ShellConfigJs.haystackMatches(query, searchHaystack)
   readonly property bool shown: available && matches
+
+  property string favoriteHub: ""
+  readonly property string resolvedHubId: {
+    if (root.favoriteHub.length) return root.favoriteHub
+    var p = parent
+    while (p) {
+      if (p.hubId !== undefined && String(p.hubId).length) return String(p.hubId)
+      p = p.parent
+    }
+    return ""
+  }
+  readonly property bool canFavorite: root.catalog && root.label.length > 0 && root.resolvedHubId.length > 0
+  readonly property bool favorited: FavJs.isFavorite(Omarchy.favoriteItems, root.resolvedHubId, root.label)
+
+  function toggleStar() {
+    if (!root.canFavorite) return
+    Omarchy.toggleFavorite({
+      hub: root.resolvedHubId,
+      hubTitle: HubsJs.hubTitle(root.resolvedHubId),
+      label: root.label,
+      description: root.description
+    })
+  }
 
   readonly property bool hovered: rowHover.hovered
 
@@ -148,6 +173,38 @@ Item {
         spacing: Theme.space
 
         Item {
+          id: favoriteHost
+          visible: root.canFavorite
+          width: visible ? Theme.helpHit : 0
+          height: Theme.helpHit
+          activeFocusOnTab: visible
+
+          Accessible.role: Accessible.Button
+          Accessible.name: (root.favorited ? "Remove from favorites: " : "Add to favorites: ") + root.label
+          Accessible.onPressAction: root.toggleStar()
+
+          Keys.onReturnPressed: root.toggleStar()
+          Keys.onSpacePressed: root.toggleStar()
+
+          PrefsIcon {
+            anchors.centerIn: parent
+            name: root.favorited ? Theme.iconStarOn : Theme.iconStar
+            size: Theme.helpIcon
+            color: root.favorited || favoriteMouse.containsMouse || favoriteHost.activeFocus
+              ? Theme.accent
+              : Theme.muted
+          }
+
+          MouseArea {
+            id: favoriteMouse
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.toggleStar()
+          }
+        }
+
+        Item {
           id: leadingHost
           visible: leadingSlot.children.length > 0
           width: visible ? leadingSlot.implicitWidth : 0
@@ -165,7 +222,8 @@ Item {
         }
 
         Column {
-          width: parent.width - (leadingHost.visible ? leadingHost.width + copyCol.spacing : 0)
+          width: parent.width - (favoriteHost.visible ? favoriteHost.width + copyCol.spacing : 0)
+            - (leadingHost.visible ? leadingHost.width + copyCol.spacing : 0)
             - (valueHost.visible ? valueHost.width + copyCol.spacing : 0)
           spacing: Theme.labelGap
 

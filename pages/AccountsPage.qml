@@ -7,6 +7,7 @@ import "../services/RichUi.js" as RichUi
 
 PrefsPage {
   id: root
+  hubId: "accounts"
   title: "Accounts"
   description: "This login's name and face, other local users, and groups. Fingerprint, SSH, and sudoless Docker stay on Security."
 

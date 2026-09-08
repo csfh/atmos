@@ -4,6 +4,7 @@ import "../services"
 
 PrefsPage {
   id: root
+  hubId: "power"
   title: "Power"
   description: Omarchy.isLaptop
     ? "How hard the machine works, and what the battery is doing."

@@ -5,6 +5,7 @@ import "../services/RichUi.js" as RichUi
 
 PrefsPage {
   id: root
+  hubId: "security"
   title: "Security"
   description: "Fingerprint, a security key, and whether this machine accepts SSH. Passwordless sudo is under Advanced."
 

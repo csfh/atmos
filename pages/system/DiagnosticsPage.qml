@@ -8,6 +8,7 @@ import "../../services/RichUi.js" as RichUi
 
 PrefsPage {
   id: root
+  hubId: "system/diagnostics"
   title: "Diagnostics"
   description: "What this machine is doing, in one place. Copy report is the text to paste on Discord instead of twelve shell commands."
 

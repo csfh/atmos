@@ -5,6 +5,7 @@ import "../services/Hardware.js" as HardwareJs
 
 PrefsPage {
   id: root
+  hubId: "drivers"
   title: "Drivers"
   description: "Bound GPU drivers, hybrid switching, and firmware updates through fwupd."
 

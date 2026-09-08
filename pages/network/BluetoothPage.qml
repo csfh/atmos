@@ -6,6 +6,7 @@ import "../../services/RichUi.js" as RichUi
 
 PrefsPage {
   id: root
+  hubId: "bluetooth"
   title: "Bluetooth"
   description: "Paired devices, a scan for new ones, and the adapter power switch."
 

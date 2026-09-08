@@ -5,6 +5,7 @@ import "../../services/WindowRules.js" as RuleJs
 
 PrefsPage {
   id: root
+  hubId: "windows/rules"
   title: "Window rules"
   description: "These write a managed block at the end of ~/.config/hypr/atmos.lua. The Atmos window rules stay above that block. Lines in hyprland.lua stay there too."
 

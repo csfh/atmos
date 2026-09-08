@@ -359,6 +359,12 @@ const settingRowSrc = fs.readFileSync(
   path.join(__dirname, "..", "components", "SettingRow.qml"),
   "utf8",
 );
+assert(
+  settingRowSrc.indexOf("function toggleStar()") !== -1 &&
+    settingRowSrc.indexOf("Theme.iconStar") !== -1 &&
+    settingRowSrc.indexOf("Omarchy.toggleFavorite") !== -1,
+  "SettingRow stars a row through Omarchy.toggleFavorite",
+);
 assert(settingRowSrc.indexOf("id: labelText") !== -1, "SettingRow names the label line");
 assert(
   settingRowSrc.indexOf("Theme.labelSize") !== -1 &&
@@ -924,6 +930,36 @@ assert(
   omarchySrc.indexOf("presentationMode = on") !== -1 &&
     omarchySrc.indexOf("WorkQueue.hasQueuedKey(ioQueue, job.key)") !== -1,
   "Presentation Mode updates immediately and a later write skips a stale apply",
+);
+assert(
+  omarchySrc.indexOf("function toggleFavorite(") !== -1 &&
+    omarchySrc.indexOf("atmos-favorites.json") !== -1 &&
+    omarchySrc.indexOf("set-favorites.sh") !== -1,
+  "Omarchy writes favorites through set-favorites.sh",
+);
+const favoritesPageSrc = fs.readFileSync(
+  path.join(__dirname, "..", "pages", "FavoritesPage.qml"),
+  "utf8",
+);
+assert(
+  favoritesPageSrc.indexOf("No favorites yet.") !== -1 &&
+    favoritesPageSrc.indexOf('text: "Open…"') !== -1,
+  "Favorites names an empty list and opens the source hub",
+);
+const favoritesSh = fs.readFileSync(
+  path.join(__dirname, "..", "scripts", "set-favorites.sh"),
+  "utf8",
+);
+assert(favoritesSh.indexOf("os.replace") !== -1, "set-favorites.sh replaces the file atomically");
+const resetAtmosSh = fs.readFileSync(
+  path.join(__dirname, "..", "scripts", "reset-atmos.sh"),
+  "utf8",
+);
+assert(resetAtmosSh.indexOf("favorites") === -1, "Reset Atmos leaves the favorites file alone");
+assert(
+  themeQml.indexOf('iconStar: "star-line"') !== -1 &&
+    themeQml.indexOf('iconStarOn: "star-fill"') !== -1,
+  "Theme names favorite star icons",
 );
 
 const idleSh = fs.readFileSync(path.join(__dirname, "..", "scripts", "set-idle.sh"), "utf8");

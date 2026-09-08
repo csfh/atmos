@@ -9,6 +9,7 @@ import "../services/RichUi.js" as RichUi
 
 PrefsPage {
   id: root
+  hubId: "export"
   title: "Omafile"
   description: "An Omafile is this Omarchy system's configuration as a Markdown file. Write one to share the desktop, or apply one from another machine. Review every change before anything happens."
 

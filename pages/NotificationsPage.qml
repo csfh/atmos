@@ -5,6 +5,7 @@ import "../services/RichUi.js" as RichUi
 
 PrefsPage {
   id: root
+  hubId: "notifications"
   title: "Notifications"
   description: "Do not disturb, a test toast, and reminders that already live in Omarchy."
 

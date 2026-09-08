@@ -6,6 +6,7 @@ import "applications" as Apps
 
 PrefsPage {
   id: root
+  hubId: "applications"
   title: "Applications"
   description: "Launchers you added yourself under ~/.local/share/applications. Remove deletes that desktop file. Packages from the repos stay on the system."
 

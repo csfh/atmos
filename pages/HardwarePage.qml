@@ -5,6 +5,7 @@ import "../services/Hardware.js" as HardwareJs
 
 PrefsPage {
   id: root
+  hubId: "hardware"
   title: "Hardware"
   description: "What this machine is made of. Processor, memory, chipset, firmware, NPU, and the rest of the units the kernel can see. Graphics drivers are on Drivers."
 

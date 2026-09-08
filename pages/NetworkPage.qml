@@ -8,6 +8,7 @@ import "network" as Net
 
 PrefsPage {
   id: root
+  hubId: "network"
   title: "Network"
   description: "What you are connected to, plus DNS. Nearby networks and a speed test open their own pages."
 

@@ -6,6 +6,7 @@ import "rows"
 
 PrefsPage {
   id: root
+  hubId: "windows"
   title: "Windows"
   description: "Gaps, corners, and the tiling layout. Keybindings and window rules have their own pages. Reset only removes the block Atmos wrote."
 

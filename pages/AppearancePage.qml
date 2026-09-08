@@ -8,6 +8,7 @@ import "rows"
 
 PrefsPage {
   id: root
+  hubId: "appearance"
   title: "Appearance"
   description: "How the desktop looks. The theme sets colors for the shell and themed apps. Wallpaper and type size live further down this page."
 

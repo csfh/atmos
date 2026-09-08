@@ -7,6 +7,7 @@ import "system" as Sys
 
 PrefsPage {
   id: root
+  hubId: "system"
   title: "System"
   description: "This machine's name, language, and clock. Account name and face are on Accounts. Printers, weather, diagnostics, and Omarchy updates are further down."
 

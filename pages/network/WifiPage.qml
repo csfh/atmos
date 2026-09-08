@@ -7,6 +7,7 @@ import "../../services/NetworkPrefs.js" as NetPrefs
 
 PrefsPage {
   id: root
+  hubId: "network/wifi"
   title: "Wi-Fi"
   description: "Join a nearby network, pin the band, or share the one you are on with a QR code."
 

@@ -5,6 +5,7 @@ import "../../services/Autostart.js" as AutoJs
 
 PrefsPage {
   id: root
+  hubId: "applications/startup"
   title: "Startup"
   description: "Programs Hyprland launches at login. Disable comments the line out. Delay prefixes sleep N &&. Remove only deletes a row Atmos added."
 

@@ -5,6 +5,7 @@ import "../services/Software.js" as Soft
 
 PrefsPage {
   id: root
+  hubId: "software"
   title: "Software"
   description: "Optional stacks Omarchy can install. Remove asks first. Gaming remove also deletes libraries those launchers keep."
 

@@ -7,6 +7,7 @@ import "../services/RichUi.js" as RichUi
 
 PrefsPage {
   id: root
+  hubId: "disks"
   title: "Disks"
   description: "Space on each drive, plus encryption if the disk is locked. Snapper snapshots and hibernation are further down."
 

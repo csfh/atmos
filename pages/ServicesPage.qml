@@ -7,6 +7,7 @@ import "../services/Systemd.js" as SystemdJs
 
 PrefsPage {
   id: root
+  hubId: "services"
   title: "Services"
   description: "Start, stop, and enable stay on the allowlist. Other units are status and logs."
 

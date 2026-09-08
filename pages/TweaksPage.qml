@@ -5,6 +5,7 @@ import "../services/Tweaks.js" as TweaksJs
 
 PrefsPage {
   id: root
+  hubId: "tweaks"
   title: "Tweaks"
   description: "Settings that do not deserve their own sidebar entry. Each row says what it writes. Reset puts that one tweak back."
 

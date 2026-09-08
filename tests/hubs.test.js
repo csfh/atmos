@@ -53,6 +53,8 @@ assertEqual(hubs.snapshotGroupForHub("idle"), "look", "idle hub reads look");
 assertEqual(hubs.snapshotGroupForHub("hardware"), "all", "hardware hub reads all");
 assertEqual(hubs.snapshotGroupForHub(""), "look", "empty hub reads look");
 assertEqual(hubs.hubById("idle").navGroup, "device", "idle nav cluster is device");
+assertEqual(hubs.hubTitle("favorites"), "Favorites", "favorites hub title is Favorites");
+assertEqual(hubs.hubById("favorites").navGroup, "look", "favorites nav cluster is look");
 assertEqual(hubs.hubTitle("drivers"), "Drivers", "drivers hub title is Drivers");
 assertEqual(hubs.hubById("drivers").navGroup, "device", "drivers nav cluster is device");
 assertEqual(hubs.snapshotGroupForHub("drivers"), "all", "drivers hub reads all");
@@ -96,6 +98,7 @@ catalog.forEach(function (hub) {
 });
 
 const pageFiles = [
+  "FavoritesPage.qml",
   "AppearancePage.qml",
   "DisplaysPage.qml",
   "HardwarePage.qml",
@@ -140,6 +143,8 @@ pageFiles.forEach(function (file) {
   assert(!!id, "fileHub maps " + file);
   const found = hubs.hubById(id);
   assert(found && found.file === file, "fileHub round-trips " + file);
+  const src = fs.readFileSync(path.join(pagesDir, file), "utf8");
+  assert(src.indexOf('hubId: "' + id + '"') !== -1, file + " sets hubId to " + id);
 });
 
 assertEqual(
@@ -165,9 +170,9 @@ const aliases = hubs.launcherSuffixes();
 });
 
 const nav = hubs.navPages();
-assertEqual(nav[0].id, "appearance", "navPages starts at appearance");
+assertEqual(nav[0].id, "favorites", "navPages starts at favorites");
 assertEqual(nav[0].group, "look", "navPages uses navGroup as group");
-assert(nav[0].keywords.indexOf("wallpaper") !== -1, "navPages keywords include the union");
+assert(nav[0].keywords.indexOf("star") !== -1, "navPages keywords include the union");
 function consecutiveNavGroup(group) {
   const ids = nav
     .filter(function (page) {
@@ -187,6 +192,11 @@ function consecutiveNavGroup(group) {
     .join(",");
 }
 assertEqual(
+  consecutiveNavGroup("look"),
+  "favorites,appearance,display,windows,workspaces,bar,notifications,profiles",
+  "look hubs stay consecutive in nav order",
+);
+assertEqual(
   consecutiveNavGroup("device"),
   "hardware,drivers,disks,network,bluetooth,power,idle",
   "device hubs stay consecutive in nav order",
@@ -203,7 +213,7 @@ assertEqual(
 );
 
 const search = hubs.searchHubs();
-assertEqual(search[0].description.indexOf("Theme") !== -1, true, "searchHubs keeps descriptions");
+assertEqual(search[0].description.indexOf("starred") !== -1, true, "searchHubs keeps descriptions");
 assert(Array.isArray(search[0].keywords), "searchHubs keywords are an array");
 assert(
   hubs.hubById("input").keywords.indexOf("keyboard") !== -1,

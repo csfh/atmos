@@ -7,6 +7,7 @@ import "../services/RichUi.js" as RichUi
 
 PrefsPage {
   id: root
+  hubId: "hooks"
   title: "Hooks"
   description: "Scripts Omarchy runs after a theme or font change, at boot, after an update, before a pacman refresh, and on low battery. Each event is a folder under ~/.config/omarchy/hooks."
 

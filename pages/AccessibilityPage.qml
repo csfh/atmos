@@ -5,6 +5,7 @@ import "rows"
 
 PrefsPage {
   id: root
+  hubId: "accessibility"
   title: "Accessibility"
   description: "Motion, type size, the pointer, and touch. These use the same writers as Windows, Appearance, and Displays."
 

@@ -110,3 +110,14 @@ const lateWrite = queue.takeNext(staleIo);
 assertEqual(lateWrite.key, "brightness:DP-1", "write runs after the discarded snapshot");
 queue.release(staleIo);
 assert(queue.isIdle(staleIo), "queue is idle after discarding a stale read and running the write");
+
+const keyedIo = queue.createWorkQueue();
+queue.enqueueWrite(keyedIo, { kind: "mut", key: "presentationMode", argv: ["on"] });
+queue.takeNext(keyedIo);
+queue.enqueueWrite(keyedIo, { kind: "mut", key: "presentationMode", argv: ["off"] });
+assert(
+  queue.hasQueuedKey(keyedIo, "presentationMode"),
+  "hasQueuedKey sees a later write for the same key",
+);
+assert(!queue.hasQueuedKey(keyedIo, "theme"), "hasQueuedKey misses a key that is not queued");
+assert(!queue.hasQueuedKey(keyedIo, ""), "hasQueuedKey ignores an empty key");

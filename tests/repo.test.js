@@ -321,6 +321,27 @@ assert(
     prefsToggleSrc.indexOf("Theme.toggleHeight") !== -1,
   "PrefsToggle uses Theme toggle dimensions",
 );
+assert(
+  prefsToggleSrc.indexOf("signal toggled(bool next)") !== -1 &&
+    prefsToggleSrc.indexOf("root.toggled(next)") !== -1,
+  "PrefsToggle tells the handler the next checked value",
+);
+const powerPageSrc = fs.readFileSync(path.join(__dirname, "..", "pages", "PowerPage.qml"), "utf8");
+assert(
+  powerPageSrc.indexOf("onToggled: function(next) { Omarchy.setPresentationMode(next) }") !== -1 &&
+    powerPageSrc.indexOf("setPresentationMode(!Omarchy.presentationMode)") === -1,
+  "Presentation Mode uses the toggle next value, not a stale invert",
+);
+const presentationSh = fs.readFileSync(
+  path.join(__dirname, "..", "scripts", "set-presentation.sh"),
+  "utf8",
+);
+assert(
+  presentationSh.indexOf("omarchy toggle idle stay-awake") !== -1 &&
+    presentationSh.indexOf("omarchy toggle idle allow-idle") !== -1 &&
+    presentationSh.indexOf("omarchy toggle idle on") === -1,
+  "presentation script uses stay-awake and allow-idle",
+);
 const prefsPageSrc = fs.readFileSync(
   path.join(__dirname, "..", "components", "PrefsPage.qml"),
   "utf8",
@@ -899,6 +920,11 @@ assert(
   "failed jobs combine stdout and stderr",
 );
 assert(omarchySrc.indexOf("id: mutOut") !== -1, "mutProc keeps stdout for failure text");
+assert(
+  omarchySrc.indexOf("presentationMode = on") !== -1 &&
+    omarchySrc.indexOf("WorkQueue.hasQueuedKey(ioQueue, job.key)") !== -1,
+  "Presentation Mode updates immediately and a later write skips a stale apply",
+);
 
 const idleSh = fs.readFileSync(path.join(__dirname, "..", "scripts", "set-idle.sh"), "utf8");
 assert(

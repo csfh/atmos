@@ -103,7 +103,7 @@ PrefsPage {
 
       PrefsToggle {
         checked: Omarchy.presentationMode
-        onToggled: Omarchy.setPresentationMode(!Omarchy.presentationMode)
+        onToggled: function(next) { Omarchy.setPresentationMode(next) }
       }
     }
   }

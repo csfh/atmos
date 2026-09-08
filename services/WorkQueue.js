@@ -108,6 +108,17 @@ function isIdle(queue) {
   return !queue.running && reads.length === 0 && writes.length === 0;
 }
 
+function hasQueuedKey(queue, key) {
+  var want = String(key || "");
+  if (!want || !queue) return false;
+  var writes = queue.writes || [];
+  var i;
+  for (i = 0; i < writes.length; i++) {
+    if (writes[i] && String(writes[i].key || "") === want) return true;
+  }
+  return false;
+}
+
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     createWorkQueue: createWorkQueue,
@@ -116,6 +127,7 @@ if (typeof module !== "undefined" && module.exports) {
     enqueueWrite: enqueueWrite,
     takeNext: takeNext,
     shouldApplyRead: shouldApplyRead,
+    hasQueuedKey: hasQueuedKey,
     release: release,
     isIdle: isIdle,
   };

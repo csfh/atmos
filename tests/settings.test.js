@@ -875,6 +875,20 @@ assertEqual(
 const volume = settings.commandFor("audioOutputVolume", 40, { audioOutputMuted: true });
 assertEqual(volume.apply.audioOutputMuted, false, "setting output volume unmutes");
 
+const presentationOn = settings.commandFor("presentationMode", true, { presentationMode: false });
+assertEqual(
+  presentationOn.argv[presentationOn.argv.length - 1],
+  "on",
+  "presentationMode on writes on",
+);
+assertEqual(presentationOn.apply.presentationMode, true, "presentationMode on patches the flag");
+const presentationOff = settings.commandFor("presentationMode", false, { presentationMode: true });
+assertEqual(
+  presentationOff.argv[presentationOff.argv.length - 1],
+  "off",
+  "presentationMode off writes off",
+);
+
 const weatherClear = settings.commandFor("weatherLocation", "", {
   weatherLocation: "Oslo",
   weatherAuto: false,

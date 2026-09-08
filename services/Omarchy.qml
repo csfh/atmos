@@ -877,6 +877,7 @@ QtObject {
 
   function applyWritePatch(job) {
     if (!job || !job.apply) return
+    if (job.key && WorkQueue.hasQueuedKey(ioQueue, job.key)) return
     applySnapshot(JSON.stringify(job.apply))
     // refresh: "none" leaves these flags stale. Commenting the stock line
     // out and then touching Sensitivity would take ownership in the file
@@ -2272,8 +2273,10 @@ QtObject {
     if (items.length) writeMonitorRules(items)
   }
   function setPresentationMode(on) {
+    on = on === true
     if (on === presentationMode) return
-    dispatchSetting("presentationMode", on === true)
+    presentationMode = on
+    dispatchSetting("presentationMode", on)
   }
   function setChargeLimit(n) {
     n = Math.round(Number(n))

@@ -11,7 +11,7 @@ Item {
 
   readonly property bool shownChecked: _holding ? _heldChecked : checked
 
-  signal toggled()
+  signal toggled(bool next)
 
   implicitWidth: Theme.toggleWidth
   implicitHeight: Theme.toggleHeight
@@ -73,7 +73,7 @@ Item {
     var next = !root.shownChecked
     root._heldChecked = next
     root._holding = true
-    root.toggled()
+    root.toggled(next)
     if (root.checked === next) root._holding = false
   }
 

@@ -21,7 +21,7 @@ case $on_off in
     until=$((now + minutes * 60))
     jq -n --argjson on true --argjson until "$until" --argjson minutes "$minutes" \
       '{on:$on, until:$until, minutes:$minutes}' >"$STATE"
-    omarchy toggle idle on >/dev/null 2>&1 || true
+    omarchy toggle idle stay-awake >/dev/null 2>&1 || true
     if [[ $(omarchy-shell notifications isDnd 2>/dev/null || true) != on ]]; then
       omarchy toggle notification silencing >/dev/null 2>&1 || true
     fi
@@ -31,7 +31,7 @@ case $on_off in
     ;;
   off | false)
     jq -n '{on:false, until:0, minutes:0}' >"$STATE"
-    omarchy toggle idle off >/dev/null 2>&1 || true
+    omarchy toggle idle allow-idle >/dev/null 2>&1 || true
     if [[ $(omarchy-shell notifications isDnd 2>/dev/null || true) == on ]]; then
       omarchy toggle notification silencing >/dev/null 2>&1 || true
     fi

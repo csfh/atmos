@@ -1704,7 +1704,10 @@ JSON
   ]
 }
 JSON
-  out=$(bash scripts/apply-settings.sh --dry-run --snapshot "$input_dir/snapshot.json" \
+  mkdir -p "$input_dir/.config/hypr"
+  : >"$input_dir/.config/hypr/input.lua"
+  out=$(HOME="$input_dir" ATMOS_INPUT_FILE="$input_dir/.config/hypr/input.lua" \
+    bash scripts/apply-settings.sh --dry-run --snapshot "$input_dir/snapshot.json" \
     --plan "$input_dir/plan.json")
   inputs=$(grep -c 'set-hypr-input.sh' <<<"$out" || true)
   if [[ $inputs -ne 1 ]]; then

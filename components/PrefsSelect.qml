@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import "../services"
+import "../services/PopupToggle.js" as PopupToggle
 import "../services/RichUi.js" as RichUi
 
 Item {
@@ -27,7 +28,7 @@ Item {
 
   Accessible.role: Accessible.ComboBox
   Accessible.name: displayLabel
-  Accessible.onPressAction: if (enabled) popup.open()
+  Accessible.onPressAction: root.togglePopup()
 
   property string filter: ""
   property string displayLabel: ""
@@ -89,6 +90,10 @@ Item {
     pickValue(optionValue(shownOptions[list.currentIndex]))
   }
 
+  function togglePopup() {
+    PopupToggle.toggle(popup, root.enabled)
+  }
+
   // Popup lives on Overlay so PrefsFlickable clip cannot crop it. y on the
   // declaring item would also be wrong after that reparent, so map the
   // trigger into overlay coordinates and flip above when the list would
@@ -120,9 +125,13 @@ Item {
     id: trigger
     anchors.fill: parent
     radius: Theme.radius
-    color: triggerHover.containsMouse || trigger.focus ? Theme.fill(Theme.hoverFill) : Theme.fill(Theme.normalFill)
+    color: triggerHover.containsMouse || trigger.focus || popup.opened
+      ? Theme.fill(Theme.hoverFill)
+      : Theme.fill(Theme.normalFill)
     border.width: Theme.borderWidth
-    border.color: trigger.focus || triggerHover.containsMouse ? Theme.accent : Theme.borderColor()
+    border.color: trigger.focus || triggerHover.containsMouse || popup.opened
+      ? Theme.accent
+      : Theme.borderColor()
 
     Behavior on color {
       ColorAnimation { duration: Theme.motionFast }
@@ -133,8 +142,8 @@ Item {
 
     activeFocusOnTab: root.enabled
 
-    Keys.onReturnPressed: if (root.enabled) popup.open()
-    Keys.onSpacePressed: if (root.enabled) popup.open()
+    Keys.onReturnPressed: root.togglePopup()
+    Keys.onSpacePressed: root.togglePopup()
 
     Text {
       anchors.left: parent.left
@@ -165,7 +174,9 @@ Item {
       enabled: root.enabled
       hoverEnabled: true
       cursorShape: Qt.PointingHandCursor
-      onClicked: popup.open()
+      property bool openedAtPress: false
+      onPressed: openedAtPress = popup.opened
+      onClicked: PopupToggle.clickTrigger(popup, openedAtPress)
     }
   }
 
@@ -176,7 +187,7 @@ Item {
     padding: 0
     modal: false
     focus: true
-    closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+    closePolicy: Popup.CloseOnEscape | Popup.CloseOnReleaseOutside
 
     onOpened: {
       root.filter = ""

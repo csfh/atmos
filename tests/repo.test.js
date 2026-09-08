@@ -136,9 +136,9 @@ assert(
   "PrefsHelp names the section, such as About DNS settings",
 );
 assert(
-  helpSrc.indexOf("Keys.onReturnPressed: popup.open()") !== -1 &&
-    helpSrc.indexOf("Keys.onSpacePressed: popup.open()") !== -1,
-  "PrefsHelp opens from Enter and Space",
+  helpSrc.indexOf("Keys.onReturnPressed: root.togglePopup()") !== -1 &&
+    helpSrc.indexOf("Keys.onSpacePressed: root.togglePopup()") !== -1,
+  "PrefsHelp toggles from Enter and Space",
 );
 assert(
   helpSrc.indexOf("ToolTip") !== -1 && helpSrc.indexOf("helpMouse.containsMouse") !== -1,

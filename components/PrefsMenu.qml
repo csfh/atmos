@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import "../services"
+import "../services/PopupToggle.js" as PopupToggle
 
 Item {
   id: root
@@ -57,9 +58,7 @@ Item {
   }
 
   function togglePopup() {
-    if (!root.enabled) return
-    if (popup.opened) popup.close()
-    else popup.open()
+    PopupToggle.toggle(popup, root.enabled)
   }
 
   function pick(id) {
@@ -106,10 +105,7 @@ Item {
       cursorShape: Qt.PointingHandCursor
       property bool openedAtPress: false
       onPressed: openedAtPress = popup.opened
-      onClicked: {
-        if (openedAtPress) popup.close()
-        else popup.open()
-      }
+      onClicked: PopupToggle.clickTrigger(popup, openedAtPress)
     }
   }
 

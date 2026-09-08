@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import "../services"
 import "../services/Layout.js" as LayoutJs
+import "../services/PopupToggle.js" as PopupToggle
 
 Item {
   id: root
@@ -32,16 +33,20 @@ Item {
 
   Accessible.role: Accessible.Button
   Accessible.name: root.accessibleName
-  Accessible.onPressAction: popup.open()
+  Accessible.onPressAction: root.togglePopup()
 
-  Keys.onReturnPressed: popup.open()
-  Keys.onSpacePressed: popup.open()
+  Keys.onReturnPressed: root.togglePopup()
+  Keys.onSpacePressed: root.togglePopup()
+
+  function togglePopup() {
+    PopupToggle.toggle(popup)
+  }
 
   PrefsIcon {
     anchors.centerIn: parent
     name: Theme.iconInfo
     size: Theme.helpIcon
-    color: helpMouse.containsMouse || root.activeFocus ? Theme.foreground : Theme.muted
+    color: helpMouse.containsMouse || root.activeFocus || popup.opened ? Theme.foreground : Theme.muted
 
     Behavior on color {
       ColorAnimation { duration: Theme.motionFast }
@@ -53,7 +58,9 @@ Item {
     anchors.fill: parent
     hoverEnabled: true
     cursorShape: Qt.PointingHandCursor
-    onClicked: popup.open()
+    property bool openedAtPress: false
+    onPressed: openedAtPress = popup.opened
+    onClicked: PopupToggle.clickTrigger(popup, openedAtPress)
   }
 
   ToolTip {
@@ -102,7 +109,7 @@ Item {
     modal: true
     focus: true
     padding: Theme.pad * 1.5
-    closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+    closePolicy: Popup.CloseOnEscape | Popup.CloseOnReleaseOutside
     anchors.centerIn: Overlay.overlay
     width: Math.min(480, Overlay.overlay ? Overlay.overlay.width - 48 : 480)
 

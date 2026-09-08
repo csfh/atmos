@@ -2,6 +2,23 @@
 
 Notable changes to Atmos. Each section is a git tag on `main` and `alpha`. Install and in-app Update follow the `alpha` branch.
 
+## [v0.0.1-alpha.15] - 2026-09-08
+
+### Added
+
+- **Favorites** hub at the top of Desktop. Star a setting to pin it. Open jumps to the hub. Keys are hub plus label slug in `~/.local/state/omarchy/atmos-favorites.json`. Reset Atmos leaves that file.
+- **Drivers** hub in Machine, after Hardware. GPU list, Active stack, hybrid GPU, and firmware updates. BIOS and TPM stay on Hardware.
+
+### Changed
+
+- The favorite star sits in a reserved gutter to the right of controls, top-aligned, and paints on row hover.
+- Section extra-copy hover uses Atmos chrome and wraps inside the confirm width. The `?` glyph paints when the heading is hovered.
+
+### Fixed
+
+- Presentation Mode copy and the switch stay in sync on a second click. The writer uses stay-awake / allow-idle.
+- The first row in a framed card no longer draws a hairline under the card edge.
+
 ## [v0.0.1-alpha.14] - 2026-09-07
 
 ### Changed
@@ -242,6 +259,7 @@ First public alpha. Standalone [Quickshell](https://quickshell.org) preferences 
 - Keyboard use on controls (tab focus and activation). File watching of Omarchy/Hyprland paths so outside changes can refresh the snapshot. Shared page routing and content-column layout.
 - MIT license. Contributions assign copyright to Christoffer Hallas ([CLA](CLA.md)).
 
+[v0.0.1-alpha.15]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.14...v0.0.1-alpha.15
 [v0.0.1-alpha.14]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.13...v0.0.1-alpha.14
 [v0.0.1-alpha.13]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.12...v0.0.1-alpha.13
 [v0.0.1-alpha.12]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.11...v0.0.1-alpha.12

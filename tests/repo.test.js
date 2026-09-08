@@ -165,12 +165,18 @@ assert(
     helpTipSrc.indexOf("color: Theme.foreground") !== -1,
   "section extra-copy hover text uses Theme.foreground",
 );
+const helpTipHead = helpTipSrc.slice(0, helpTipSrc.indexOf("contentItem:"));
 assert(
-  helpTipSrc.indexOf("padding: Theme.pad") !== -1 &&
-    helpTipSrc.indexOf("Theme.confirmWidth") !== -1 &&
-    helpTipSrc.indexOf("width: 360") === -1 &&
-    helpTipSrc.indexOf("wrapMode: Text.Wrap") !== -1,
+  helpTipHead.indexOf("padding: Theme.pad") !== -1 &&
+    /(?:^|\n)\s+(?:width|implicitWidth):[^\n]*Theme\.(?:confirmWidth|dialogWidth)/.test(
+      helpTipHead,
+    ) &&
+    helpTipHead.indexOf("width: 360") === -1,
   "section extra-copy hover is width-capped and padded with Theme tokens",
+);
+assert(
+  helpTipSrc.indexOf("wrapMode: Text.Wrap") !== -1 && helpTipSrc.indexOf("availableWidth") !== -1,
+  "section extra-copy hover wraps to the capped ToolTip width",
 );
 assert(
   prefsGroupSrcEarly.indexOf("PrefsHelp") !== -1 &&

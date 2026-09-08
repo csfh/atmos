@@ -69,11 +69,13 @@ Item {
   }
 
   ToolTip {
+    id: helpTip
     visible: root.hasContent && helpMouse.containsMouse && !popup.visible
     delay: 400
     timeout: 8000
     padding: Theme.pad
     text: root.tooltipText
+    width: Math.min(Theme.confirmWidth, Overlay.overlay ? Overlay.overlay.width - Theme.overlayInset : Theme.confirmWidth)
     background: Rectangle {
       color: Theme.background
       border.width: Theme.borderWidth
@@ -81,7 +83,7 @@ Item {
       radius: Theme.radius
     }
     contentItem: Text {
-      width: Math.min(implicitWidth, Theme.confirmWidth)
+      width: helpTip.availableWidth
       text: root.tooltipText
       wrapMode: Text.Wrap
       color: Theme.foreground

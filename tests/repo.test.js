@@ -813,8 +813,15 @@ assert(
   "SettingRow uses a hairline instead of a per-row box",
 );
 assert(
-  prefsGroupSrc.indexOf("kid.split = !(root.framed && first)") !== -1,
+  prefsGroupSrc.indexOf("kid.split = !(root.framed && first)") !== -1 ||
+    prefsGroupSrc.indexOf("rows[i].split = !(root.framed && first)") !== -1,
   "the first row in a framed card has no hairline under the card edge",
+);
+assert(
+  prefsGroupSrc.indexOf("function collectPrefsRows()") !== -1 &&
+    prefsGroupSrc.indexOf("kid.available === false") !== -1 &&
+    prefsGroupSrc.indexOf("walk(kid)") !== -1,
+  "framed split walks Repeater delegates and skips a hidden empty row",
 );
 
 const shellSrc = fs.readFileSync(path.join(__dirname, "..", "shell.qml"), "utf8");

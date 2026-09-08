@@ -51,15 +51,6 @@ PrefsPage {
     query: root.query
     detail: "PCI display devices, plus the DRM driver when the kernel bound one. Active is NVIDIA when that GPU is present, otherwise Vulkan. Hybrid switching reboots."
 
-    SettingRow {
-      available: !root.hasGraphics
-      label: "Graphics"
-      description: "No GPUs reported."
-      hint: "lspci"
-      query: root.query
-      keywords: ["gpu", "graphics", "vga", "drm"]
-    }
-
     Repeater {
       model: root.hw.gpus
 
@@ -77,6 +68,15 @@ PrefsPage {
           onClicked: root.copyField(HardwareJs.gpuSummary(modelData) || (modelData && modelData.name) || "")
         }
       }
+    }
+
+    SettingRow {
+      available: !root.hasGraphics
+      label: "Graphics"
+      description: "No GPUs reported."
+      hint: "lspci"
+      query: root.query
+      keywords: ["gpu", "graphics", "vga", "drm"]
     }
 
     SettingRow {

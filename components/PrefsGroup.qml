@@ -22,15 +22,49 @@ Column {
   // skips the row layout pass and every group stays a heading with no controls.
   visible: query.length === 0 || rowsColumn.implicitHeight > 0
 
-  function collectHelpRows() {
-    var out = []
-    var kids = rowsColumn.children
-    for (var i = 0; i < kids.length; i++) {
+  function childCount(node) {
+    var n = 0
+    var kids = node && node.children
+    if (!kids) return 0
+    n = kids.length
+    var i
+    for (i = 0; i < kids.length; i++) {
       var kid = kids[i]
-      if (!kid || kid.prefsRow !== true) continue
+      if (kid && kid.prefsRow !== true && kid.children) n += kid.children.length
+    }
+    return n
+  }
+
+  function collectPrefsRows() {
+    var out = []
+    function walk(node) {
+      var kids = node && node.children
+      if (!kids) return
+      var i
+      for (i = 0; i < kids.length; i++) {
+        var kid = kids[i]
+        if (!kid) continue
+        if (kid.prefsRow === true) {
+          if (kid.visible === false) continue
+          if (kid.available === false) continue
+          if (kid.matches === false) continue
+          out.push(kid)
+        } else if (kid.children && kid.children.length > 0) {
+          walk(kid)
+        }
+      }
+    }
+    walk(rowsColumn)
+    return out
+  }
+
+  function collectHelpRows() {
+    var rows = root.collectPrefsRows()
+    var out = []
+    var i
+    for (i = 0; i < rows.length; i++) {
+      var kid = rows[i]
       if (kid.sectionHelp === false) continue
-      if (kid.available === false) continue
-      if (kid.matches === false) continue
       out.push({
         label: kid.label || "",
         description: kid.description || "",
@@ -43,23 +77,22 @@ Column {
 
   readonly property var helpPayload: {
     var _q = root.query
-    var _n = rowsColumn.children.length
+    var _n = root.childCount(rowsColumn)
     var _s = root.splitPass
     return LayoutJs.sectionHelpPayload(root.detail, root.hint, root.collectHelpRows())
   }
 
   readonly property int splitPass: {
     var _q = root.query
-    var kids = rowsColumn.children
+    var _n = root.childCount(rowsColumn)
+    var rows = root.collectPrefsRows()
     var first = true
-    for (var i = 0; i < kids.length; i++) {
-      var kid = kids[i]
-      if (!kid || kid.prefsRow !== true) continue
-      if (kid.visible === false) continue
-      kid.split = !(root.framed && first)
+    var i
+    for (i = 0; i < rows.length; i++) {
+      rows[i].split = !(root.framed && first)
       first = false
     }
-    return kids.length
+    return _n
   }
 
   readonly property bool showHelp: LayoutJs.sectionHelpOpen(root.helpPayload)

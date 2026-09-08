@@ -38,6 +38,13 @@ assert(
 assert(menu.indexOf('text: "…"') !== -1, "PrefsMenu trigger is an ellipsis");
 assert(menu.indexOf('accessibleName: "More actions"') !== -1, "PrefsMenu is named More actions");
 assertEqual(menu.indexOf("PrefsFlickable") === -1, true, "PrefsMenu is a compact overlay list");
+assert(menu.indexOf("function togglePopup") !== -1, "PrefsMenu can toggle the overlay");
+assert(
+  menu.indexOf("openedAtPress") !== -1 &&
+    menu.indexOf("CloseOnReleaseOutside") !== -1 &&
+    menu.indexOf("CloseOnPressOutside") === -1,
+  "PrefsMenu closes on release outside so a second click on … can toggle",
+);
 
 const snapshot = fs.readFileSync(path.join(__dirname, "..", "scripts", "snapshot.sh"), "utf8");
 assert(

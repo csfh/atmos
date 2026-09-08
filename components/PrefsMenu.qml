@@ -18,7 +18,7 @@ Item {
 
   Accessible.role: Accessible.Button
   Accessible.name: root.accessibleName
-  Accessible.onPressAction: if (enabled) popup.open()
+  Accessible.onPressAction: root.togglePopup()
 
   function itemId(item) {
     if (!item) return ""
@@ -56,6 +56,12 @@ Item {
       popup.y = Math.max(0, below)
   }
 
+  function togglePopup() {
+    if (!root.enabled) return
+    if (popup.opened) popup.close()
+    else popup.open()
+  }
+
   function pick(id) {
     popup.close()
     if (id) root.picked(id)
@@ -65,13 +71,17 @@ Item {
     id: trigger
     anchors.fill: parent
     radius: Theme.radius
-    color: triggerHover.containsMouse || trigger.focus ? Theme.fill(Theme.hoverFill) : Theme.fill(Theme.normalFill)
+    color: triggerHover.containsMouse || trigger.focus || popup.opened
+      ? Theme.fill(Theme.hoverFill)
+      : Theme.fill(Theme.normalFill)
     border.width: Theme.borderWidth
-    border.color: trigger.focus || triggerHover.containsMouse ? Theme.accent : Theme.borderColor()
+    border.color: trigger.focus || triggerHover.containsMouse || popup.opened
+      ? Theme.accent
+      : Theme.borderColor()
     activeFocusOnTab: root.enabled
 
-    Keys.onReturnPressed: if (root.enabled) popup.open()
-    Keys.onSpacePressed: if (root.enabled) popup.open()
+    Keys.onReturnPressed: root.togglePopup()
+    Keys.onSpacePressed: root.togglePopup()
 
     Behavior on color {
       ColorAnimation { duration: Theme.motionFast }
@@ -94,7 +104,12 @@ Item {
       enabled: root.enabled
       hoverEnabled: true
       cursorShape: Qt.PointingHandCursor
-      onClicked: popup.open()
+      property bool openedAtPress: false
+      onPressed: openedAtPress = popup.opened
+      onClicked: {
+        if (openedAtPress) popup.close()
+        else popup.open()
+      }
     }
   }
 
@@ -105,7 +120,7 @@ Item {
     padding: 0
     modal: false
     focus: true
-    closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+    closePolicy: Popup.CloseOnEscape | Popup.CloseOnReleaseOutside
 
     onOpened: {
       list.currentIndex = list.count > 0 ? 0 : -1

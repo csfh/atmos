@@ -100,10 +100,15 @@ Column {
   readonly property int titleInset: root.framed ? root.contentPad + Theme.copyInset : Theme.copyInset
 
   Item {
+    id: headingHost
     width: parent.width
     implicitHeight: root.title.length > 0 ? Math.max(titleLabel.implicitHeight, groupHelp.implicitHeight) : 0
     height: implicitHeight
     visible: root.title.length > 0
+
+    HoverHandler {
+      id: headingHover
+    }
 
     PrefsText {
       id: titleLabel
@@ -126,6 +131,7 @@ Column {
       anchors.rightMargin: root.titleInset
       anchors.verticalCenter: parent.verticalCenter
       title: root.title
+      reveal: headingHover.hovered
       body: root.helpPayload && root.helpPayload.body ? root.helpPayload.body : ""
       command: root.helpPayload && root.helpPayload.command ? root.helpPayload.command : ""
       topics: root.showHelp && root.helpPayload ? root.helpPayload.topics : []

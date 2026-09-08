@@ -144,6 +144,11 @@ assert(
   helpSrc.indexOf("ToolTip") !== -1 && helpSrc.indexOf("helpMouse.containsMouse") !== -1,
   "PrefsHelp exposes the extra copy on hover",
 );
+assert(
+  helpSrc.indexOf("property bool reveal:") !== -1 &&
+    helpSrc.indexOf("opacity: root.showIcon ? 1 : 0") !== -1,
+  "PrefsHelp keeps the heading slot and only paints the glyph when revealed",
+);
 const prefsGroupSrcEarly = fs.readFileSync(
   path.join(__dirname, "..", "components", "PrefsGroup.qml"),
   "utf8",
@@ -152,6 +157,11 @@ assert(
   prefsGroupSrcEarly.indexOf("sectionHelpOpen") !== -1 &&
     prefsGroupSrcEarly.indexOf("root.detail.length > 0 || root.hint.length > 0") === -1,
   "section info icon shows only when help adds context",
+);
+assert(
+  prefsGroupSrcEarly.indexOf("id: headingHost") !== -1 &&
+    prefsGroupSrcEarly.indexOf("reveal: headingHover.hovered") !== -1,
+  "section info reveals when the heading row is hovered",
 );
 const snapshotSh = fs.readFileSync(path.join(__dirname, "..", "scripts", "snapshot.sh"), "utf8");
 assert(snapshotSh.indexOf("GROUP == rest") !== -1, "snapshot.sh strips look keys from rest");
@@ -372,6 +382,15 @@ assert(
     settingRowSrc.indexOf("id: favoriteHost") !== -1 &&
     settingRowSrc.indexOf("id: controlHost") < settingRowSrc.indexOf("id: favoriteHost"),
   "the favorite star sits in a reserved gutter to the right of the control and only paints on hover",
+);
+const favoriteHostSrc = settingRowSrc.slice(
+  settingRowSrc.indexOf("id: favoriteHost"),
+  settingRowSrc.indexOf("id: controlSlot"),
+);
+assert(
+  favoriteHostSrc.indexOf("anchors.top: parent.top") !== -1 &&
+    favoriteHostSrc.indexOf("anchors.verticalCenter") === -1,
+  "the favorite star stays top-aligned in the control band",
 );
 assert(settingRowSrc.indexOf("id: labelText") !== -1, "SettingRow names the label line");
 assert(

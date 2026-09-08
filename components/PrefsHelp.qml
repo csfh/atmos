@@ -11,6 +11,10 @@ Item {
   property string body: ""
   property string command: ""
   property var topics: []
+  // Parent heading hover. The glyph stays gone until the section row is
+  // hovered, the control is focused, or the modal is open.
+  property bool reveal: false
+  readonly property bool showIcon: root.hasContent && (root.reveal || root.activeFocus || popup.opened)
 
   readonly property bool hasTopics: topics && topics.length > 0
   readonly property bool hasContent: body.length > 0 || command.length > 0 || hasTopics
@@ -46,6 +50,7 @@ Item {
     anchors.centerIn: parent
     name: Theme.iconInfo
     size: Theme.helpIcon
+    opacity: root.showIcon ? 1 : 0
     color: helpMouse.containsMouse || root.activeFocus || popup.opened ? Theme.foreground : Theme.muted
 
     Behavior on color {

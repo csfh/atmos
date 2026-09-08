@@ -293,7 +293,7 @@ Item {
         width: root.canFavorite ? Theme.helpHit : 0
         height: Theme.helpHit
         anchors.right: parent.right
-        anchors.verticalCenter: parent.verticalCenter
+        anchors.top: parent.top
         activeFocusOnTab: root.canFavorite
 
         Accessible.role: Accessible.Button

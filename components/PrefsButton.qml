@@ -11,7 +11,14 @@ Rectangle {
 
   signal clicked()
 
-  implicitWidth: label.implicitWidth + Theme.pad * 2
+  TextMetrics {
+    id: labelMetrics
+    font.family: Theme.fontFamily
+    font.pixelSize: Theme.labelSize
+    text: root.text
+  }
+
+  implicitWidth: Math.ceil(labelMetrics.width) + Theme.pad * 2
   implicitHeight: Theme.controlHeight
   width: implicitWidth
   height: implicitHeight

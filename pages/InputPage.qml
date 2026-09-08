@@ -248,7 +248,6 @@ PrefsPage {
     }
 
     SettingRow {
-      available: Omarchy.hyprInputManaged
       label: "Reset input"
       description: "Remove the block Atmos wrote. Hyprland goes back to the rest of input.lua and the Omarchy defaults."
       hint: "~/.config/hypr/input.lua"

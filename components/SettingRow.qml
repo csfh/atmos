@@ -44,6 +44,7 @@ Item {
   }
 
   readonly property bool matches: ShellConfigJs.haystackMatches(query, searchHaystack)
+  readonly property bool shown: available && matches
 
   readonly property bool hovered: rowHover.hovered
 
@@ -55,14 +56,10 @@ Item {
   // alone can stay at 0 after default-property kids land, which hid toggles.
   readonly property int controlCount: controlSlot.children.length
 
-  readonly property bool hasChild: {
-    var n = root.controlCount
-    var kids = controlSlot.children
-    for (var i = 0; i < n; i++) {
-      if (kids[i] && kids[i].visible) return true
-    }
-    return false
-  }
+  // Count the slot. A row that starts hidden (Installed themes waits on
+  // extraThemes) used to walk child visibility, miss the select, and never
+  // run that walk again when the row appeared.
+  readonly property bool hasChild: root.controlCount > 0
   readonly property bool hasControl: {
     if (root.hasChild) return true
     if (root.valueText.length > 0 && !root.stack) return true
@@ -107,7 +104,7 @@ Item {
     return inner < 160 + Theme.spaceMd + Theme.controlColumnWidth
   }
 
-  visible: available && matches
+  visible: shown
   width: parent ? parent.width : 640
   implicitWidth: width
   implicitHeight: visible ? body.implicitHeight + Theme.rowPad * 2 : 0

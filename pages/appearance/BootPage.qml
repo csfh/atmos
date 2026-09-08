@@ -83,7 +83,6 @@ PrefsPage {
     }
 
     SettingRow {
-      available: Omarchy.plymouth !== "default"
       label: "Reset boot screen"
       description: "Put the stock Omarchy unlock theme and login screen back."
       hint: "omarchy plymouth reset"

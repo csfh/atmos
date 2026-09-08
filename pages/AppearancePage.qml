@@ -52,6 +52,11 @@ PrefsPage {
     return n + " extra themes are installed on this machine."
   }
 
+  function applyNightSchedule(nightOn) {
+    if (!root.nightTimesValid) return
+    Omarchy.setNightlightSchedule(root.dayParsed, root.nightParsed, nightOn === true)
+  }
+
   function syncExtraToRemove() {
     var list = Omarchy.extraThemes || []
     for (var i = 0; i < list.length; i++) {
@@ -313,7 +318,6 @@ PrefsPage {
     TextSizeRow { query: root.query }
 
     SettingRow {
-      available: Omarchy.textSize !== 12
       label: "Reset text size"
       description: "Put type back to 12 pixels everywhere Omarchy sets it."
       hint: "omarchy display text size reset"
@@ -382,11 +386,11 @@ PrefsPage {
     SettingRow {
       label: "Night light schedule"
       description: root.nightTimesValid
-        ? "Left is the hour the day profile starts. Right is when night starts. Apply writes ~/.config/hypr/hyprsunset.conf and restarts hyprsunset."
-        : "Times need to look like 07:00 and 20:00 (hours 0–23). Apply and the night profile stay off until both are valid."
+        ? "Left is when daylight starts. Right is when night starts."
+        : "Times need to look like 07:00 and 20:00 (hours 0–23)."
       hint: "~/.config/hypr/hyprsunset.conf"
       query: root.query
-      keywords: ["nightlight", "schedule", "hyprsunset", "sunset", "sunrise"]
+      keywords: ["nightlight", "schedule", "hyprsunset", "sunset", "sunrise", "time"]
 
       Row {
         spacing: Theme.space
@@ -396,7 +400,10 @@ PrefsPage {
           placeholder: "07:00"
           invalid: root.dayDraft.length > 0 && root.dayParsed.length === 0
           onEdited: function(value) { root.dayDraft = value }
-          onSubmitted: function(value) { root.dayDraft = value }
+          onSubmitted: function(value) {
+            root.dayDraft = value
+            root.applyNightSchedule(Omarchy.nightlightNightOn)
+          }
         }
         PrefsField {
           width: 72
@@ -404,30 +411,32 @@ PrefsPage {
           placeholder: "20:00"
           invalid: root.nightDraft.length > 0 && root.nightParsed.length === 0
           onEdited: function(value) { root.nightDraft = value }
-          onSubmitted: function(value) { root.nightDraft = value }
+          onSubmitted: function(value) {
+            root.nightDraft = value
+            root.applyNightSchedule(Omarchy.nightlightNightOn)
+          }
+        }
+        PrefsButton {
+          text: "Set"
+          enabled: root.nightTimesValid
+          onClicked: root.applyNightSchedule(Omarchy.nightlightNightOn)
         }
       }
     }
 
     SettingRow {
-      label: "Automatic night profile"
-      description: "A night color profile starts at the time on the right."
+      label: "Use schedule"
+      description: root.nightTimesValid
+        ? "Turn the timed amber profile on."
+        : "Needs valid times above."
       hint: "~/.config/hypr/hyprsunset.conf"
       query: root.query
-      keywords: ["nightlight", "schedule", "automatic", "hyprsunset"]
+      keywords: ["nightlight", "schedule", "automatic", "hyprsunset", "enable"]
 
-      Row {
-        spacing: Theme.space
-        PrefsToggle {
-          checked: Omarchy.nightlightNightOn
-          enabled: root.nightTimesValid
-          onToggled: Omarchy.setNightlightSchedule(root.dayParsed, root.nightParsed, !Omarchy.nightlightNightOn)
-        }
-        PrefsButton {
-          text: "Set"
-          enabled: root.nightTimesValid
-          onClicked: Omarchy.setNightlightSchedule(root.dayParsed, root.nightParsed, Omarchy.nightlightNightOn)
-        }
+      PrefsToggle {
+        checked: Omarchy.nightlightNightOn
+        enabled: root.nightTimesValid
+        onToggled: root.applyNightSchedule(!Omarchy.nightlightNightOn)
       }
     }
   }

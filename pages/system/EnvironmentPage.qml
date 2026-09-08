@@ -11,8 +11,14 @@ PrefsPage {
   property string varKeyDraft: ""
   property string varValueDraft: ""
   property string varError: ""
+  property string pathPrependDraft: Omarchy.envPathPrepend
 
   readonly property var detected: EnvJs.detected(Omarchy.envDetected)
+
+  Connections {
+    target: Omarchy
+    function onEnvPathPrependChanged() { root.pathPrependDraft = Omarchy.envPathPrepend }
+  }
 
   function addVar() {
     var key = EnvJs.sanitizeKey(root.varKeyDraft)
@@ -39,23 +45,26 @@ PrefsPage {
 
     SettingRow {
       label: "Session"
-      description: (root.detected.sessionType || "unknown") + (root.detected.desktop ? " · " + root.detected.desktop : "")
+      description: "This login's session type and desktop."
       query: root.query
       keywords: ["wayland", "session", "desktop"]
+      valueText: (root.detected.sessionType || "unknown") + (root.detected.desktop ? " · " + root.detected.desktop : "")
     }
 
     SettingRow {
       label: "Shell"
-      description: root.detected.shell || "not set"
+      description: "The login shell for this account."
       query: root.query
       keywords: ["shell", "zsh", "bash"]
+      valueText: root.detected.shell || "not set"
     }
 
     SettingRow {
       label: "Editor / terminal / browser"
-      description: [root.detected.editor, root.detected.terminal, root.detected.browser].filter(function (v) { return v }).join(" · ") || "not set in the environment"
+      description: "Environment values for those tools. Defaults still live on Defaults."
       query: root.query
       keywords: ["editor", "terminal", "browser"]
+      valueText: [root.detected.editor, root.detected.terminal, root.detected.browser].filter(function (v) { return v }).join(" · ") || "not set"
     }
 
     SettingRow {
@@ -82,11 +91,29 @@ PrefsPage {
       query: root.query
       keywords: ["path", "prepend"]
 
-      PrefsField {
+      Row {
         width: parent.width
-        placeholder: "/opt/bin"
-        value: Omarchy.envPathPrepend
-        onSubmitted: function(value) { Omarchy.setEnvVars(Omarchy.envVars, value) }
+        spacing: Theme.space
+
+        PrefsField {
+          id: pathPrependField
+          width: parent.width - pathPrependSetBtn.width - parent.spacing
+          placeholder: "/opt/bin"
+          value: root.pathPrependDraft
+          onEdited: function(value) { root.pathPrependDraft = value }
+          onSubmitted: function(value) {
+            root.pathPrependDraft = value
+            Omarchy.setEnvVars(Omarchy.envVars, value)
+          }
+        }
+
+        PrefsButton {
+          id: pathPrependSetBtn
+          text: "Set"
+          primary: true
+          enabled: root.pathPrependDraft !== Omarchy.envPathPrepend
+          onClicked: Omarchy.setEnvVars(Omarchy.envVars, root.pathPrependDraft)
+        }
       }
     }
 

@@ -141,7 +141,13 @@ PrefsPage {
       description: Omarchy.netGateway
       hint: "nmcli IP4.GATEWAY"
       query: root.query
-      keywords: ["gateway", "route"]
+      keywords: ["gateway", "route", "copy"]
+
+      PrefsButton {
+        text: "Copy"
+        enabled: Omarchy.netGateway.length > 0
+        onClicked: Omarchy.copyText(Omarchy.netGateway)
+      }
     }
 
     SettingRow {
@@ -150,7 +156,13 @@ PrefsPage {
       description: Omarchy.netDnsServers.join(", ")
       hint: "nmcli IP4.DNS"
       query: root.query
-      keywords: ["dns", "resolver"]
+      keywords: ["dns", "resolver", "copy"]
+
+      PrefsButton {
+        text: "Copy"
+        enabled: Omarchy.netDnsServers.length > 0
+        onClicked: Omarchy.copyText(Omarchy.netDnsServers.join(", "))
+      }
     }
   }
 

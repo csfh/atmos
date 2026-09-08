@@ -116,19 +116,21 @@ PrefsPage {
     SettingRow {
       available: Omarchy.powerGovernor.length > 0
       label: "CPU governor"
-      description: Omarchy.powerGovernor || "not reported"
+      description: "What power-profiles-daemon selected. Atmos does not write this."
       hint: "scaling_governor"
       query: root.query
       keywords: ["governor", "cpu", "schedutil"]
+      valueText: Omarchy.powerGovernor
     }
 
     SettingRow {
       available: Omarchy.amdPstate.length > 0
       label: "Energy preference"
-      description: Omarchy.amdPstate || "not reported"
+      description: "The energy_performance_preference power-profiles-daemon selected."
       hint: "energy_performance_preference"
       query: root.query
       keywords: ["amd", "pstate", "epp"]
+      valueText: Omarchy.amdPstate
     }
 
     SettingRow {

@@ -263,7 +263,6 @@ PrefsPage {
     }
 
     SettingRow {
-      available: Omarchy.hyprLookManaged
       label: "Reset look"
       description: "Remove the block Atmos wrote. Hyprland goes back to the rest of looknfeel.lua and the Omarchy defaults."
       hint: "~/.config/hypr/looknfeel.lua"
@@ -531,11 +530,23 @@ PrefsPage {
       query: root.query
       keywords: ["swallow", "regex"]
 
-      PrefsField {
+      Row {
         width: parent.width
-        placeholder: "kitty|alacritty"
-        value: Omarchy.hyprSwallowRegex
-        onSubmitted: function(value) { Omarchy.setHyprSwallowRegex(value) }
+        spacing: Theme.space
+
+        PrefsField {
+          id: swallowRegexField
+          width: parent.width - swallowRegexSetBtn.width - parent.spacing
+          placeholder: "kitty|alacritty"
+          value: Omarchy.hyprSwallowRegex
+          onSubmitted: function(value) { Omarchy.setHyprSwallowRegex(value) }
+        }
+
+        PrefsButton {
+          id: swallowRegexSetBtn
+          text: "Set"
+          onClicked: Omarchy.setHyprSwallowRegex(swallowRegexField.currentText())
+        }
       }
     }
 

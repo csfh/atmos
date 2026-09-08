@@ -233,6 +233,10 @@ assert(
     prefsButtonSrc.indexOf("Theme.motionFast") !== -1,
   "PrefsButton uses Theme control height, disabled opacity, and motion",
 );
+assert(
+  prefsButtonSrc.indexOf("TextMetrics") !== -1 && prefsButtonSrc.indexOf("labelMetrics") !== -1,
+  "PrefsButton sizes from TextMetrics so a hidden row still gets a width",
+);
 const prefsSliderSrc = fs.readFileSync(
   path.join(__dirname, "..", "components", "PrefsSlider.qml"),
   "utf8",
@@ -398,6 +402,11 @@ assert(
   settingRowSrc.indexOf("readonly property int controlCount:") !== -1 &&
     settingRowSrc.indexOf("controlSlot.children.length") !== -1,
   "SettingRow tracks control children so a toggle is not dropped after load",
+);
+assert(
+  settingRowSrc.indexOf("readonly property bool shown:") !== -1 &&
+    settingRowSrc.indexOf("readonly property bool hasChild: root.controlCount > 0") !== -1,
+  "SettingRow counts control children even when the row started hidden",
 );
 assert(
   settingRowSrc.indexOf("property alias leading:") !== -1 &&
@@ -880,6 +889,18 @@ assert(
 assert(
   appearanceSrc.indexOf("enabled: root.nightTimesValid") !== -1,
   "Appearance disables night-light apply when a time is invalid",
+);
+assert(
+  appearanceSrc.indexOf("available: Omarchy.textSize !== 12") === -1 &&
+    appearanceSrc.indexOf('label: "Reset text size"') !== -1 &&
+    appearanceSrc.indexOf('text: "Reset"') !== -1,
+  "Reset text size keeps its button even at 12 pixels",
+);
+assert(
+  /label: "Night light schedule"[\s\S]*PrefsField[\s\S]*label: "Use schedule"[\s\S]*PrefsToggle/.test(
+    appearanceSrc,
+  ) && appearanceSrc.indexOf('label: "Automatic night profile"') === -1,
+  "Night light schedule is the times; Use schedule is the on switch",
 );
 assert(
   appearanceSrc.indexOf("RichUi.parseGitUrl") !== -1 &&

@@ -72,9 +72,16 @@ Item {
     visible: root.hasContent && helpMouse.containsMouse && !popup.visible
     delay: 400
     timeout: 8000
+    padding: Theme.pad
     text: root.tooltipText
+    background: Rectangle {
+      color: Theme.background
+      border.width: Theme.borderWidth
+      border.color: Theme.borderColor()
+      radius: Theme.radius
+    }
     contentItem: Text {
-      width: 360
+      width: Math.min(implicitWidth, Theme.confirmWidth)
       text: root.tooltipText
       wrapMode: Text.Wrap
       color: Theme.foreground

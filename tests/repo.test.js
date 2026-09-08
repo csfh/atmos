@@ -144,14 +144,44 @@ assert(
   helpSrc.indexOf("ToolTip") !== -1 && helpSrc.indexOf("helpMouse.containsMouse") !== -1,
   "PrefsHelp exposes the extra copy on hover",
 );
+const prefsGroupSrcEarly = fs.readFileSync(
+  path.join(__dirname, "..", "components", "PrefsGroup.qml"),
+  "utf8",
+);
+const helpTipSrc = helpSrc.slice(
+  helpSrc.indexOf("ToolTip {"),
+  helpSrc.indexOf("component CommandBox"),
+);
+assert(
+  helpTipSrc.indexOf("background:") !== -1 &&
+    helpTipSrc.indexOf("color: Theme.background") !== -1 &&
+    helpTipSrc.indexOf("border.width: Theme.borderWidth") !== -1 &&
+    helpTipSrc.indexOf("border.color: Theme.borderColor()") !== -1 &&
+    helpTipSrc.indexOf("radius: Theme.radius") !== -1,
+  "section extra-copy hover uses Atmos surface, hairline, and radius",
+);
+assert(
+  helpTipSrc.indexOf("contentItem: Text") !== -1 &&
+    helpTipSrc.indexOf("color: Theme.foreground") !== -1,
+  "section extra-copy hover text uses Theme.foreground",
+);
+assert(
+  helpTipSrc.indexOf("padding: Theme.pad") !== -1 &&
+    helpTipSrc.indexOf("Theme.confirmWidth") !== -1 &&
+    helpTipSrc.indexOf("width: 360") === -1 &&
+    helpTipSrc.indexOf("wrapMode: Text.Wrap") !== -1,
+  "section extra-copy hover is width-capped and padded with Theme tokens",
+);
+assert(
+  prefsGroupSrcEarly.indexOf("PrefsHelp") !== -1 &&
+    helpSrc.indexOf("ToolTip {") !== -1 &&
+    helpTipSrc.indexOf("color: Theme.background") !== -1,
+  "section extra-copy hover goes through PrefsHelp's themed ToolTip",
+);
 assert(
   helpSrc.indexOf("property bool reveal:") !== -1 &&
     helpSrc.indexOf("opacity: root.showIcon ? 1 : 0") !== -1,
   "PrefsHelp keeps the heading slot and only paints the glyph when revealed",
-);
-const prefsGroupSrcEarly = fs.readFileSync(
-  path.join(__dirname, "..", "components", "PrefsGroup.qml"),
-  "utf8",
 );
 assert(
   prefsGroupSrcEarly.indexOf("sectionHelpOpen") !== -1 &&

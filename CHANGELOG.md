@@ -2,6 +2,16 @@
 
 Notable changes to Atmos. Each section is a git tag on `main` and `alpha`. Install and in-app Update follow the `alpha` branch.
 
+## [v0.0.1-alpha.14] - 2026-09-07
+
+### Changed
+
+- Network's Bluetooth row is Open… to the Bluetooth hub. The radio toggle lives only on Bluetooth.
+
+### Fixed
+
+- Clicking …, a dropdown, or ? a second time closed the overlay and opened it again.
+
 ## [v0.0.1-alpha.13] - 2026-09-07
 
 ### Added
@@ -232,6 +242,7 @@ First public alpha. Standalone [Quickshell](https://quickshell.org) preferences 
 - Keyboard use on controls (tab focus and activation). File watching of Omarchy/Hyprland paths so outside changes can refresh the snapshot. Shared page routing and content-column layout.
 - MIT license. Contributions assign copyright to Christoffer Hallas ([CLA](CLA.md)).
 
+[v0.0.1-alpha.14]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.13...v0.0.1-alpha.14
 [v0.0.1-alpha.13]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.12...v0.0.1-alpha.13
 [v0.0.1-alpha.12]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.11...v0.0.1-alpha.12
 [v0.0.1-alpha.11]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.10...v0.0.1-alpha.11

@@ -9,7 +9,7 @@ import "network" as Net
 PrefsPage {
   id: root
   title: "Network"
-  description: "What you are connected to, plus DNS. Radios sit on this page. Networks, pairing, and a speed test open their own pages."
+  description: "What you are connected to, plus DNS. Nearby networks and a speed test open their own pages."
 
   property var stack: null
   property var navigator: null
@@ -20,10 +20,9 @@ PrefsPage {
 
   function openSubpage(id) {
     if (id === "bluetooth") {
-      if (root.navigator && root.navigator.go) {
+      if (root.navigator && root.navigator.go)
         root.navigator.go("bluetooth")
-        return
-      }
+      return
     }
     if (root.navigator && root.navigator.go) {
       root.navigator.go("network/" + id)
@@ -32,12 +31,10 @@ PrefsPage {
     if (!stack) return
     if (id === "speedtest") stack.push(speedtestPage)
     else if (id === "wifi") stack.push(wifiPage)
-    else if (id === "bluetooth") stack.push(bluetoothPage)
   }
 
   Component { id: speedtestPage; Net.SpeedtestPage {} }
   Component { id: wifiPage; Net.WifiPage {} }
-  Component { id: bluetoothPage; Net.BluetoothPage {} }
 
   readonly property var dnsOptions: [
     { value: "Cloudflare", label: "Cloudflare" },
@@ -169,7 +166,7 @@ PrefsPage {
   PrefsGroup {
     title: "Connectivity"
     query: root.query
-    detail: "Radios sit here. Nearby networks, pairing, and the speed test open their own pages."
+    detail: "Wi-Fi radio sits here. Nearby networks and the speed test open their own pages."
     hint: "omarchy network"
 
     SettingRow {
@@ -201,16 +198,9 @@ PrefsPage {
       query: root.query
       keywords: ["bt", "pair", "headset", "scan", "forget", "radio"]
 
-      Row {
-        spacing: Theme.space
-        PrefsToggle {
-          checked: Omarchy.bluetooth
-          onToggled: Omarchy.setBluetooth(!Omarchy.bluetooth)
-        }
-        PrefsButton {
-          text: "Manage…"
-          onClicked: root.openSubpage("bluetooth")
-        }
+      PrefsButton {
+        text: "Open…"
+        onClicked: root.openSubpage("bluetooth")
       }
     }
 

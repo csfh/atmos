@@ -238,8 +238,8 @@ function hubs() {
       icon: "wifi-line",
       file: "NetworkPage.qml",
       keywords: keywordList(
-        "dns cloudflare google dhcp custom nameserver resolver bluetooth radio wifi band ghz wlan qr share ssid password psk copy ethernet status ip speedtest join scan pair headset forget restart rfkill connectivity tailscale vpn tailnet localsend taildrop clipboard file folder",
-        ["wifi", "bluetooth", "dns"],
+        "dns cloudflare google dhcp custom nameserver resolver radio wifi band ghz wlan qr share ssid password psk copy ethernet status ip speedtest join scan forget restart rfkill connectivity tailscale vpn tailnet localsend taildrop clipboard file folder",
+        ["wifi", "dns"],
       ),
       children: [
         child("network/wifi", "Wi-Fi", "network/WifiPage.qml"),

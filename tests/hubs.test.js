@@ -40,6 +40,12 @@ assertEqual(
   "child hub titles come from the catalog",
 );
 assertEqual(hubs.hubTitle("keybindings"), "Keybindings", "keybindings is a first-class hub");
+assertEqual(hubs.hubTitle("bluetooth"), "Bluetooth", "bluetooth is a first-class hub");
+assert(hubs.childIds().indexOf("network/bluetooth") === -1, "bluetooth is not a Network child");
+assert(
+  hubs.hubById("network").keywords.indexOf("bluetooth") === -1,
+  "Network hub search does not steal bluetooth",
+);
 assertEqual(hubs.rootHub("appearance/boot"), "appearance", "rootHub strips the child tail");
 assertEqual(hubs.snapshotGroupForHub("appearance/boot"), "look", "appearance/boot reads look");
 assertEqual(hubs.snapshotGroupForHub("network"), "network", "network hub reads network");

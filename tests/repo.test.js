@@ -500,9 +500,16 @@ const networkPageSrc = fs.readFileSync(
 assert(
   networkPageSrc.indexOf('text: "Manage…"') !== -1 &&
     networkPageSrc.indexOf('label: "Wi-Fi"') !== -1 &&
-    networkPageSrc.indexOf('label: "Bluetooth"') !== -1 &&
     networkPageSrc.indexOf('text: "Test…"') !== -1,
-  "Wi-Fi and Bluetooth use Manage… and speed test uses Test…",
+  "Wi-Fi uses Manage… and speed test uses Test…",
+);
+assert(
+  networkPageSrc.indexOf('label: "Bluetooth"') !== -1 &&
+    networkPageSrc.indexOf('text: "Open…"') !== -1 &&
+    networkPageSrc.indexOf("setBluetooth") === -1 &&
+    networkPageSrc.indexOf("bluetoothPage") === -1 &&
+    networkPageSrc.indexOf('root.navigator.go("bluetooth")') !== -1,
+  "Network links to the Bluetooth hub instead of nesting it",
 );
 const a11ySrc = fs.readFileSync(
   path.join(__dirname, "..", "pages", "AccessibilityPage.qml"),

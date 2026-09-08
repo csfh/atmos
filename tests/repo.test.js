@@ -365,6 +365,14 @@ assert(
     settingRowSrc.indexOf("Omarchy.toggleFavorite") !== -1,
   "SettingRow stars a row through Omarchy.toggleFavorite",
 );
+assert(
+  settingRowSrc.indexOf("readonly property int favoriteGutter:") !== -1 &&
+    settingRowSrc.indexOf("anchors.right: parent.right") !== -1 &&
+    settingRowSrc.indexOf("opacity: root.showFavoriteIcon ? 1 : 0") !== -1 &&
+    settingRowSrc.indexOf("id: favoriteHost") !== -1 &&
+    settingRowSrc.indexOf("id: controlHost") < settingRowSrc.indexOf("id: favoriteHost"),
+  "the favorite star sits in a reserved gutter to the right of the control and only paints on hover",
+);
 assert(settingRowSrc.indexOf("id: labelText") !== -1, "SettingRow names the label line");
 assert(
   settingRowSrc.indexOf("Theme.labelSize") !== -1 &&

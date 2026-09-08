@@ -60,6 +60,8 @@ Item {
   }
   readonly property bool canFavorite: root.catalog && root.label.length > 0 && root.resolvedHubId.length > 0
   readonly property bool favorited: FavJs.isFavorite(Omarchy.favoriteItems, root.resolvedHubId, root.label)
+  readonly property int favoriteGutter: root.canFavorite ? Theme.helpHit + Theme.space : 0
+  readonly property bool showFavoriteIcon: root.canFavorite && (root.hovered || favoriteHost.activeFocus)
 
   function toggleStar() {
     if (!root.canFavorite) return
@@ -104,7 +106,7 @@ Item {
 
   readonly property int maxControlCol: {
     var avail = parent ? parent.width : Theme.controlColumnWidth
-    return Math.max(140, avail - 160 - Theme.spaceMd)
+    return Math.max(140, avail - 160 - Theme.spaceMd - root.favoriteGutter)
   }
 
   readonly property int controlCol: {
@@ -126,7 +128,7 @@ Item {
     if (root.stretchControl) return true
     var inner = root.width - Theme.copyInset * 2
     if (inner <= 0) return false
-    return inner < 160 + Theme.spaceMd + Theme.controlColumnWidth
+    return inner < 160 + Theme.spaceMd + Theme.controlColumnWidth + root.favoriteGutter
   }
 
   visible: shown
@@ -160,9 +162,14 @@ Item {
 
     Item {
       id: copyHost
-      width: (root.stack || !root.hasControl)
-        ? body.width
-        : Math.max(160, body.width - root.controlCol - body.spacing)
+      width: {
+        if (root.stack) return body.width
+        var trail = 0
+        if (root.hasControl) trail += root.controlCol
+        trail += root.favoriteGutter
+        if (trail === 0) return body.width
+        return Math.max(160, body.width - trail - body.spacing)
+      }
       implicitWidth: width
       implicitHeight: copyCol.implicitHeight
       height: implicitHeight
@@ -171,38 +178,6 @@ Item {
         id: copyCol
         width: parent.width
         spacing: Theme.space
-
-        Item {
-          id: favoriteHost
-          visible: root.canFavorite
-          width: visible ? Theme.helpHit : 0
-          height: Theme.helpHit
-          activeFocusOnTab: visible
-
-          Accessible.role: Accessible.Button
-          Accessible.name: (root.favorited ? "Remove from favorites: " : "Add to favorites: ") + root.label
-          Accessible.onPressAction: root.toggleStar()
-
-          Keys.onReturnPressed: root.toggleStar()
-          Keys.onSpacePressed: root.toggleStar()
-
-          PrefsIcon {
-            anchors.centerIn: parent
-            name: root.favorited ? Theme.iconStarOn : Theme.iconStar
-            size: Theme.helpIcon
-            color: root.favorited || favoriteMouse.containsMouse || favoriteHost.activeFocus
-              ? Theme.accent
-              : Theme.muted
-          }
-
-          MouseArea {
-            id: favoriteMouse
-            anchors.fill: parent
-            hoverEnabled: true
-            cursorShape: Qt.PointingHandCursor
-            onClicked: root.toggleStar()
-          }
-        }
 
         Item {
           id: leadingHost
@@ -222,8 +197,7 @@ Item {
         }
 
         Column {
-          width: parent.width - (favoriteHost.visible ? favoriteHost.width + copyCol.spacing : 0)
-            - (leadingHost.visible ? leadingHost.width + copyCol.spacing : 0)
+          width: parent.width - (leadingHost.visible ? leadingHost.width + copyCol.spacing : 0)
             - (valueHost.visible ? valueHost.width + copyCol.spacing : 0)
           spacing: Theme.labelGap
 
@@ -294,40 +268,84 @@ Item {
 
     Item {
       id: controlHost
-      visible: root.hasControl
-      width: root.hasControl
-        ? ((root.stack || root.stretchControl) ? body.width : root.controlCol)
-        : 0
+      visible: root.hasControl || root.canFavorite
+      width: {
+        if (root.stack || root.stretchControl) return body.width
+        if (root.hasControl) return root.controlCol + root.favoriteGutter
+        return root.favoriteGutter
+      }
       implicitWidth: width
       implicitHeight: {
-        if (!root.hasControl) return 0
-        var h = Math.max(Theme.controlHeight, controlSlot.implicitHeight)
-        if (root.valueText.length > 0 && !root.hasChild)
-          h = Math.max(h, statusLabel.implicitHeight)
-        if (!root.stack)
-          h = Math.max(h, labelText.implicitHeight)
+        var h = root.canFavorite ? Theme.helpHit : 0
+        if (root.hasControl) {
+          h = Math.max(Theme.controlHeight, controlSlot.implicitHeight, h)
+          if (root.valueText.length > 0 && !root.hasChild)
+            h = Math.max(h, statusLabel.implicitHeight)
+          if (!root.stack)
+            h = Math.max(h, labelText.implicitHeight)
+        }
         return h
       }
       height: implicitHeight
 
       Item {
+        id: favoriteHost
+        width: root.canFavorite ? Theme.helpHit : 0
+        height: Theme.helpHit
+        anchors.right: parent.right
+        anchors.verticalCenter: parent.verticalCenter
+        activeFocusOnTab: root.canFavorite
+
+        Accessible.role: Accessible.Button
+        Accessible.name: (root.favorited ? "Remove from favorites: " : "Add to favorites: ") + root.label
+        Accessible.onPressAction: root.toggleStar()
+
+        Keys.onReturnPressed: root.toggleStar()
+        Keys.onSpacePressed: root.toggleStar()
+
+        PrefsIcon {
+          anchors.centerIn: parent
+          name: root.favorited ? Theme.iconStarOn : Theme.iconStar
+          size: Theme.helpIcon
+          opacity: root.showFavoriteIcon ? 1 : 0
+          color: root.favorited || favoriteMouse.containsMouse || favoriteHost.activeFocus
+            ? Theme.accent
+            : Theme.muted
+        }
+
+        MouseArea {
+          id: favoriteMouse
+          anchors.fill: parent
+          enabled: root.canFavorite
+          hoverEnabled: true
+          cursorShape: Qt.PointingHandCursor
+          onClicked: root.toggleStar()
+        }
+      }
+
+      Item {
         id: controlSlot
         implicitWidth: children.length > 0 ? children[0].implicitWidth : 0
         implicitHeight: children.length > 0 ? children[0].implicitHeight : 0
-        width: root.stack && root.stretchControl
-          ? controlHost.width
-          : Math.min(implicitWidth, parent ? parent.width : implicitWidth)
+        width: {
+          var cap = parent ? parent.width - root.favoriteGutter : implicitWidth
+          if (cap < 0) cap = 0
+          if (root.stack && root.stretchControl) return cap
+          return Math.min(implicitWidth, cap)
+        }
         height: implicitHeight
-        anchors.right: parent.right
+        anchors.right: favoriteHost.left
+        anchors.rightMargin: root.canFavorite ? Theme.space : 0
         anchors.verticalCenter: parent.verticalCenter
       }
 
       Text {
         id: statusLabel
         visible: root.valueText.length > 0 && !root.hasChild && !root.stack
-        anchors.right: parent.right
+        anchors.right: favoriteHost.left
+        anchors.rightMargin: root.canFavorite ? Theme.space : 0
         anchors.verticalCenter: parent.verticalCenter
-        width: Math.min(implicitWidth, parent ? parent.width : implicitWidth)
+        width: Math.min(implicitWidth, parent ? Math.max(0, parent.width - root.favoriteGutter) : implicitWidth)
         text: root.valueText
         color: Theme.muted
         font.family: Theme.fontFamily

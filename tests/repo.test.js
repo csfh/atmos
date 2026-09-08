@@ -563,6 +563,30 @@ const hardwarePageSrc = fs.readFileSync(
 );
 assert(hardwarePageSrc.indexOf("PrefsToggle") === -1, "Hardware does not use switches");
 assert(
+  hardwarePageSrc.indexOf("hybridGpuConfirm") === -1 &&
+    hardwarePageSrc.indexOf('label: "Active stack"') === -1 &&
+    hardwarePageSrc.indexOf("toggleHybridGpu") === -1,
+  "Hardware does not host GPU stack or hybrid switching",
+);
+assert(
+  hardwarePageSrc.indexOf('text: "Open…"') !== -1 &&
+    hardwarePageSrc.indexOf('navigator.go("drivers")') !== -1,
+  "Hardware links to Drivers with Open…",
+);
+const driversPageSrc = fs.readFileSync(
+  path.join(__dirname, "..", "pages", "DriversPage.qml"),
+  "utf8",
+);
+assert(
+  driversPageSrc.indexOf("hybridGpuConfirm") !== -1 &&
+    driversPageSrc.indexOf('label: "Active stack"') !== -1 &&
+    driversPageSrc.indexOf("toggleHybridGpu") !== -1 &&
+    driversPageSrc.indexOf("updateFirmware") !== -1 &&
+    driversPageSrc.indexOf('label: "Firmware"') !== -1,
+  "Drivers hosts GPU stack, hybrid switching, and fwupd",
+);
+assert(driversPageSrc.indexOf("No GPUs reported.") !== -1, "Drivers names an empty GPU list");
+assert(
   hardwarePageSrc.indexOf('label: "Secure Boot"') !== -1 &&
     hardwarePageSrc.indexOf('valueText: root.hw.secureBoot.enabled ? "On" : "Off"') !== -1 &&
     hardwarePageSrc.indexOf("Change this in UEFI setup, not here.") !== -1,
@@ -951,6 +975,21 @@ assert(
 assert(
   systemSrc.indexOf('label: "Crash capture"') === -1,
   "Crash capture moved off System onto Diagnostics",
+);
+assert(
+  systemSrc.indexOf("updateFirmware") === -1 &&
+    systemSrc.indexOf("firmwareConfirm") === -1 &&
+    systemSrc.indexOf('label: "Firmware"') === -1,
+  "System does not host fwupd firmware updates",
+);
+assert(
+  diagPageSrc.indexOf("Drivers has the PCI device list") !== -1,
+  "Diagnostics GPU copy points at Drivers",
+);
+assert(
+  displaysPageSrc.indexOf("GPU switching is on Drivers.") !== -1 &&
+    displaysPageSrc.indexOf("GPU switching is on Hardware.") === -1,
+  "Displays GPU switching copy points at Drivers",
 );
 assert(
   diagPageSrc.indexOf('label: "Crash capture"') !== -1 &&

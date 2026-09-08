@@ -8,7 +8,7 @@ import "rows"
 PrefsPage {
   id: root
   title: "Displays"
-  description: "Each monitor keeps its own resolution. Scale and brightness apply to the one you are looking at. On a laptop you also get the built-in panel and its input devices. GPU switching is on Hardware."
+  description: "Each monitor keeps its own resolution. Scale and brightness apply to the one you are looking at. On a laptop you also get the built-in panel and its input devices. GPU switching is on Drivers."
 
   readonly property var scalePresets: [
     { value: "1", label: "100%" },

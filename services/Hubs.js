@@ -204,14 +204,28 @@ function hubs() {
     {
       id: "hardware",
       title: "Hardware",
-      description: "CPU, GPU, memory, and firmware.",
+      description: "CPU, memory, firmware identity, and the rest of the machine.",
       navGroup: "device",
       snapshotGroup: "all",
       icon: "cpu-line",
       file: "HardwarePage.qml",
       keywords: keywordList(
-        "gpu graphics nvidia vulkan hybrid supergfx igpu cuda radeon cpu processor intel amd memory ram dimm ddr chipset motherboard bios uefi firmware tpm npu xdna neural tpu ai accelerator dmi chassis laptop desktop framework usb nic thermal battery",
-        ["cpu", "gpu", "memory"],
+        "cpu processor intel amd memory ram dimm ddr chipset motherboard bios uefi firmware tpm npu xdna neural tpu ai accelerator dmi chassis laptop desktop framework usb nic thermal battery",
+        ["cpu", "memory"],
+      ),
+      children: [],
+    },
+    {
+      id: "drivers",
+      title: "Drivers",
+      description: "GPU stack, hybrid switching, and firmware updates.",
+      navGroup: "device",
+      snapshotGroup: "all",
+      icon: "ram-2-line",
+      file: "DriversPage.qml",
+      keywords: keywordList(
+        "gpu graphics nvidia vulkan hybrid supergfx igpu cuda radeon drm amdgpu i915 xe driver firmware fwupd bios gsp",
+        ["gpu", "driver", "firmware"],
       ),
       children: [],
     },
@@ -353,7 +367,7 @@ function hubs() {
       icon: "settings-3-line",
       file: "SystemPage.qml",
       keywords: keywordList(
-        "crash capture diagnostics coredump weather location city forecast coordinates latitude longitude gps units celsius fahrenheit metric imperial refresh interval about logo branding fastfetch timezone tz utc region city date time zoneinfo timedatectl hostname computer machine device name hostnamectl keyboard layout keymap xkb qwerty language input localectl ntp timesync synchronize automatic clock network time locale lang utf-8 i18n translation pacman parallel downloads packages mirrors aur update channel firmware orphan prune version printer cups print restore hyprland shell restart atmos git pull reset sentinel overrides report journal systemd portal pipewire kernel gpu environment path editor shell",
+        "crash capture diagnostics coredump weather location city forecast coordinates latitude longitude gps units celsius fahrenheit metric imperial refresh interval about logo branding fastfetch timezone tz utc region city date time zoneinfo timedatectl hostname computer machine device name hostnamectl keyboard layout keymap xkb qwerty language input localectl ntp timesync synchronize automatic clock network time locale lang utf-8 i18n translation pacman parallel downloads packages mirrors aur update channel orphan prune version printer cups print restore hyprland shell restart atmos git pull reset sentinel overrides report journal systemd portal pipewire kernel environment path editor shell",
         ["hostname", "locale", "update", "diagnostics", "kernel", "uki"],
       ),
       children: [

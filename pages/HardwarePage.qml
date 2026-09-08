@@ -2,27 +2,20 @@ import QtQuick
 import "../components"
 import "../services"
 import "../services/Hardware.js" as HardwareJs
-import "../services/RichUi.js" as RichUi
 
 PrefsPage {
   id: root
   title: "Hardware"
-  description: "What this machine is made of. Processor, memory, chipset, firmware, graphics, NPU, and the rest of the units the kernel can see."
+  description: "What this machine is made of. Processor, memory, chipset, firmware, NPU, and the rest of the units the kernel can see. Graphics drivers are on Drivers."
 
+  property var navigator: null
   readonly property var hw: HardwareJs.normalize(Omarchy.hardware)
 
-  PrefsConfirm {
-    id: hybridGpuConfirm
-    title: "Switch GPU mode"
-    message: Omarchy.hybridGpuMode === "Integrated"
-      ? "Turn the dedicated GPU on (hybrid) and reboot."
-      : "Use only the integrated GPU and reboot."
-    confirmText: "Switch and reboot"
-    onConfirmed: Omarchy.toggleHybridGpu()
-  }
-
-  Component.onCompleted: {
-    hybridGpuConfirm.parent = root.prefsOverlay
+  function openSubpage(id) {
+    if (id === "gpu" || id === "drivers") {
+      if (root.navigator && root.navigator.go)
+        root.navigator.go("drivers")
+    }
   }
 
   function hasText() {
@@ -283,68 +276,23 @@ PrefsPage {
   }
 
   PrefsGroup {
-    framed: true
     title: "Graphics"
-    query: (root.hw.gpus.length || Omarchy.hwNvidia || Omarchy.hwVulkan || Omarchy.hybridGpuAvailable) ? root.query : "."
-    detail: "PCI display devices, plus the DRM driver when the kernel bound one. Active is NVIDIA when that GPU is present, otherwise Vulkan. Hybrid switching reboots."
+    query: root.query
+    detail: "GPUs, the bound DRM driver, and hybrid switching live on Drivers."
 
-    Repeater {
-      model: root.hw.gpus
+    SettingRow {
+      label: "Drivers"
+      description: "GPUs, the bound DRM driver, and hybrid switching."
+      hint: "atmos drivers"
+      query: root.query
+      keywords: ["gpu", "graphics", "nvidia", "vulkan", "hybrid", "drm", "drivers"]
 
-      SettingRow {
-        required property var modelData
-        label: (modelData && modelData.name) || "GPU"
-        description: HardwareJs.gpuSummary(modelData)
-        hint: "lspci"
-        query: root.query
-        keywords: ["gpu", "graphics", "vga", "nvidia", "amd", "intel", "drm"]
-
-        PrefsButton {
-          text: "Copy"
-          enabled: !!(modelData && (modelData.name || HardwareJs.gpuSummary(modelData)))
-          onClicked: root.copyField(HardwareJs.gpuSummary(modelData) || (modelData && modelData.name) || "")
+      PrefsButton {
+        text: "Open…"
+        onClicked: {
+          if (root.navigator && root.navigator.go)
+            root.navigator.go("drivers")
         }
-      }
-    }
-
-    SettingRow {
-      available: Omarchy.hwNvidia || Omarchy.hwVulkan
-      label: "Active stack"
-      description: Omarchy.hwNvidia
-        ? (Omarchy.hwNvidiaGsp
-          ? "NVIDIA, with GSP firmware (Turing or newer)."
-          : (Omarchy.hwNvidiaWithoutGsp
-            ? "NVIDIA, without GSP firmware (Maxwell, Pascal, or Volta)."
-            : "NVIDIA."))
-        : "Vulkan."
-      hint: Omarchy.hwNvidia ? "omarchy hw nvidia" : "omarchy hw vulkan"
-      query: root.query
-      keywords: ["vulkan", "nvidia", "gsp", "turing", "cuda", "api"]
-
-      PrefsButton {
-        text: "Copy"
-        onClicked: root.copyField(Omarchy.hwNvidia
-          ? (Omarchy.hwNvidiaGsp ? "NVIDIA GSP" : (Omarchy.hwNvidiaWithoutGsp ? "NVIDIA without GSP" : "NVIDIA"))
-          : "Vulkan")
-      }
-    }
-
-    SettingRow {
-      available: Omarchy.hybridGpuAvailable
-      label: "Hybrid GPU"
-      description: Omarchy.hybridGpuMode === "Integrated"
-        ? "Using the integrated GPU only. Switch to hybrid if you want the dedicated GPU."
-        : (Omarchy.hybridGpuMode === "Hybrid"
-          ? "Hybrid mode. The dedicated GPU can wake for a game or CUDA."
-          : "This machine can switch between integrated-only and hybrid.")
-      hint: "omarchy toggle hybrid gpu"
-      query: root.query
-      keywords: ["hybrid", "supergfx", "igpu"]
-
-      PrefsButton {
-        text: "Switch…"
-        enabled: !Omarchy.jobBusy && Omarchy.hybridGpuAvailable
-        onClicked: hybridGpuConfirm.ask()
       }
     }
   }

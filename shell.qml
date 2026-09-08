@@ -144,7 +144,8 @@ ShellRoot {
 
   Component { id: appearancePage; AppearancePage { query: root.query; stack: pageStack } }
   Component { id: displayPage; DisplaysPage { query: root.query } }
-  Component { id: hardwarePage; HardwarePage { query: root.query } }
+  Component { id: hardwarePage; HardwarePage { query: root.query; navigator: prefsNavigator } }
+  Component { id: driversPage; DriversPage { query: root.query } }
   Component { id: windowsPage; WindowsPage { query: root.query; stack: pageStack; navigator: prefsNavigator } }
   Component { id: workspacesPage; WorkspacesPage { query: root.query } }
   Component { id: inputPage; InputPage { query: root.query } }
@@ -176,6 +177,7 @@ ShellRoot {
     appearance: appearancePage,
     display: displayPage,
     hardware: hardwarePage,
+    drivers: driversPage,
     windows: windowsPage,
     workspaces: workspacesPage,
     input: inputPage,

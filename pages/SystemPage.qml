@@ -64,14 +64,6 @@ PrefsPage {
   }
 
   PrefsConfirm {
-    id: firmwareConfirm
-    title: "Firmware update"
-    message: "Ask fwupd to install available firmware. You may need to reboot afterward."
-    confirmText: "Update"
-    onConfirmed: Omarchy.updateFirmware()
-  }
-
-  PrefsConfirm {
     id: orphanConfirm
     title: "Remove orphans"
     message: "Remove packages that nothing else depends on."
@@ -126,7 +118,6 @@ PrefsPage {
     channelConfirm.parent = root.prefsOverlay
     atmosUpdateConfirm.parent = root.prefsOverlay
     updateConfirm.parent = root.prefsOverlay
-    firmwareConfirm.parent = root.prefsOverlay
     orphanConfirm.parent = root.prefsOverlay
     pruneConfirm.parent = root.prefsOverlay
     refreshHyprConfirm.parent = root.prefsOverlay
@@ -443,23 +434,7 @@ PrefsPage {
     framed: true
     title: "Advanced"
     query: root.query
-    detail: "Firmware through fwupd, leftover packages, the pacman download cache, and restore for Hyprland Lua or shell.json."
-
-    SettingRow {
-      label: "Firmware"
-      description: Omarchy.jobKind === "update-firmware" && Omarchy.jobBusy
-        ? "Updating firmware…"
-        : "Install firmware updates through fwupd when the vendor ships them."
-      hint: "omarchy update firmware"
-      query: root.query
-      keywords: ["firmware", "fwupd", "bios"]
-
-      PrefsButton {
-        text: "Update…"
-        enabled: !Omarchy.jobBusy
-        onClicked: firmwareConfirm.ask()
-      }
-    }
+    detail: "Leftover packages, the pacman download cache, and restore for Hyprland Lua or shell.json. Firmware updates are on Drivers."
 
     SettingRow {
       label: "Orphan packages"

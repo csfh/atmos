@@ -287,7 +287,7 @@ PrefsPage {
   PrefsGroup {
     title: "GPU"
     query: root.query
-    detail: "The DRM driver name. Hardware has the PCI device list and hybrid GPU switching."
+    detail: "The DRM driver name. Drivers has the PCI device list and hybrid GPU switching."
 
     SettingRow {
       label: "Driver"

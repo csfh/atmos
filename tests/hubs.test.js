@@ -53,6 +53,25 @@ assertEqual(hubs.snapshotGroupForHub("idle"), "look", "idle hub reads look");
 assertEqual(hubs.snapshotGroupForHub("hardware"), "all", "hardware hub reads all");
 assertEqual(hubs.snapshotGroupForHub(""), "look", "empty hub reads look");
 assertEqual(hubs.hubById("idle").navGroup, "device", "idle nav cluster is device");
+assertEqual(hubs.hubTitle("drivers"), "Drivers", "drivers hub title is Drivers");
+assertEqual(hubs.hubById("drivers").navGroup, "device", "drivers nav cluster is device");
+assertEqual(hubs.snapshotGroupForHub("drivers"), "all", "drivers hub reads all");
+assert(
+  hubs.hubById("drivers").keywords.indexOf("gpu") !== -1 &&
+    hubs.hubById("drivers").keywords.indexOf("firmware") !== -1 &&
+    hubs.hubById("drivers").keywords.indexOf("fwupd") !== -1,
+  "Drivers search matches gpu, firmware, and fwupd",
+);
+assert(
+  hubs.hubById("hardware").keywords.indexOf("nvidia") === -1 &&
+    hubs.hubById("hardware").keywords.indexOf("hybrid") === -1,
+  "Hardware hub search does not steal nvidia or hybrid",
+);
+assert(
+  hubs.hubById("system").keywords.indexOf("fwupd") === -1 &&
+    hubs.hubById("system").keywords.indexOf("firmware") === -1,
+  "System hub search does not steal firmware updates",
+);
 assertEqual(hubs.hubById("system").navGroup, "general", "system nav cluster is general");
 assertEqual(hubs.hubById("tweaks").navGroup, "general", "tweaks nav cluster is general");
 assertEqual(hubs.hubById("export").navGroup, "general", "export nav cluster is general");
@@ -80,6 +99,7 @@ const pageFiles = [
   "AppearancePage.qml",
   "DisplaysPage.qml",
   "HardwarePage.qml",
+  "DriversPage.qml",
   "WindowsPage.qml",
   "InputPage.qml",
   "AccessibilityPage.qml",
@@ -166,6 +186,11 @@ function consecutiveNavGroup(group) {
     })
     .join(",");
 }
+assertEqual(
+  consecutiveNavGroup("device"),
+  "hardware,drivers,disks,network,bluetooth,power,idle",
+  "device hubs stay consecutive in nav order",
+);
 assertEqual(
   consecutiveNavGroup("general"),
   "system,tweaks,export",

@@ -2,6 +2,12 @@
 
 Notable changes to Atmos. Each section is a git tag on `main` and `alpha`. Install and in-app Update follow the `alpha` branch.
 
+## [v0.0.1-alpha.16] - 2026-09-08
+
+### Fixed
+
+- `./tests/run` no longer aborts when the developer's `input.lua` has an unmanaged workspace gesture. ([#26](https://github.com/csfh/atmos/pull/26)) by Fred Nix ([@nixfred](https://github.com/nixfred)).
+
 ## [v0.0.1-alpha.15] - 2026-09-08
 
 ### Added
@@ -259,6 +265,7 @@ First public alpha. Standalone [Quickshell](https://quickshell.org) preferences 
 - Keyboard use on controls (tab focus and activation). File watching of Omarchy/Hyprland paths so outside changes can refresh the snapshot. Shared page routing and content-column layout.
 - MIT license. Contributions assign copyright to Christoffer Hallas ([CLA](CLA.md)).
 
+[v0.0.1-alpha.16]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.15...v0.0.1-alpha.16
 [v0.0.1-alpha.15]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.14...v0.0.1-alpha.15
 [v0.0.1-alpha.14]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.13...v0.0.1-alpha.14
 [v0.0.1-alpha.13]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.12...v0.0.1-alpha.13

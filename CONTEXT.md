@@ -14,9 +14,9 @@
 
 **Apply** — Copying an adopted record onto Omarchy properties (`copyRecord`), or an optimistic `job.apply` patch on an enqueueIo job.
 
-**Omarchy bag** — The `Omarchy.qml` singleton: live property bag plus argv. Not a prefs store.
+**Omarchy bag** — The `Omarchy.qml` singleton: live property bag plus argv. Not a prefs store. `hyprLook` and `hyprInput` stay nested; pages bind those objects.
 
-**copyRecord** — Mechanical assign of adopted keys onto Omarchy properties via `adoptValue` / `adoptArray`. Does not clamp, sanitize, or normalize.
+**copyRecord** — Mechanical assign of adopted keys onto Omarchy properties via `adoptValue` / `adoptArray`. Walks `SnapshotGroups.copyableBagKeys()`. Does not clamp, sanitize, or normalize. Account keys stay on AccountsStore.
 
 **Adapter** — A seam that talks to QML, disk, or a process. Two adapters make a real seam.
 
@@ -32,4 +32,6 @@
 
 **Look payload** — A snapshot (or `job.apply`) whose group is `look`. Not the Appearance hub.
 
-**job.apply** — Optional object on an enqueueIo job (`kind` `mut` or `job`). `mutProc` and `jobProc` adopt it on success, then enqueue the job's refresh group.
+**job.apply** — Optional object on an enqueueIo job (`kind` `mut` or `job`). `mutProc` and `jobProc` adopt it on success as an object (no JSON round-trip through the Emit parser), then enqueue the job's refresh group.
+
+**emitKeys** — Snapshot key identity in SnapshotGroups. `allowedKey`, `copyableBagKeys`, `groupForKey`, and `tagApply` read it. snapshot.sh remains the live Emit adapter that fills values.

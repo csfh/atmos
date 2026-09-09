@@ -9,7 +9,7 @@ SettingRow {
   keywords: ["animation", "motion", "reduce", "a11y"]
 
   PrefsToggle {
-    checked: Omarchy.hyprAnimations
-    onToggled: Omarchy.setHyprAnimations(!Omarchy.hyprAnimations)
+    checked: Omarchy.hyprLook.animations
+    onToggled: Omarchy.writeHyprLook({ animations: !Omarchy.hyprLook.animations })
   }
 }

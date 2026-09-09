@@ -272,48 +272,9 @@ QtObject {
   property string locale: ""
   property var locales: []
   property int parallelDownloads: 5
-  property int hyprGapsIn: 5
-  property int hyprGapsOut: 10
-  property int hyprBorderSize: 2
-  property int hyprRounding: 0
-  property bool hyprBlur: false
-  property bool hyprShadow: false
-  property string hyprLayout: "dwindle"
-  property real hyprColumnWidth: 0.49
-  property bool hyprDimInactive: false
-  property real hyprDimStrength: 0.15
-  property bool hyprAnimations: true
-  property bool hyprCursorHideOnKey: true
-  property bool hyprCursorWarp: true
-  property int hyprCursorSize: 24
-  property bool hyprAllowTearing: false
-  property bool hyprResizeOnBorder: false
-  property real hyprActiveOpacity: 1
-  property real hyprInactiveOpacity: 1
-  property bool hyprPreserveSplit: false
-  property bool hyprFocusOnActivate: false
-  property bool hyprEnableSwallow: false
-  property string hyprSwallowRegex: ""
-  property int hyprOnFocusUnderFullscreen: 1
+  property var hyprLook: HyprPrefs.defaultLook()
   property bool hyprLookManaged: false
-  property real hyprSensitivity: 0
-  property string hyprAccelProfile: ""
-  property int hyprEmulateDiscreteScroll: 1
-  property bool hyprNaturalScroll: false
-  property real hyprScrollFactor: 0.4
-  property bool hyprClickfinger: true
-  property bool hyprDisableWhileTyping: true
-  property int hyprDrag3fg: 0
-  property int hyprRepeatRate: 40
-  property int hyprRepeatDelay: 250
-  property bool hyprNumlock: true
-  property int hyprFollowMouse: 1
-  property bool hyprKeyPressDpms: true
-  property bool hyprMouseMoveDpms: true
-  property string hyprKbLayout: ""
-  property string hyprKbVariant: ""
-  property string hyprKbOptions: ""
-  property bool hyprKbGroupToggle: false
+  property var hyprInput: HyprPrefs.defaultInput()
   property bool hyprWorkspaceGesture: false
   property bool hyprWorkspaceGestureManaged: false
   property bool hyprWorkspaceGestureUnmanaged: false
@@ -436,8 +397,8 @@ QtObject {
   property bool snapshotReady: false
 
   function applySnapshot(raw) {
-    var parsed = SnapshotJs.parseSnapshot(raw)
-    if (!parsed) {
+    var parsed = typeof raw === "string" ? SnapshotJs.parseSnapshot(raw) : raw
+    if (!SnapshotJs.isPlainObject(parsed)) {
       lastError = "Could not parse Omarchy snapshot"
       return
     }
@@ -450,276 +411,17 @@ QtObject {
 
   function copyRecord(next) {
     if (!next || typeof next !== "object") next = {}
-    var look = next.hyprLook && typeof next.hyprLook === "object" ? next.hyprLook : null
-    var input = next.hyprInput && typeof next.hyprInput === "object" ? next.hyprInput : null
-    theme = SnapshotJs.adoptValue(theme, next.theme)
-    background = SnapshotJs.adoptValue(background, next.background)
-    font = SnapshotJs.adoptValue(font, next.font)
-    textSize = SnapshotJs.adoptValue(textSize, next.textSize)
-    themes = SnapshotJs.adoptArray(themes, next.themes)
-    extraThemes = SnapshotJs.adoptArray(extraThemes, next.extraThemes)
-    desktopApps = SnapshotJs.adoptArray(desktopApps, next.desktopApps)
-    tuiApps = SnapshotJs.adoptArray(tuiApps, next.tuiApps)
-    webApps = SnapshotJs.adoptArray(webApps, next.webApps)
-    fonts = SnapshotJs.adoptArray(fonts, next.fonts)
-    barPosition = SnapshotJs.adoptValue(barPosition, next.barPosition)
-    barTransparent = SnapshotJs.adoptValue(barTransparent, next.barTransparent)
-    barVisible = SnapshotJs.adoptValue(barVisible, next.barVisible)
-    clockFormat = SnapshotJs.adoptValue(clockFormat, next.clockFormat)
-    clockFormatAlt = SnapshotJs.adoptValue(clockFormatAlt, next.clockFormatAlt)
-    clockWeekStart = SnapshotJs.adoptValue(clockWeekStart, next.clockWeekStart)
-    clockPresent = SnapshotJs.adoptValue(clockPresent, next.clockPresent)
-    clockBirthYear = SnapshotJs.adoptValue(clockBirthYear, next.clockBirthYear)
-    clockLifeExpectancy = SnapshotJs.adoptValue(clockLifeExpectancy, next.clockLifeExpectancy)
-    indicatorsPresent = SnapshotJs.adoptValue(indicatorsPresent, next.indicatorsPresent)
-    indicatorsAlwaysShow = SnapshotJs.adoptValue(indicatorsAlwaysShow, next.indicatorsAlwaysShow)
-    indicatorsItems = SnapshotJs.adoptArray(indicatorsItems, next.indicatorsItems)
-    agentsPresent = SnapshotJs.adoptValue(agentsPresent, next.agentsPresent)
-    agentsRefreshIntervalSec = SnapshotJs.adoptValue(agentsRefreshIntervalSec, next.agentsRefreshIntervalSec)
-    agentsSync = SnapshotJs.adoptValue(agentsSync, next.agentsSync)
-    agentsSyncDir = SnapshotJs.adoptValue(agentsSyncDir, next.agentsSyncDir)
-    agentsSyncFileName = SnapshotJs.adoptValue(agentsSyncFileName, next.agentsSyncFileName)
-    agentsSyncDeviceId = SnapshotJs.adoptValue(agentsSyncDeviceId, next.agentsSyncDeviceId)
-    spacerPresent = SnapshotJs.adoptValue(spacerPresent, next.spacerPresent)
-    spacerSize = SnapshotJs.adoptValue(spacerSize, next.spacerSize)
-    trayPresent = SnapshotJs.adoptValue(trayPresent, next.trayPresent)
-    trayHidden = SnapshotJs.adoptArray(trayHidden, next.trayHidden)
-    trayPinned = SnapshotJs.adoptArray(trayPinned, next.trayPinned)
-    browser = SnapshotJs.adoptValue(browser, next.browser)
-    terminal = SnapshotJs.adoptValue(terminal, next.terminal)
-    editor = SnapshotJs.adoptValue(editor, next.editor)
-    agent = SnapshotJs.adoptValue(agent, next.agent)
-    dns = SnapshotJs.adoptValue(dns, next.dns)
-    idleScreensaver = SnapshotJs.adoptValue(idleScreensaver, next.idleScreensaver)
-    idleLock = SnapshotJs.adoptValue(idleLock, next.idleLock)
-    stayAwake = SnapshotJs.adoptValue(stayAwake, next.stayAwake)
-    nightlight = SnapshotJs.adoptValue(nightlight, next.nightlight)
-    nightlightTemperature = SnapshotJs.adoptValue(nightlightTemperature, next.nightlightTemperature)
-    screensaverEnabled = SnapshotJs.adoptValue(screensaverEnabled, next.screensaverEnabled)
-    screensaverBranded = SnapshotJs.adoptValue(screensaverBranded, next.screensaverBranded)
-    aboutBranded = SnapshotJs.adoptValue(aboutBranded, next.aboutBranded)
-    bluetooth = SnapshotJs.adoptValue(bluetooth, next.bluetooth)
-    wifiConnected = SnapshotJs.adoptValue(wifiConnected, next.wifiConnected)
-    wifiBand = SnapshotJs.adoptValue(wifiBand, next.wifiBand)
-    wifiBandSelected = SnapshotJs.adoptValue(wifiBandSelected, next.wifiBandSelected)
-    wifiBands = SnapshotJs.adoptArray(wifiBands, next.wifiBands)
-    wifiIface = SnapshotJs.adoptValue(wifiIface, next.wifiIface)
-    netKind = SnapshotJs.adoptValue(netKind, next.netKind)
-    netIface = SnapshotJs.adoptValue(netIface, next.netIface)
-    netSsid = SnapshotJs.adoptValue(netSsid, next.netSsid)
-    netSignal = SnapshotJs.adoptValue(netSignal, next.netSignal)
-    netIp = SnapshotJs.adoptValue(netIp, next.netIp)
-    netSpeed = SnapshotJs.adoptValue(netSpeed, next.netSpeed)
-    wifiHw = SnapshotJs.adoptValue(wifiHw, next.wifiHw)
-    wifiRadio = SnapshotJs.adoptValue(wifiRadio, next.wifiRadio)
-    wifiConnections = SnapshotJs.adoptArray(wifiConnections, next.wifiConnections)
-    bluetoothDevices = SnapshotJs.adoptArray(bluetoothDevices, next.bluetoothDevices)
-    audioSinks = SnapshotJs.adoptArray(audioSinks, next.audioSinks)
-    audioSources = SnapshotJs.adoptArray(audioSources, next.audioSources)
-    audioOutputVolume = SnapshotJs.adoptValue(audioOutputVolume, next.audioOutputVolume)
-    audioOutputMuted = SnapshotJs.adoptValue(audioOutputMuted, next.audioOutputMuted)
-    audioInputVolume = SnapshotJs.adoptValue(audioInputVolume, next.audioInputVolume)
-    audioInputMuted = SnapshotJs.adoptValue(audioInputMuted, next.audioInputMuted)
-    audioTuningMatch = SnapshotJs.adoptValue(audioTuningMatch, next.audioTuningMatch)
-    audioTuningOn = SnapshotJs.adoptValue(audioTuningOn, next.audioTuningOn)
-    disks = SnapshotJs.adoptArray(disks, next.disks)
-    hardware = SnapshotJs.adoptValue(hardware, next.hardware)
-    diagnostics = SnapshotJs.adoptValue(diagnostics, next.diagnostics)
-    luksDevices = SnapshotJs.adoptArray(luksDevices, next.luksDevices)
-    swapDevices = SnapshotJs.adoptArray(swapDevices, next.swapDevices)
-    snapperPresent = SnapshotJs.adoptValue(snapperPresent, next.snapperPresent)
-    snapperConfigs = SnapshotJs.adoptArray(snapperConfigs, next.snapperConfigs)
-    snapshots = SnapshotJs.adoptArray(snapshots, next.snapshots)
-    hibernationAvailable = SnapshotJs.adoptValue(hibernationAvailable, next.hibernationAvailable)
-    hibernationSupported = SnapshotJs.adoptValue(hibernationSupported, next.hibernationSupported)
-    hibernationConfigured = SnapshotJs.adoptValue(hibernationConfigured, next.hibernationConfigured)
-    audioSink = SnapshotJs.adoptValue(audioSink, next.audioSink)
-    audioSource = SnapshotJs.adoptValue(audioSource, next.audioSource)
-    suspendEnabled = SnapshotJs.adoptValue(suspendEnabled, next.suspendEnabled)
-    powerProfile = SnapshotJs.adoptValue(powerProfile, next.powerProfile)
-    powerProfileAc = SnapshotJs.adoptValue(powerProfileAc, next.powerProfileAc)
-    powerProfileBattery = SnapshotJs.adoptValue(powerProfileBattery, next.powerProfileBattery)
-    powerProfiles = SnapshotJs.adoptArray(powerProfiles, next.powerProfiles)
-    powerPresent = SnapshotJs.adoptValue(powerPresent, next.powerPresent)
-    powerShowPercentage = SnapshotJs.adoptValue(powerShowPercentage, next.powerShowPercentage)
-    isLaptop = SnapshotJs.adoptValue(isLaptop, next.isLaptop)
-    batteryPresent = SnapshotJs.adoptValue(batteryPresent, next.batteryPresent)
-    monitors = SnapshotJs.adoptArray(monitors, next.monitors)
-    internalPresent = SnapshotJs.adoptValue(internalPresent, next.internalPresent)
-    internalEnabled = SnapshotJs.adoptValue(internalEnabled, next.internalEnabled)
-    externalPresent = SnapshotJs.adoptValue(externalPresent, next.externalPresent)
-    mirroring = SnapshotJs.adoptValue(mirroring, next.mirroring)
-    touchpadPresent = SnapshotJs.adoptValue(touchpadPresent, next.touchpadPresent)
-    touchpadEnabled = SnapshotJs.adoptValue(touchpadEnabled, next.touchpadEnabled)
-    touchscreenPresent = SnapshotJs.adoptValue(touchscreenPresent, next.touchscreenPresent)
-    touchscreenEnabled = SnapshotJs.adoptValue(touchscreenEnabled, next.touchscreenEnabled)
-    keyboardBacklightPresent = SnapshotJs.adoptValue(keyboardBacklightPresent, next.keyboardBacklightPresent)
-    keyboardBrightness = SnapshotJs.adoptValue(keyboardBrightness, next.keyboardBrightness)
-    crashCapture = SnapshotJs.adoptValue(crashCapture, next.crashCapture)
-    doNotDisturb = SnapshotJs.adoptValue(doNotDisturb, next.doNotDisturb)
-    weatherLocation = SnapshotJs.adoptValue(weatherLocation, next.weatherLocation)
-    weatherCoords = SnapshotJs.adoptValue(weatherCoords, next.weatherCoords)
-    weatherAuto = SnapshotJs.adoptValue(weatherAuto, next.weatherAuto)
-    weatherPresent = SnapshotJs.adoptValue(weatherPresent, next.weatherPresent)
-    weatherUnit = SnapshotJs.adoptValue(weatherUnit, next.weatherUnit)
-    weatherRefreshMinutes = SnapshotJs.adoptValue(weatherRefreshMinutes, next.weatherRefreshMinutes)
-    reminderCount = SnapshotJs.adoptValue(reminderCount, next.reminderCount)
-    reminderActive = SnapshotJs.adoptValue(reminderActive, next.reminderActive)
-    reminders = SnapshotJs.adoptArray(reminders, next.reminders)
-    plymouth = SnapshotJs.adoptValue(plymouth, next.plymouth)
-    plymouthThemes = SnapshotJs.adoptArray(plymouthThemes, next.plymouthThemes)
-    hasAether = SnapshotJs.adoptValue(hasAether, next.hasAether)
-    browsers = SnapshotJs.adoptValue(browsers, next.browsers)
-    terminals = SnapshotJs.adoptValue(terminals, next.terminals)
-    editors = SnapshotJs.adoptValue(editors, next.editors)
-    timezone = SnapshotJs.adoptValue(timezone, next.timezone)
-    timezones = SnapshotJs.adoptArray(timezones, next.timezones)
-    ntp = SnapshotJs.adoptValue(ntp, next.ntp)
-    ntpAvailable = SnapshotJs.adoptValue(ntpAvailable, next.ntpAvailable)
-    ntpSynchronized = SnapshotJs.adoptValue(ntpSynchronized, next.ntpSynchronized)
-    keyboardLayout = SnapshotJs.adoptValue(keyboardLayout, next.keyboardLayout)
-    keyboardLayouts = SnapshotJs.adoptArray(keyboardLayouts, next.keyboardLayouts)
-    locale = SnapshotJs.adoptValue(locale, next.locale)
-    locales = SnapshotJs.adoptArray(locales, next.locales)
-    parallelDownloads = SnapshotJs.adoptValue(parallelDownloads, next.parallelDownloads)
-    hyprGapsIn = SnapshotJs.adoptValue(hyprGapsIn, look ? look.gapsIn : undefined)
-    hyprGapsOut = SnapshotJs.adoptValue(hyprGapsOut, look ? look.gapsOut : undefined)
-    hyprBorderSize = SnapshotJs.adoptValue(hyprBorderSize, look ? look.borderSize : undefined)
-    hyprRounding = SnapshotJs.adoptValue(hyprRounding, look ? look.rounding : undefined)
-    hyprBlur = SnapshotJs.adoptValue(hyprBlur, look ? look.blur : undefined)
-    hyprShadow = SnapshotJs.adoptValue(hyprShadow, look ? look.shadow : undefined)
-    hyprLayout = SnapshotJs.adoptValue(hyprLayout, look ? look.layout : undefined)
-    hyprColumnWidth = SnapshotJs.adoptValue(hyprColumnWidth, look ? look.columnWidth : undefined)
-    hyprDimInactive = SnapshotJs.adoptValue(hyprDimInactive, look ? look.dimInactive : undefined)
-    hyprDimStrength = SnapshotJs.adoptValue(hyprDimStrength, look ? look.dimStrength : undefined)
-    hyprAnimations = SnapshotJs.adoptValue(hyprAnimations, look ? look.animations : undefined)
-    hyprCursorHideOnKey = SnapshotJs.adoptValue(hyprCursorHideOnKey, look ? look.cursorHideOnKey : undefined)
-    hyprCursorWarp = SnapshotJs.adoptValue(hyprCursorWarp, look ? look.cursorWarp : undefined)
-    hyprCursorSize = SnapshotJs.adoptValue(hyprCursorSize, look ? look.cursorSize : undefined)
-    hyprAllowTearing = SnapshotJs.adoptValue(hyprAllowTearing, look ? look.allowTearing : undefined)
-    hyprResizeOnBorder = SnapshotJs.adoptValue(hyprResizeOnBorder, look ? look.resizeOnBorder : undefined)
-    hyprActiveOpacity = SnapshotJs.adoptValue(hyprActiveOpacity, look ? look.activeOpacity : undefined)
-    hyprInactiveOpacity = SnapshotJs.adoptValue(hyprInactiveOpacity, look ? look.inactiveOpacity : undefined)
-    hyprPreserveSplit = SnapshotJs.adoptValue(hyprPreserveSplit, look ? look.preserveSplit : undefined)
-    hyprFocusOnActivate = SnapshotJs.adoptValue(hyprFocusOnActivate, look ? look.focusOnActivate : undefined)
-    hyprEnableSwallow = SnapshotJs.adoptValue(hyprEnableSwallow, look ? look.enableSwallow : undefined)
-    hyprSwallowRegex = SnapshotJs.adoptValue(hyprSwallowRegex, look ? look.swallowRegex : undefined)
-    hyprOnFocusUnderFullscreen = SnapshotJs.adoptValue(hyprOnFocusUnderFullscreen, look ? look.onFocusUnderFullscreen : undefined)
-    hyprLookManaged = SnapshotJs.adoptValue(hyprLookManaged, next.hyprLookManaged)
-    hyprInputManaged = SnapshotJs.adoptValue(hyprInputManaged, next.hyprInputManaged)
-    hyprWorkspaceGesture = SnapshotJs.adoptValue(hyprWorkspaceGesture, next.hyprWorkspaceGesture !== undefined ? next.hyprWorkspaceGesture : (input ? input.workspaceGesture : undefined))
-    hyprWorkspaceGestureManaged = SnapshotJs.adoptValue(hyprWorkspaceGestureManaged, next.hyprWorkspaceGestureManaged)
-    hyprWorkspaceGestureUnmanaged = SnapshotJs.adoptValue(hyprWorkspaceGestureUnmanaged, next.hyprWorkspaceGestureUnmanaged)
-    hyprNoGaps = SnapshotJs.adoptValue(hyprNoGaps, next.hyprNoGaps)
-    hyprSquareAspect = SnapshotJs.adoptValue(hyprSquareAspect, next.hyprSquareAspect)
-    hyprWorkspaceLayout = SnapshotJs.adoptValue(hyprWorkspaceLayout, next.hyprWorkspaceLayout)
-    hyprSensitivity = SnapshotJs.adoptValue(hyprSensitivity, input ? input.sensitivity : undefined)
-    hyprAccelProfile = SnapshotJs.adoptValue(hyprAccelProfile, input ? input.accelProfile : undefined)
-    hyprEmulateDiscreteScroll = SnapshotJs.adoptValue(hyprEmulateDiscreteScroll, input ? input.emulateDiscreteScroll : undefined)
-    hyprNaturalScroll = SnapshotJs.adoptValue(hyprNaturalScroll, input ? input.naturalScroll : undefined)
-    hyprScrollFactor = SnapshotJs.adoptValue(hyprScrollFactor, input ? input.scrollFactor : undefined)
-    hyprClickfinger = SnapshotJs.adoptValue(hyprClickfinger, input ? input.clickfinger : undefined)
-    hyprDisableWhileTyping = SnapshotJs.adoptValue(hyprDisableWhileTyping, input ? input.disableWhileTyping : undefined)
-    hyprDrag3fg = SnapshotJs.adoptValue(hyprDrag3fg, input ? input.drag3fg : undefined)
-    hyprRepeatRate = SnapshotJs.adoptValue(hyprRepeatRate, input ? input.repeatRate : undefined)
-    hyprRepeatDelay = SnapshotJs.adoptValue(hyprRepeatDelay, input ? input.repeatDelay : undefined)
-    hyprNumlock = SnapshotJs.adoptValue(hyprNumlock, input ? input.numlock : undefined)
-    hyprFollowMouse = SnapshotJs.adoptValue(hyprFollowMouse, input ? input.followMouse : undefined)
-    hyprKeyPressDpms = SnapshotJs.adoptValue(hyprKeyPressDpms, input ? input.keyPressDpms : undefined)
-    hyprMouseMoveDpms = SnapshotJs.adoptValue(hyprMouseMoveDpms, input ? input.mouseMoveDpms : undefined)
-    hyprKbLayout = SnapshotJs.adoptValue(hyprKbLayout, input ? ("kbLayoutOverride" in input ? input.kbLayoutOverride : input.kbLayout) : undefined)
-    hyprKbVariant = SnapshotJs.adoptValue(hyprKbVariant, input ? ("kbVariantOverride" in input ? input.kbVariantOverride : input.kbVariant) : undefined)
-    hyprKbOptions = SnapshotJs.adoptValue(hyprKbOptions, input ? input.kbOptions : undefined)
-    fingerprintAvailable = SnapshotJs.adoptValue(fingerprintAvailable, next.fingerprintAvailable)
-    fingerprintConfigured = SnapshotJs.adoptValue(fingerprintConfigured, next.fingerprintConfigured)
-    fido2Configured = SnapshotJs.adoptValue(fido2Configured, next.fido2Configured)
-    sshdEnabled = SnapshotJs.adoptValue(sshdEnabled, next.sshdEnabled)
-    sshdActive = SnapshotJs.adoptValue(sshdActive, next.sshdActive)
-    passwordlessSudo = SnapshotJs.adoptValue(passwordlessSudo, next.passwordlessSudo)
-    sudolessDocker = SnapshotJs.adoptValue(sudolessDocker, next.sudolessDocker)
-    omarchyVersion = SnapshotJs.adoptValue(omarchyVersion, next.omarchyVersion)
-    omarchyChannel = SnapshotJs.adoptValue(omarchyChannel, next.omarchyChannel)
-    updateAvailable = SnapshotJs.adoptValue(updateAvailable, next.updateAvailable)
-    updateSummary = SnapshotJs.adoptValue(updateSummary, next.updateSummary)
-    atmosRevision = SnapshotJs.adoptValue(atmosRevision, next.atmosRevision)
-    atmosChannel = SnapshotJs.adoptValue(atmosChannel, next.atmosChannel)
-    atmosInstalled = SnapshotJs.adoptValue(atmosInstalled, next.atmosInstalled)
-    voxtypeInstalled = SnapshotJs.adoptValue(voxtypeInstalled, next.voxtypeInstalled)
-    hybridGpuAvailable = SnapshotJs.adoptValue(hybridGpuAvailable, next.hybridGpuAvailable)
-    hybridGpuMode = SnapshotJs.adoptValue(hybridGpuMode, next.hybridGpuMode)
-    hwNvidia = SnapshotJs.adoptValue(hwNvidia, next.hwNvidia)
-    hwNvidiaGsp = SnapshotJs.adoptValue(hwNvidiaGsp, next.hwNvidiaGsp)
-    hwNvidiaWithoutGsp = SnapshotJs.adoptValue(hwNvidiaWithoutGsp, next.hwNvidiaWithoutGsp)
-    hwVulkan = SnapshotJs.adoptValue(hwVulkan, next.hwVulkan)
-    hwIntel = SnapshotJs.adoptValue(hwIntel, next.hwIntel)
-    hwIntelPtl = SnapshotJs.adoptValue(hwIntelPtl, next.hwIntelPtl)
-    hwWebcam = SnapshotJs.adoptValue(hwWebcam, next.hwWebcam)
-    hwFramework16 = SnapshotJs.adoptValue(hwFramework16, next.hwFramework16)
-    hwAsusRog = SnapshotJs.adoptValue(hwAsusRog, next.hwAsusRog)
-    hwSurface = SnapshotJs.adoptValue(hwSurface, next.hwSurface)
-    dmiVendor = SnapshotJs.adoptValue(dmiVendor, next.dmiVendor)
-    dmiProduct = SnapshotJs.adoptValue(dmiProduct, next.dmiProduct)
-    dmiFamily = SnapshotJs.adoptValue(dmiFamily, next.dmiFamily)
-    cpuStat = SnapshotJs.adoptValue(cpuStat, next.cpuStat)
-    memoryStat = SnapshotJs.adoptValue(memoryStat, next.memoryStat)
-    cpuIdentity = SnapshotJs.adoptValue(cpuIdentity, next.cpuIdentity)
-    gpuIdentity = SnapshotJs.adoptValue(gpuIdentity, next.gpuIdentity)
-    npuIdentity = SnapshotJs.adoptValue(npuIdentity, next.npuIdentity)
-    tailscaleInstalled = SnapshotJs.adoptValue(tailscaleInstalled, next.tailscaleInstalled)
-    tailscaleRunning = SnapshotJs.adoptValue(tailscaleRunning, next.tailscaleRunning)
-    plugins = SnapshotJs.adoptArray(plugins, next.plugins)
-    snapperNumberLimit = SnapshotJs.adoptValue(snapperNumberLimit, next.snapperNumberLimit)
-    snapperTimeline = SnapshotJs.adoptValue(snapperTimeline, next.snapperTimeline)
-    fstrimEnabled = SnapshotJs.adoptValue(fstrimEnabled, next.fstrimEnabled)
-    directBootAvailable = SnapshotJs.adoptValue(directBootAvailable, next.directBootAvailable)
-    directBoot = SnapshotJs.adoptValue(directBoot, next.directBoot)
-    mimePdf = SnapshotJs.adoptValue(mimePdf, next.mimePdf)
-    mimeImage = SnapshotJs.adoptValue(mimeImage, next.mimeImage)
-    mimeVideo = SnapshotJs.adoptValue(mimeVideo, next.mimeVideo)
-    mimePdfOptions = SnapshotJs.adoptArray(mimePdfOptions, next.mimePdfOptions)
-    mimeImageOptions = SnapshotJs.adoptArray(mimeImageOptions, next.mimeImageOptions)
-    mimeVideoOptions = SnapshotJs.adoptArray(mimeVideoOptions, next.mimeVideoOptions)
-    picturesDir = SnapshotJs.adoptValue(picturesDir, next.picturesDir)
-    videosDir = SnapshotJs.adoptValue(videosDir, next.videosDir)
-    recordingActive = SnapshotJs.adoptValue(recordingActive, next.recordingActive)
-    webcamOverlay = SnapshotJs.adoptValue(webcamOverlay, next.webcamOverlay)
-    services = SnapshotJs.adoptValue(services, next.services)
-    gaming = SnapshotJs.adoptValue(gaming, next.gaming)
-    extras = SnapshotJs.adoptValue(extras, next.extras)
-    hooks = SnapshotJs.adoptArray(hooks, next.hooks)
-    autostart = SnapshotJs.adoptArray(autostart, next.autostart)
-    autostartManaged = SnapshotJs.adoptValue(autostartManaged, next.autostartManaged)
-    bindings = SnapshotJs.adoptArray(bindings, next.bindings)
-    bindingsManaged = SnapshotJs.adoptValue(bindingsManaged, next.bindingsManaged)
-    windowRules = SnapshotJs.adoptArray(windowRules, next.windowRules)
-    windowRulesManaged = SnapshotJs.adoptValue(windowRulesManaged, next.windowRulesManaged)
-    workspaces = SnapshotJs.adoptArray(workspaces, next.workspaces)
-    workspacesManaged = SnapshotJs.adoptValue(workspacesManaged, next.workspacesManaged)
-    workspaceWrapSwitch = SnapshotJs.adoptValue(workspaceWrapSwitch, next.workspaceWrapSwitch)
-    workspaceWheelSwitch = SnapshotJs.adoptValue(workspaceWheelSwitch, next.workspaceWheelSwitch)
-    monitorRules = SnapshotJs.adoptArray(monitorRules, next.monitorRules)
-    monitorRulesManaged = SnapshotJs.adoptValue(monitorRulesManaged, next.monitorRulesManaged)
-    tweaks = SnapshotJs.adoptValue(tweaks, next.tweaks)
-    envVars = SnapshotJs.adoptArray(envVars, next.envVars)
-    envPathPrepend = SnapshotJs.adoptValue(envPathPrepend, next.envPathPrepend)
-    envDetected = SnapshotJs.adoptValue(envDetected, next.envDetected)
-    systemdUnits = SnapshotJs.adoptArray(systemdUnits, next.systemdUnits)
-    presentationMode = SnapshotJs.adoptValue(presentationMode, next.presentationMode)
-    powerGovernor = SnapshotJs.adoptValue(powerGovernor, next.powerGovernor)
-    amdPstate = SnapshotJs.adoptValue(amdPstate, next.amdPstate)
-    chargeLimit = SnapshotJs.adoptValue(chargeLimit, next.chargeLimit)
-    chargeLimitAvailable = SnapshotJs.adoptValue(chargeLimitAvailable, next.chargeLimitAvailable)
-    netGateway = SnapshotJs.adoptValue(netGateway, next.netGateway)
-    netDnsServers = SnapshotJs.adoptArray(netDnsServers, next.netDnsServers)
-    keybindings = SnapshotJs.adoptArray(keybindings, next.keybindings)
-    focusedClass = SnapshotJs.adoptValue(focusedClass, next.focusedClass)
-    cupsActive = SnapshotJs.adoptValue(cupsActive, next.cupsActive)
-    printerSetup = SnapshotJs.adoptValue(printerSetup, next.printerSetup)
-    nightlightDay = SnapshotJs.adoptValue(nightlightDay, next.nightlightDay)
-    nightlightNight = SnapshotJs.adoptValue(nightlightNight, next.nightlightNight)
-    nightlightNightOn = SnapshotJs.adoptValue(nightlightNightOn, next.nightlightNightOn)
-    tailscalePeers = SnapshotJs.adoptArray(tailscalePeers, next.tailscalePeers)
-    hyprKbGroupToggle = SnapshotJs.adoptValue(hyprKbGroupToggle, input ? input.kbGroupToggle : undefined)
+    var keys = SnapshotGroups.copyableBagKeys()
+    var i, key, cur, nxt
+    for (i = 0; i < keys.length; i++) {
+      key = keys[i]
+      cur = root[key]
+      nxt = next[key]
+      if (Array.isArray(cur) || Array.isArray(nxt))
+        root[key] = SnapshotJs.adoptArray(cur, nxt)
+      else
+        root[key] = SnapshotJs.adoptValue(cur, nxt)
+    }
   }
 
   function refresh() {
@@ -842,7 +544,8 @@ QtObject {
         fullName: setFullNameScript,
         parallelDownloads: setParallelDownloadsScript,
         wifiRadio: setWifiConnectionScript
-      }
+      },
+      tagApply: SnapshotGroups.tagApply
     }
   }
 
@@ -882,7 +585,7 @@ QtObject {
   function applyWritePatch(job) {
     if (!job || !job.apply) return
     if (job.key && WorkQueue.hasQueuedKey(ioQueue, job.key)) return
-    applySnapshot(JSON.stringify(job.apply))
+    applySnapshot(job.apply)
     // refresh: "none" leaves these flags stale. Commenting the stock line
     // out and then touching Sensitivity would take ownership in the file
     // while the row stayed disabled. Re-scan after every input write.
@@ -890,112 +593,30 @@ QtObject {
       root.applyHyprWorkspaceGestureFromFile()
   }
 
-  function lookState(patch) {
-    var look = {
-      gapsIn: hyprGapsIn,
-      gapsOut: hyprGapsOut,
-      borderSize: hyprBorderSize,
-      rounding: hyprRounding,
-      blur: hyprBlur,
-      shadow: hyprShadow,
-      layout: hyprLayout,
-      columnWidth: hyprColumnWidth,
-      dimInactive: hyprDimInactive,
-      dimStrength: hyprDimStrength,
-      animations: hyprAnimations,
-      cursorHideOnKey: hyprCursorHideOnKey,
-      cursorWarp: hyprCursorWarp,
-      cursorSize: hyprCursorSize,
-      allowTearing: hyprAllowTearing,
-      resizeOnBorder: hyprResizeOnBorder,
-      activeOpacity: hyprActiveOpacity,
-      inactiveOpacity: hyprInactiveOpacity,
-      preserveSplit: hyprPreserveSplit,
-      focusOnActivate: hyprFocusOnActivate,
-      enableSwallow: hyprEnableSwallow,
-      swallowRegex: hyprSwallowRegex,
-      onFocusUnderFullscreen: hyprOnFocusUnderFullscreen
+  function firstPatchField(patch) {
+    if (!patch || typeof patch !== "object") return ""
+    var k
+    for (k in patch) {
+      if (Object.prototype.hasOwnProperty.call(patch, k)) return k
     }
-    if (patch && typeof patch === "object") {
-      var k
-      for (k in patch) {
-        if (Object.prototype.hasOwnProperty.call(patch, k)) look[k] = patch[k]
-      }
-    }
-    return look
-  }
-
-  function inputState(patch) {
-    var input = {
-      sensitivity: hyprSensitivity,
-      accelProfile: hyprAccelProfile,
-      emulateDiscreteScroll: hyprEmulateDiscreteScroll,
-      naturalScroll: hyprNaturalScroll,
-      scrollFactor: hyprScrollFactor,
-      clickfinger: hyprClickfinger,
-      disableWhileTyping: hyprDisableWhileTyping,
-      drag3fg: hyprDrag3fg,
-      repeatRate: hyprRepeatRate,
-      repeatDelay: hyprRepeatDelay,
-      numlock: hyprNumlock,
-      followMouse: hyprFollowMouse,
-      keyPressDpms: hyprKeyPressDpms,
-      mouseMoveDpms: hyprMouseMoveDpms,
-      kbLayoutOverride: hyprKbLayout,
-      kbVariantOverride: hyprKbLayout ? hyprKbVariant : "",
-      kbGroupToggle: hyprKbGroupToggle,
-      workspaceGesture: hyprWorkspaceGesture
-    }
-    if (patch && typeof patch === "object") {
-      var k
-      for (k in patch) {
-        if (Object.prototype.hasOwnProperty.call(patch, k)) input[k] = patch[k]
-      }
-    }
-    input.kbLayout = input.kbLayoutOverride
-    return input
-  }
-
-  function lookPayload() {
-    return JSON.stringify(lookState(null))
-  }
-
-  function inputPayload() {
-    return JSON.stringify(inputState(null))
+    return ""
   }
 
   function writeHyprLook(patch) {
-    var look = lookState(patch)
+    var field = firstPatchField(patch)
+    if (!field) return
+    var look = HyprPrefs.clampLook(SnapshotJs.mergeSnapshot(hyprLook, patch))
     var snap = SnapshotJs.mergeSnapshot(snapshotData, { hyprLook: look })
-    var field = "gapsIn"
-    var value = look.gapsIn
-    if (patch && typeof patch === "object") {
-      for (var k in patch) {
-        if (Object.prototype.hasOwnProperty.call(patch, k)) {
-          field = k
-          value = patch[k]
-          break
-        }
-      }
-    }
-    runSettingCommand(SettingsJs.commandFor("hyprLook." + field, value, snap, scriptOpts()), "hyprLook." + field)
+    runSettingCommand(SettingsJs.commandFor("hyprLook." + field, look[field], snap, scriptOpts()), "hyprLook." + field)
   }
 
   function writeHyprInput(patch) {
-    var input = inputState(patch)
+    var field = firstPatchField(patch)
+    if (!field) return
+    var input = HyprPrefs.clampInput(SnapshotJs.mergeSnapshot(hyprInput, patch))
+    input.kbLayout = input.kbLayoutOverride
     var snap = SnapshotJs.mergeSnapshot(snapshotData, { hyprInput: input })
-    var field = "sensitivity"
-    var value = input.sensitivity
-    if (patch && typeof patch === "object") {
-      for (var k in patch) {
-        if (Object.prototype.hasOwnProperty.call(patch, k)) {
-          field = k
-          value = patch[k]
-          break
-        }
-      }
-    }
-    runSettingCommand(SettingsJs.commandFor("hyprInput." + field, value, snap, scriptOpts()), "hyprInput." + field)
+    runSettingCommand(SettingsJs.commandFor("hyprInput." + field, input[field], snap, scriptOpts()), "hyprInput." + field)
   }
 
   function runGumJob(argv, kind, opts) {
@@ -1701,110 +1322,6 @@ QtObject {
     dispatchSetting("parallelDownloads", n)
   }
 
-  function setHyprGapsIn(n) {
-    n = Math.round(Number(n))
-    if (!isFinite(n) || n < 0 || n > 64 || n === hyprGapsIn) return
-    writeHyprLook({ gapsIn: n })
-  }
-  function setHyprGapsOut(n) {
-    n = Math.round(Number(n))
-    if (!isFinite(n) || n < 0 || n > 64 || n === hyprGapsOut) return
-    writeHyprLook({ gapsOut: n })
-  }
-  function setHyprBorderSize(n) {
-    n = Math.round(Number(n))
-    if (!isFinite(n) || n < 0 || n > 16 || n === hyprBorderSize) return
-    writeHyprLook({ borderSize: n })
-  }
-  function setHyprRounding(n) {
-    n = Math.round(Number(n))
-    if (!isFinite(n) || n < 0 || n > 32 || n === hyprRounding) return
-    writeHyprLook({ rounding: n })
-  }
-  function setHyprBlur(on) {
-    if (on === hyprBlur) return
-    writeHyprLook({ blur: on })
-  }
-  function setHyprShadow(on) {
-    if (on === hyprShadow) return
-    writeHyprLook({ shadow: on })
-  }
-  function setHyprLayout(name) {
-    if (name !== "dwindle" && name !== "scrolling") return
-    if (name === hyprLayout) return
-    writeHyprLook({ layout: name })
-  }
-  function setHyprColumnWidth(n) {
-    n = Math.round(Number(n) * 100) / 100
-    if (!isFinite(n) || n < 0.2 || n > 1 || n === hyprColumnWidth) return
-    writeHyprLook({ columnWidth: n })
-  }
-  function setHyprDimInactive(on) {
-    if (on === hyprDimInactive) return
-    writeHyprLook({ dimInactive: on })
-  }
-  function setHyprDimStrength(n) {
-    n = Math.round(Number(n) * 100) / 100
-    if (!isFinite(n) || n < 0 || n > 1 || n === hyprDimStrength) return
-    writeHyprLook({ dimStrength: n })
-  }
-  function setHyprAnimations(on) {
-    if (on === hyprAnimations) return
-    writeHyprLook({ animations: on })
-  }
-  function setHyprCursorHideOnKey(on) {
-    if (on === hyprCursorHideOnKey) return
-    writeHyprLook({ cursorHideOnKey: on })
-  }
-  function setHyprCursorWarp(on) {
-    if (on === hyprCursorWarp) return
-    writeHyprLook({ cursorWarp: on })
-  }
-  function setHyprAllowTearing(on) {
-    if (on === hyprAllowTearing) return
-    writeHyprLook({ allowTearing: on })
-  }
-  function setHyprResizeOnBorder(on) {
-    if (on === hyprResizeOnBorder) return
-    writeHyprLook({ resizeOnBorder: on })
-  }
-  function setHyprCursorSize(n) {
-    n = Math.round(Number(n))
-    if (!isFinite(n) || n < 8 || n > 64 || n === hyprCursorSize) return
-    writeHyprLook({ cursorSize: n })
-  }
-  function setHyprActiveOpacity(n) {
-    n = Math.round(Number(n) * 100) / 100
-    if (!isFinite(n) || n < 0.2 || n > 1 || n === hyprActiveOpacity) return
-    writeHyprLook({ activeOpacity: n })
-  }
-  function setHyprInactiveOpacity(n) {
-    n = Math.round(Number(n) * 100) / 100
-    if (!isFinite(n) || n < 0.2 || n > 1 || n === hyprInactiveOpacity) return
-    writeHyprLook({ inactiveOpacity: n })
-  }
-  function setHyprPreserveSplit(on) {
-    if (on === hyprPreserveSplit) return
-    writeHyprLook({ preserveSplit: on })
-  }
-  function setHyprEnableSwallow(on) {
-    if (on === hyprEnableSwallow) return
-    writeHyprLook({ enableSwallow: on })
-  }
-  function setHyprSwallowRegex(text) {
-    text = String(text || "")
-    if (text === hyprSwallowRegex) return
-    writeHyprLook({ swallowRegex: text })
-  }
-  function setHyprOnFocusUnderFullscreen(n) {
-    n = Math.round(Number(n))
-    if (!isFinite(n) || n < 0 || n > 2 || n === hyprOnFocusUnderFullscreen) return
-    writeHyprLook({ onFocusUnderFullscreen: n })
-  }
-  function setHyprFocusOnActivate(on) {
-    if (on === hyprFocusOnActivate) return
-    writeHyprLook({ focusOnActivate: on })
-  }
   function resetHyprLook() {
     if (!hyprLookManaged) return
     runCommand(["bash", setHyprLookScript, "--reset"], {
@@ -1836,70 +1353,6 @@ QtObject {
     runCommand(["omarchy", "hyprland", "window", "tiled", "fullscreen", "toggle"])
   }
 
-  function setHyprSensitivity(n) {
-    n = Math.round(Number(n) * 100) / 100
-    if (!isFinite(n) || n < -1 || n > 1 || n === hyprSensitivity) return
-    writeHyprInput({ sensitivity: n })
-  }
-  function setHyprAccelProfile(name) {
-    if (name !== "flat" && name !== "adaptive" && name !== "") return
-    if (name === hyprAccelProfile) return
-    writeHyprInput({ accelProfile: name })
-  }
-  function setHyprEmulateDiscreteScroll(n) {
-    n = Math.round(Number(n))
-    if (!isFinite(n) || n < 0 || n > 2 || n === hyprEmulateDiscreteScroll) return
-    writeHyprInput({ emulateDiscreteScroll: n })
-  }
-  function setHyprNaturalScroll(on) {
-    if (on === hyprNaturalScroll) return
-    writeHyprInput({ naturalScroll: on })
-  }
-  function setHyprScrollFactor(n) {
-    n = Math.round(Number(n) * 100) / 100
-    if (!isFinite(n) || n < 0.1 || n > 3 || n === hyprScrollFactor) return
-    writeHyprInput({ scrollFactor: n })
-  }
-  function setHyprClickfinger(on) {
-    if (on === hyprClickfinger) return
-    writeHyprInput({ clickfinger: on })
-  }
-  function setHyprDisableWhileTyping(on) {
-    if (on === hyprDisableWhileTyping) return
-    writeHyprInput({ disableWhileTyping: on })
-  }
-  function setHyprDrag3fg(on) {
-    var n = on ? 1 : 0
-    if (n === hyprDrag3fg) return
-    writeHyprInput({ drag3fg: n })
-  }
-  function setHyprRepeatRate(n) {
-    n = Math.round(Number(n))
-    if (!isFinite(n) || n < 10 || n > 100 || n === hyprRepeatRate) return
-    writeHyprInput({ repeatRate: n })
-  }
-  function setHyprRepeatDelay(n) {
-    n = Math.round(Number(n))
-    if (!isFinite(n) || n < 100 || n > 1000 || n === hyprRepeatDelay) return
-    writeHyprInput({ repeatDelay: n })
-  }
-  function setHyprNumlock(on) {
-    if (on === hyprNumlock) return
-    writeHyprInput({ numlock: on })
-  }
-  function setHyprFollowMouse(n) {
-    n = Math.round(Number(n))
-    if (!isFinite(n) || n < 0 || n > 3 || n === hyprFollowMouse) return
-    writeHyprInput({ followMouse: n })
-  }
-  function setHyprKeyPressDpms(on) {
-    if (on === hyprKeyPressDpms) return
-    writeHyprInput({ keyPressDpms: on })
-  }
-  function setHyprMouseMoveDpms(on) {
-    if (on === hyprMouseMoveDpms) return
-    writeHyprInput({ mouseMoveDpms: on })
-  }
   function setHyprKbOverride(layouts, variants, groupToggle) {
     var rawLayouts = String(layouts || "").replace(/^\s+|\s+$/g, "")
     layouts = HyprPrefs.sanitizeLayoutList(layouts)
@@ -1908,7 +1361,8 @@ QtObject {
     variants = layouts ? HyprPrefs.sanitizeVariantList(variants, layouts.split(",").length) : ""
     if (rawVariants && layouts && !variants) return
     groupToggle = groupToggle === true
-    if (layouts === hyprKbLayout && variants === hyprKbVariant && groupToggle === hyprKbGroupToggle) return
+    var input = hyprInput && typeof hyprInput === "object" ? hyprInput : {}
+    if (layouts === input.kbLayoutOverride && variants === input.kbVariantOverride && groupToggle === input.kbGroupToggle) return
     writeHyprInput({
       kbLayoutOverride: layouts,
       kbVariantOverride: variants,

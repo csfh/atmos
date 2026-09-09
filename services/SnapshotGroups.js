@@ -572,6 +572,77 @@ function tag(obj, group) {
   return out;
 }
 
+var ACCOUNT_BAG_KEYS = Object.freeze([
+  "hostname",
+  "fullName",
+  "currentUser",
+  "avatarPath",
+  "users",
+  "groups",
+]);
+
+// Adopted onto the Omarchy bag, not Emitted by snapshot.sh.
+var DERIVED_BAG_KEYS = Object.freeze(["audioSink", "audioSource"]);
+
+function copyableBagKeys() {
+  var skip = {};
+  var i;
+  for (i = 0; i < ACCOUNT_BAG_KEYS.length; i++) skip[ACCOUNT_BAG_KEYS[i]] = true;
+  var src = emitKeys("all");
+  var out = [];
+  for (i = 0; i < src.length; i++) {
+    if (!skip[src[i]]) out.push(src[i]);
+  }
+  for (i = 0; i < DERIVED_BAG_KEYS.length; i++) out.push(DERIVED_BAG_KEYS[i]);
+  return Object.freeze(out);
+}
+
+var KEY_GROUP = null;
+
+function keyGroupMap() {
+  if (KEY_GROUP) return KEY_GROUP;
+  var out = {};
+  var order = ["look", "network", "disks", "accounts", "system", "rest"];
+  var i, j, g, keys;
+  for (i = 0; i < order.length; i++) {
+    g = order[i];
+    keys = emitKeys(g);
+    for (j = 0; j < keys.length; j++) {
+      if (!out[keys[j]]) out[keys[j]] = g;
+    }
+  }
+  KEY_GROUP = out;
+  return out;
+}
+
+function groupForKey(key) {
+  var k = String(key || "");
+  var dot = k.indexOf(".");
+  if (dot > 0) k = k.substring(0, dot);
+  return keyGroupMap()[k] || "";
+}
+
+function tagApply(apply) {
+  if (!apply || typeof apply !== "object") return apply || {};
+  var group = "";
+  var k, g;
+  for (k in apply) {
+    if (!Object.prototype.hasOwnProperty.call(apply, k) || k === "group") continue;
+    g = groupForKey(k);
+    if (!g) {
+      group = "";
+      break;
+    }
+    if (!group) group = g;
+    else if (group !== g) {
+      group = "";
+      break;
+    }
+  }
+  if (group) apply.group = group;
+  return apply;
+}
+
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     GROUPS: GROUPS,
@@ -583,5 +654,10 @@ if (typeof module !== "undefined" && module.exports) {
     watchSpecs: watchSpecs,
     snapshotGroupForWatchPath: snapshotGroupForWatchPath,
     tag: tag,
+    copyableBagKeys: copyableBagKeys,
+    groupForKey: groupForKey,
+    tagApply: tagApply,
+    ACCOUNT_BAG_KEYS: ACCOUNT_BAG_KEYS,
+    DERIVED_BAG_KEYS: DERIVED_BAG_KEYS,
   };
 }

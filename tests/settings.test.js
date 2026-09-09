@@ -5,6 +5,7 @@ const path = require("path");
 const { load, assert, assertEqual } = require("./harness");
 
 const settings = load("services/Settings.js");
+const groups = load("services/SnapshotGroups.js");
 
 const s_catalog = settings.settingsCatalog();
 assert(s_catalog.length > 0, "settingsCatalog returns entries");
@@ -975,18 +976,22 @@ const inputCmd = settings.commandFor(
   "hyprInput.sensitivity",
   0.5,
   { hyprInput: { sensitivity: 0, naturalScroll: false }, hyprInputManaged: false },
-  {},
+  { tagApply: groups.tagApply },
 );
 assertEqual(
-  settings.commandFor("hyprLook.gapsIn", 9, { hyprLook: { gapsIn: 5 } }, {}).apply.group,
+  settings.commandFor(
+    "hyprLook.gapsIn",
+    9,
+    { hyprLook: { gapsIn: 5 } },
+    { tagApply: groups.tagApply },
+  ).apply.group,
   "look",
   "hyprLook apply is tagged look",
 );
-assertEqual(inputCmd.apply.group, undefined, "hyprInput apply is not tagged look");
+assertEqual(inputCmd.apply.group, "rest", "hyprInput apply is tagged rest");
 assertEqual(inputCmd.apply.hyprInput.sensitivity, 0.5, "hyprInput apply carries the merged object");
 assertEqual(inputCmd.apply.hyprInputManaged, true, "hyprInput apply sets hyprInputManaged");
 
-const groups = load("services/SnapshotGroups.js");
 const snapshotJs = load("services/Snapshot.js");
 const adoptAdapters = {
   clampLook: hypr.clampLook,

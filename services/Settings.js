@@ -2070,69 +2070,27 @@ var SCRIPT_FILES = {
   wifiRadio: "set-wifi-connection.sh",
 };
 
-var APPLY_GROUP = {
-  theme: "look",
-  background: "look",
-  font: "look",
-  textSize: "look",
-  hyprLook: "look",
-  hyprLookManaged: "look",
-  hyprNoGaps: "look",
-  hyprSquareAspect: "look",
-  barPosition: "look",
-  barTransparent: "look",
-  barVisible: "look",
-  clockFormat: "look",
-  clockFormatAlt: "look",
-  clockWeekStart: "look",
-  clockBirthYear: "look",
-  clockLifeExpectancy: "look",
-  idleScreensaver: "look",
-  idleLock: "look",
-  stayAwake: "look",
-  screensaverEnabled: "look",
-  nightlight: "look",
-  nightlightTemperature: "look",
-  nightlightDay: "look",
-  nightlightNight: "look",
-  nightlightNightOn: "look",
-  doNotDisturb: "look",
-  indicatorsAlwaysShow: "look",
-  indicatorsItems: "look",
-  agentsRefreshIntervalSec: "look",
-  agentsSync: "look",
-  agentsSyncDir: "look",
-  agentsSyncFileName: "look",
-  agentsSyncDeviceId: "look",
-  spacerSize: "look",
-  trayHidden: "look",
-  trayPinned: "look",
-  plymouth: "look",
-  touchpadEnabled: "look",
-  touchscreenEnabled: "look",
-  suspendEnabled: "look",
-  dns: "network",
-  bluetooth: "network",
-  wifiRadio: "network",
-  hostname: "system",
-  timezone: "system",
-  locale: "system",
-  keyboardLayout: "system",
-  ntp: "system",
-  ntpSynchronized: "system",
-  parallelDownloads: "system",
-  crashCapture: "system",
-  fullName: "accounts",
-  workspaces: "look",
-  workspaceWrapSwitch: "look",
-  workspaceWheelSwitch: "look",
-  monitorRules: "look",
-  envVars: "system",
-  envPathPrepend: "system",
-  presentationMode: "look",
-};
-
 var WRITERS;
+
+function groupsApi() {
+  if (groupsApi._loaded !== undefined) return groupsApi._loaded;
+  groupsApi._loaded = null;
+  if (typeof require === "undefined") return null;
+  try {
+    var fs = require("fs");
+    var path = require("path");
+    var vm = require("vm");
+    var src = fs.readFileSync(path.join(__dirname, "SnapshotGroups.js"), "utf8");
+    var ctx = {};
+    vm.runInNewContext(src, ctx, { filename: "SnapshotGroups.js" });
+    groupsApi._loaded = ctx;
+  } catch (e) {
+    groupsApi._loaded = null;
+  }
+  return groupsApi._loaded;
+}
+
+var activeCommandOpts = {};
 
 function writers() {
   if (WRITERS) return WRITERS;
@@ -2487,24 +2445,14 @@ function skipRecord(key, extra) {
 }
 
 function tagApply(apply) {
-  if (!apply || typeof apply !== "object") return apply || {};
-  var group = "";
-  var k;
-  for (k in apply) {
-    if (!Object.prototype.hasOwnProperty.call(apply, k) || k === "group") continue;
-    var g = APPLY_GROUP[k] || "";
-    if (!g) {
-      group = "";
-      break;
-    }
-    if (!group) group = g;
-    else if (group !== g) {
-      group = "";
-      break;
-    }
+  var opts = activeCommandOpts;
+  var fn = opts && typeof opts.tagApply === "function" ? opts.tagApply : null;
+  if (!fn) {
+    var api = groupsApi();
+    if (api) fn = api.tagApply;
   }
-  if (group) apply.group = group;
-  return apply;
+  if (typeof fn === "function") return fn(apply);
+  return apply || {};
 }
 
 function keyApply(key, value, extra) {
@@ -2658,6 +2606,7 @@ function commandFor(key, value, snapshot, opts) {
   var spec = writerSpec(key);
   if (!spec) return null;
   opts = opts || {};
+  activeCommandOpts = opts;
   snapshot = snapshot || {};
   var sudo = item.needsRoot === true;
   if (

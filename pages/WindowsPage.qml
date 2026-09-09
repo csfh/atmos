@@ -109,13 +109,13 @@ PrefsPage {
         from: 0
         to: 32
         stepSize: 1
-        value: Omarchy.hyprGapsIn
-        valueText: Omarchy.hyprGapsIn + " px"
+        value: Omarchy.hyprLook.gapsIn
+        valueText: Omarchy.hyprLook.gapsIn + " px"
         enabled: !Omarchy.hyprNoGaps
         onChanged: function(value) {
           var next = Math.round(value)
-          if (next !== Omarchy.hyprGapsIn)
-            Omarchy.setHyprGapsIn(next)
+          if (next !== Omarchy.hyprLook.gapsIn)
+            Omarchy.writeHyprLook({ gapsIn: next })
         }
       }
     }
@@ -133,13 +133,13 @@ PrefsPage {
         from: 0
         to: 48
         stepSize: 1
-        value: Omarchy.hyprGapsOut
-        valueText: Omarchy.hyprGapsOut + " px"
+        value: Omarchy.hyprLook.gapsOut
+        valueText: Omarchy.hyprLook.gapsOut + " px"
         enabled: !Omarchy.hyprNoGaps
         onChanged: function(value) {
           var next = Math.round(value)
-          if (next !== Omarchy.hyprGapsOut)
-            Omarchy.setHyprGapsOut(next)
+          if (next !== Omarchy.hyprLook.gapsOut)
+            Omarchy.writeHyprLook({ gapsOut: next })
         }
       }
     }
@@ -157,13 +157,13 @@ PrefsPage {
         from: 0
         to: 8
         stepSize: 1
-        value: Omarchy.hyprBorderSize
-        valueText: Omarchy.hyprBorderSize + " px"
+        value: Omarchy.hyprLook.borderSize
+        valueText: Omarchy.hyprLook.borderSize + " px"
         enabled: !Omarchy.hyprNoGaps
         onChanged: function(value) {
           var next = Math.round(value)
-          if (next !== Omarchy.hyprBorderSize)
-            Omarchy.setHyprBorderSize(next)
+          if (next !== Omarchy.hyprLook.borderSize)
+            Omarchy.writeHyprLook({ borderSize: next })
         }
       }
     }
@@ -181,13 +181,13 @@ PrefsPage {
         from: 0
         to: 24
         stepSize: 1
-        value: Omarchy.hyprRounding
-        valueText: Omarchy.hyprRounding + " px"
+        value: Omarchy.hyprLook.rounding
+        valueText: Omarchy.hyprLook.rounding + " px"
         enabled: !Omarchy.hyprNoGaps
         onChanged: function(value) {
           var next = Math.round(value)
-          if (next !== Omarchy.hyprRounding)
-            Omarchy.setHyprRounding(next)
+          if (next !== Omarchy.hyprLook.rounding)
+            Omarchy.writeHyprLook({ rounding: next })
         }
       }
     }
@@ -200,8 +200,8 @@ PrefsPage {
       keywords: ["blur", "glass", "transparent"]
 
       PrefsToggle {
-        checked: Omarchy.hyprBlur
-        onToggled: Omarchy.setHyprBlur(!Omarchy.hyprBlur)
+        checked: Omarchy.hyprLook.blur
+        onToggled: Omarchy.writeHyprLook({ blur: !Omarchy.hyprLook.blur })
       }
     }
 
@@ -213,8 +213,8 @@ PrefsPage {
       keywords: ["shadow", "drop"]
 
       PrefsToggle {
-        checked: Omarchy.hyprShadow
-        onToggled: Omarchy.setHyprShadow(!Omarchy.hyprShadow)
+        checked: Omarchy.hyprLook.shadow
+        onToggled: Omarchy.writeHyprLook({ shadow: !Omarchy.hyprLook.shadow })
       }
     }
 
@@ -226,19 +226,19 @@ PrefsPage {
       keywords: ["dwindle", "scrolling", "niri", "layout", "tile"]
 
       PrefsSelect {
-        value: Omarchy.hyprLayout
+        value: Omarchy.hyprLook.layout
         options: [
           { value: "dwindle", label: "Dwindle" },
           { value: "scrolling", label: "Scrolling" }
         ]
         onChanged: function(value) {
-          if (value !== Omarchy.hyprLayout) Omarchy.setHyprLayout(value)
+          if (value !== Omarchy.hyprLook.layout) Omarchy.writeHyprLook({ layout: value })
         }
       }
     }
 
     SettingRow {
-      available: Omarchy.hyprLayout === "scrolling"
+      available: Omarchy.hyprLook.layout === "scrolling"
       stretchControl: true
       label: "Column width"
       description: "How wide each scrolling column is. Near 1 shows one column. Near 0.5 shows two."
@@ -251,14 +251,14 @@ PrefsPage {
         from: 0.3
         to: 1
         stepSize: 0.01
-        value: Omarchy.hyprColumnWidth
-        valueText: Math.round(Omarchy.hyprColumnWidth * 100) + "%"
+        value: Omarchy.hyprLook.columnWidth
+        valueText: Math.round(Omarchy.hyprLook.columnWidth * 100) + "%"
         formatTick: function(v) { return Math.round(v * 100) + "%" }
-        enabled: Omarchy.hyprLayout === "scrolling"
+        enabled: Omarchy.hyprLook.layout === "scrolling"
         onChanged: function(value) {
           var next = Math.round(value * 100) / 100
-          if (next !== Omarchy.hyprColumnWidth)
-            Omarchy.setHyprColumnWidth(next)
+          if (next !== Omarchy.hyprLook.columnWidth)
+            Omarchy.writeHyprLook({ columnWidth: next })
         }
       }
     }
@@ -359,13 +359,13 @@ PrefsPage {
       keywords: ["dim", "inactive", "focus"]
 
       PrefsToggle {
-        checked: Omarchy.hyprDimInactive
-        onToggled: Omarchy.setHyprDimInactive(!Omarchy.hyprDimInactive)
+        checked: Omarchy.hyprLook.dimInactive
+        onToggled: Omarchy.writeHyprLook({ dimInactive: !Omarchy.hyprLook.dimInactive })
       }
     }
 
     SettingRow {
-      available: Omarchy.hyprDimInactive
+      available: Omarchy.hyprLook.dimInactive
       stretchControl: true
       label: "Dim strength"
       description: "How far unfocused windows go toward black."
@@ -378,14 +378,14 @@ PrefsPage {
         from: 0
         to: 1
         stepSize: 0.05
-        value: Omarchy.hyprDimStrength
-        valueText: Math.round(Omarchy.hyprDimStrength * 100) + "%"
+        value: Omarchy.hyprLook.dimStrength
+        valueText: Math.round(Omarchy.hyprLook.dimStrength * 100) + "%"
         formatTick: function(v) { return Math.round(v * 100) + "%" }
-        enabled: Omarchy.hyprDimInactive
+        enabled: Omarchy.hyprLook.dimInactive
         onChanged: function(value) {
           var next = Math.round(value * 100) / 100
-          if (next !== Omarchy.hyprDimStrength)
-            Omarchy.setHyprDimStrength(next)
+          if (next !== Omarchy.hyprLook.dimStrength)
+            Omarchy.writeHyprLook({ dimStrength: next })
         }
       }
     }
@@ -402,8 +402,8 @@ PrefsPage {
       keywords: ["cursor", "warp", "workspace"]
 
       PrefsToggle {
-        checked: Omarchy.hyprCursorWarp
-        onToggled: Omarchy.setHyprCursorWarp(!Omarchy.hyprCursorWarp)
+        checked: Omarchy.hyprLook.cursorWarp
+        onToggled: Omarchy.writeHyprLook({ cursorWarp: !Omarchy.hyprLook.cursorWarp })
       }
     }
 
@@ -415,8 +415,8 @@ PrefsPage {
       keywords: ["resize", "border", "drag"]
 
       PrefsToggle {
-        checked: Omarchy.hyprResizeOnBorder
-        onToggled: Omarchy.setHyprResizeOnBorder(!Omarchy.hyprResizeOnBorder)
+        checked: Omarchy.hyprLook.resizeOnBorder
+        onToggled: Omarchy.writeHyprLook({ resizeOnBorder: !Omarchy.hyprLook.resizeOnBorder })
       }
     }
 
@@ -428,8 +428,8 @@ PrefsPage {
       keywords: ["tearing", "vrr", "latency", "game"]
 
       PrefsToggle {
-        checked: Omarchy.hyprAllowTearing
-        onToggled: Omarchy.setHyprAllowTearing(!Omarchy.hyprAllowTearing)
+        checked: Omarchy.hyprLook.allowTearing
+        onToggled: Omarchy.writeHyprLook({ allowTearing: !Omarchy.hyprLook.allowTearing })
       }
     }
 
@@ -448,13 +448,13 @@ PrefsPage {
         from: 0.2
         to: 1
         stepSize: 0.05
-        value: Omarchy.hyprActiveOpacity
-        valueText: Math.round(Omarchy.hyprActiveOpacity * 100) + "%"
+        value: Omarchy.hyprLook.activeOpacity
+        valueText: Math.round(Omarchy.hyprLook.activeOpacity * 100) + "%"
         formatTick: function(v) { return Math.round(v * 100) + "%" }
         onChanged: function(value) {
           var next = Math.round(value * 100) / 100
-          if (next !== Omarchy.hyprActiveOpacity)
-            Omarchy.setHyprActiveOpacity(next)
+          if (next !== Omarchy.hyprLook.activeOpacity)
+            Omarchy.writeHyprLook({ activeOpacity: next })
         }
       }
     }
@@ -472,13 +472,13 @@ PrefsPage {
         from: 0.2
         to: 1
         stepSize: 0.05
-        value: Omarchy.hyprInactiveOpacity
-        valueText: Math.round(Omarchy.hyprInactiveOpacity * 100) + "%"
+        value: Omarchy.hyprLook.inactiveOpacity
+        valueText: Math.round(Omarchy.hyprLook.inactiveOpacity * 100) + "%"
         formatTick: function(v) { return Math.round(v * 100) + "%" }
         onChanged: function(value) {
           var next = Math.round(value * 100) / 100
-          if (next !== Omarchy.hyprInactiveOpacity)
-            Omarchy.setHyprInactiveOpacity(next)
+          if (next !== Omarchy.hyprLook.inactiveOpacity)
+            Omarchy.writeHyprLook({ inactiveOpacity: next })
         }
       }
     }
@@ -491,8 +491,8 @@ PrefsPage {
       keywords: ["dwindle", "split", "tile"]
 
       PrefsToggle {
-        checked: Omarchy.hyprPreserveSplit
-        onToggled: Omarchy.setHyprPreserveSplit(!Omarchy.hyprPreserveSplit)
+        checked: Omarchy.hyprLook.preserveSplit
+        onToggled: Omarchy.writeHyprLook({ preserveSplit: !Omarchy.hyprLook.preserveSplit })
       }
     }
 
@@ -504,8 +504,8 @@ PrefsPage {
       keywords: ["focus", "activate", "urgent"]
 
       PrefsToggle {
-        checked: Omarchy.hyprFocusOnActivate
-        onToggled: Omarchy.setHyprFocusOnActivate(!Omarchy.hyprFocusOnActivate)
+        checked: Omarchy.hyprLook.focusOnActivate
+        onToggled: Omarchy.writeHyprLook({ focusOnActivate: !Omarchy.hyprLook.focusOnActivate })
       }
     }
 
@@ -517,13 +517,13 @@ PrefsPage {
       keywords: ["swallow", "terminal"]
 
       PrefsToggle {
-        checked: Omarchy.hyprEnableSwallow
-        onToggled: Omarchy.setHyprEnableSwallow(!Omarchy.hyprEnableSwallow)
+        checked: Omarchy.hyprLook.enableSwallow
+        onToggled: Omarchy.writeHyprLook({ enableSwallow: !Omarchy.hyprLook.enableSwallow })
       }
     }
 
     SettingRow {
-      available: Omarchy.hyprEnableSwallow
+      available: Omarchy.hyprLook.enableSwallow
       stretchControl: true
       label: "Swallow regex"
       description: "Which terminal classes Hyprland swallows. Empty keeps the Hyprland default."
@@ -539,14 +539,14 @@ PrefsPage {
           id: swallowRegexField
           width: parent.width - swallowRegexSetBtn.width - parent.spacing
           placeholder: "kitty|alacritty"
-          value: Omarchy.hyprSwallowRegex
-          onSubmitted: function(value) { Omarchy.setHyprSwallowRegex(value) }
+          value: Omarchy.hyprLook.swallowRegex
+          onSubmitted: function(value) { Omarchy.writeHyprLook({ swallowRegex: value }) }
         }
 
         PrefsButton {
           id: swallowRegexSetBtn
           text: "Set"
-          onClicked: Omarchy.setHyprSwallowRegex(swallowRegexField.currentText())
+          onClicked: Omarchy.writeHyprLook({ swallowRegex: swallowRegexField.currentText() })
         }
       }
     }
@@ -559,7 +559,7 @@ PrefsPage {
       keywords: ["fullscreen", "focus"]
 
       PrefsSelect {
-        value: String(Omarchy.hyprOnFocusUnderFullscreen)
+        value: String(Omarchy.hyprLook.onFocusUnderFullscreen)
         options: [
           { value: "0", label: "Ignore" },
           { value: "1", label: "Take over" },
@@ -567,7 +567,7 @@ PrefsPage {
         ]
         onChanged: function(value) {
           var n = Math.round(Number(value))
-          if (n !== Omarchy.hyprOnFocusUnderFullscreen) Omarchy.setHyprOnFocusUnderFullscreen(n)
+          if (n !== Omarchy.hyprLook.onFocusUnderFullscreen) Omarchy.writeHyprLook({ onFocusUnderFullscreen: n })
         }
       }
     }

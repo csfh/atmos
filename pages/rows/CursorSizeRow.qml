@@ -12,12 +12,12 @@ SettingRow {
     from: 8
     to: 64
     stepSize: 2
-    value: Omarchy.hyprCursorSize
-    valueText: Omarchy.hyprCursorSize + " px"
+    value: Omarchy.hyprLook.cursorSize
+    valueText: Omarchy.hyprLook.cursorSize + " px"
     onChanged: function(value) {
       var next = Math.round(value)
-      if (next !== Omarchy.hyprCursorSize)
-        Omarchy.setHyprCursorSize(next)
+      if (next !== Omarchy.hyprLook.cursorSize)
+        Omarchy.writeHyprLook({ cursorSize: next })
     }
   }
 }

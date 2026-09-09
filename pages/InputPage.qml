@@ -9,8 +9,8 @@ PrefsPage {
   title: "Input"
   description: "How the mouse, touchpad, and keyboard feel. Turning the laptop trackpad off is on Displays. The system layout picker is on System."
 
-  property string kbLayoutDraft: Omarchy.hyprKbLayout
-  property string kbVariantDraft: Omarchy.hyprKbVariant
+  property string kbLayoutDraft: Omarchy.hyprInput.kbLayoutOverride || ""
+  property string kbVariantDraft: Omarchy.hyprInput.kbVariantOverride || ""
   readonly property string kbLayoutParsed: HyprPrefs.sanitizeLayoutList(root.kbLayoutDraft)
   readonly property bool kbLayoutValid: String(root.kbLayoutDraft || "").replace(/^\s+|\s+$/g, "").length === 0 || root.kbLayoutParsed.length > 0
   readonly property string kbVariantParsed: root.kbLayoutParsed
@@ -18,17 +18,19 @@ PrefsPage {
     : ""
   readonly property bool kbVariantValid: String(root.kbVariantDraft || "").replace(/^\s+|\s+$/g, "").length === 0 || root.kbVariantParsed.length > 0
   readonly property bool kbOverrideValid: root.kbLayoutValid && root.kbVariantValid
-  readonly property bool kbOverrideDirty: root.kbLayoutParsed !== Omarchy.hyprKbLayout || root.kbVariantParsed !== Omarchy.hyprKbVariant
+  readonly property bool kbOverrideDirty: root.kbLayoutParsed !== (Omarchy.hyprInput.kbLayoutOverride || "") || root.kbVariantParsed !== (Omarchy.hyprInput.kbVariantOverride || "")
 
   function applyKbOverride() {
     if (!root.kbOverrideValid) return
-    Omarchy.setHyprKbOverride(root.kbLayoutParsed, root.kbVariantParsed, Omarchy.hyprKbGroupToggle)
+    Omarchy.setHyprKbOverride(root.kbLayoutParsed, root.kbVariantParsed, Omarchy.hyprInput.kbGroupToggle === true)
   }
 
   Connections {
     target: Omarchy
-    function onHyprKbLayoutChanged() { root.kbLayoutDraft = Omarchy.hyprKbLayout }
-    function onHyprKbVariantChanged() { root.kbVariantDraft = Omarchy.hyprKbVariant }
+    function onHyprInputChanged() {
+      root.kbLayoutDraft = Omarchy.hyprInput.kbLayoutOverride || ""
+      root.kbVariantDraft = Omarchy.hyprInput.kbVariantOverride || ""
+    }
   }
 
   PrefsGroup {
@@ -49,12 +51,12 @@ PrefsPage {
         from: -1
         to: 1
         stepSize: 0.02
-        value: Omarchy.hyprSensitivity
-        valueText: Omarchy.hyprSensitivity.toFixed(2)
+        value: Omarchy.hyprInput.sensitivity
+        valueText: Omarchy.hyprInput.sensitivity.toFixed(2)
         onChanged: function(value) {
           var next = Math.round(value * 100) / 100
-          if (next !== Omarchy.hyprSensitivity)
-            Omarchy.setHyprSensitivity(next)
+          if (next !== Omarchy.hyprInput.sensitivity)
+            Omarchy.writeHyprInput({ sensitivity: next })
         }
       }
     }
@@ -67,15 +69,15 @@ PrefsPage {
       keywords: ["accel", "acceleration", "flat", "adaptive"]
 
       PrefsSelect {
-        value: Omarchy.hyprAccelProfile === "flat" ? "flat" : (Omarchy.hyprAccelProfile === "adaptive" ? "adaptive" : "")
+        value: Omarchy.hyprInput.accelProfile === "flat" ? "flat" : (Omarchy.hyprInput.accelProfile === "adaptive" ? "adaptive" : "")
         options: [
           { value: "", label: "Default" },
           { value: "adaptive", label: "Adaptive" },
           { value: "flat", label: "Flat" }
         ]
         onChanged: function(value) {
-          if (value !== Omarchy.hyprAccelProfile)
-            Omarchy.setHyprAccelProfile(value)
+          if (value !== Omarchy.hyprInput.accelProfile)
+            Omarchy.writeHyprInput({ accelProfile: value })
         }
       }
     }
@@ -88,7 +90,7 @@ PrefsPage {
       keywords: ["inertia", "wheel", "high-res", "discrete", "smooth", "scroll"]
 
       PrefsSelect {
-        value: String(Omarchy.hyprEmulateDiscreteScroll)
+        value: String(Omarchy.hyprInput.emulateDiscreteScroll)
         options: [
           { value: "0", label: "Smooth" },
           { value: "1", label: "Default" },
@@ -96,8 +98,8 @@ PrefsPage {
         ]
         onChanged: function(value) {
           var next = Math.round(Number(value))
-          if (next !== Omarchy.hyprEmulateDiscreteScroll)
-            Omarchy.setHyprEmulateDiscreteScroll(next)
+          if (next !== Omarchy.hyprInput.emulateDiscreteScroll)
+            Omarchy.writeHyprInput({ emulateDiscreteScroll: next })
         }
       }
     }
@@ -116,8 +118,8 @@ PrefsPage {
       keywords: ["natural", "invert", "scroll", "direction"]
 
       PrefsToggle {
-        checked: Omarchy.hyprNaturalScroll
-        onToggled: Omarchy.setHyprNaturalScroll(!Omarchy.hyprNaturalScroll)
+        checked: Omarchy.hyprInput.naturalScroll
+        onToggled: Omarchy.writeHyprInput({ naturalScroll: !Omarchy.hyprInput.naturalScroll })
       }
     }
 
@@ -134,12 +136,12 @@ PrefsPage {
         from: 0.1
         to: 2
         stepSize: 0.1
-        value: Omarchy.hyprScrollFactor
-        valueText: Omarchy.hyprScrollFactor.toFixed(1)
+        value: Omarchy.hyprInput.scrollFactor
+        valueText: Omarchy.hyprInput.scrollFactor.toFixed(1)
         onChanged: function(value) {
           var next = Math.round(value * 10) / 10
-          if (next !== Omarchy.hyprScrollFactor)
-            Omarchy.setHyprScrollFactor(next)
+          if (next !== Omarchy.hyprInput.scrollFactor)
+            Omarchy.writeHyprInput({ scrollFactor: next })
         }
       }
     }
@@ -152,8 +154,8 @@ PrefsPage {
       keywords: ["clickfinger", "right click", "tap"]
 
       PrefsToggle {
-        checked: Omarchy.hyprClickfinger
-        onToggled: Omarchy.setHyprClickfinger(!Omarchy.hyprClickfinger)
+        checked: Omarchy.hyprInput.clickfinger
+        onToggled: Omarchy.writeHyprInput({ clickfinger: !Omarchy.hyprInput.clickfinger })
       }
     }
 
@@ -165,8 +167,8 @@ PrefsPage {
       keywords: ["disable while typing", "palm", "reject"]
 
       PrefsToggle {
-        checked: Omarchy.hyprDisableWhileTyping
-        onToggled: Omarchy.setHyprDisableWhileTyping(!Omarchy.hyprDisableWhileTyping)
+        checked: Omarchy.hyprInput.disableWhileTyping
+        onToggled: Omarchy.writeHyprInput({ disableWhileTyping: !Omarchy.hyprInput.disableWhileTyping })
       }
     }
 
@@ -178,8 +180,8 @@ PrefsPage {
       keywords: ["three finger", "drag"]
 
       PrefsToggle {
-        checked: Omarchy.hyprDrag3fg === 1
-        onToggled: Omarchy.setHyprDrag3fg(!(Omarchy.hyprDrag3fg === 1))
+        checked: Omarchy.hyprInput.drag3fg === 1
+        onToggled: Omarchy.writeHyprInput({ drag3fg: Omarchy.hyprInput.drag3fg === 1 ? 0 : 1 })
       }
     }
   }
@@ -202,12 +204,12 @@ PrefsPage {
         from: 10
         to: 80
         stepSize: 1
-        value: Omarchy.hyprRepeatRate
-        valueText: Omarchy.hyprRepeatRate + "/s"
+        value: Omarchy.hyprInput.repeatRate
+        valueText: Omarchy.hyprInput.repeatRate + "/s"
         onChanged: function(value) {
           var next = Math.round(value)
-          if (next !== Omarchy.hyprRepeatRate)
-            Omarchy.setHyprRepeatRate(next)
+          if (next !== Omarchy.hyprInput.repeatRate)
+            Omarchy.writeHyprInput({ repeatRate: next })
         }
       }
     }
@@ -225,12 +227,12 @@ PrefsPage {
         from: 150
         to: 600
         stepSize: 10
-        value: Omarchy.hyprRepeatDelay
-        valueText: Omarchy.hyprRepeatDelay + " ms"
+        value: Omarchy.hyprInput.repeatDelay
+        valueText: Omarchy.hyprInput.repeatDelay + " ms"
         onChanged: function(value) {
           var next = Math.round(value)
-          if (next !== Omarchy.hyprRepeatDelay)
-            Omarchy.setHyprRepeatDelay(next)
+          if (next !== Omarchy.hyprInput.repeatDelay)
+            Omarchy.writeHyprInput({ repeatDelay: next })
         }
       }
     }
@@ -243,8 +245,8 @@ PrefsPage {
       keywords: ["numlock", "keypad"]
 
       PrefsToggle {
-        checked: Omarchy.hyprNumlock
-        onToggled: Omarchy.setHyprNumlock(!Omarchy.hyprNumlock)
+        checked: Omarchy.hyprInput.numlock
+        onToggled: Omarchy.writeHyprInput({ numlock: !Omarchy.hyprInput.numlock })
       }
     }
 
@@ -277,7 +279,7 @@ PrefsPage {
       keywords: ["follow", "focus", "mouse"]
 
       PrefsSelect {
-        value: String(Omarchy.hyprFollowMouse)
+        value: String(Omarchy.hyprInput.followMouse)
         options: [
           { value: "0", label: "Click to focus" },
           { value: "1", label: "Follow" },
@@ -286,8 +288,8 @@ PrefsPage {
         ]
         onChanged: function(value) {
           var next = Math.round(Number(value))
-          if (next !== Omarchy.hyprFollowMouse)
-            Omarchy.setHyprFollowMouse(next)
+          if (next !== Omarchy.hyprInput.followMouse)
+            Omarchy.writeHyprInput({ followMouse: next })
         }
       }
     }
@@ -300,8 +302,8 @@ PrefsPage {
       keywords: ["dpms", "wake", "key"]
 
       PrefsToggle {
-        checked: Omarchy.hyprKeyPressDpms
-        onToggled: Omarchy.setHyprKeyPressDpms(!Omarchy.hyprKeyPressDpms)
+        checked: Omarchy.hyprInput.keyPressDpms
+        onToggled: Omarchy.writeHyprInput({ keyPressDpms: !Omarchy.hyprInput.keyPressDpms })
       }
     }
 
@@ -313,8 +315,8 @@ PrefsPage {
       keywords: ["dpms", "wake", "mouse"]
 
       PrefsToggle {
-        checked: Omarchy.hyprMouseMoveDpms
-        onToggled: Omarchy.setHyprMouseMoveDpms(!Omarchy.hyprMouseMoveDpms)
+        checked: Omarchy.hyprInput.mouseMoveDpms
+        onToggled: Omarchy.writeHyprInput({ mouseMoveDpms: !Omarchy.hyprInput.mouseMoveDpms })
       }
     }
 
@@ -400,12 +402,12 @@ PrefsPage {
       keywords: ["grp", "alts", "switch", "layout"]
 
       PrefsToggle {
-        checked: Omarchy.hyprKbGroupToggle
+        checked: Omarchy.hyprInput.kbGroupToggle
         onToggled: {
           if (root.kbOverrideValid)
-            Omarchy.setHyprKbOverride(root.kbLayoutParsed, root.kbVariantParsed, !Omarchy.hyprKbGroupToggle)
+            Omarchy.setHyprKbOverride(root.kbLayoutParsed, root.kbVariantParsed, Omarchy.hyprInput.kbGroupToggle !== true)
           else
-            Omarchy.setHyprKbOverride(Omarchy.hyprKbLayout, Omarchy.hyprKbVariant, !Omarchy.hyprKbGroupToggle)
+            Omarchy.setHyprKbOverride(Omarchy.hyprInput.kbLayoutOverride, Omarchy.hyprInput.kbVariantOverride, Omarchy.hyprInput.kbGroupToggle !== true)
         }
       }
     }

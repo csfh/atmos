@@ -14,8 +14,8 @@ PrefsPage {
   function currentOn(tweak) {
     if (!tweak) return false
     if (tweak.kind === "hypr-input") {
-      if (tweak.id === "accelFlat") return Omarchy.hyprAccelProfile === "flat"
-      if (tweak.id === "naturalScroll") return Omarchy.hyprNaturalScroll === true
+      if (tweak.id === "accelFlat") return Omarchy.hyprInput.accelProfile === "flat"
+      if (tweak.id === "naturalScroll") return Omarchy.hyprInput.naturalScroll === true
     }
     var tweaks = Omarchy.tweaks && typeof Omarchy.tweaks === "object" ? Omarchy.tweaks : {}
     if (tweak.id === "middlePaste") return tweaks.middlePaste === true
@@ -28,8 +28,8 @@ PrefsPage {
   function setTweak(tweak, on) {
     if (!tweak) return
     if (tweak.kind === "hypr-input") {
-      if (tweak.id === "accelFlat") Omarchy.setHyprAccelProfile(on ? "flat" : "")
-      else if (tweak.id === "naturalScroll") Omarchy.setHyprNaturalScroll(on)
+      if (tweak.id === "accelFlat") Omarchy.writeHyprInput({ accelProfile: on ? "flat" : "" })
+      else if (tweak.id === "naturalScroll") Omarchy.writeHyprInput({ naturalScroll: on })
       return
     }
     Omarchy.setTweak(tweak.id, on)

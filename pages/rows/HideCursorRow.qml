@@ -9,7 +9,7 @@ SettingRow {
   keywords: ["cursor", "pointer", "hide", "type"]
 
   PrefsToggle {
-    checked: Omarchy.hyprCursorHideOnKey
-    onToggled: Omarchy.setHyprCursorHideOnKey(!Omarchy.hyprCursorHideOnKey)
+    checked: Omarchy.hyprLook.cursorHideOnKey
+    onToggled: Omarchy.writeHyprLook({ cursorHideOnKey: !Omarchy.hyprLook.cursorHideOnKey })
   }
 }

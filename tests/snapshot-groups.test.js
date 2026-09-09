@@ -128,6 +128,34 @@ assertEqual(groups.normalizeGroup(""), "all", "normalizeGroup maps empty to all"
 assertEqual(groups.tag({ theme: "x" }, "look").group, "look", "tag sets group");
 assertEqual(groups.tag({ theme: "x" }, "look").theme, "x", "tag keeps payload keys");
 
+assertEqual(groups.groupForKey("theme"), "look", "groupForKey maps theme to look");
+assertEqual(groups.groupForKey("hyprLook.gapsIn"), "look", "groupForKey maps dotted look keys");
+assertEqual(groups.groupForKey("hyprInput"), "rest", "groupForKey maps hyprInput to rest");
+assertEqual(groups.groupForKey("hostname"), "system", "groupForKey maps hostname to system");
+assertEqual(groups.groupForKey("fullName"), "accounts", "groupForKey maps fullName to accounts");
+assertEqual(groups.groupForKey("dns"), "network", "groupForKey maps dns to network");
+assertEqual(groups.groupForKey("unknown"), "", "groupForKey returns empty for unknown keys");
+assertEqual(
+  groups.tagApply({ hyprLook: { gapsIn: 4 }, hyprLookManaged: true }).group,
+  "look",
+  "tagApply tags a look payload",
+);
+assertEqual(
+  groups.tagApply({ hyprInput: { sensitivity: 0 }, hyprInputManaged: true }).group,
+  "rest",
+  "tagApply tags an input payload rest",
+);
+assertEqual(
+  groups.tagApply({ theme: "x", browser: "y" }).group,
+  undefined,
+  "tagApply leaves mixed groups untagged",
+);
+const bagKeys = groups.copyableBagKeys();
+assert(bagKeys.indexOf("hyprLook") !== -1, "copyableBagKeys includes hyprLook");
+assert(bagKeys.indexOf("hyprGapsIn") === -1, "copyableBagKeys does not flatten gapsIn");
+assert(bagKeys.indexOf("hostname") === -1, "copyableBagKeys skips account keys");
+assert(bagKeys.indexOf("audioSink") !== -1, "copyableBagKeys includes derived audioSink");
+
 const paths = {
   userShellJson: "/u/shell.json",
   defaultShellJson: "/d/shell.json",

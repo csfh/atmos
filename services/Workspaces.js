@@ -190,6 +190,41 @@ function defaultOptions(items) {
   return out;
 }
 
+function cloneBarId(user) {
+  var name = String(user || "").replace(/^\s+|\s+$/g, "");
+  if (!name) return "";
+  return name + ".workspaces";
+}
+
+function barWidgetIds(shell) {
+  var bar = shell && shell.bar ? shell.bar : shell;
+  var layout = bar && bar.layout ? bar.layout : {};
+  var out = [];
+  var sections = ["left", "center", "right"];
+  var s, list, i, id, row;
+  for (s = 0; s < sections.length; s++) {
+    list = layout[sections[s]];
+    if (!Array.isArray(list)) continue;
+    for (i = 0; i < list.length; i++) {
+      row = list[i];
+      id = row && typeof row === "object" ? String(row.id || "") : String(row || "");
+      if (id) out.push(id);
+    }
+  }
+  return out;
+}
+
+function namedBarActive(shell, user) {
+  var want = cloneBarId(user);
+  if (!want) return false;
+  var ids = barWidgetIds(shell);
+  var i;
+  for (i = 0; i < ids.length; i++) {
+    if (ids[i] === want) return true;
+  }
+  return false;
+}
+
 function monitorOptions(monitors, current) {
   var out = [{ value: "", label: "Any" }];
   var seen = { "": true };
@@ -346,6 +381,9 @@ if (typeof module !== "undefined" && module.exports) {
     defaultId: defaultId,
     withDefault: withDefault,
     defaultOptions: defaultOptions,
+    cloneBarId: cloneBarId,
+    barWidgetIds: barWidgetIds,
+    namedBarActive: namedBarActive,
     monitorOptions: monitorOptions,
   };
 }

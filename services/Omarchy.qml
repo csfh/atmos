@@ -50,6 +50,7 @@ QtObject {
   readonly property string setHyprBindingsScript: shellDir + "/scripts/set-hypr-bindings.sh"
   readonly property string setHyprWindowsScript: shellDir + "/scripts/set-hypr-windows.sh"
   readonly property string setHyprWorkspacesScript: shellDir + "/scripts/set-hypr-workspaces.sh"
+  readonly property string setWorkspaceBarScript: shellDir + "/scripts/set-workspace-bar.sh"
   readonly property string setHyprMonitorsScript: shellDir + "/scripts/set-hypr-monitors.sh"
   readonly property string setEnvScript: shellDir + "/scripts/set-env.sh"
   readonly property string setTweaksScript: shellDir + "/scripts/set-tweaks.sh"
@@ -356,6 +357,7 @@ QtObject {
   property bool workspacesManaged: false
   property bool workspaceWrapSwitch: true
   property bool workspaceWheelSwitch: true
+  property bool workspaceBarNames: false
   property var monitorRules: []
   property bool monitorRulesManaged: false
   property var tweaks: ({})
@@ -525,6 +527,7 @@ QtObject {
         windows: setHyprWindowsScript,
         autostart: setHyprAutostartScript,
         workspaces: setHyprWorkspacesScript,
+        workspaceBar: setWorkspaceBarScript,
         monitors: setHyprMonitorsScript,
         env: setEnvScript,
         tweaks: setTweaksScript,

@@ -251,6 +251,7 @@ trayHidden
 trayPinned
 trayPresent
 weatherPresent
+workspaceBarNames
 workspaceWheelSwitch
 workspaceWrapSwitch
 workspaces
@@ -481,6 +482,7 @@ wifiIface
 wifiRadio
 windowRules
 windowRulesManaged
+workspaceBarNames
 workspaceWheelSwitch
 workspaceWrapSwitch
 workspaces
@@ -574,6 +576,36 @@ JSON
   echo "ok - set-bar-widget.sh writes JSON array widget settings"
 else
   echo "ok - skipping set-bar-widget.sh (omarchy-shell-config/jq not available)"
+fi
+
+if [[ -x scripts/set-workspace-bar.sh ]] && command -v omarchy-shell-config >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
+  bar_home=$(mktemp -d)
+  mkdir -p "$bar_home/.config/omarchy"
+  cat >"$bar_home/.config/omarchy/shell.json" <<'JSON'
+{
+  "version": 1,
+  "bar": {
+    "layout": {
+      "left": [{ "id": "omarchy.menu" }, { "id": "omarchy.workspaces" }],
+      "center": [],
+      "right": []
+    }
+  },
+  "plugins": []
+}
+JSON
+  USER=tester HOME="$bar_home" OMARCHY_PATH="${OMARCHY_PATH:-/usr/share/omarchy}" \
+    bash scripts/set-workspace-bar.sh on
+  jq -e '.bar.layout.left[1].id == "tester.workspaces"' "$bar_home/.config/omarchy/shell.json" >/dev/null
+  [[ -f $bar_home/.config/omarchy/plugins/tester.workspaces/Workspaces.qml ]]
+  grep -q 'atmos:workspace-labels' "$bar_home/.config/omarchy/plugins/tester.workspaces/Workspaces.qml"
+  USER=tester HOME="$bar_home" OMARCHY_PATH="${OMARCHY_PATH:-/usr/share/omarchy}" \
+    bash scripts/set-workspace-bar.sh off
+  jq -e '.bar.layout.left[1].id == "omarchy.workspaces"' "$bar_home/.config/omarchy/shell.json" >/dev/null
+  rm -rf "$bar_home"
+  echo "ok - set-workspace-bar.sh swaps the named workspace widget on and off"
+else
+  echo "ok - skipping set-workspace-bar.sh (omarchy-shell-config/jq not available)"
 fi
 
 if [[ -x scripts/set-wifi-connection.sh ]]; then

@@ -802,6 +802,20 @@ assert(
   wsCmd && wsCmd.argv && wsCmd.argv.join(" ").indexOf("set-hypr-workspaces.sh") !== -1,
   "workspaces uses the sentinel writer",
 );
+const barNamesCmd = settings.commandFor("workspaceBarNames", true, {}, {});
+assert(
+  barNamesCmd &&
+    barNamesCmd.argv &&
+    barNamesCmd.argv.join(" ").indexOf("set-workspace-bar.sh") !== -1 &&
+    barNamesCmd.argv[barNamesCmd.argv.length - 1] === "on",
+  "workspaceBarNames turns the named bar clone on",
+);
+const barNamesOff = settings.commandFor("workspaceBarNames", false, {}, {});
+assertEqual(
+  barNamesOff && barNamesOff.argv && barNamesOff.argv[barNamesOff.argv.length - 1],
+  "off",
+  "workspaceBarNames turns the named bar clone off",
+);
 const shrinkItems = [
   { id: "1", name: "code", persistent: true },
   { id: "2", persistent: true },

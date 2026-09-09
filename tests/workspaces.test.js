@@ -143,6 +143,41 @@ assert(
   wsSh.indexOf("hl.dsp.workspace.rename") !== -1,
   "set-hypr-workspaces.sh renames live numbered workspaces so the bar shows the name",
 );
+assert(
+  wsSh.indexOf("omarchy plugin clone") === -1,
+  "set-hypr-workspaces.sh does not swap the bar widget",
+);
+const barSh = fs.readFileSync(
+  path.join(__dirname, "..", "scripts", "set-workspace-bar.sh"),
+  "utf8",
+);
+assert(
+  barSh.indexOf("clonedFrom") !== -1 && barSh.indexOf("retarget") !== -1,
+  "set-workspace-bar.sh installs and swaps the named workspace widget",
+);
+const barQml = fs.readFileSync(
+  path.join(__dirname, "..", "scripts", "workspace-bar", "Workspaces.qml"),
+  "utf8",
+);
+assert(
+  barQml.indexOf("workspace.name") !== -1 && barQml.indexOf("atmos:workspace-labels") !== -1,
+  "workspace bar widget paints Hyprland workspace.name",
+);
+assertEqual(ws.cloneBarId("hallas"), "hallas.workspaces", "cloneBarId prefixes the login");
+assertEqual(
+  ws.namedBarActive({ bar: { layout: { left: [{ id: "omarchy.workspaces" }] } } }, "hallas"),
+  false,
+  "namedBarActive is off for the stock widget",
+);
+assertEqual(
+  ws.namedBarActive({ bar: { layout: { left: [{ id: "hallas.workspaces" }] } } }, "hallas"),
+  true,
+  "namedBarActive is on for the clone",
+);
+assert(
+  pageSrc.indexOf('label: "Show names in the bar"') !== -1,
+  "Workspaces page has a toggle for the named bar widget",
+);
 const omarchySrc = fs.readFileSync(path.join(__dirname, "..", "services", "Omarchy.qml"), "utf8");
 const writeWs = omarchySrc.slice(
   omarchySrc.indexOf("function writeWorkspaces("),

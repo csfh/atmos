@@ -145,6 +145,21 @@ PrefsPage {
     }
 
     SettingRow {
+      label: "Show names in the bar"
+      description: "Omarchy's stock widget paints numbers. This clone paints the names you set below."
+      hint: "~/.config/omarchy/plugins"
+      query: root.query
+      keywords: ["bar", "name", "plugin", "clone", "label"]
+
+      PrefsToggle {
+        checked: Omarchy.workspaceBarNames
+        onToggled: function(next) {
+          Omarchy.dispatchSetting("workspaceBarNames", next)
+        }
+      }
+    }
+
+    SettingRow {
       label: "Open on login"
       description: "Which numbered workspace Hyprland focuses after you log in."
       hint: "hl.workspace_rule · default"
@@ -166,7 +181,7 @@ PrefsPage {
   PrefsGroup {
     title: "Names and monitors"
     query: root.query
-    detail: "A name is what the bar shows instead of the number. A monitor pins that workspace to one output. Leave either blank."
+    detail: "A name is stored on the Hyprland workspace. Turn on Show names in the bar to paint it on the strip. A monitor pins that workspace to one output. Leave either blank."
 
     Repeater {
       model: root.numbered

@@ -95,7 +95,7 @@ function hubs() {
       icon: "layout-masonry-line",
       file: "WorkspacesPage.qml",
       keywords: keywordList(
-        "workspace named persistent monitor scratch special wrap wheel switch default login",
+        "workspace named persistent monitor scratch special wrap wheel switch default login bar plugin clone",
         ["workspace"],
       ),
       children: [],

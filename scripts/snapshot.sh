@@ -133,6 +133,7 @@ fill_look_surface() {
   is_laptop=false
   battery_present=false
   weather_present=false
+  workspace_bar_names=false
   dnd=false
   reminder_count=0
   reminder_active=false
@@ -247,6 +248,14 @@ fill_look_surface() {
         | map(select(type == "string" and length > 0))
       ' <<<"$tray_json")
       [[ -n $tray_pinned_json ]] || tray_pinned_json='[]'
+    fi
+    if jq -e --arg id "${USER:-$(id -un)}.workspaces" '
+      [.bar.layout.left // [], .bar.layout.center // [], .bar.layout.right // []]
+      | add
+      | map(if type == "object" then .id else . end)
+      | index($id) != null
+    ' "$shell_file" >/dev/null 2>&1; then
+      workspace_bar_names=true
     fi
     if jq -e '[.bar.layout.left // [], .bar.layout.center // [], .bar.layout.right // []] | add | map(select(.id == "omarchy.weather")) | length > 0' "$shell_file" >/dev/null 2>&1; then
       weather_present=true
@@ -681,6 +690,7 @@ emit_look_snapshot() {
     --argjson workspacesManaged "$workspaces_managed" \
     --argjson workspaceWrapSwitch "$workspace_wrap" \
     --argjson workspaceWheelSwitch "$workspace_wheel" \
+    --argjson workspaceBarNames "$workspace_bar_names" \
     --argjson monitorRules "$monitor_rules_json" \
     --argjson monitorRulesManaged "$monitor_rules_managed" \
     --argjson reminderCount "$reminder_count" \
@@ -741,6 +751,7 @@ emit_look_snapshot() {
       workspacesManaged: $workspacesManaged,
       workspaceWrapSwitch: $workspaceWrapSwitch,
       workspaceWheelSwitch: $workspaceWheelSwitch,
+      workspaceBarNames: $workspaceBarNames,
       monitorRules: $monitorRules,
       monitorRulesManaged: $monitorRulesManaged,
       monitors: $monitors,
@@ -1746,6 +1757,16 @@ if [[ -f $shell_file ]]; then
       clock_life_expectancy=0
     fi
   fi
+fi
+
+workspace_bar_names=false
+if [[ -f $shell_file ]] && jq -e --arg id "${USER:-$(id -un)}.workspaces" '
+  [.bar.layout.left // [], .bar.layout.center // [], .bar.layout.right // []]
+  | add
+  | map(if type == "object" then .id else . end)
+  | index($id) != null
+' "$shell_file" >/dev/null 2>&1; then
+  workspace_bar_names=true
 fi
 
 indicators_present=false
@@ -2886,6 +2907,7 @@ snapshot_json=$(jq -n \
   --argjson workspacesManaged "$workspaces_managed" \
   --argjson workspaceWrapSwitch "$workspace_wrap" \
   --argjson workspaceWheelSwitch "$workspace_wheel" \
+  --argjson workspaceBarNames "$workspace_bar_names" \
   --argjson monitorRules "$monitor_rules_json" \
   --argjson monitorRulesManaged "$monitor_rules_managed" \
   --argjson tweaks "$tweaks_json" \
@@ -3091,6 +3113,7 @@ snapshot_json=$(jq -n \
     workspacesManaged: $workspacesManaged,
     workspaceWrapSwitch: $workspaceWrapSwitch,
     workspaceWheelSwitch: $workspaceWheelSwitch,
+    workspaceBarNames: $workspaceBarNames,
     monitorRules: $monitorRules,
     monitorRulesManaged: $monitorRulesManaged,
     fingerprintAvailable: $fingerprintAvailable,

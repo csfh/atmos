@@ -466,6 +466,10 @@ function settingsCatalog() {
       type: "boolean",
       consequence: "Super and the mouse wheel move between workspaces.",
     }),
+    entry("workspaceBarNames", "workspaces", "Named workspace bar", "behavior", {
+      type: "boolean",
+      consequence: "The bar paints workspace names instead of numbers.",
+    }),
     listEntry("monitorRules", "Displays", {
       hostBound: true,
       consequence: "Monitor modes, scale, and layout are replaced.",
@@ -2048,6 +2052,7 @@ var SCRIPT_FILES = {
   windows: "set-hypr-windows.sh",
   autostart: "set-hypr-autostart.sh",
   workspaces: "set-hypr-workspaces.sh",
+  workspaceBar: "set-workspace-bar.sh",
   monitors: "set-hypr-monitors.sh",
   env: "set-env.sh",
   tweaks: "set-tweaks.sh",
@@ -2270,6 +2275,12 @@ function writers() {
       field: "wheelSwitch",
       script: "workspaces",
       backup: "workspaces",
+    },
+    workspaceBarNames: {
+      kind: "script",
+      script: "workspaceBar",
+      bool: "on-off",
+      backup: "clock",
     },
     monitorRules: { kind: "list-stdin", script: "monitors", backup: "monitorRules" },
     envVars: {

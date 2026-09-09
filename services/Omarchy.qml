@@ -1613,6 +1613,7 @@ QtObject {
       workspaceWrapSwitch: wrapOn,
       workspaceWheelSwitch: wheelOn
     })
+    workspaces = list
     workspaceWrapSwitch = wrapOn
     workspaceWheelSwitch = wheelOn
     dispatchSetting("workspaces", list)

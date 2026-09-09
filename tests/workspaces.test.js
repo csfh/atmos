@@ -131,6 +131,23 @@ assert(
   lua.indexOf("hyprctl dispatch workspace") === -1,
   "serialize does not spawn hyprctl per wheel tick",
 );
+const wsSh = fs.readFileSync(
+  path.join(__dirname, "..", "scripts", "set-hypr-workspaces.sh"),
+  "utf8",
+);
+assert(
+  wsSh.indexOf("hl.dsp.workspace.rename") !== -1,
+  "set-hypr-workspaces.sh renames live numbered workspaces so the bar shows the name",
+);
+const omarchySrc = fs.readFileSync(path.join(__dirname, "..", "services", "Omarchy.qml"), "utf8");
+const writeWs = omarchySrc.slice(
+  omarchySrc.indexOf("function writeWorkspaces("),
+  omarchySrc.indexOf("function writeMonitorRules("),
+);
+assert(
+  /workspaces = list/.test(writeWs),
+  "writeWorkspaces assigns the list onto the bag so the hub updates before the write returns",
+);
 assert(
   noWrap.indexOf('hl.unbind("SUPER + mouse_down")') !== -1,
   "serialize unbinds Super+wheel when wheel is off",

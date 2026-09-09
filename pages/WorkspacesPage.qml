@@ -224,15 +224,22 @@ PrefsPage {
       Row {
         spacing: Theme.space
         PrefsField {
+          id: specialNameField
           width: 160
           placeholder: "notes"
           onEdited: function(value) { root.specialDraft = value }
-          onSubmitted: function() { root.addSpecial() }
+          onSubmitted: function() {
+            root.specialDraft = specialNameField.currentText()
+            root.addSpecial()
+          }
         }
         PrefsButton {
           text: "Add"
           primary: true
-          onClicked: root.addSpecial()
+          onClicked: {
+            root.specialDraft = specialNameField.currentText()
+            root.addSpecial()
+          }
         }
       }
     }

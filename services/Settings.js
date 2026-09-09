@@ -546,7 +546,6 @@ function entry(key, section, label, tier, opts) {
     extraConfirm: o.extraConfirm === true,
     consequence: String(o.consequence || ""),
     importable: tier !== "system",
-    writer: String(o.writer || writerKindFor(key)),
   };
 }
 
@@ -2095,89 +2094,78 @@ var activeCommandOpts = {};
 function writers() {
   if (WRITERS) return WRITERS;
   WRITERS = {
-    theme: omarchyArgv(["omarchy", "theme", "set"], "look"),
-    background: omarchyArgv(["omarchy", "theme", "bg", "set"], "look"),
-    font: omarchyArgv(["omarchy", "font", "set"], "look"),
-    textSize: omarchyArgv(["omarchy", "display", "text", "size"], "look"),
+    theme: omarchyArgv(["omarchy", "theme", "set"]),
+    background: omarchyArgv(["omarchy", "theme", "bg", "set"]),
+    font: omarchyArgv(["omarchy", "font", "set"]),
+    textSize: omarchyArgv(["omarchy", "display", "text", "size"]),
     hyprNoGaps: {
       kind: "hypr-toggle",
       prefix: ["omarchy", "hyprland", "toggle", "window-no-gaps"],
-      snapshotGroup: "look",
     },
     hyprSquareAspect: {
       kind: "hypr-toggle",
       prefix: ["omarchy", "hyprland", "toggle", "single-window-aspect-ratio"],
-      snapshotGroup: "look",
     },
-    barPosition: omarchyArgv(["omarchy", "bar", "position"], "look"),
-    barTransparent: omarchyArgv(["omarchy", "bar", "transparent"], "look", "true-false"),
+    barPosition: omarchyArgv(["omarchy", "bar", "position"]),
+    barTransparent: omarchyArgv(["omarchy", "bar", "transparent"], "true-false"),
     barVisible: {
       kind: "toggle-inverted",
       prefix: ["omarchy", "toggle", "bar"],
       invert: true,
-      snapshotGroup: "look",
     },
-    clockFormat: { kind: "clock-format", base: "format", snapshotGroup: "look", backup: "clock" },
+    clockFormat: { kind: "clock-format", base: "format", backup: "clock" },
     clockFormatAlt: {
       kind: "clock-format",
       base: "formatAlt",
-      snapshotGroup: "look",
       backup: "clock",
     },
-    browser: omarchyArgv(["omarchy", "default", "browser"], ""),
-    terminal: omarchyArgv(["omarchy", "default", "terminal"], ""),
-    editor: omarchyArgv(["omarchy", "default", "editor"], ""),
-    agent: omarchyArgv(["omarchy", "default", "agent"], ""),
+    browser: omarchyArgv(["omarchy", "default", "browser"]),
+    terminal: omarchyArgv(["omarchy", "default", "terminal"]),
+    editor: omarchyArgv(["omarchy", "default", "editor"]),
+    agent: omarchyArgv(["omarchy", "default", "agent"]),
     mimePdf: { kind: "script", script: "mime", args: ["pdf"] },
     mimeImage: { kind: "script", script: "mime", args: ["image"] },
     mimeVideo: { kind: "script", script: "mime", args: ["video"] },
-    idleScreensaver: { kind: "idle-pair", snapshotGroup: "look" },
-    idleLock: { kind: "idle-pair", snapshotGroup: "look" },
-    stayAwake: { kind: "toggle-named", snapshotGroup: "look" },
+    idleScreensaver: { kind: "idle-pair" },
+    idleLock: { kind: "idle-pair" },
+    stayAwake: { kind: "toggle-named" },
     screensaverEnabled: {
       kind: "toggle-inverted",
       prefix: ["omarchy", "toggle", "screensaver-off"],
       invert: true,
-      snapshotGroup: "look",
     },
     doNotDisturb: {
       kind: "toggle-flip",
       prefix: ["omarchy", "toggle", "notification", "silencing"],
-      snapshotGroup: "look",
     },
     nightlight: {
       kind: "toggle-flip",
       prefix: ["omarchy", "toggle", "nightlight"],
-      snapshotGroup: "look",
     },
     nightlightTemperature: {
       kind: "nightlight-temp",
-      snapshotGroup: "look",
       backup: "nightlightTemp",
     },
     nightlightDay: {
       kind: "nightlight-schedule",
-      snapshotGroup: "look",
       backup: "nightlightSchedule",
     },
     nightlightNight: {
       kind: "nightlight-schedule",
-      snapshotGroup: "look",
       backup: "nightlightSchedule",
     },
     nightlightNightOn: {
       kind: "nightlight-schedule",
-      snapshotGroup: "look",
       backup: "nightlightSchedule",
     },
-    hostname: { kind: "script", script: "hostname", snapshotGroup: "system" },
-    timezone: { kind: "script", script: "timezone", snapshotGroup: "system" },
-    locale: { kind: "script", script: "locale", snapshotGroup: "system" },
-    keyboardLayout: { kind: "script", script: "keyboard", snapshotGroup: "system" },
-    ntp: { kind: "script", script: "ntp", bool: "true-false", snapshotGroup: "system" },
-    fullName: { kind: "script", script: "fullName", snapshotGroup: "accounts" },
-    parallelDownloads: { kind: "script", script: "parallelDownloads", snapshotGroup: "system" },
-    dns: omarchyArgv(["omarchy", "dns"], "network"),
+    hostname: { kind: "script", script: "hostname" },
+    timezone: { kind: "script", script: "timezone" },
+    locale: { kind: "script", script: "locale" },
+    keyboardLayout: { kind: "script", script: "keyboard" },
+    ntp: { kind: "script", script: "ntp", bool: "true-false" },
+    fullName: { kind: "script", script: "fullName" },
+    parallelDownloads: { kind: "script", script: "parallelDownloads" },
+    dns: omarchyArgv(["omarchy", "dns"]),
     audioOutputVolume: { kind: "script", script: "audio", args: ["output-volume"] },
     audioInputVolume: { kind: "script", script: "audio", args: ["input-volume"] },
     audioOutputMuted: {
@@ -2185,51 +2173,41 @@ function writers() {
       prefix: ["omarchy", "audio", "output", "volume", "mute-toggle"],
     },
     audioInputMuted: { kind: "mute-deferred", prefix: ["omarchy", "audio", "input", "mute"] },
-    audioTuningOn: omarchyArgv(["omarchy", "audio", "tuning"], "", "on-off"),
-    powerProfile: omarchyArgv(["omarchy", "powerprofiles", "set", "autodetect"], ""),
-    powerProfileAc: omarchyArgv(["omarchy", "powerprofiles", "set", "ac"], ""),
-    powerProfileBattery: omarchyArgv(["omarchy", "powerprofiles", "set", "battery"], ""),
+    audioTuningOn: omarchyArgv(["omarchy", "audio", "tuning"], "on-off"),
+    powerProfile: omarchyArgv(["omarchy", "powerprofiles", "set", "autodetect"]),
+    powerProfileAc: omarchyArgv(["omarchy", "powerprofiles", "set", "ac"]),
+    powerProfileBattery: omarchyArgv(["omarchy", "powerprofiles", "set", "battery"]),
     suspendEnabled: {
       kind: "toggle-inverted",
       prefix: ["omarchy", "toggle", "suspend-off"],
       invert: true,
-      snapshotGroup: "look",
     },
     crashCapture: {
       kind: "toggle-flip",
       prefix: ["omarchy", "toggle", "crash", "capture"],
-      snapshotGroup: "system",
     },
-    clockWeekStart: barSet(["omarchy", "bar", "set", "omarchy.clock", "weekStartDay"], "look"),
-    clockBirthYear: barSet(["omarchy", "bar", "set", "omarchy.clock", "birthYear"], "look", true),
-    clockLifeExpectancy: barSet(
-      ["omarchy", "bar", "set", "omarchy.clock", "lifeExpectancy"],
-      "look",
-      true,
-    ),
+    clockWeekStart: barSet(["omarchy", "bar", "set", "omarchy.clock", "weekStartDay"]),
+    clockBirthYear: barSet(["omarchy", "bar", "set", "omarchy.clock", "birthYear"], true),
+    clockLifeExpectancy: barSet(["omarchy", "bar", "set", "omarchy.clock", "lifeExpectancy"], true),
     indicatorsAlwaysShow: barSet(
       ["omarchy", "bar", "set", "omarchy.indicators", "alwaysShow"],
-      "look",
       true,
       "true-false",
     ),
     powerShowPercentage: barSet(
       ["omarchy", "bar", "set", "omarchy.power", "showPercentage"],
-      "look",
       true,
       "true-false",
     ),
-    spacerSize: barSet(["omarchy", "bar", "set", "omarchy.spacer", "size"], "look", true),
+    spacerSize: barSet(["omarchy", "bar", "set", "omarchy.spacer", "size"], true),
     weatherLocation: { kind: "weather-location" },
-    weatherUnit: barSet(["omarchy", "bar", "set", "omarchy.weather", "unit"], ""),
+    weatherUnit: barSet(["omarchy", "bar", "set", "omarchy.weather", "unit"]),
     weatherRefreshMinutes: barSet(
       ["omarchy", "bar", "set", "omarchy.weather", "refreshMinutes"],
-      "",
       true,
     ),
     agentsRefreshIntervalSec: barSet(
       ["omarchy", "bar", "set", "omarchy.agents", "refreshIntervalSec"],
-      "look",
       true,
     ),
     agentsSync: {
@@ -2237,53 +2215,45 @@ function writers() {
       argv: ["omarchy", "bar", "set", "omarchy.agents", "syncMode"],
       syncMode: true,
       backup: "clock",
-      snapshotGroup: "look",
     },
-    agentsSyncDir: barSet(["omarchy", "bar", "set", "omarchy.agents", "syncDir"], "look"),
-    agentsSyncFileName: barSet(["omarchy", "bar", "set", "omarchy.agents", "syncFileName"], "look"),
-    agentsSyncDeviceId: barSet(["omarchy", "bar", "set", "omarchy.agents", "syncDeviceId"], "look"),
+    agentsSyncDir: barSet(["omarchy", "bar", "set", "omarchy.agents", "syncDir"]),
+    agentsSyncFileName: barSet(["omarchy", "bar", "set", "omarchy.agents", "syncFileName"]),
+    agentsSyncDeviceId: barSet(["omarchy", "bar", "set", "omarchy.agents", "syncDeviceId"]),
     indicatorsItems: {
       kind: "bar-widget",
       id: "omarchy.indicators",
       field: "items",
       backup: "clock",
-      snapshotGroup: "look",
     },
     trayHidden: {
       kind: "bar-widget",
       id: "omarchy.tray",
       field: "hidden",
       backup: "clock",
-      snapshotGroup: "look",
     },
     trayPinned: {
       kind: "bar-widget",
       id: "omarchy.tray",
       field: "pinned",
       backup: "clock",
-      snapshotGroup: "look",
     },
-    plymouth: omarchyArgv(["omarchy", "plymouth", "set", "by", "theme"], "look"),
+    plymouth: omarchyArgv(["omarchy", "plymouth", "set", "by", "theme"]),
     touchpadEnabled: {
       kind: "toggle-inverted",
       prefix: ["omarchy", "toggle", "touchpad"],
-      snapshotGroup: "look",
     },
     touchscreenEnabled: {
       kind: "toggle-inverted",
       prefix: ["omarchy", "toggle", "touchscreen"],
-      snapshotGroup: "look",
     },
     bluetooth: {
       kind: "toggle-inverted",
       prefix: ["omarchy", "bluetooth", "power"],
-      snapshotGroup: "network",
     },
     wifiRadio: {
       kind: "toggle-inverted",
       script: "wifiRadio",
       args: ["radio"],
-      snapshotGroup: "network",
     },
     bindings: { kind: "list-stdin", script: "bindings", backup: "bindings" },
     windowRules: { kind: "list-stdin", script: "windows", backup: "windowRules" },
@@ -2293,14 +2263,12 @@ function writers() {
       kind: "workspaces-meta",
       field: "wrapSwitch",
       script: "workspaces",
-      snapshotGroup: "look",
       backup: "workspaces",
     },
     workspaceWheelSwitch: {
       kind: "workspaces-meta",
       field: "wheelSwitch",
       script: "workspaces",
-      snapshotGroup: "look",
       backup: "workspaces",
     },
     monitorRules: { kind: "list-stdin", script: "monitors", backup: "monitorRules" },
@@ -2308,44 +2276,39 @@ function writers() {
       kind: "env-group",
       field: "vars",
       script: "env",
-      snapshotGroup: "system",
       backup: "envVars",
     },
     envPathPrepend: {
       kind: "env-group",
       field: "pathPrepend",
       script: "env",
-      snapshotGroup: "system",
       backup: "envVars",
     },
     presentationMode: {
       kind: "script",
       script: "presentation",
       bool: "on-off",
-      snapshotGroup: "look",
     },
-    chargeLimit: { kind: "script", script: "chargeLimit", snapshotGroup: "" },
+    chargeLimit: { kind: "script", script: "chargeLimit" },
   };
   return WRITERS;
 }
 
-function omarchyArgv(prefix, snapshotGroup, boolStyle) {
+function omarchyArgv(prefix, boolStyle) {
   return {
     kind: "omarchy-argv",
     prefix: prefix,
-    snapshotGroup: snapshotGroup || "",
     bool: boolStyle || "",
   };
 }
 
-function barSet(argv, snapshotGroup, jsonFlag, boolStyle) {
+function barSet(argv, jsonFlag, boolStyle) {
   return {
     kind: "bar-set",
     argv: argv,
     json: jsonFlag === true,
     bool: boolStyle || "",
     backup: "clock",
-    snapshotGroup: snapshotGroup || "",
   };
 }
 
@@ -2355,7 +2318,6 @@ function writerSpec(key) {
       kind: "hypr-group",
       group: "hyprLook",
       script: "look",
-      snapshotGroup: "look",
       backup: "hyprLook",
     };
   }
@@ -2364,7 +2326,6 @@ function writerSpec(key) {
       kind: "hypr-group",
       group: "hyprInput",
       script: "input",
-      snapshotGroup: "rest",
       backup: "hyprInput",
     };
   }
@@ -2373,16 +2334,10 @@ function writerSpec(key) {
       kind: "tweak",
       id: String(key).slice("tweaks.".length),
       script: "tweaks",
-      snapshotGroup: "rest",
       backup: "tweaks",
     };
   }
   return writers()[key] || null;
-}
-
-function writerKindFor(key) {
-  var spec = writerSpec(key);
-  return spec ? spec.kind : "";
 }
 
 function scriptPath(opts, name) {
@@ -2477,7 +2432,6 @@ function commandRecord(key, argv, spec, extra) {
     coalesceKey: extra.coalesceKey || "",
     apply: apply,
     backup: extra.backup || spec.backup || "",
-    snapshotGroup: extra.snapshotGroup || spec.snapshotGroup || "",
   };
 }
 
@@ -2680,7 +2634,6 @@ function commandFor(key, value, snapshot, opts) {
       mergeGroup: spec.group,
       coalesceKey: spec.group,
       backup: spec.backup,
-      snapshotGroup: spec.snapshotGroup,
       apply: applyHypr,
       sudo: sudo,
     });

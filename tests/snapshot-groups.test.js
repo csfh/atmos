@@ -1,18 +1,8 @@
 const { load, assert, assertEqual } = require("./harness");
 
 const groups = load("services/SnapshotGroups.js");
-assertEqual(
-  groups.snapshotGroupForHub("appearance"),
-  "look",
-  "unwired appearance hub still reads look",
-);
-assertEqual(groups.snapshotGroupForHub("idle"), "look", "unwired idle hub still reads look");
-assertEqual(
-  groups.snapshotGroupForHub("network"),
-  "network",
-  "unwired network hub still reads network",
-);
 const hubs = load("services/Hubs.js");
+assertEqual(groups.snapshotGroupForHub("appearance"), "all", "unwired hubs read all");
 groups.setSnapshotGroupForHub(hubs.snapshotGroupForHub);
 
 assertEqual(groups.snapshotGroupForHub("appearance"), "look", "appearance hub reads look first");

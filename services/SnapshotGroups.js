@@ -140,57 +140,30 @@ var SYSTEM_KEYS = Object.freeze([
   "envDetected",
 ]);
 
-var ALL_KEYS = Object.freeze([
-  "theme",
-  "background",
-  "font",
-  "textSize",
-  "themes",
-  "extraThemes",
+function uniqueKeys() {
+  var seen = {};
+  var out = [];
+  var a, i, k, list;
+  for (a = 0; a < arguments.length; a++) {
+    list = arguments[a] || [];
+    for (i = 0; i < list.length; i++) {
+      k = list[i];
+      if (seen[k]) continue;
+      seen[k] = true;
+      out.push(k);
+    }
+  }
+  return Object.freeze(out);
+}
+
+var REST_EXTRAS = Object.freeze([
   "desktopApps",
   "tuiApps",
   "webApps",
-  "fonts",
-  "barPosition",
-  "barTransparent",
-  "clockFormat",
-  "clockFormatAlt",
-  "clockWeekStart",
-  "clockPresent",
-  "clockBirthYear",
-  "clockLifeExpectancy",
   "browser",
   "terminal",
   "editor",
   "agent",
-  "dns",
-  "idleScreensaver",
-  "idleLock",
-  "stayAwake",
-  "nightlight",
-  "nightlightTemperature",
-  "screensaverEnabled",
-  "screensaverBranded",
-  "aboutBranded",
-  "barVisible",
-  "bluetooth",
-  "wifiConnected",
-  "wifiBand",
-  "wifiBandSelected",
-  "wifiBands",
-  "wifiIface",
-  "netKind",
-  "netIface",
-  "netSsid",
-  "netSignal",
-  "netIp",
-  "netGateway",
-  "netDnsServers",
-  "netSpeed",
-  "wifiHw",
-  "wifiRadio",
-  "wifiConnections",
-  "bluetoothDevices",
   "audioSinks",
   "audioSources",
   "audioOutputVolume",
@@ -199,58 +172,14 @@ var ALL_KEYS = Object.freeze([
   "audioInputMuted",
   "audioTuningMatch",
   "audioTuningOn",
-  "disks",
   "hardware",
-  "diagnostics",
-  "luksDevices",
-  "swapDevices",
-  "snapperPresent",
-  "snapperConfigs",
-  "snapshots",
-  "hibernationAvailable",
-  "hibernationSupported",
-  "hibernationConfigured",
-  "suspendEnabled",
-  "crashCapture",
-  "doNotDisturb",
   "weatherLocation",
   "weatherCoords",
   "weatherAuto",
-  "weatherPresent",
   "weatherUnit",
   "weatherRefreshMinutes",
-  "reminderCount",
-  "reminderActive",
-  "reminders",
-  "indicatorsPresent",
-  "indicatorsAlwaysShow",
-  "indicatorsItems",
-  "agentsPresent",
-  "agentsRefreshIntervalSec",
-  "agentsSync",
-  "agentsSyncDir",
-  "agentsSyncFileName",
-  "agentsSyncDeviceId",
-  "spacerPresent",
-  "spacerSize",
-  "trayPresent",
-  "trayHidden",
-  "trayPinned",
   "powerPresent",
   "powerShowPercentage",
-  "isLaptop",
-  "batteryPresent",
-  "monitors",
-  "internalPresent",
-  "internalEnabled",
-  "externalPresent",
-  "mirroring",
-  "touchpadPresent",
-  "touchpadEnabled",
-  "touchscreenPresent",
-  "touchscreenEnabled",
-  "keyboardBacklightPresent",
-  "keyboardBrightness",
   "powerProfile",
   "powerProfileAc",
   "powerProfileBattery",
@@ -259,45 +188,15 @@ var ALL_KEYS = Object.freeze([
   "amdPstate",
   "chargeLimit",
   "chargeLimitAvailable",
-  "presentationMode",
-  "plymouth",
-  "plymouthThemes",
   "hasAether",
   "browsers",
   "terminals",
   "editors",
-  "hostname",
-  "fullName",
-  "currentUser",
-  "avatarPath",
-  "users",
-  "groups",
-  "timezone",
-  "timezones",
-  "ntp",
-  "ntpAvailable",
-  "ntpSynchronized",
-  "locale",
-  "locales",
-  "parallelDownloads",
-  "keyboardLayout",
-  "keyboardLayouts",
-  "hyprLook",
   "hyprInput",
-  "hyprLookManaged",
   "hyprInputManaged",
   "hyprWorkspaceGesture",
   "hyprWorkspaceGestureManaged",
   "hyprWorkspaceGestureUnmanaged",
-  "hyprNoGaps",
-  "hyprSquareAspect",
-  "hyprWorkspaceLayout",
-  "workspaces",
-  "workspacesManaged",
-  "workspaceWrapSwitch",
-  "workspaceWheelSwitch",
-  "monitorRules",
-  "monitorRulesManaged",
   "fingerprintAvailable",
   "fingerprintConfigured",
   "fido2Configured",
@@ -333,12 +232,7 @@ var ALL_KEYS = Object.freeze([
   "cpuIdentity",
   "gpuIdentity",
   "npuIdentity",
-  "tailscaleInstalled",
-  "tailscaleRunning",
   "plugins",
-  "snapperNumberLimit",
-  "snapperTimeline",
-  "fstrimEnabled",
   "directBootAvailable",
   "directBoot",
   "mimePdf",
@@ -362,19 +256,21 @@ var ALL_KEYS = Object.freeze([
   "windowRules",
   "windowRulesManaged",
   "tweaks",
-  "envVars",
-  "envPathPrepend",
-  "envDetected",
   "systemdUnits",
   "keybindings",
   "focusedClass",
   "cupsActive",
   "printerSetup",
-  "nightlightDay",
-  "nightlightNight",
-  "nightlightNightOn",
-  "tailscalePeers",
 ]);
+
+var ALL_KEYS = uniqueKeys(
+  LOOK_KEYS,
+  NETWORK_KEYS,
+  DISKS_KEYS,
+  ACCOUNTS_KEYS,
+  SYSTEM_KEYS,
+  REST_EXTRAS,
+);
 
 var REST_DEL = {
   theme: true,
@@ -481,24 +377,6 @@ function setSnapshotGroupForHub(fn) {
 
 function snapshotGroupForHub(hub) {
   if (snapshotGroupForHubImpl) return snapshotGroupForHubImpl(hub);
-  // Unwired callers keep today's look-first policy until Hubs is installed.
-  var id = String(hub || "");
-  var slash = id.indexOf("/");
-  if (slash !== -1) id = id.substring(0, slash);
-  if (
-    !id ||
-    id === "appearance" ||
-    id === "display" ||
-    id === "windows" ||
-    id === "bar" ||
-    id === "notifications" ||
-    id === "idle"
-  )
-    return "look";
-  if (id === "network") return "network";
-  if (id === "disks") return "disks";
-  if (id === "accounts") return "accounts";
-  if (id === "system") return "system";
   return "all";
 }
 

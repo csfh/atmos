@@ -2745,6 +2745,10 @@ function commandFor(key, value, snapshot, opts) {
     var listApply = {};
     listApply[key] = mergeUnmanaged(snapshot[key], value, key);
     listApply[key + "Managed"] = true;
+    if (key === "workspaces") {
+      listApply.workspaceWrapSwitch = wrap !== false;
+      listApply.workspaceWheelSwitch = wheel !== false;
+    }
     return commandRecord(key, bashScript(opts, spec.script).concat([listJson]), spec, {
       stdin: listJson,
       coalesceKey: key,

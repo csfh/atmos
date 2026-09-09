@@ -304,29 +304,27 @@ function wrapBind(wrap, delta) {
   return wrap === false ? "r+1" : "e+1";
 }
 
+function focusWorkspaceBind(keys, label, target) {
+  return 'o.bind("' + keys + '", "' + label + '", hl.dsp.focus({ workspace = "' + target + '" }))';
+}
+
 function serializeSwitchBinds(s) {
   var wrapNext = wrapBind(s.wrapSwitch, 1);
   var wrapPrev = wrapBind(s.wrapSwitch, -1);
   var lines = [
     'hl.unbind("SUPER + TAB")',
     'hl.unbind("SUPER + SHIFT + TAB")',
-    'o.bind("SUPER + TAB", "Next workspace", "hyprctl dispatch workspace ' + wrapNext + '")',
-    'o.bind("SUPER + SHIFT + TAB", "Previous workspace", "hyprctl dispatch workspace ' +
-      wrapPrev +
-      '")',
+    focusWorkspaceBind("SUPER + TAB", "Next workspace", wrapNext),
+    focusWorkspaceBind("SUPER + SHIFT + TAB", "Previous workspace", wrapPrev),
     'hl.unbind("SUPER + mouse_down")',
     'hl.unbind("SUPER + mouse_up")',
   ];
   if (s.wheelSwitch !== false) {
     lines.push(
-      'o.bind("SUPER + mouse_down", "Scroll active workspace forward", "hyprctl dispatch workspace ' +
-        wrapNext +
-        '")',
+      focusWorkspaceBind("SUPER + mouse_down", "Scroll active workspace forward", wrapNext),
     );
     lines.push(
-      'o.bind("SUPER + mouse_up", "Scroll active workspace backward", "hyprctl dispatch workspace ' +
-        wrapPrev +
-        '")',
+      focusWorkspaceBind("SUPER + mouse_up", "Scroll active workspace backward", wrapPrev),
     );
   }
   return lines;

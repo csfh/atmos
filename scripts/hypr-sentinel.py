@@ -1174,18 +1174,20 @@ def serialize_workspaces(raw: dict) -> str:
         lines.append("hl.workspace_rule({ " + ", ".join(parts) + " })")
     lines.append('hl.unbind("SUPER + TAB")')
     lines.append('hl.unbind("SUPER + SHIFT + TAB")')
-    lines.append(f'o.bind("SUPER + TAB", "Next workspace", "hyprctl dispatch workspace {wrap_next}")')
     lines.append(
-        f'o.bind("SUPER + SHIFT + TAB", "Previous workspace", "hyprctl dispatch workspace {wrap_prev}")'
+        f'o.bind("SUPER + TAB", "Next workspace", hl.dsp.focus({{ workspace = "{wrap_next}" }}))'
+    )
+    lines.append(
+        f'o.bind("SUPER + SHIFT + TAB", "Previous workspace", hl.dsp.focus({{ workspace = "{wrap_prev}" }}))'
     )
     lines.append('hl.unbind("SUPER + mouse_down")')
     lines.append('hl.unbind("SUPER + mouse_up")')
     if wheel:
         lines.append(
-            f'o.bind("SUPER + mouse_down", "Scroll active workspace forward", "hyprctl dispatch workspace {wrap_next}")'
+            f'o.bind("SUPER + mouse_down", "Scroll active workspace forward", hl.dsp.focus({{ workspace = "{wrap_next}" }}))'
         )
         lines.append(
-            f'o.bind("SUPER + mouse_up", "Scroll active workspace backward", "hyprctl dispatch workspace {wrap_prev}")'
+            f'o.bind("SUPER + mouse_up", "Scroll active workspace backward", hl.dsp.focus({{ workspace = "{wrap_prev}" }}))'
         )
     lines.append(WORKSPACES_END)
     return "\n".join(lines)

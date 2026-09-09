@@ -119,8 +119,17 @@ const noWrap = ws.serialize({
 assert(noWrap.indexOf("-- atmos:wrapSwitch = false") !== -1, "serialize writes wrapSwitch false");
 assert(noWrap.indexOf("-- atmos:wheelSwitch = false") !== -1, "serialize writes wheelSwitch false");
 assert(
-  noWrap.indexOf("hyprctl dispatch workspace r+1") !== -1,
+  noWrap.indexOf('hl.dsp.focus({ workspace = "r+1" })') !== -1,
   "serialize uses r+1 when wrap is off",
+);
+assert(
+  lua.indexOf('hl.dsp.focus({ workspace = "e+1" })') !== -1 &&
+    lua.indexOf('o.bind("SUPER + mouse_down"') !== -1,
+  "serialize binds Super+wheel with hl.dsp.focus like Omarchy tiling.lua",
+);
+assert(
+  lua.indexOf("hyprctl dispatch workspace") === -1,
+  "serialize does not spawn hyprctl per wheel tick",
 );
 assert(
   noWrap.indexOf('hl.unbind("SUPER + mouse_down")') !== -1,

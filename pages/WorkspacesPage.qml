@@ -123,7 +123,9 @@ PrefsPage {
 
       PrefsToggle {
         checked: Omarchy.workspaceWrapSwitch
-        onToggled: Omarchy.writeWorkspaces(Omarchy.workspaces, !Omarchy.workspaceWrapSwitch, Omarchy.workspaceWheelSwitch)
+        onToggled: function(next) {
+          Omarchy.writeWorkspaces(Omarchy.workspaces, next, Omarchy.workspaceWheelSwitch)
+        }
       }
     }
 
@@ -136,7 +138,9 @@ PrefsPage {
 
       PrefsToggle {
         checked: Omarchy.workspaceWheelSwitch
-        onToggled: Omarchy.writeWorkspaces(Omarchy.workspaces, Omarchy.workspaceWrapSwitch, !Omarchy.workspaceWheelSwitch)
+        onToggled: function(next) {
+          Omarchy.writeWorkspaces(Omarchy.workspaces, Omarchy.workspaceWrapSwitch, next)
+        }
       }
     }
 

@@ -15,6 +15,8 @@ Item {
   property string valueText: ""
   property bool enabled: true
   property bool showValue: false
+  // When false, SettingRow does not repeat the number on the label line.
+  property bool showRowValue: true
   property bool showTicks: true
   property bool live: false
   property int liveInterval: 100
@@ -59,9 +61,10 @@ Item {
   opacity: Theme.controlOpacity(enabled)
 
   Accessible.role: Accessible.Slider
-  Accessible.name: displayValue
+  Accessible.name: root.showRowValue || root.showValue ? displayValue : root.formatValue(root.value)
 
   readonly property string displayValue: {
+    if (!root.showRowValue) return ""
     if (slider.pressed || root._holding)
       return root.captionFor(slider.value)
     if (root.valueText.length > 0) return root.valueText

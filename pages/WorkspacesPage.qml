@@ -106,7 +106,7 @@ PrefsPage {
         to: 10
         stepSize: 1
         value: root.numbered.length || 10
-        valueText: String(root.numbered.length || 10)
+        showRowValue: false
         onChanged: function(value) {
           var next = Math.round(value)
           if (next !== (root.numbered.length || 10)) root.setCount(next)

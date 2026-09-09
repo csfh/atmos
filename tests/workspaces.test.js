@@ -102,6 +102,10 @@ assertEqual(
 );
 
 const pageSrc = fs.readFileSync(path.join(__dirname, "..", "pages", "WorkspacesPage.qml"), "utf8");
+assert(
+  pageSrc.indexOf("showRowValue: false") !== -1,
+  "count slider does not repeat the number on the label line",
+);
 assert(pageSrc.indexOf('label: "Open on login"') !== -1, "Open on login is one select");
 assert(
   pageSrc.indexOf("Persistent while this list includes it") === -1,

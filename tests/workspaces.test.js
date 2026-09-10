@@ -155,6 +155,12 @@ assert(
   barSh.indexOf("clonedFrom") !== -1 && barSh.indexOf("retarget") !== -1,
   "set-workspace-bar.sh installs and swaps the named workspace widget",
 );
+assert(
+  barSh.indexOf("reloadConfig") === -1 &&
+    barSh.indexOf("rescanPlugins") === -1 &&
+    barSh.indexOf("omarchy plugin clone") === -1,
+  "set-workspace-bar.sh does not reload the shell",
+);
 const barQml = fs.readFileSync(
   path.join(__dirname, "..", "scripts", "workspace-bar", "Workspaces.qml"),
   "utf8",

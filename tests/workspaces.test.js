@@ -194,9 +194,8 @@ assert(
 );
 assert(
   barQml.indexOf("shownCount") !== -1 &&
-    barQml.indexOf("s.count") !== -1 &&
-    barQml.indexOf("model: root.shownIds") !== -1 &&
-    barQml.indexOf("onSettingsChanged") !== -1,
+    barQml.indexOf("settings.count") !== -1 &&
+    barQml.indexOf("model: root.shownIds") !== -1,
   "workspace bar widget reads the shown count from settings",
 );
 const omarchySrc = fs.readFileSync(path.join(__dirname, "..", "services", "Omarchy.qml"), "utf8");

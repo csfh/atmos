@@ -152,6 +152,7 @@ PrefsPage {
       PrefsToggle {
         checked: Omarchy.workspaceBarNames
         onToggled: function(next) {
+          Omarchy.workspaceBarNames = next
           Omarchy.dispatchSetting("workspaceBarNames", next)
         }
       }

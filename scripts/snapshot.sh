@@ -260,7 +260,7 @@ fill_look_surface() {
     if [[ -n $ws_bar_json ]]; then
       ws_bar_id=$(jq -r 'if type == "object" then .id else . end' <<<"$ws_bar_json")
       if [[ $ws_bar_id == "${USER:-$(id -un)}.workspaces" ]]; then
-        show_names=$(jq -r '.showNames // true' <<<"$ws_bar_json")
+        show_names=$(jq -r 'if .showNames == false then "false" else "true" end' <<<"$ws_bar_json")
         [[ $show_names == false ]] || workspace_bar_names=true
       fi
       workspace_bar_count=$(jq -r '.count // 5' <<<"$ws_bar_json")
@@ -1782,7 +1782,7 @@ if [[ -f $shell_file ]]; then
   if [[ -n $ws_bar_json ]]; then
     ws_bar_id=$(jq -r 'if type == "object" then .id else . end' <<<"$ws_bar_json")
     if [[ $ws_bar_id == "${USER:-$(id -un)}.workspaces" ]]; then
-      show_names=$(jq -r '.showNames // true' <<<"$ws_bar_json")
+      show_names=$(jq -r 'if .showNames == false then "false" else "true" end' <<<"$ws_bar_json")
       [[ $show_names == false ]] || workspace_bar_names=true
     fi
     workspace_bar_count=$(jq -r '.count // 5' <<<"$ws_bar_json")

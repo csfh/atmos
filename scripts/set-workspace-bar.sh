@@ -88,7 +88,9 @@ write_shell() {
   _SHELL_CONFIG_TMP=""
 }
 
-install_clone
+if [[ ! -f $clone_dir/Workspaces.qml ]]; then
+  install_clone
+fi
 
 program='
   | def entry_id:
@@ -107,24 +109,38 @@ program='
     .bar.layout.left |= retarget("omarchy.workspaces"; $id)
     | .bar.layout.center |= retarget("omarchy.workspaces"; $id)
     | .bar.layout.right |= retarget("omarchy.workspaces"; $id)
-    | if $mode == "count" then
-        .bar.layout.left |= patch($id; "count"; $count)
-        | .bar.layout.center |= patch($id; "count"; $count)
-        | .bar.layout.right |= patch($id; "count"; $count)
-      else
-        .bar.layout.left |= patch($id; "showNames"; $names)
-        | .bar.layout.center |= patch($id; "showNames"; $names)
-        | .bar.layout.right |= patch($id; "showNames"; $names)
-      end
+    | .bar.layout.left |= patch($id; "count"; $count)
+    | .bar.layout.center |= patch($id; "count"; $count)
+    | .bar.layout.right |= patch($id; "count"; $count)
+    | .bar.layout.left |= patch($id; "showNames"; $names)
+    | .bar.layout.center |= patch($id; "showNames"; $names)
+    | .bar.layout.right |= patch($id; "showNames"; $names)
 '
 
-names_json=true
-[[ $mode == off ]] && names_json=false
-count_json=${count_value:-5}
+cur=$(jq -c --arg id "$clone_id" '
+  def entry_id:
+    if type == "object" then (.id // "" | tostring) else tostring end;
+  [.bar.layout.left // [], .bar.layout.center // [], .bar.layout.right // []]
+  | add
+  | map(select(entry_id == $id))
+  | .[0] // {}
+' "$(source_file)")
+cur_count=$(jq -r '.count // 5' <<<"$cur")
+cur_names=$(jq -r 'if .showNames == false then "false" else "true" end' <<<"$cur")
+[[ $cur_count =~ ^[1-9]$|^10$ ]] || cur_count=5
+
+names_json=$cur_names
+count_json=$cur_count
+if [[ $mode == on ]]; then
+  names_json=true
+elif [[ $mode == off ]]; then
+  names_json=false
+else
+  count_json=$count_value
+fi
 
 write_shell \
   --arg id "$clone_id" \
-  --arg mode "$mode" \
   --argjson names "$names_json" \
   --argjson count "$count_json"
 
@@ -143,9 +159,6 @@ if [[ $HOME == "$session_home" ]] && command -v qs >/dev/null 2>&1; then
   done
 fi
 if [[ -n $live_shell ]]; then
-  if [[ $mode == count ]]; then
-    qs ipc -n -p "$live_shell" call -- shell setBarWidget "$clone_id" count "$(jq -cn --argjson v "$count_json" '$v')" "{}" >/dev/null 2>&1 || true
-  else
-    qs ipc -n -p "$live_shell" call -- shell setBarWidget "$clone_id" showNames "$(jq -cn --argjson v "$names_json" '$v')" "{}" >/dev/null 2>&1 || true
-  fi
+  qs ipc -n -p "$live_shell" call -- shell setBarWidget "$clone_id" count "$(jq -cn --argjson v "$count_json" '$v')" "{}" >/dev/null 2>&1 || true
+  qs ipc -n -p "$live_shell" call -- shell setBarWidget "$clone_id" showNames "$(jq -cn --argjson v "$names_json" '$v')" "{}" >/dev/null 2>&1 || true
 fi

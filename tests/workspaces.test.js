@@ -162,7 +162,8 @@ assert(
     barSh.indexOf("rescanPlugins") === -1 &&
     barSh.indexOf("omarchy plugin clone") === -1 &&
     barSh.indexOf("setBarWidget") !== -1 &&
-    barSh.indexOf("qs ipc") !== -1,
+    barSh.indexOf("qs ipc") !== -1 &&
+    barSh.indexOf("if [[ ! -f $clone_dir/Workspaces.qml ]]") !== -1,
   "set-workspace-bar.sh does not reload the shell",
 );
 const barQml = fs.readFileSync(

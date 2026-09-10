@@ -2,7 +2,26 @@
 
 Notable changes to Atmos. Each section is a git tag on `main` and `alpha`. Install and in-app Update follow the `alpha` branch.
 
-## [v0.0.1-alpha.16] - 2026-09-08
+## [v0.0.1-alpha.17] - 2026-09-09
+
+### Added
+
+- Workspaces **Show names in the bar** clones Omarchy's workspace widget so a name like `sadf` paints on the strip instead of the number.
+- Hyprland keeps numbered workspaces 1–10 persistent. The Workspaces slider is how many of those the bar shows.
+
+### Changed
+
+- Look and input live as nested `hyprLook` / `hyprInput` on the snapshot. Apply patches are objects, not JSON strings through the emit parser.
+- Snapshot emit keys are unique. Unused writer groups are gone.
+
+### Fixed
+
+- Super+mouse wheel uses `hl.dsp.focus` like Omarchy tiling, instead of spawning `hyprctl` per tick.
+- The Workspaces hub writes wrap, wheel, names, monitors, and scratch rules live, and renames numbered workspaces that already exist.
+- The workspace count slider no longer repeats the number on the label line.
+- The bar strip follows the shown-count slider. Show names in the bar keeps its state after a count change.
+
+
 
 ### Fixed
 
@@ -265,6 +284,7 @@ First public alpha. Standalone [Quickshell](https://quickshell.org) preferences 
 - Keyboard use on controls (tab focus and activation). File watching of Omarchy/Hyprland paths so outside changes can refresh the snapshot. Shared page routing and content-column layout.
 - MIT license. Contributions assign copyright to Christoffer Hallas ([CLA](CLA.md)).
 
+[v0.0.1-alpha.17]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.16...v0.0.1-alpha.17
 [v0.0.1-alpha.16]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.15...v0.0.1-alpha.16
 [v0.0.1-alpha.15]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.14...v0.0.1-alpha.15
 [v0.0.1-alpha.14]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.13...v0.0.1-alpha.14

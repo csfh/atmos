@@ -44,7 +44,9 @@ PrefsPage {
   }
 
   function setCount(n) {
-    Omarchy.dispatchSetting("workspaceBarCount", WsJs.clampShown(n))
+    n = WsJs.clampShown(n)
+    Omarchy.workspaceBarCount = n
+    Omarchy.dispatchSetting("workspaceBarCount", n)
   }
 
   function patchItem(id, patch) {

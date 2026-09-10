@@ -127,3 +127,11 @@ write_shell \
   --arg mode "$mode" \
   --argjson names "$names_json" \
   --argjson count "$count_json"
+
+if command -v omarchy-shell >/dev/null 2>&1; then
+  if [[ $mode == count ]]; then
+    omarchy-shell shell setBarWidget "$clone_id" count "$(jq -cn --argjson v "$count_json" '$v')" "{}" >/dev/null 2>&1 || true
+  else
+    omarchy-shell shell setBarWidget "$clone_id" showNames "$(jq -cn --argjson v "$names_json" '$v')" "{}" >/dev/null 2>&1 || true
+  fi
+fi

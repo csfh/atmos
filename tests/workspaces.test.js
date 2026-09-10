@@ -161,7 +161,8 @@ assert(
   barSh.indexOf("reloadConfig") === -1 &&
     barSh.indexOf("rescanPlugins") === -1 &&
     barSh.indexOf("omarchy plugin clone") === -1 &&
-    barSh.indexOf("setBarWidget") !== -1,
+    barSh.indexOf("setBarWidget") !== -1 &&
+    barSh.indexOf("qs ipc") !== -1,
   "set-workspace-bar.sh does not reload the shell",
 );
 const barQml = fs.readFileSync(
@@ -193,8 +194,9 @@ assert(
 );
 assert(
   barQml.indexOf("shownCount") !== -1 &&
-    barQml.indexOf("settings.count") !== -1 &&
-    barQml.indexOf("model: root.shownCount") !== -1,
+    barQml.indexOf("s.count") !== -1 &&
+    barQml.indexOf("model: root.shownIds") !== -1 &&
+    barQml.indexOf("onSettingsChanged") !== -1,
   "workspace bar widget reads the shown count from settings",
 );
 const omarchySrc = fs.readFileSync(path.join(__dirname, "..", "services", "Omarchy.qml"), "utf8");

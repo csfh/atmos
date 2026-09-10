@@ -128,10 +128,24 @@ write_shell \
   --argjson names "$names_json" \
   --argjson count "$count_json"
 
-if command -v omarchy-shell >/dev/null 2>&1; then
+# omarchy-shell talks to $OMARCHY_PATH/shell. A live desktop often runs
+# /usr/share/omarchy/shell instead, so ping every candidate. Skip when HOME
+# is a test sandbox so we do not poke the session bar.
+session_home=$(getent passwd "$(id -un)" | cut -d: -f6)
+live_shell=""
+if [[ $HOME == "$session_home" ]] && command -v qs >/dev/null 2>&1; then
+  for shell_root in /usr/share/omarchy/shell "${OMARCHY_PATH:-}/shell"; do
+    [[ -f $shell_root/shell.qml ]] || continue
+    if qs ipc -n -p "$shell_root" call -- shell ping >/dev/null 2>&1; then
+      live_shell=$shell_root
+      break
+    fi
+  done
+fi
+if [[ -n $live_shell ]]; then
   if [[ $mode == count ]]; then
-    omarchy-shell shell setBarWidget "$clone_id" count "$(jq -cn --argjson v "$count_json" '$v')" "{}" >/dev/null 2>&1 || true
+    qs ipc -n -p "$live_shell" call -- shell setBarWidget "$clone_id" count "$(jq -cn --argjson v "$count_json" '$v')" "{}" >/dev/null 2>&1 || true
   else
-    omarchy-shell shell setBarWidget "$clone_id" showNames "$(jq -cn --argjson v "$names_json" '$v')" "{}" >/dev/null 2>&1 || true
+    qs ipc -n -p "$live_shell" call -- shell setBarWidget "$clone_id" showNames "$(jq -cn --argjson v "$names_json" '$v')" "{}" >/dev/null 2>&1 || true
   fi
 fi

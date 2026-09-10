@@ -18,16 +18,19 @@ BarWidget {
     return null
   }
 
+  readonly property int shownCount: {
+    var n = settings && settings.count != null ? Number(settings.count) : 5
+    if (!isFinite(n) || n < 1) n = 5
+    if (n > 10) n = 10
+    return Math.round(n)
+  }
+
+  readonly property bool showNames: !settings || settings.showNames !== false
+
   function workspaceIds() {
-    var ids = [1, 2, 3, 4, 5]
-    var values = Hyprland.workspaces.values
-
-    for (var i = 0; i < values.length; i++) {
-      var id = values[i].id
-      if (id > 0 && id <= 10 && ids.indexOf(id) === -1) ids.push(id)
-    }
-
-    ids.sort(function(left, right) { return left - right })
+    var ids = []
+    var i
+    for (i = 1; i <= root.shownCount; i++) ids.push(i)
     return ids
   }
 
@@ -38,7 +41,7 @@ BarWidget {
 
   function workspaceLabel(id, workspace, focused) {
     var name = workspace && workspace.name ? String(workspace.name) : ""
-    if (name && name !== String(id)) return name
+    if (root.showNames && name && name !== String(id)) return name
     if (focused) return "\uDB85\uDCFB"
     return id === 10 ? "0" : String(id)
   }
@@ -68,7 +71,7 @@ BarWidget {
         readonly property string label: root.workspaceLabel(modelData, workspace, focused)
         readonly property bool named: {
           var name = workspace && workspace.name ? String(workspace.name) : ""
-          return name.length > 0 && name !== String(modelData)
+          return root.showNames && name.length > 0 && name !== String(modelData)
         }
 
         bar: root.bar

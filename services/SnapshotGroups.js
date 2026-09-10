@@ -57,6 +57,7 @@ var LOOK_KEYS = Object.freeze([
   "workspaceWrapSwitch",
   "workspaceWheelSwitch",
   "workspaceBarNames",
+  "workspaceBarCount",
   "monitorRules",
   "monitorRulesManaged",
   "monitors",

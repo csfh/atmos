@@ -358,6 +358,7 @@ QtObject {
   property bool workspaceWrapSwitch: true
   property bool workspaceWheelSwitch: true
   property bool workspaceBarNames: false
+  property int workspaceBarCount: 5
   property var monitorRules: []
   property bool monitorRulesManaged: false
   property var tweaks: ({})

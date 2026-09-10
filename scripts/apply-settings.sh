@@ -95,7 +95,7 @@ backup_for() {
     autostart) printf '%s\n' "$HOME/.config/hypr/autostart.lua" ;;
     windowRules) printf '%s\n' "$HOME/.config/hypr/atmos.lua" ;;
     nightlightSchedule | nightlightTemp) printf '%s\n' "${ATMOS_HYPRSUNSET_FILE:-$HOME/.config/hypr/hyprsunset.conf}" ;;
-    clock | barLayout | workspaceBarNames) printf '%s\n' "$HOME/.config/omarchy/shell.json" ;;
+    clock | barLayout | workspaceBarNames | workspaceBarCount) printf '%s\n' "$HOME/.config/omarchy/shell.json" ;;
     *) : ;;
   esac
 }

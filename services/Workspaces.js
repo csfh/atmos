@@ -108,17 +108,23 @@ function normalizeItem(row) {
   };
 }
 
+function clampShown(raw) {
+  var n = Math.round(Number(raw));
+  if (!isFinite(n) || n < 1) n = 5;
+  if (n > 10) n = 10;
+  return n;
+}
+
 function clampState(raw) {
   var src = raw && typeof raw === "object" ? raw : {};
   var list = Array.isArray(src.items) ? src.items : [];
-  var count = src.count == null || src.count === "" ? countFromItems(list) : clampCount(src.count);
+  var count = 10;
   var items = [];
   var seen = {};
   var i;
   for (i = 0; i < list.length; i++) {
     var row = normalizeItem(list[i]);
     if (!row || seen[row.id]) continue;
-    if (!row.special && Number(row.id) > count) continue;
     seen[row.id] = true;
     items.push(row);
   }
@@ -370,6 +376,7 @@ if (typeof module !== "undefined" && module.exports) {
     BEGIN: BEGIN,
     END: END,
     clampCount: clampCount,
+    clampShown: clampShown,
     countFromItems: countFromItems,
     clampState: clampState,
     normalizeItem: normalizeItem,

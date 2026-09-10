@@ -44,11 +44,7 @@ PrefsPage {
   }
 
   function setCount(n) {
-    n = WsJs.clampCount(n)
-    var state = root.currentState()
-    state.count = n
-    var next = WsJs.clampState(state)
-    root.writeItems(next.items, next.wrapSwitch, next.wheelSwitch)
+    Omarchy.dispatchSetting("workspaceBarCount", WsJs.clampShown(n))
   }
 
   function patchItem(id, patch) {
@@ -89,27 +85,27 @@ PrefsPage {
   PrefsGroup {
     title: "Count and switching"
     query: root.query
-    detail: "Omarchy keeps numbered workspaces 1–10. Atmos writes a persistent rule for each one you keep, so Super+N still has somewhere to go when that workspace is empty."
+    detail: "Hyprland keeps numbered workspaces 1–10 persistent, so Super+N still has somewhere to go. The slider is how many of those the bar paints."
     hint: "~/.config/hypr/atmos.lua"
 
     SettingRow {
       stretchControl: true
       label: "Number of workspaces"
-      description: "How many numbered workspaces Hyprland keeps persistent."
-      hint: "hl.workspace_rule"
+      description: "How many numbered workspaces the bar shows. Hyprland still keeps 1–10."
+      hint: "~/.config/omarchy/shell.json"
       query: root.query
-      keywords: ["count", "number", "ten"]
+      keywords: ["count", "number", "ten", "bar"]
 
       PrefsSlider {
         width: parent.width
         from: 1
         to: 10
         stepSize: 1
-        value: root.numbered.length || 10
+        value: Omarchy.workspaceBarCount
         showRowValue: false
         onChanged: function(value) {
-          var next = Math.round(value)
-          if (next !== (root.numbered.length || 10)) root.setCount(next)
+          var next = WsJs.clampShown(value)
+          if (next !== Omarchy.workspaceBarCount) root.setCount(next)
         }
       }
     }

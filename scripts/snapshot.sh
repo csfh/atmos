@@ -86,6 +86,7 @@ PY
 fill_look_surface() {
   local shell_file clock_json indicators_json agents_json spacer_json tray_json
   local cursor_size name bright kb_cur kb_max reminder_json dnd_state
+  local ws_bar_json ws_bar_id show_names
 
   bar_position=top
   bar_transparent=false
@@ -134,6 +135,7 @@ fill_look_surface() {
   battery_present=false
   weather_present=false
   workspace_bar_names=false
+  workspace_bar_count=5
   dnd=false
   reminder_count=0
   reminder_active=false
@@ -249,13 +251,20 @@ fill_look_surface() {
       ' <<<"$tray_json")
       [[ -n $tray_pinned_json ]] || tray_pinned_json='[]'
     fi
-    if jq -e --arg id "${USER:-$(id -un)}.workspaces" '
+    ws_bar_json=$(jq -c --arg id "${USER:-$(id -un)}.workspaces" '
       [.bar.layout.left // [], .bar.layout.center // [], .bar.layout.right // []]
       | add
-      | map(if type == "object" then .id else . end)
-      | index($id) != null
-    ' "$shell_file" >/dev/null 2>&1; then
-      workspace_bar_names=true
+      | map(select((if type == "object" then .id else . end) == $id or (if type == "object" then .id else . end) == "omarchy.workspaces"))
+      | .[0] // empty
+    ' "$shell_file")
+    if [[ -n $ws_bar_json ]]; then
+      ws_bar_id=$(jq -r 'if type == "object" then .id else . end' <<<"$ws_bar_json")
+      if [[ $ws_bar_id == "${USER:-$(id -un)}.workspaces" ]]; then
+        show_names=$(jq -r '.showNames // true' <<<"$ws_bar_json")
+        [[ $show_names == false ]] || workspace_bar_names=true
+      fi
+      workspace_bar_count=$(jq -r '.count // 5' <<<"$ws_bar_json")
+      [[ $workspace_bar_count =~ ^[1-9]$|^10$ ]] || workspace_bar_count=5
     fi
     if jq -e '[.bar.layout.left // [], .bar.layout.center // [], .bar.layout.right // []] | add | map(select(.id == "omarchy.weather")) | length > 0' "$shell_file" >/dev/null 2>&1; then
       weather_present=true
@@ -691,6 +700,7 @@ emit_look_snapshot() {
     --argjson workspaceWrapSwitch "$workspace_wrap" \
     --argjson workspaceWheelSwitch "$workspace_wheel" \
     --argjson workspaceBarNames "$workspace_bar_names" \
+    --argjson workspaceBarCount "$workspace_bar_count" \
     --argjson monitorRules "$monitor_rules_json" \
     --argjson monitorRulesManaged "$monitor_rules_managed" \
     --argjson reminderCount "$reminder_count" \
@@ -752,6 +762,7 @@ emit_look_snapshot() {
       workspaceWrapSwitch: $workspaceWrapSwitch,
       workspaceWheelSwitch: $workspaceWheelSwitch,
       workspaceBarNames: $workspaceBarNames,
+      workspaceBarCount: $workspaceBarCount,
       monitorRules: $monitorRules,
       monitorRulesManaged: $monitorRulesManaged,
       monitors: $monitors,
@@ -1760,13 +1771,23 @@ if [[ -f $shell_file ]]; then
 fi
 
 workspace_bar_names=false
-if [[ -f $shell_file ]] && jq -e --arg id "${USER:-$(id -un)}.workspaces" '
-  [.bar.layout.left // [], .bar.layout.center // [], .bar.layout.right // []]
-  | add
-  | map(if type == "object" then .id else . end)
-  | index($id) != null
-' "$shell_file" >/dev/null 2>&1; then
-  workspace_bar_names=true
+workspace_bar_count=5
+if [[ -f $shell_file ]]; then
+  ws_bar_json=$(jq -c --arg id "${USER:-$(id -un)}.workspaces" '
+    [.bar.layout.left // [], .bar.layout.center // [], .bar.layout.right // []]
+    | add
+    | map(select((if type == "object" then .id else . end) == $id or (if type == "object" then .id else . end) == "omarchy.workspaces"))
+    | .[0] // empty
+  ' "$shell_file")
+  if [[ -n $ws_bar_json ]]; then
+    ws_bar_id=$(jq -r 'if type == "object" then .id else . end' <<<"$ws_bar_json")
+    if [[ $ws_bar_id == "${USER:-$(id -un)}.workspaces" ]]; then
+      show_names=$(jq -r '.showNames // true' <<<"$ws_bar_json")
+      [[ $show_names == false ]] || workspace_bar_names=true
+    fi
+    workspace_bar_count=$(jq -r '.count // 5' <<<"$ws_bar_json")
+    [[ $workspace_bar_count =~ ^[1-9]$|^10$ ]] || workspace_bar_count=5
+  fi
 fi
 
 indicators_present=false
@@ -2908,6 +2929,7 @@ snapshot_json=$(jq -n \
   --argjson workspaceWrapSwitch "$workspace_wrap" \
   --argjson workspaceWheelSwitch "$workspace_wheel" \
   --argjson workspaceBarNames "$workspace_bar_names" \
+  --argjson workspaceBarCount "$workspace_bar_count" \
   --argjson monitorRules "$monitor_rules_json" \
   --argjson monitorRulesManaged "$monitor_rules_managed" \
   --argjson tweaks "$tweaks_json" \
@@ -3114,6 +3136,7 @@ snapshot_json=$(jq -n \
     workspaceWrapSwitch: $workspaceWrapSwitch,
     workspaceWheelSwitch: $workspaceWheelSwitch,
     workspaceBarNames: $workspaceBarNames,
+    workspaceBarCount: $workspaceBarCount,
     monitorRules: $monitorRules,
     monitorRulesManaged: $monitorRulesManaged,
     fingerprintAvailable: $fingerprintAvailable,

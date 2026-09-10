@@ -1,5 +1,5 @@
 #!/bin/bash
-# Swap the stock numbered workspace widget for the named clone, or back.
+# Install the named workspace bar clone and set showNames / shown count.
 # Writes shell.json and plugin files; the shell watches those paths.
 set -euo pipefail
 
@@ -10,14 +10,21 @@ source "$ROOT/atmos-env.sh"
 : "${OMARCHY_PATH:=/usr/share/omarchy}"
 export OMARCHY_PATH
 
-on_off=${1:-}
-case $on_off in
-  on | true) want=on ;;
-  off | false) want=off ;;
-  *)
-    echo "Usage: set-workspace-bar.sh on|off" >&2
-    exit 1
+usage() {
+  echo "Usage: set-workspace-bar.sh on|off|count <1-10>" >&2
+  exit 1
+}
+
+mode=${1:-}
+count_value=""
+case $mode in
+  on | true) mode=on ;;
+  off | false) mode=off ;;
+  count)
+    count_value=${2:-}
+    [[ $count_value =~ ^[1-9]$|^10$ ]] || usage
     ;;
+  *) usage ;;
 esac
 
 user=${USER:-$(id -un)}
@@ -61,15 +68,6 @@ install_clone() {
   install_file "$widget_src" "$clone_dir/Workspaces.qml"
 }
 
-from_id=omarchy.workspaces
-to_id=$clone_id
-if [[ $want == on ]]; then
-  install_clone
-else
-  from_id=$clone_id
-  to_id=omarchy.workspaces
-fi
-
 command -v omarchy-shell-config >/dev/null 2>&1 || {
   echo "set-workspace-bar.sh: omarchy-shell-config is not on PATH" >&2
   exit 1
@@ -78,34 +76,54 @@ command -v omarchy-shell-config >/dev/null 2>&1 || {
 # shellcheck disable=SC1091
 source omarchy-shell-config
 
-has_from=$(jq -r --arg from "$from_id" '
-  def entry_id:
-    if type == "object" then (.id // "" | tostring) else tostring end;
-  [.bar.layout.left // [], .bar.layout.center // [], .bar.layout.right // []]
-  | add
-  | map(entry_id)
-  | index($from) != null
-' "$(source_file)")
-[[ $has_from == true ]] || exit 0
+write_shell() {
+  mkdir -p "$(dirname "$CONFIG_FILE")"
+  _SHELL_CONFIG_TMP=$(mktemp)
+  if ! jq -S -e "$@" "$NORMALIZE $program" "$(source_file)" >"$_SHELL_CONFIG_TMP"; then
+    rm -f "$_SHELL_CONFIG_TMP"
+    echo "set-workspace-bar.sh: could not update shell config" >&2
+    exit 1
+  fi
+  mv "$_SHELL_CONFIG_TMP" "$CONFIG_FILE"
+  _SHELL_CONFIG_TMP=""
+}
 
-mkdir -p "$(dirname "$CONFIG_FILE")"
-_SHELL_CONFIG_TMP=$(mktemp)
-jq -S -e --arg from "$from_id" --arg to "$to_id" "$NORMALIZE
+install_clone
+
+program='
   | def entry_id:
-      if type == \"object\" then (.id // \"\" | tostring) else tostring end;
-    def retarget(\$from; \$to):
+      if type == "object" then (.id // "" | tostring) else tostring end;
+    def retarget($from; $to):
       map(
-        if entry_id == \$from then
-          (if type == \"object\" then . else {id: .} end) + {id: \$to}
+        if entry_id == $from then
+          (if type == "object" then . else {id: .} end) + {id: $to}
         else . end
       );
-    .bar.layout.left |= retarget(\$from; \$to)
-    | .bar.layout.center |= retarget(\$from; \$to)
-    | .bar.layout.right |= retarget(\$from; \$to)
-" "$(source_file)" >"$_SHELL_CONFIG_TMP" || {
-  rm -f "$_SHELL_CONFIG_TMP"
-  echo "set-workspace-bar.sh: could not update shell config" >&2
-  exit 1
-}
-mv "$_SHELL_CONFIG_TMP" "$CONFIG_FILE"
-_SHELL_CONFIG_TMP=""
+    def patch($id; $key; $value):
+      (map(entry_id) | index($id)) as $i
+      | if $i == null then .
+        else .[$i] = (.[$i] | if type == "object" then . else {id: .} end | .[$key] = $value)
+        end;
+    .bar.layout.left |= retarget("omarchy.workspaces"; $id)
+    | .bar.layout.center |= retarget("omarchy.workspaces"; $id)
+    | .bar.layout.right |= retarget("omarchy.workspaces"; $id)
+    | if $mode == "count" then
+        .bar.layout.left |= patch($id; "count"; $count)
+        | .bar.layout.center |= patch($id; "count"; $count)
+        | .bar.layout.right |= patch($id; "count"; $count)
+      else
+        .bar.layout.left |= patch($id; "showNames"; $names)
+        | .bar.layout.center |= patch($id; "showNames"; $names)
+        | .bar.layout.right |= patch($id; "showNames"; $names)
+      end
+'
+
+names_json=true
+[[ $mode == off ]] && names_json=false
+count_json=${count_value:-5}
+
+write_shell \
+  --arg id "$clone_id" \
+  --arg mode "$mode" \
+  --argjson names "$names_json" \
+  --argjson count "$count_json"

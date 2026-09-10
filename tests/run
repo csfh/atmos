@@ -251,6 +251,7 @@ trayHidden
 trayPinned
 trayPresent
 weatherPresent
+workspaceBarCount
 workspaceBarNames
 workspaceWheelSwitch
 workspaceWrapSwitch
@@ -482,6 +483,7 @@ wifiIface
 wifiRadio
 windowRules
 windowRulesManaged
+workspaceBarCount
 workspaceBarNames
 workspaceWheelSwitch
 workspaceWrapSwitch
@@ -601,7 +603,11 @@ JSON
   grep -q 'atmos:workspace-labels' "$bar_home/.config/omarchy/plugins/tester.workspaces/Workspaces.qml"
   USER=tester HOME="$bar_home" OMARCHY_PATH="${OMARCHY_PATH:-/usr/share/omarchy}" \
     bash scripts/set-workspace-bar.sh off
-  jq -e '.bar.layout.left[1].id == "omarchy.workspaces"' "$bar_home/.config/omarchy/shell.json" >/dev/null
+  jq -e '.bar.layout.left[1].id == "tester.workspaces" and .bar.layout.left[1].showNames == false' \
+    "$bar_home/.config/omarchy/shell.json" >/dev/null
+  USER=tester HOME="$bar_home" OMARCHY_PATH="${OMARCHY_PATH:-/usr/share/omarchy}" \
+    bash scripts/set-workspace-bar.sh count 7
+  jq -e '.bar.layout.left[1].count == 7' "$bar_home/.config/omarchy/shell.json" >/dev/null
   rm -rf "$bar_home"
   echo "ok - set-workspace-bar.sh swaps the named workspace widget on and off"
 else

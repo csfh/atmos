@@ -470,6 +470,12 @@ function settingsCatalog() {
       type: "boolean",
       consequence: "The bar paints workspace names instead of numbers.",
     }),
+    entry("workspaceBarCount", "workspaces", "Workspaces shown in the bar", "behavior", {
+      type: "integer",
+      min: 1,
+      max: 10,
+      consequence: "How many numbered workspaces the bar paints. Hyprland still keeps 1–10.",
+    }),
     listEntry("monitorRules", "Displays", {
       hostBound: true,
       consequence: "Monitor modes, scale, and layout are replaced.",
@@ -2282,6 +2288,12 @@ function writers() {
       bool: "on-off",
       backup: "clock",
     },
+    workspaceBarCount: {
+      kind: "script",
+      script: "workspaceBar",
+      args: ["count"],
+      backup: "clock",
+    },
     monitorRules: { kind: "list-stdin", script: "monitors", backup: "monitorRules" },
     envVars: {
       kind: "env-group",
@@ -2750,7 +2762,7 @@ function commandFor(key, value, snapshot, opts) {
       }
       parsedWs.wrapSwitch = wrap !== false;
       parsedWs.wheelSwitch = wheel !== false;
-      parsedWs.count = workspaceCountFromItems(parsedWs.items);
+      parsedWs.count = 10;
       listJson = JSON.stringify(parsedWs);
     }
     var listApply = {};
@@ -2778,7 +2790,7 @@ function commandFor(key, value, snapshot, opts) {
     var wsItems = Array.isArray(items) ? items.map(stripManagedRow) : [];
     var wsPayload = JSON.stringify({
       items: wsItems,
-      count: workspaceCountFromItems(wsItems),
+      count: 10,
       wrapSwitch: wrapSwitch,
       wheelSwitch: wheelSwitch,
     });

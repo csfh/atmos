@@ -816,6 +816,15 @@ assertEqual(
   "off",
   "workspaceBarNames turns the named bar clone off",
 );
+const barCountCmd = settings.commandFor("workspaceBarCount", 7, {}, {});
+assert(
+  barCountCmd &&
+    barCountCmd.argv &&
+    barCountCmd.argv.join(" ").indexOf("set-workspace-bar.sh") !== -1 &&
+    barCountCmd.argv[barCountCmd.argv.length - 2] === "count" &&
+    barCountCmd.argv[barCountCmd.argv.length - 1] === "7",
+  "workspaceBarCount writes the shown count",
+);
 const shrinkItems = [
   { id: "1", name: "code", persistent: true },
   { id: "2", persistent: true },
@@ -823,8 +832,8 @@ const shrinkItems = [
 ];
 const shrinkCmd = settings.commandFor("workspaces", shrinkItems, { workspaces: [] }, {});
 const shrinkPayload = JSON.parse(shrinkCmd.argv[shrinkCmd.argv.length - 1]);
-assertEqual(shrinkPayload.count, 3, "commandFor workspaces JSON carries count 3");
-assertEqual(shrinkPayload.items.length, 3, "commandFor workspaces JSON keeps three items");
+assertEqual(shrinkPayload.count, 10, "commandFor workspaces JSON keeps ten persistent workspaces");
+assertEqual(shrinkPayload.items.length, 3, "commandFor workspaces JSON keeps three named items");
 const shrinkFile = path.join(os.tmpdir(), "atmos-ws-shrink-" + process.pid + ".lua");
 fs.writeFileSync(shrinkFile, "");
 const shrinkPy = spawnSync(
@@ -842,8 +851,7 @@ assertEqual(shrinkPy.status, 0, "hypr-sentinel.py apply of commandFor shrink pay
 const shrinkLua = fs.readFileSync(shrinkFile, "utf8");
 fs.unlinkSync(shrinkFile);
 assert(shrinkLua.indexOf('workspace = "3"') !== -1, "shrink write keeps workspace 3");
-assert(shrinkLua.indexOf('workspace = "4"') === -1, "shrink write does not refill workspace 4");
-assert(shrinkLua.indexOf('workspace = "10"') === -1, "shrink write does not refill workspace 10");
+assert(shrinkLua.indexOf('workspace = "10"') !== -1, "shrink write still keeps workspace 10");
 const monCmd = settings.commandFor(
   "monitorRules",
   [{ output: "DP-1", mode: "preferred", scale: 1 }],

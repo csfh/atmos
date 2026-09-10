@@ -7,12 +7,15 @@ const { load, assert, assertEqual } = require("./harness");
 const ws = load("services/Workspaces.js");
 assertEqual(ws.clampCount(99), 10, "clampCount caps at 10");
 assertEqual(ws.clampCount(0), 10, "clampCount floors empty to 10");
+assertEqual(ws.clampShown(3), 3, "clampShown keeps 3");
+assertEqual(ws.clampShown(0), 5, "clampShown floors empty to 5");
+assertEqual(ws.clampShown(99), 10, "clampShown caps at 10");
 const state = ws.clampState({
   count: 2,
   items: [{ id: "1", name: "code", monitor: "DP-1", isDefault: true }],
 });
-assertEqual(state.count, 2, "clampState keeps count 2");
-assertEqual(state.items.length >= 2, true, "clampState fills missing ids");
+assertEqual(state.count, 10, "clampState always keeps ten numbered workspaces");
+assertEqual(state.items.length >= 10, true, "clampState fills missing ids");
 assertEqual(state.items[0].name, "code", "clampState keeps a name");
 assertEqual(state.items[0].monitor, "DP-1", "clampState keeps a monitor");
 const shrunk = ws.clampState({
@@ -26,7 +29,7 @@ const shrunk = ws.clampState({
     { id: "special:notes" },
   ],
 });
-assertEqual(shrunk.count, 3, "clampState keeps count 3 when shrinking");
+assertEqual(shrunk.count, 10, "clampState keeps ten numbered workspaces");
 assertEqual(
   shrunk.items
     .filter(function (row) {
@@ -36,8 +39,8 @@ assertEqual(
       return row.id;
     })
     .join(","),
-  "1,2,3",
-  "clampState drops numbered workspaces above count",
+  "1,2,3,4,5,6,7,8,9,10",
+  "clampState keeps numbered workspaces 1–10",
 );
 assertEqual(
   shrunk.items.some(function (row) {
@@ -47,10 +50,7 @@ assertEqual(
   "clampState keeps specials when shrinking",
 );
 const shrinkLua = ws.serialize({ items: [{ id: "1" }, { id: "2" }, { id: "3" }] });
-assert(
-  shrinkLua.indexOf('workspace = "4"') === -1,
-  "serialize without count does not refill workspace 4",
-);
+assert(shrinkLua.indexOf('workspace = "4"') !== -1, "serialize always writes workspace 4");
 assert(shrinkLua.indexOf('workspace = "3"') !== -1, "serialize without count keeps workspace 3");
 assertEqual(ws.normalizeItem({ id: "evil;rm" }), null, "normalizeItem drops an unsafe id");
 assertEqual(ws.wrapBind(false), "r+1", "wrapBind false uses r+1");
@@ -152,7 +152,9 @@ const barSh = fs.readFileSync(
   "utf8",
 );
 assert(
-  barSh.indexOf("clonedFrom") !== -1 && barSh.indexOf("retarget") !== -1,
+  barSh.indexOf("clonedFrom") !== -1 &&
+    barSh.indexOf("retarget") !== -1 &&
+    barSh.indexOf("count") !== -1,
   "set-workspace-bar.sh installs and swaps the named workspace widget",
 );
 assert(
@@ -183,6 +185,14 @@ assertEqual(
 assert(
   pageSrc.indexOf('label: "Show names in the bar"') !== -1,
   "Workspaces page has a toggle for the named bar widget",
+);
+assert(
+  pageSrc.indexOf("Omarchy.workspaceBarCount") !== -1,
+  "the count slider paints how many workspaces the bar shows",
+);
+assert(
+  barQml.indexOf("shownCount") !== -1 && barQml.indexOf("settings.count") !== -1,
+  "workspace bar widget reads the shown count from settings",
 );
 const omarchySrc = fs.readFileSync(path.join(__dirname, "..", "services", "Omarchy.qml"), "utf8");
 const writeWs = omarchySrc.slice(

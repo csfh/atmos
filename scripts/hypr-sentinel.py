@@ -1104,31 +1104,7 @@ def ensure_layout_require(text: str) -> str:
 def serialize_workspaces(raw: dict) -> str:
     src = raw if isinstance(raw, dict) else {}
     items = src.get("items") if isinstance(src.get("items"), list) else []
-
-    def count_from_items(rows: list) -> int:
-        m = 0
-        for item in rows:
-            if not isinstance(item, dict):
-                continue
-            try:
-                n = int(str(item.get("id") or item.get("workspace") or ""))
-            except (TypeError, ValueError):
-                continue
-            if 1 <= n <= 10 and n > m:
-                m = n
-        return m if m >= 1 else 10
-
-    if "count" in src and src.get("count") is not None and src.get("count") != "":
-        try:
-            count = int(src.get("count"))
-        except (TypeError, ValueError):
-            count = count_from_items(items)
-    else:
-        count = count_from_items(items)
-    if count < 1:
-        count = 1
-    if count > 10:
-        count = 10
+    count = 10
     wrap = src.get("wrapSwitch") is not False
     wheel = src.get("wheelSwitch") is not False
     wrap_next = "r+1" if not wrap else "e+1"

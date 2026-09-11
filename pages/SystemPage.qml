@@ -23,6 +23,7 @@ PrefsPage {
     if (id === "diagnostics") stack.push(diagnosticsPage)
     else if (id === "environment") stack.push(environmentPage)
     else if (id === "kernel") stack.push(kernelPage)
+    else if (id === "history") stack.push(historyPage)
   }
 
   readonly property string diagnosticsDescription: {
@@ -37,6 +38,7 @@ PrefsPage {
   Component { id: diagnosticsPage; Sys.DiagnosticsPage {} }
   Component { id: environmentPage; Sys.EnvironmentPage {} }
   Component { id: kernelPage; Sys.KernelPage {} }
+  Component { id: historyPage; Sys.HistoryPage {} }
 
   PrefsConfirm {
     id: channelConfirm
@@ -766,6 +768,18 @@ PrefsPage {
       PrefsButton {
         text: "Open…"
         onClicked: root.openSubpage("kernel")
+      }
+    }
+
+    SettingRow {
+      label: "History"
+      description: "Every change Atmos made, and a preview mode that shows a change before it happens."
+      query: root.query
+      keywords: ["history", "undo", "changes", "preview", "audit"]
+
+      PrefsButton {
+        text: "Open…"
+        onClicked: root.openSubpage("history")
       }
     }
 

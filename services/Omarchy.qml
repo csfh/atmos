@@ -1706,6 +1706,10 @@ QtObject {
     var items = []
     var live = Array.isArray(monitors) ? monitors : []
     var key = String(name || "")
+    // Never write a layout that leaves no display on. The buttons already
+    // gate this; refuse here too so no other caller can zero the outputs.
+    if (key === "laptop" && !internalPresent) return
+    if (key === "docked" && !externalPresent) return
     var i
     for (i = 0; i < live.length; i++) {
       var src = live[i] || {}

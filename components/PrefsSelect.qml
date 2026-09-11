@@ -20,6 +20,22 @@ Item {
 
   signal changed(string value)
 
+  // Emitted as the pointer moves over options, and with "" when it leaves.
+  // A caller that wants to show the value live subscribes; one that does not
+  // is unaffected.
+  signal previewed(string value)
+
+  // Last value handed out, so a repeat of the same option does not re-apply
+  // on every mouse move across one row.
+  property string hoveredOption: ""
+
+  function hoverOption(value) {
+    var next = String(value || "")
+    if (next === root.hoveredOption) return
+    root.hoveredOption = next
+    root.previewed(next)
+  }
+
   implicitWidth: Theme.controlColumnWidth
   implicitHeight: Theme.controlHeight
   width: implicitWidth
@@ -82,6 +98,7 @@ Item {
     changed(next)
     if (value === next) _holding = false
     refreshDisplayLabel()
+    root.hoverOption("")
     popup.close()
   }
 
@@ -196,7 +213,13 @@ Item {
       else list.forceActiveFocus()
       Qt.callLater(root.placePopup)
     }
-    onClosed: root.filter = ""
+    onClosed: {
+      root.filter = ""
+      // Closing by any route -- Escape, click-away, picking a value -- puts
+      // the real value back. Without this, dismissing the popup while a row
+      // is hovered leaves you looking at a preview you never chose.
+      root.hoverOption("")
+    }
 
     background: Rectangle {
       color: Theme.background
@@ -243,6 +266,13 @@ Item {
             verticalAlignment: Text.AlignVCenter
           }
         }
+      }
+
+      // One place that reverts, so there is no race between a row losing the
+      // pointer and its neighbour gaining it.
+      HoverHandler {
+        id: listHover
+        onHoveredChanged: if (!hovered) root.hoverOption("")
       }
 
       ListView {
@@ -307,6 +337,12 @@ Item {
             anchors.fill: parent
             hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
+            // Enter only. The matching revert is on the list and on the
+            // popup, never on the row -- moving between two adjacent rows
+            // can fire the old row's onExited after the new row's onEntered,
+            // which undoes the preview the instant it is set and makes the
+            // whole feature look like it does nothing.
+            onEntered: root.hoverOption(root.optionValue(modelData))
             onClicked: root.pickValue(root.optionValue(modelData))
           }
         }

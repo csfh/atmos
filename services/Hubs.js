@@ -382,6 +382,7 @@ function hubs() {
         ["hostname", "locale", "update", "diagnostics", "kernel", "uki"],
       ),
       children: [
+        child("system/machine", "Machine", "system/MachinePage.qml"),
         child("system/environment", "Environment", "system/EnvironmentPage.qml"),
         child("system/kernel", "Kernel", "system/KernelPage.qml"),
         child("system/diagnostics", "Diagnostics", "system/DiagnosticsPage.qml"),

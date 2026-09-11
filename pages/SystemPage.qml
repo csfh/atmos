@@ -23,6 +23,7 @@ PrefsPage {
     if (id === "diagnostics") stack.push(diagnosticsPage)
     else if (id === "environment") stack.push(environmentPage)
     else if (id === "kernel") stack.push(kernelPage)
+    else if (id === "machine") stack.push(machinePage)
   }
 
   readonly property string diagnosticsDescription: {
@@ -37,6 +38,7 @@ PrefsPage {
   Component { id: diagnosticsPage; Sys.DiagnosticsPage {} }
   Component { id: environmentPage; Sys.EnvironmentPage {} }
   Component { id: kernelPage; Sys.KernelPage {} }
+  Component { id: machinePage; Sys.MachinePage {} }
 
   PrefsConfirm {
     id: channelConfirm
@@ -766,6 +768,18 @@ PrefsPage {
       PrefsButton {
         text: "Open…"
         onClicked: root.openSubpage("kernel")
+      }
+    }
+
+    SettingRow {
+      label: "Machine"
+      description: "What this computer is and how it is doing, in one screen."
+      query: root.query
+      keywords: ["machine", "hardware", "battery", "dashboard", "cpu", "memory"]
+
+      PrefsButton {
+        text: "Open…"
+        onClicked: root.openSubpage("machine")
       }
     }
 

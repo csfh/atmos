@@ -153,22 +153,6 @@ function currentMonitorModeValue(monitor) {
   return "";
 }
 
-function monitorModeOptions(monitor) {
-  var list = monitor && Array.isArray(monitor.availableModes) ? monitor.availableModes : [];
-  var seen = {};
-  var out = [];
-  function add(raw) {
-    var text = String(raw || "");
-    if (!text || seen[text]) return;
-    var parsed = parseMonitorMode(text);
-    seen[text] = true;
-    out.push({ value: text, label: parsed ? formatMonitorMode(parsed) : text });
-  }
-  for (var i = 0; i < list.length; i++) add(list[i]);
-  add(currentMonitorModeValue(monitor));
-  return out;
-}
-
 function monitorModeCopyText(monitor) {
   var label = formatMonitorMode(currentMonitorModeValue(monitor));
   var name = monitor && monitor.name ? String(monitor.name) : "";

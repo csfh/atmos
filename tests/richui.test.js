@@ -45,11 +45,6 @@ assertEqual(
   "currentMonitorModeValue matches availableModes",
 );
 assertEqual(
-  ui.monitorModeOptions({ width: 100, height: 100, refresh: 60, availableModes: [] }).length,
-  1,
-  "monitorModeOptions synthesizes the current mode",
-);
-assertEqual(
   ui.monitorModeCopyText({
     name: "DP-1",
     width: 1920,

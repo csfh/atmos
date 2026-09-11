@@ -127,6 +127,11 @@ QtObject {
 
   property string lastError: ""
   property string theme: ""
+  // Theme change awaiting confirmation from the theme.name file. The label
+  // already shows it optimistically; while set, a snapshot that still
+  // reports the old theme is stale and must not flap the label back.
+  property string pendingTheme: ""
+  property double themeRequestedAt: 0
   property string background: ""
   property string font: ""
   property int textSize: 12
@@ -733,20 +738,31 @@ QtObject {
   function setTheme(name) {
     name = String(name || "")
     if (!name || name === theme) return
-    Theme.applyNamedTheme(name)
     var cmd = SettingsJs.commandFor("theme", name, snapshotData, scriptOpts())
     if (!cmd || cmd.skip) return
-    // Import argv stays omarchy theme set. Detach here so mutProc does not
-    // wait for omarchy-theme-set to recolor the shell.
-    var argv = ["bash", "-c", "\"$@\" >/dev/null 2>&1 &", "theme-set"]
+    // Optimistic label: the dropdown shows the new theme on this frame
+    // instead of waiting for theme.name and a snapshot round-trip.
+    root.applySnapshot(JSON.stringify({ theme: name }))
+    root.pendingTheme = name
+    root.themeRequestedAt = Date.now()
+    themeConfirmTimer.restart()
+    // Import argv stays omarchy theme set. Fire it on a dedicated detached
+    // process instead of the mut queue so a busy snapshot read cannot delay
+    // the switch, the same way Omarchy's Switch theme action backgrounds it.
+    root.fireThemeSet(cmd.argv)
+    // Paint Atmos chrome from the theme files while the detached set runs.
+    Theme.applyNamedTheme(name)
+  }
+  function fireThemeSet(argv) {
+    if (!(argv instanceof Array) || argv.length === 0) return
+    // Detach here so the theme process does not wait for omarchy-theme-set
+    // to recolor the shell and retint apps.
+    var detached = ["bash", "-c", "\"$@\" >/dev/null 2>&1 &", "theme-set"]
     var i
-    for (i = 0; i < cmd.argv.length; i++) argv.push(cmd.argv[i])
-    runCommand(argv, {
-      key: cmd.coalesceKey || "theme",
-      apply: cmd.apply,
-      refresh: "none",
-      sudo: cmd.sudo === true
-    })
+    for (i = 0; i < argv.length; i++) detached.push(argv[i])
+    themeSetProc.running = false
+    themeSetProc.command = detached
+    themeSetProc.running = true
   }
   function openThemeSwitcher() {
     runCommand(["bash", "-c", "theme=$(omarchy theme switcher || true); [[ -n $theme ]] && omarchy theme set \"$theme\" >/dev/null 2>&1 &"], {
@@ -2758,10 +2774,39 @@ QtObject {
     slug = String(slug || "").replace(/^\s+|\s+$/g, "")
     var name = ThemeJs.themeNameFromSlug(slug, root.themes)
     if (!name) return
+    // Our own request landing clears the optimistic hold and pulls the new
+    // background and templates. A different theme landing well after our own
+    // request came from outside (terminal, switcher); it wins immediately.
+    var confirmed = name === root.pendingTheme
+    if (confirmed) root.pendingTheme = ""
+    else if (Date.now() - root.themeRequestedAt > 5000) root.pendingTheme = ""
     if (name !== root.theme) {
       root.applySnapshot(JSON.stringify({ theme: name }))
       root.scheduleRefresh("look")
+    } else if (confirmed) {
+      root.scheduleRefresh("look")
     }
+  }
+
+  // The detached theme set reports instant success, so confirm against the
+  // theme.name file. A switch that never lands surfaces an error and resyncs
+  // instead of leaving a half-applied desktop behind a success label.
+  function confirmThemeSwitch() {
+    if (!root.pendingTheme.length) return
+    var slug = Theme.currentThemeSlug()
+    var name = ThemeJs.themeNameFromSlug(slug, root.themes)
+    var want = root.pendingTheme
+    root.pendingTheme = ""
+    if (name !== want) {
+      lastError = "Theme change to " + want + " is still on " + (name || "an unknown theme") + ". Try it again."
+      root.scheduleRefresh("all")
+    }
+  }
+
+  property Timer themeConfirmTimer: Timer {
+    interval: 20000
+    repeat: false
+    onTriggered: root.confirmThemeSwitch()
   }
 
   onThemesChanged: {
@@ -2833,8 +2878,20 @@ QtObject {
       var job = root.ioJob
       if (exitCode === 0) {
         root.lastError = ""
-        if (WorkQueue.shouldApplyRead(job, root.ioQueue))
-          root.applySnapshot(snapOut.text)
+        if (WorkQueue.shouldApplyRead(job, root.ioQueue)) {
+          var text = snapOut.text
+          // While a theme switch is pending, the label already shows the new
+          // theme. A snapshot that still reports the previous one is stale;
+          // keep the optimistic value instead of flapping back to it.
+          if (root.pendingTheme.length) {
+            var parsed = SnapshotJs.parseSnapshot(text)
+            if (parsed && parsed.theme && parsed.theme !== root.pendingTheme) {
+              parsed.theme = root.pendingTheme
+              text = JSON.stringify(parsed)
+            }
+          }
+          root.applySnapshot(text)
+        }
       } else {
         root.lastError = String(snapErr.text || "omarchy snapshot failed").replace(/^\s+|\s+$/g, "")
       }
@@ -2884,6 +2941,13 @@ QtObject {
       }
       root.ioFinished()
     }
+  }
+
+  // Fire-and-forget theme applies. Theme switching bypasses the mut queue so
+  // a running snapshot read cannot delay it; omarchy-theme-set serializes
+  // concurrent switches on its own lock and the theme.name watcher confirms.
+  property Process themeSetProc: Process {
+    command: ["true"]
   }
 
   property Process jobProc: Process {

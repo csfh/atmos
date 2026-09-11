@@ -186,3 +186,181 @@ assert(
   !shell.haystackMatches("network", shell.joinSearchHaystack(["Theme", "font"])),
   "haystackMatches rejects unrelated rows",
 );
+
+assertEqual(
+  theme.previewExtensions().join(","),
+  "png,jpg,jpeg,webp,gif,bmp",
+  "previewExtensions lists the switcher image types",
+);
+assertEqual(
+  theme.previewCandidates("Tokyo Night", "/home/u")[0],
+  "/home/u/.cache/omarchy/theme-selector/previews/tokyo-night.png",
+  "previewCandidates points at the native switcher cache",
+);
+assertEqual(
+  theme.previewCandidates("Tokyo Night", "/home/u").length,
+  6,
+  "previewCandidates covers every image extension",
+);
+assertEqual(
+  theme.previewCandidates("../x", "/home/u").length,
+  0,
+  "previewCandidates rejects a path slug",
+);
+assertEqual(theme.previewCandidates("x", "").length, 0, "previewCandidates needs a home");
+assertEqual(
+  theme
+    .swatchList({
+      background: "#1a1b26",
+      foreground: "#a9b1d6",
+      accent: "#7aa2f7",
+      muted: "#414868",
+      urgent: "#f7768e",
+    })
+    .join(","),
+  "#1a1b26,#a9b1d6,#7aa2f7,#414868,#f7768e",
+  "swatchList keeps background-first preview order",
+);
+assertEqual(
+  theme.swatchList({}).join(","),
+  "#101315,#cacccc,#cacccc,#707880,#a55555",
+  "swatchList falls back to the default palette",
+);
+
+const hoverSelectSrc = fs.readFileSync(
+  path.join(__dirname, "..", "components", "PrefsSelect.qml"),
+  "utf8",
+);
+assert(
+  hoverSelectSrc.indexOf("signal previewed(string value)") !== -1,
+  "PrefsSelect reports a hovered option without committing",
+);
+assert(
+  hoverSelectSrc.indexOf("onEntered: root.previewValue(") !== -1,
+  "PrefsSelect previews on hover",
+);
+assert(
+  hoverSelectSrc.indexOf("onCurrentIndexChanged: root.previewCurrent()") !== -1,
+  "PrefsSelect previews when arrow keys move the highlight",
+);
+assert(
+  hoverSelectSrc.indexOf("Only pickValue() commits") !== -1,
+  "PrefsSelect documents that only a pick commits",
+);
+assert(
+  hoverSelectSrc.indexOf("root.previewValue(root.shownValue)") !== -1,
+  "PrefsSelect resets the preview to the shown value on close",
+);
+const hoverAppearanceSrc = fs.readFileSync(
+  path.join(__dirname, "..", "pages", "AppearancePage.qml"),
+  "utf8",
+);
+assert(
+  hoverAppearanceSrc.indexOf("onPreviewed: function(value) { root.showThemePreview(value) }") !==
+    -1,
+  "Current theme shows a hover preview instead of applying",
+);
+assert(
+  hoverAppearanceSrc.indexOf('label: "Theme switcher"') !== -1 &&
+    hoverAppearanceSrc.indexOf('text: "Open switcher…"') !== -1 &&
+    hoverAppearanceSrc.indexOf("Omarchy.openThemeSwitcher()") !== -1,
+  "Theme offers the native thumbnail switcher next to the dropdown",
+);
+assert(
+  hoverAppearanceSrc.indexOf("liveApply") === -1 &&
+    hoverAppearanceSrc.indexOf("onHighlighted") === -1,
+  "Current theme hover never calls setTheme",
+);
+assert(
+  hoverAppearanceSrc.indexOf("Nothing is applied until you click a theme.") === -1,
+  "Theme preview keeps no note below the swatches",
+);
+assert(
+  hoverAppearanceSrc.indexOf("Click a theme above to apply it.") !== -1,
+  "Theme preview description still tells how to apply",
+);
+assert(
+  hoverAppearanceSrc.indexOf(
+    "if (Omarchy.theme.length > 0) root.showThemePreview(Omarchy.theme)",
+  ) !== -1 &&
+    hoverAppearanceSrc.indexOf(
+      "if (root.themePreviewName.length === 0 && Omarchy.theme.length > 0)",
+    ) !== -1,
+  "Theme preview starts on the current theme",
+);
+assert(
+  hoverAppearanceSrc.indexOf("Omarchy.ensureThemePreviews()") === -1,
+  "Appearance never warms previews through the mut queue",
+);
+assert(
+  hoverAppearanceSrc.indexOf("root.themePreviewRequest = name") !== -1 &&
+    hoverAppearanceSrc.indexOf("Theme.previewSwatches(") === -1,
+  "hover preview resolves the palette async instead of blocking the UI",
+);
+assert(
+  hoverAppearanceSrc.indexOf("property FileView previewColorsFile: FileView") !== -1 &&
+    hoverAppearanceSrc.indexOf("watchChanges: false") !== -1,
+  "hover preview reads colors through a one-shot FileView",
+);
+assert(
+  hoverAppearanceSrc.indexOf("id: themePreviewWarmer") !== -1 &&
+    hoverAppearanceSrc.indexOf("omarchy theme switcher --preload >/dev/null 2>&1 &") !== -1,
+  "Appearance warms the native preview cache with an in-page Process",
+);
+const hoverOmarchySrc = fs.readFileSync(
+  path.join(__dirname, "..", "services", "Omarchy.qml"),
+  "utf8",
+);
+assert(
+  hoverOmarchySrc.indexOf("ensureThemePreviews") === -1,
+  "no queued preview job can bump writeSeq and discard the look snapshot",
+);
+assert(
+  hoverOmarchySrc.indexOf("root.applySnapshot(JSON.stringify({ theme: name }))") !== -1,
+  "setTheme shows the new theme immediately instead of waiting for a snapshot",
+);
+assert(
+  hoverOmarchySrc.indexOf("function fireThemeSet(argv)") !== -1 &&
+    hoverOmarchySrc.indexOf("property Process themeSetProc: Process") !== -1 &&
+    hoverOmarchySrc.indexOf("root.fireThemeSet(cmd.argv)") !== -1,
+  "setTheme fires on a dedicated detached process instead of the mut queue",
+);
+assert(
+  hoverOmarchySrc.indexOf("parsed.theme = root.pendingTheme") !== -1,
+  "a stale snapshot keeps the pending theme instead of flapping the label back",
+);
+assert(
+  hoverOmarchySrc.indexOf("var confirmed = name === root.pendingTheme") !== -1 &&
+    hoverOmarchySrc.indexOf("} else if (confirmed) {") !== -1,
+  "the theme.name watcher confirms the pending switch and refreshes the look",
+);
+assert(
+  hoverOmarchySrc.indexOf("property string pendingTheme:") !== -1 &&
+    hoverOmarchySrc.indexOf("root.pendingTheme = name") !== -1 &&
+    hoverOmarchySrc.indexOf("themeConfirmTimer.restart()") !== -1,
+  "setTheme tracks the requested theme for confirmation",
+);
+assert(
+  hoverOmarchySrc.indexOf("function confirmThemeSwitch()") !== -1 &&
+    hoverOmarchySrc.indexOf("Theme change to ") !== -1 &&
+    hoverOmarchySrc.indexOf("property Timer themeConfirmTimer: Timer") !== -1,
+  "an unlanded theme switch surfaces an error and resyncs",
+);
+assert(
+  hoverSelectSrc.indexOf("optionMouse.containsMouse || index === list.currentIndex") !== -1 &&
+    hoverSelectSrc.indexOf("root.optionValue(modelData) === root.shownValue") === -1,
+  "popup rows highlight hover and position only, never the committed theme",
+);
+const hoverThemeQml = fs.readFileSync(path.join(__dirname, "..", "services", "Theme.qml"), "utf8");
+assert(
+  hoverThemeQml.indexOf("function readThemeColors(") !== -1 &&
+    hoverThemeQml.indexOf("function previewSwatches(") !== -1 &&
+    hoverThemeQml.indexOf("without touching the live") !== -1,
+  "Theme reads a preview without touching the live theme",
+);
+assert(
+  hoverThemeQml.indexOf("function colorCandidates(") !== -1 &&
+    hoverThemeQml.indexOf("function swatchesFromText(") !== -1 &&
+    hoverThemeQml.indexOf("function defaultSwatches(") !== -1,
+  "Theme exposes async palette pieces for the hover preview",
+);

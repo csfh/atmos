@@ -1,4 +1,5 @@
 import QtQuick
+import Quickshell.Io
 import "../components"
 import "../services"
 import "../services/HyprSunset.js" as HyprSunset
@@ -23,6 +24,60 @@ PrefsPage {
   readonly property string dayParsed: HyprSunset.parseTime(root.dayDraft)
   readonly property string nightParsed: HyprSunset.parseTime(root.nightDraft)
   readonly property bool nightTimesValid: root.dayParsed.length > 0 && root.nightParsed.length > 0
+
+  // Maintainer hover preview: checking the open theme list shows what a
+  // theme looks like without committing. Only a click applies via setTheme.
+  property string themePreviewName: ""
+  property var themePreviewColors: []
+  property var themePreviewImages: []
+  property int themePreviewImageIdx: 0
+  readonly property string themePreviewSource: root.themePreviewImages.length > 0 ? ("file://" + encodeURI(root.themePreviewImages[root.themePreviewImageIdx])) : ""
+
+  function showThemePreview(name) {
+    name = String(name || "")
+    if (!name) return
+    if (name === root.themePreviewName && root.themePreviewColors.length > 0) return
+    root.themePreviewName = name
+    root.themePreviewImageIdx = 0
+    root.themePreviewImages = Theme.previewCandidates(name)
+    root.themePreviewRequest = name
+    root.themePreviewPaths = Theme.colorCandidates(name)
+    root.themePreviewPathIdx = 0
+    root.readPreviewColors()
+  }
+
+  // Async, non-blocking palette resolve. The label and the thumbnail update
+  // the same frame as the hover; the dots follow when the read lands, so
+  // sweeping the list never hitches the UI.
+  property string themePreviewRequest: ""
+  property var themePreviewPaths: []
+  property int themePreviewPathIdx: 0
+  property string themePreviewExpected: ""
+
+  function readPreviewColors() {
+    var paths = root.themePreviewPaths || []
+    if (root.themePreviewPathIdx >= paths.length) {
+      if (root.themePreviewRequest === root.themePreviewName)
+        root.themePreviewColors = Theme.defaultSwatches()
+      return
+    }
+    root.themePreviewExpected = paths[root.themePreviewPathIdx]
+    previewColorsFile.path = root.themePreviewExpected
+  }
+
+  property FileView previewColorsFile: FileView {
+    printErrors: false
+    watchChanges: false
+    onLoaded: {
+      if (previewColorsFile.path !== root.themePreviewExpected) return
+      root.themePreviewColors = Theme.swatchesFromText(previewColorsFile.text())
+    }
+    onLoadFailed: {
+      if (previewColorsFile.path !== root.themePreviewExpected) return
+      root.themePreviewPathIdx++
+      root.readPreviewColors()
+    }
+  }
 
   function openAddTheme() {
     root.themeUrlDraft = ""
@@ -70,11 +125,25 @@ PrefsPage {
     removeThemeConfirm.parent = root.prefsOverlay
     addThemeDialog.parent = root.prefsOverlay
     root.syncExtraToRemove()
+    if (Omarchy.theme.length > 0) root.showThemePreview(Omarchy.theme)
+  }
+
+  // Warm the native theme-preview cache without touching the mut queue: any
+  // queued write bumps writeSeq, which silently discards the in-flight look
+  // snapshot and leaves every dropdown empty. Plain in-page Process instead.
+  Process {
+    id: themePreviewWarmer
+    running: true
+    command: ["bash", "-c", "omarchy theme switcher --preload >/dev/null 2>&1 &"]
   }
 
   Connections {
     target: Omarchy
     function onExtraThemesChanged() { root.syncExtraToRemove() }
+    function onThemeChanged() {
+      if (root.themePreviewName.length === 0 && Omarchy.theme.length > 0)
+        root.showThemePreview(Omarchy.theme)
+    }
     function onNightlightDayChanged() { root.dayDraft = Omarchy.nightlightDay }
     function onNightlightNightChanged() { root.nightDraft = Omarchy.nightlightNight }
   }
@@ -146,16 +215,76 @@ PrefsPage {
 
     SettingRow {
       label: "Current theme"
-      description: "The palette in use right now. The shell and themed apps follow this."
+      description: "The palette in use right now. Open the list and hover a theme to see it first. Click to apply it."
       hint: "omarchy theme set"
       query: root.query
-      keywords: ["appearance", "color", "style", "palette"]
+      keywords: ["appearance", "color", "style", "palette", "preview", "hover"]
 
       PrefsSelect {
         value: Omarchy.theme
         options: Omarchy.themes
         enabled: Omarchy.themes.length > 0
         onChanged: function(value) { if (value !== Omarchy.theme) Omarchy.setTheme(value) }
+        onPreviewed: function(value) { root.showThemePreview(value) }
+      }
+    }
+
+    SettingRow {
+      available: root.themePreviewName.length > 0
+      stretchControl: true
+      label: "Theme preview"
+      description: "Previewing " + root.themePreviewName + ". Click a theme above to apply it."
+      hint: "omarchy theme switcher"
+      query: root.query
+      keywords: ["appearance", "preview", "thumbnail", "hover", "palette", "swatch"]
+
+      Column {
+        width: parent.width
+        spacing: Theme.space
+
+        Row {
+          spacing: Theme.stackGap
+
+          Repeater {
+            model: root.themePreviewColors
+
+            Rectangle {
+              required property var modelData
+              width: Theme.checkSize
+              height: Theme.checkSize
+              color: modelData
+              border.width: Theme.borderWidth
+              border.color: Theme.borderColor()
+            }
+          }
+        }
+
+        Image {
+          visible: root.themePreviewSource.length > 0
+          width: parent.width
+          height: Math.round(parent.width * 9 / 16)
+          fillMode: Image.PreserveAspectCrop
+          asynchronous: true
+          cache: true
+          source: root.themePreviewSource
+          onStatusChanged: {
+            if (status === Image.Error && root.themePreviewImageIdx + 1 < root.themePreviewImages.length)
+              root.themePreviewImageIdx++
+          }
+        }
+      }
+    }
+
+    SettingRow {
+      label: "Theme switcher"
+      description: "Pick from thumbnail previews the same way omarchy theme switcher does."
+      hint: "omarchy theme switcher"
+      query: root.query
+      keywords: ["appearance", "preview", "thumbnail", "picker", "browse", "switcher"]
+
+      PrefsButton {
+        text: "Open switcher…"
+        onClicked: Omarchy.openThemeSwitcher()
       }
     }
 

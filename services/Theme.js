@@ -119,6 +119,37 @@ function mergeShell(themeValues, userValues) {
   return merged;
 }
 
+function previewExtensions() {
+  return ["png", "jpg", "jpeg", "webp", "gif", "bmp"];
+}
+
+function previewCandidates(name, cacheHome) {
+  var slug = themeSlug(name);
+  if (!slug || slug.indexOf("/") !== -1 || slug.charAt(0) === ".") return [];
+  var base = String(cacheHome || "").replace(/\/+$/, "");
+  if (!base) return [];
+  var dir = base + "/.cache/omarchy/theme-selector/previews/" + slug + ".";
+  var exts = previewExtensions();
+  var out = [];
+  for (var i = 0; i < exts.length; i++) out.push(dir + exts[i]);
+  return out;
+}
+
+function swatchList(parsed) {
+  var src = parsed || {};
+  function hex(value, fallback) {
+    var s = String(value || "");
+    return /^#[0-9A-Fa-f]{6}$/.test(s) ? s : fallback;
+  }
+  return [
+    hex(src.background, "#101315"),
+    hex(src.foreground, "#cacccc"),
+    hex(src.accent, "#cacccc"),
+    hex(src.muted, "#707880"),
+    hex(src.urgent, "#a55555"),
+  ];
+}
+
 function numberToken(values, key, fallback) {
   var n = Number(values && values[key]);
   return isFinite(n) ? n : fallback;

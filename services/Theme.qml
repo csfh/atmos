@@ -12,6 +12,7 @@ QtObject {
   readonly property string currentThemePath: currentDir + "/theme"
   readonly property string currentThemeNameFile: currentDir + "/theme.name"
   readonly property string userShellPath: home + "/.config/omarchy/shell.toml"
+  readonly property string previewCacheDir: home + "/.cache/omarchy/theme-selector/previews"
 
   property color foreground: "#cacccc"
   property color background: "#101315"
@@ -165,6 +166,38 @@ QtObject {
     peekFile.reload()
     peekFile.waitForJob()
     return peekFile.text() || ""
+  }
+
+  function previewCandidates(name) {
+    return ThemeJs.previewCandidates(name, root.home)
+  }
+
+  // Non-committing read: a theme's colors.toml without touching the live
+  // current/theme files. Hover previews call this, never setTheme.
+  function readThemeColors(name) {
+    var paths = ThemeJs.themeFileCandidates(name, "colors.toml", root.home)
+    var i
+    for (i = 0; i < paths.length; i++) {
+      var raw = root.readPath(paths[i])
+      if (raw) return ThemeJs.parseColors(raw)
+    }
+    return ThemeJs.parseColors("")
+  }
+
+  function previewSwatches(name) {
+    return ThemeJs.swatchList(root.readThemeColors(name))
+  }
+
+  function colorCandidates(name) {
+    return ThemeJs.themeFileCandidates(name, "colors.toml", root.home)
+  }
+
+  function swatchesFromText(raw) {
+    return ThemeJs.swatchList(ThemeJs.parseColors(raw))
+  }
+
+  function defaultSwatches() {
+    return ThemeJs.swatchList({})
   }
 
   function applyNamedTheme(name) {

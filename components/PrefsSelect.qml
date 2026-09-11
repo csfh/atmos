@@ -19,6 +19,9 @@ Item {
   readonly property bool useSearch: searchable || (options && options.length >= 8)
 
   signal changed(string value)
+  // Non-committing check: hover or arrow-highlight asks the page to show
+  // what an option looks like. Only pickValue() commits through changed().
+  signal previewed(string value)
 
   implicitWidth: Theme.controlColumnWidth
   implicitHeight: Theme.controlHeight
@@ -88,6 +91,18 @@ Item {
   function pickCurrent() {
     if (list.currentIndex < 0 || list.currentIndex >= (shownOptions || []).length) return
     pickValue(optionValue(shownOptions[list.currentIndex]))
+  }
+
+  function previewValue(next) {
+    next = String(next || "")
+    if (!next) return
+    root.previewed(next)
+  }
+
+  function previewCurrent() {
+    if (!popup.opened) return
+    if (list.currentIndex < 0 || list.currentIndex >= (shownOptions || []).length) return
+    previewValue(optionValue(shownOptions[list.currentIndex]))
   }
 
   function togglePopup() {
@@ -196,7 +211,12 @@ Item {
       else list.forceActiveFocus()
       Qt.callLater(root.placePopup)
     }
-    onClosed: root.filter = ""
+    onClosed: {
+      root.filter = ""
+      // Closing without a pick falls back to the shown value, so a hover
+      // preview resets instead of sticking on an uncommitted option.
+      root.previewValue(root.shownValue)
+    }
 
     background: Rectangle {
       color: Theme.background
@@ -258,6 +278,7 @@ Item {
         highlightFollowsCurrentItem: true
         Keys.onReturnPressed: root.pickCurrent()
         Keys.onSpacePressed: root.pickCurrent()
+        onCurrentIndexChanged: root.previewCurrent()
 
         // Same viewport wheel handler as PrefsFlickable. Delegate MouseAreas
         // swallow the wheel, and a WheelHandler on this ListView never fires.
@@ -286,7 +307,7 @@ Item {
           required property int index
           width: list.width
           height: Theme.rowHeight - 10
-          color: optionMouse.containsMouse || index === list.currentIndex || root.optionValue(modelData) === root.shownValue
+          color: optionMouse.containsMouse || index === list.currentIndex
             ? Theme.fill(Theme.selectedFill)
             : "transparent"
 
@@ -307,6 +328,7 @@ Item {
             anchors.fill: parent
             hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
+            onEntered: root.previewValue(root.optionValue(modelData))
             onClicked: root.pickValue(root.optionValue(modelData))
           }
         }

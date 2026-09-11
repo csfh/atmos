@@ -38,6 +38,47 @@ ShellRoot {
     return LayoutJs.clusterByGroup(matched, q.length === 0)
   }
 
+  // The nav in the order it is drawn, so j/k walk what the eye sees rather
+  // than the unfiltered catalogue. Follows the live search filter.
+  readonly property var flatNavPages: {
+    var out = []
+    var groups = root.groupedPages
+    var i, j
+    for (i = 0; i < groups.length; i++) {
+      var pages = groups[i] && groups[i].pages ? groups[i].pages : []
+      for (j = 0; j < pages.length; j++) out.push(pages[j].id)
+    }
+    return out
+  }
+
+  // True while a text field owns the keyboard, so a plain letter types
+  // instead of navigating. Without this, j in the search box moves the nav
+  // and search becomes unusable.
+  readonly property bool typing: searchField.activeFocus
+
+  function moveNav(delta) {
+    var list = root.flatNavPages
+    if (list.length === 0) return
+    var at = list.indexOf(root.currentPage)
+    var next = at < 0 ? (delta > 0 ? 0 : list.length - 1) : at + delta
+    if (next < 0) next = 0
+    if (next > list.length - 1) next = list.length - 1
+    if (list[next] === root.currentPage) return
+    root.currentPage = list[next]
+    if (searchField.text.length > 0) searchField.text = ""
+    else root.loadHub(list[next])
+  }
+
+  function jumpNav(toEnd) {
+    var list = root.flatNavPages
+    if (list.length === 0) return
+    var id = toEnd ? list[list.length - 1] : list[0]
+    if (id === root.currentPage) return
+    root.currentPage = id
+    if (searchField.text.length > 0) searchField.text = ""
+    else root.loadHub(id)
+  }
+
   function pageMatches(page, q) {
     var nq = String(q || "").toLowerCase()
     if (!nq) return true
@@ -771,6 +812,62 @@ ShellRoot {
       }
     }
 
+    // A keyboard-first app has to teach its own keys rather than send you
+    // to a README.
+    PrefsDialog {
+      id: keysDialog
+      title: "Keyboard"
+      closePolicy: Popup.CloseOnEscape
+
+      Repeater {
+        model: [
+          { keys: "j  /  k", what: "Move down and up the sidebar" },
+          { keys: "g  /  G", what: "Jump to the first or last hub" },
+          { keys: "/", what: "Search settings" },
+          { keys: "Enter", what: "Open or toggle what is focused" },
+          { keys: "Tab", what: "Move through controls on the page" },
+          { keys: "Escape", what: "Go back, or clear the search" },
+          { keys: "?", what: "This sheet" }
+        ]
+        delegate: Item {
+          required property var modelData
+          width: parent ? parent.width : 0
+          height: Theme.rowHeight
+
+          Text {
+            anchors.left: parent.left
+            anchors.verticalCenter: parent.verticalCenter
+            width: 120
+            text: modelData.keys
+            color: Theme.accent
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.labelSize
+            font.bold: true
+          }
+          Text {
+            anchors.left: parent.left
+            anchors.leftMargin: 130
+            anchors.right: parent.right
+            anchors.verticalCenter: parent.verticalCenter
+            text: modelData.what
+            color: Theme.foreground
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.labelSize
+            elide: Text.ElideRight
+          }
+        }
+      }
+
+      Row {
+        anchors.right: parent.right
+        PrefsButton {
+          text: "Close"
+          primary: true
+          onClicked: keysDialog.close()
+        }
+      }
+    }
+
     PrefsDialog {
       id: sudoModeDialog
       title: "Administrator password"
@@ -853,6 +950,35 @@ ShellRoot {
     Shortcut {
       sequences: ["Ctrl+F", "/"]
       onActivated: searchField.forceActiveFocus()
+    }
+
+    // Atmos's audience runs a tiling window manager and lives on the
+    // keyboard. Every binding is disabled while a text field has focus, so
+    // typing a j into search types a j.
+    Shortcut {
+      sequences: ["J"]
+      enabled: !root.typing
+      onActivated: root.moveNav(1)
+    }
+    Shortcut {
+      sequences: ["K"]
+      enabled: !root.typing
+      onActivated: root.moveNav(-1)
+    }
+    Shortcut {
+      sequences: ["G"]
+      enabled: !root.typing
+      onActivated: root.jumpNav(false)
+    }
+    Shortcut {
+      sequences: ["Shift+G"]
+      enabled: !root.typing
+      onActivated: root.jumpNav(true)
+    }
+    Shortcut {
+      sequences: ["?"]
+      enabled: !root.typing
+      onActivated: keysDialog.open()
     }
 
     Shortcut {

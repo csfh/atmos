@@ -326,6 +326,11 @@ assert(
   "setTheme fires on a dedicated detached process instead of the mut queue",
 );
 assert(
+  hoverOmarchySrc.indexOf("property Process themeSwitcherProc: Process") !== -1 &&
+    hoverOmarchySrc.indexOf("themeSwitcherProc.command = argv") !== -1,
+  "the native switcher no longer holds the mut queue while picking",
+);
+assert(
   hoverOmarchySrc.indexOf("root.pendingPaint = name") !== -1 &&
     hoverOmarchySrc.indexOf("property Timer themePaintTimer: Timer") !== -1,
   "setTheme defers the blocking chrome paint so the label frame renders first",

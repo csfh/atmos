@@ -780,10 +780,14 @@ QtObject {
     themeSetProc.running = true
   }
   function openThemeSwitcher() {
-    runCommand(["bash", "-c", "theme=$(omarchy theme switcher || true); [[ -n $theme ]] && omarchy theme set \"$theme\" >/dev/null 2>&1 &"], {
-      key: "theme",
-      refresh: "none"
-    })
+    // Fire-and-forget on its own process, like fireThemeSet: the native
+    // picker blocks waiting for a choice, and holding mutProc that long
+    // stalls every other queued setting. The theme.name watcher picks up
+    // the result as an outside switch.
+    var argv = ["bash", "-c", "theme=$(omarchy theme switcher || true); [[ -n $theme ]] && omarchy theme set \"$theme\" >/dev/null 2>&1 &"]
+    themeSwitcherProc.running = false
+    themeSwitcherProc.command = argv
+    themeSwitcherProc.running = true
   }
   function refreshTheme() { runCommand(["omarchy", "theme", "refresh"]) }
   function openThemeFolder() {
@@ -2974,6 +2978,12 @@ QtObject {
   // a running snapshot read cannot delay it; omarchy-theme-set serializes
   // concurrent switches on its own lock and the theme.name watcher confirms.
   property Process themeSetProc: Process {
+    command: ["true"]
+  }
+
+  // Fire-and-forget native theme picker. The picker blocks waiting for a
+  // choice, so it gets its own process instead of holding the mut queue.
+  property Process themeSwitcherProc: Process {
     command: ["true"]
   }
 

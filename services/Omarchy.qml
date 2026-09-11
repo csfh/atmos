@@ -1806,6 +1806,89 @@ QtObject {
     runJob(["bash", diagReportScript, "agent"], header, "diag-report", { refresh: "none" })
   }
 
+  // The machine's configured coding agent, asked one question, headless.
+  //
+  // It is the agent the user already chose through Omarchy, reached in its
+  // non-interactive mode, so the answer lands in this window instead of a
+  // terminal opening over whatever they were doing. omarchy-agent launches a
+  // TUI, which is right for a keybinding and wrong here; agent-ask.sh maps
+  // the same configured default onto codex exec, claude -p, grok --single
+  // and the rest. No credential Atmos has to know about.
+  readonly property string agentAskScript: shellDir + "/scripts/agent-ask.sh"
+  readonly property var hubCatalogue: HubsJs.hubs()
+  property bool agentBusy: false
+  property string agentAnswer: ""
+  property string agentError: ""
+  property int agentSeconds: 0
+  property string agentStdin: ""
+  property string agentName: "your agent"
+
+  function askAgent(prompt) {
+    var text = String(prompt || "")
+    if (!text || root.agentBusy) return
+    root.agentBusy = true
+    root.agentAnswer = ""
+    root.agentError = ""
+    root.agentSeconds = 0
+    root.agentStdin = text
+    agentProc.command = ["bash", root.agentAskScript]
+    agentProc.running = true
+  }
+
+  // Which agent, by name, so the UI can say "Asking codex" rather than
+  // "asking the agent". Only a label.
+  function probeAgent() {
+    agentNameProc.command = [
+      "bash", "-c",
+      "command -v omarchy-default-agent >/dev/null 2>&1 && omarchy-default-agent 2>/dev/null || true"
+    ]
+    agentNameProc.running = true
+  }
+
+  property Process agentNameProc: Process {
+    command: ["true"]
+    stdout: StdioCollector { id: agentNameOut; waitForEnd: true }
+    onExited: function (exitCode) {
+      if (exitCode !== 0) return
+      var name = String(agentNameOut.text || "").replace(/^\s+|\s+$/g, "")
+      if (name) root.agentName = name
+    }
+  }
+
+  // An agent reports no progress, so there is no percentage to show. Elapsed
+  // seconds is what is actually known, and it proves it is alive.
+  property Timer agentTick: Timer {
+    interval: 1000
+    repeat: true
+    running: root.agentBusy
+    onTriggered: root.agentSeconds += 1
+  }
+
+  property Process agentProc: Process {
+    command: ["true"]
+    stdinEnabled: true
+    stdout: StdioCollector { id: agentOut; waitForEnd: true }
+    stderr: StdioCollector { id: agentErr; waitForEnd: true }
+    onStarted: {
+      if (root.agentStdin.length > 0) {
+        write(root.agentStdin)
+        root.agentStdin = ""
+        // Closed after the write, or an agent reading to EOF waits forever.
+        stdinEnabled = false
+      }
+    }
+    onExited: function (exitCode) {
+      root.agentBusy = false
+      if (exitCode !== 0) {
+        root.agentError = String(agentErr.text || "the agent did not answer")
+          .replace(/^\s+|\s+$/g, "").split("\n")[0]
+        return
+      }
+      root.agentAnswer = String(agentOut.text || "").replace(/^\s+|\s+$/g, "")
+      if (!root.agentAnswer) root.agentError = "the agent returned nothing"
+    }
+  }
+
   function clearLastError() {
     lastError = ""
   }

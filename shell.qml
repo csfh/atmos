@@ -143,6 +143,18 @@ ShellRoot {
   }
 
   Component { id: favoritesPage; FavoritesPage { query: root.query; navigator: prefsNavigator } }
+  Component {
+    id: askPage
+    AskPage {
+      query: root.query
+      onGoToHub: function (hubId) {
+        root.currentPage = hubId
+        if (searchField.text.length > 0) searchField.text = ""
+        else root.loadHub(hubId)
+      }
+    }
+  }
+
   Component { id: appearancePage; AppearancePage { query: root.query; stack: pageStack } }
   Component { id: displayPage; DisplaysPage { query: root.query } }
   Component { id: hardwarePage; HardwarePage { query: root.query; navigator: prefsNavigator } }
@@ -175,6 +187,7 @@ ShellRoot {
   Component { id: searchPage; SearchPage { query: root.query; navigator: prefsNavigator } }
 
   readonly property var pageById: ({
+    ask: askPage,
     favorites: favoritesPage,
     appearance: appearancePage,
     display: displayPage,
@@ -853,6 +866,17 @@ ShellRoot {
     Shortcut {
       sequences: ["Ctrl+F", "/"]
       onActivated: searchField.forceActiveFocus()
+    }
+
+    // Ctrl+K for people who expect it, going to the same place the sidebar's
+    // first row goes. There is no second, hidden version of this feature.
+    Shortcut {
+      sequences: ["Ctrl+K"]
+      onActivated: {
+        root.currentPage = "ask"
+        if (searchField.text.length > 0) searchField.text = ""
+        else root.loadHub("ask")
+      }
     }
 
     Shortcut {

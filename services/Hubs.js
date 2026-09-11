@@ -30,6 +30,21 @@ function child(id, title, file) {
 
 function hubs() {
   return [
+    // First, in its own section. Everything below assumes you already know
+    // which page you want; this is the one for when you do not. Placement is
+    // a judgement call -- moving it is this block plus one line in
+    // hubs.test.js.
+    {
+      id: "ask",
+      title: "Ask",
+      description: "Describe what you want in plain words and Atmos will find the setting.",
+      navGroup: "ask",
+      snapshotGroup: "",
+      icon: "question-line",
+      file: "AskPage.qml",
+      keywords: keywordList("ask question help find search natural language plain words assistant"),
+      children: [],
+    },
     {
       id: "favorites",
       title: "Favorites",

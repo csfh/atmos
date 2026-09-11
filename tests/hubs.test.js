@@ -170,9 +170,22 @@ const aliases = hubs.launcherSuffixes();
 });
 
 const nav = hubs.navPages();
-assertEqual(nav[0].id, "favorites", "navPages starts at favorites");
-assertEqual(nav[0].group, "look", "navPages uses navGroup as group");
-assert(nav[0].keywords.indexOf("star") !== -1, "navPages keywords include the union");
+// Ask leads the catalogue: it is the page you want when you do not know
+// which of the others you want. Favorites follows it.
+assertEqual(nav[0].id, "ask", "navPages starts at ask");
+assertEqual(nav[1].id, "favorites", "favorites follows ask");
+assertEqual(nav[0].group, "ask", "navPages uses navGroup as group");
+assertEqual(nav[1].group, "look", "favorites still groups under look");
+// Index 0 is Ask now; this checks Favorites, which is the hub that owns
+// "star" and the union behaviour being tested.
+assert(
+  nav
+    .filter(function (p) {
+      return p.id === "favorites";
+    })[0]
+    .keywords.indexOf("star") !== -1,
+  "navPages keywords include the union",
+);
 function consecutiveNavGroup(group) {
   const ids = nav
     .filter(function (page) {
@@ -213,7 +226,14 @@ assertEqual(
 );
 
 const search = hubs.searchHubs();
-assertEqual(search[0].description.indexOf("starred") !== -1, true, "searchHubs keeps descriptions");
+// Index 0 is Ask now; this checks the hub whose description carries "starred".
+assertEqual(
+  search.filter(function (h) {
+    return h.description.indexOf("starred") !== -1;
+  }).length > 0,
+  true,
+  "searchHubs keeps descriptions",
+);
 assert(Array.isArray(search[0].keywords), "searchHubs keywords are an array");
 assert(
   hubs.hubById("input").keywords.indexOf("keyboard") !== -1,

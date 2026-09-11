@@ -143,6 +143,8 @@ function helpAccessibleName(title) {
 }
 
 var NAV_GROUP_LABELS = {
+  // Ask has no heading: the section holds one row already called Ask, and a
+  // heading would just say Ask above Ask.
   look: "Desktop",
   input: "Controls",
   device: "Machine",

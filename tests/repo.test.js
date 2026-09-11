@@ -840,6 +840,17 @@ assert(
   displaysPageSrc.indexOf('description: "No monitors reported."') !== -1,
   "a missing monitor list says No monitors reported",
 );
+assert(
+  displaysPageSrc.indexOf("root.canDisable(modelData)") !== -1 &&
+    displaysPageSrc.indexOf("This is the only display on, so it has to stay on.") !== -1 &&
+    displaysPageSrc.indexOf("Another display is mirroring this one.") !== -1,
+  "disabling the last display on, or a mirror source, stays off",
+);
+assert(
+  displaysPageSrc.indexOf("enabled: Omarchy.internalPresent") !== -1 &&
+    displaysPageSrc.indexOf("enabled: Omarchy.externalPresent") !== -1,
+  "layouts that would leave no display on stay off",
+);
 const prefsCheckSrc = fs.readFileSync(
   path.join(__dirname, "..", "components", "PrefsCheck.qml"),
   "utf8",

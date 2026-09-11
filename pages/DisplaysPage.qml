@@ -85,6 +85,44 @@ PrefsPage {
     return monitor && monitor.enabled === false
   }
 
+  function enabledMonitorCount() {
+    var list = Omarchy.monitors || []
+    var n = 0
+    for (var i = 0; i < list.length; i++) {
+      if (!root.ruleDisabled(list[i])) n++
+    }
+    return n
+  }
+
+  function isMirrorSource(monitor) {
+    var name = monitor && monitor.name ? String(monitor.name) : ""
+    if (!name) return false
+    var list = Omarchy.monitors || []
+    for (var i = 0; i < list.length; i++) {
+      var m = list[i] || {}
+      if (String(m.mirrorOf || "") === name && !root.ruleDisabled(m)) return true
+    }
+    return false
+  }
+
+  // Turning a display off is only safe when something else stays on, and a
+  // display feeding a mirror cannot go off first. Re-enabling is always safe.
+  function canDisable(monitor) {
+    if (!monitor || !monitor.name) return false
+    if (root.ruleDisabled(monitor)) return true
+    if (root.isMirrorSource(monitor)) return false
+    return root.enabledMonitorCount() > 1
+  }
+
+  function disableDescription(monitor) {
+    if (root.ruleDisabled(monitor)) return "Off for now. Turn it back on when you need it."
+    if (root.isMirrorSource(monitor))
+      return "Another display is mirroring this one. Unmirror it first."
+    if (!root.canDisable(monitor))
+      return "This is the only display on, so it has to stay on."
+    return "Keeps the rule so you can turn it back on. Does not delete the output from the file."
+  }
+
   function ruleVrr(monitor) {
     var rule = root.ruleFor(monitor)
     if (rule && rule.vrr != null) return String(rule.vrr)
@@ -207,14 +245,18 @@ PrefsPage {
       SettingRow {
         available: !!(modelData && modelData.name)
         label: "Disable this display"
-        description: "Keeps the rule so you can turn it back on. Does not delete the output from the file."
+        description: root.disableDescription(modelData)
         hint: "hl.monitor disabled"
         query: root.query
         keywords: ["disable", "off", "lid"]
 
         PrefsToggle {
           checked: root.ruleDisabled(modelData)
-          onToggled: Omarchy.patchMonitorRule(modelData.name, { disabled: !root.ruleDisabled(modelData) })
+          enabled: root.canDisable(modelData)
+          onToggled: {
+            if (!root.ruleDisabled(modelData) && !root.canDisable(modelData)) return
+            Omarchy.patchMonitorRule(modelData.name, { disabled: !root.ruleDisabled(modelData) })
+          }
         }
       }
 
@@ -368,12 +410,12 @@ PrefsPage {
   PrefsGroup {
     title: "Layouts"
     query: Omarchy.monitors.length ? root.query : "."
-    detail: "Desk keeps every output on. Laptop keeps the built-in panel. Docked turns the built-in panel off. Each write is a monitor rule in ~/.config/hypr/monitors.lua."
+    detail: "Desk keeps every output on. Laptop keeps the built-in panel and needs one. Docked turns the built-in panel off and needs an external monitor. Each write is a monitor rule in ~/.config/hypr/monitors.lua."
     hint: "~/.config/hypr/monitors.lua"
 
     SettingRow {
       label: "Apply a layout"
-      description: "Uses the outputs Hyprland sees right now."
+      description: "Uses the outputs Hyprland sees right now. Layouts that would leave no display on stay off."
       hint: "hl.monitor"
       query: root.query
       keywords: ["desk", "laptop", "docked", "layout", "profile"]
@@ -386,10 +428,12 @@ PrefsPage {
         }
         PrefsButton {
           text: "Laptop"
+          enabled: Omarchy.internalPresent
           onClicked: Omarchy.applyMonitorLayout("laptop")
         }
         PrefsButton {
           text: "Docked"
+          enabled: Omarchy.externalPresent
           onClicked: Omarchy.applyMonitorLayout("docked")
         }
       }

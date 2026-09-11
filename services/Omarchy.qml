@@ -131,6 +131,10 @@ QtObject {
   // already shows it optimistically; while set, a snapshot that still
   // reports the old theme is stale and must not flap the label back.
   property string pendingTheme: ""
+  // Themes we clicked away from, newest last. Watcher events that still
+  // carry one of these are pre-swap noise from an in-flight switch, not a
+  // new selection.
+  property var recentThemes: []
   property double themeRequestedAt: 0
   property string background: ""
   property string font: ""
@@ -740,6 +744,12 @@ QtObject {
     if (!name || name === theme) return
     var cmd = SettingsJs.commandFor("theme", name, snapshotData, scriptOpts())
     if (!cmd || cmd.skip) return
+    // Remember the theme we clicked away from: watcher events that still
+    // carry it (or an earlier one) are pre-swap noise, not a new selection.
+    var history = Array.isArray(root.recentThemes) ? root.recentThemes.slice() : []
+    if (history[history.length - 1] !== root.theme) history.push(root.theme)
+    while (history.length > 4) history.shift()
+    root.recentThemes = history
     // Optimistic label: the dropdown shows the new theme on this frame
     // instead of waiting for theme.name and a snapshot round-trip.
     root.applySnapshot(JSON.stringify({ theme: name }))
@@ -2780,15 +2790,27 @@ QtObject {
     var name = ThemeJs.themeNameFromSlug(slug, root.themes)
     if (!name) return
     // Our own request landing clears the optimistic hold and pulls the new
-    // background and templates. A different theme landing well after our own
-    // request came from outside (terminal, switcher); it wins immediately.
-    var confirmed = name === root.pendingTheme
-    if (confirmed) root.pendingTheme = ""
-    else if (Date.now() - root.themeRequestedAt > 5000) root.pendingTheme = ""
+    // background and templates.
+    if (root.pendingTheme.length > 0 && name === root.pendingTheme) {
+      root.pendingTheme = ""
+      root.recentThemes = []
+      if (name !== root.theme)
+        root.applySnapshot(JSON.stringify({ theme: name }))
+      root.scheduleRefresh("look")
+      return
+    }
+    var recent = Date.now() - root.themeRequestedAt < 5000
+    // Pre-swap watcher noise while our switch is in flight: staging touches
+    // current/ before theme.name is rewritten, so the files still carry a
+    // theme we already clicked away from. Never paint that over the steady
+    // optimistic label.
+    if (recent && (root.recentThemes || []).indexOf(name) !== -1) return
+    // Anything else is an outside switch (terminal, native switcher): it
+    // wins immediately and confirmation no longer applies to it.
+    root.pendingTheme = ""
+    root.recentThemes = []
     if (name !== root.theme) {
       root.applySnapshot(JSON.stringify({ theme: name }))
-      root.scheduleRefresh("look")
-    } else if (confirmed) {
       root.scheduleRefresh("look")
     }
   }

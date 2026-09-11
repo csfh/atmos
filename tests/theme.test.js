@@ -335,8 +335,19 @@ assert(
   "a stale snapshot keeps the pending theme instead of flapping the label back",
 );
 assert(
-  hoverOmarchySrc.indexOf("var confirmed = name === root.pendingTheme") !== -1 &&
-    hoverOmarchySrc.indexOf("} else if (confirmed) {") !== -1,
+  hoverOmarchySrc.indexOf("root.recentThemes = history") !== -1 &&
+    hoverOmarchySrc.indexOf("property var recentThemes:") !== -1,
+  "setTheme remembers clicked-away themes so pre-swap noise is recognizable",
+);
+assert(
+  hoverOmarchySrc.indexOf(
+    "if (recent && (root.recentThemes || []).indexOf(name) !== -1) return",
+  ) !== -1,
+  "pre-swap watcher noise never paints over the steady optimistic label",
+);
+assert(
+  hoverOmarchySrc.indexOf("if (root.pendingTheme.length > 0 && name === root.pendingTheme) {") !==
+    -1,
   "the theme.name watcher confirms the pending switch and refreshes the look",
 );
 assert(

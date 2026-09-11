@@ -59,6 +59,28 @@ Item {
           font.family: Theme.fontFamily
           font.pixelSize: Theme.pageDescriptionSize
         }
+
+        Row {
+          spacing: Theme.space
+          visible: root.query.length === 0 && !root.embed && root.title.length > 0
+          topPadding: Theme.titleGap
+
+          PrefsButton {
+            text: Disclosure.simple ? "Simple" : "Everything"
+            onClicked: Disclosure.simple = !Disclosure.simple
+          }
+
+          PrefsText {
+            anchors.verticalCenter: parent.verticalCenter
+            text: Disclosure.simple
+              ? "advanced rows folded — search still finds them"
+              : "showing every option"
+            color: Theme.muted
+            opacity: Theme.metaOpacity
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.captionSize
+          }
+        }
       }
 
       Column {

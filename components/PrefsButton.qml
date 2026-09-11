@@ -25,16 +25,31 @@ Rectangle {
   radius: Theme.radius
   opacity: Theme.controlOpacity(enabled)
   activeFocusOnTab: enabled
-  color: {
+
+  // The root stays a Rectangle so every existing anchor, size and caller is
+  // untouched; it simply stops painting itself and lets Chamfer draw the
+  // same fill and the same hairline in a different silhouette.
+  readonly property color bodyColor: {
     if ((mouse.containsMouse || root.activeFocus) && enabled) return Theme.fill(Theme.hoverFill)
     if (primary) return Theme.accentFill(Theme.primaryFill)
     return Theme.fill(Theme.normalFill)
   }
-  border.width: Theme.borderWidth
-  border.color: {
+  readonly property color edgeColor: {
     if (danger) return Theme.urgent
     if (primary || ((mouse.containsMouse || root.activeFocus) && enabled)) return Theme.accent
     return Theme.borderColor()
+  }
+
+  color: "transparent"
+  border.width: 0
+  border.color: "transparent"
+
+  Chamfer {
+    anchors.fill: parent
+    z: -1
+    fillColor: root.bodyColor
+    strokeColor: root.edgeColor
+    cut: Theme.chamferSm
   }
 
   Keys.onReturnPressed: if (enabled) root.clicked()

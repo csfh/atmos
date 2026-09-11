@@ -49,6 +49,12 @@ QtObject {
   readonly property string iconStar: "star-line"
   readonly property string iconStarOn: "star-fill"
   readonly property int radius: 0
+
+  // The chamfer. A cut corner, not a radius -- the visual language note
+  // above forbids rounding cards and this does not round them. Sized off the
+  // font so it tracks density the way pad and gap already do.
+  readonly property int chamfer: Math.max(5, Math.round(fontSize * 0.62))
+  readonly property int chamferSm: Math.max(3, Math.round(fontSize * 0.36))
   readonly property real normalFill: ThemeJs.numberToken(root.shellValues, "controls.normal-fill-alpha", 0.04)
   readonly property real hoverFill: ThemeJs.numberToken(root.shellValues, "controls.hover-cursor-fill-alpha", 0.08)
   readonly property real selectedFill: ThemeJs.numberToken(root.shellValues, "controls.selected-fill-alpha", 0.18)

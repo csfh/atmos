@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Window
 import "../services"
 import "../services/Favorites.js" as FavJs
 import "../services/Hubs.js" as HubsJs
@@ -75,6 +76,26 @@ Item {
 
   readonly property bool hovered: rowHover.hovered
 
+  // Lit when the pointer is over the row, or when anything inside it holds
+  // the keyboard.
+  //
+  // root.activeFocus is not enough on its own. A plain Item reports
+  // activeFocus only for itself, and focus actually lands on the control
+  // inside the row -- so a Tab into a field would light nothing, which is
+  // the case this exists for. Walk up from the window's focus item instead.
+  readonly property var focusItem: root.Window.activeFocusItem
+  readonly property bool lit: {
+    if (root.hovered) return true
+    var item = root.focusItem
+    var guard = 0
+    while (item && guard < 40) {
+      if (item === root) return true
+      item = item.parent
+      guard += 1
+    }
+    return false
+  }
+
   HoverHandler {
     id: rowHover
   }
@@ -136,6 +157,39 @@ Item {
   implicitWidth: width
   implicitHeight: visible ? body.implicitHeight + Theme.rowPad * 2 : 0
   height: implicitHeight
+
+  // Light the whole row, not a control inside it.
+  //
+  // A settings page is a wall of near-identical rows, and once you navigate
+  // by keyboard "where am I" has to be answerable at a glance. A thin ring
+  // around whichever control happens to hold focus does not answer it.
+  // Banding the row also makes it read as one thing rather than three that
+  // happen to sit near each other.
+  //
+  // Full-bleed and behind the splitter, so it reads as the row being lit
+  // rather than a box drawn on top of it.
+  Rectangle {
+    anchors.fill: parent
+    z: -2
+    visible: root.lit
+    color: Theme.fill(Theme.selectedFill * 0.55)
+
+    Behavior on opacity {
+      NumberAnimation { duration: Theme.motionFast }
+    }
+  }
+
+  // The left edge. The band alone is easy to miss on a light theme where the
+  // fill is subtle; a hard edge is not.
+  Rectangle {
+    anchors.left: parent.left
+    anchors.top: parent.top
+    anchors.bottom: parent.bottom
+    width: Theme.railWidth
+    z: -1
+    visible: root.lit
+    color: Theme.accent
+  }
 
   Rectangle {
     width: parent.width

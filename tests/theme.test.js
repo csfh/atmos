@@ -326,6 +326,11 @@ assert(
   "setTheme fires on a dedicated detached process instead of the mut queue",
 );
 assert(
+  hoverOmarchySrc.indexOf("root.pendingPaint = name") !== -1 &&
+    hoverOmarchySrc.indexOf("property Timer themePaintTimer: Timer") !== -1,
+  "setTheme defers the blocking chrome paint so the label frame renders first",
+);
+assert(
   hoverOmarchySrc.indexOf("parsed.theme = root.pendingTheme") !== -1,
   "a stale snapshot keeps the pending theme instead of flapping the label back",
 );

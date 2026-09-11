@@ -750,8 +750,13 @@ QtObject {
     // process instead of the mut queue so a busy snapshot read cannot delay
     // the switch, the same way Omarchy's Switch theme action backgrounds it.
     root.fireThemeSet(cmd.argv)
-    // Paint Atmos chrome from the theme files while the detached set runs.
-    Theme.applyNamedTheme(name)
+    // Paint Atmos chrome from the theme files on the next loop, not here:
+    // applyNamedTheme does blocking file reads, and anything blocking in
+    // this handler delays the frame that paints the optimistic label above.
+    // The posted update renders first; the timer then repaints the chrome
+    // while the detached set runs.
+    root.pendingPaint = name
+    themePaintTimer.restart()
   }
   function fireThemeSet(argv) {
     if (!(argv instanceof Array) || argv.length === 0) return
@@ -2948,6 +2953,20 @@ QtObject {
   // concurrent switches on its own lock and the theme.name watcher confirms.
   property Process themeSetProc: Process {
     command: ["true"]
+  }
+
+  // Deferred Atmos chrome paint for setTheme. Rapid clicks coalesce onto the
+  // latest theme; the theme.name watcher repaints again when it lands, so a
+  // dropped intermediate paint is harmless.
+  property string pendingPaint: ""
+  property Timer themePaintTimer: Timer {
+    interval: 1
+    repeat: false
+    onTriggered: {
+      var name = root.pendingPaint
+      root.pendingPaint = ""
+      if (name) Theme.applyNamedTheme(name)
+    }
   }
 
   property Process jobProc: Process {

@@ -851,6 +851,14 @@ assert(
     displaysPageSrc.indexOf("enabled: Omarchy.externalPresent") !== -1,
   "layouts that would leave no display on stay off",
 );
+assert(
+  displaysPageSrc.indexOf('label: "Refresh rate"') !== -1 &&
+    displaysPageSrc.indexOf("RichUi.monitorResolutions(modelData)") !== -1 &&
+    displaysPageSrc.indexOf(
+      "RichUi.monitorRefreshRates(modelData, root.resolutionValue(modelData))",
+    ) !== -1,
+  "resolution lists sizes only with refresh rate in its own row behind it",
+);
 const prefsCheckSrc = fs.readFileSync(
   path.join(__dirname, "..", "components", "PrefsCheck.qml"),
   "utf8",

@@ -174,7 +174,7 @@ PrefsPage {
         label: "Resolution"
         description: root.resolutionDescription(modelData)
         hint: "~/.config/hypr/monitors.lua"
-        detail: "Every resolution Hyprland's EDID list reports for this output, largest first. Atmos writes the pick together with the refresh rate behind it as hl.monitor mode."
+        detail: "Every resolution the output reports, plus standard lower modes, largest first. Atmos writes the pick together with the refresh rate behind it as hl.monitor mode."
         query: root.query
         keywords: ["monitor", "display", "hdmi", "dp", "edp", "resolution", "refresh"]
 

@@ -185,8 +185,42 @@ function parseMonitorResolution(raw) {
   return { width: width, height: height, key: width + "x" + height };
 }
 
+// Standard modes users commonly want even when EDID omits them, notably
+// lower ones for performance or compatibility.
+function standardResolutions() {
+  return [
+    "5120x1440",
+    "3440x1440",
+    "3840x2160",
+    "2560x1600",
+    "2560x1440",
+    "2560x1080",
+    "1920x1200",
+    "1920x1080",
+    "1680x1050",
+    "1600x1200",
+    "1600x900",
+    "1440x900",
+    "1400x1050",
+    "1366x768",
+    "1280x1024",
+    "1280x960",
+    "1280x800",
+    "1280x720",
+    "1152x864",
+    "1024x768",
+    "960x540",
+    "854x480",
+    "800x600",
+    "640x480",
+    "640x360",
+  ];
+}
+
 // Every supported resolution on the output, largest first, with no refresh
-// rate attached. Falls back to the live resolution when EDID reports none.
+// rate attached: EDID modes plus standard modes no wider or taller than the
+// largest reported size, so lower choices are always offered and impossible
+// higher ones never are. Falls back to the live resolution when EDID reports none.
 function monitorResolutions(monitor) {
   var list = monitor && Array.isArray(monitor.availableModes) ? monitor.availableModes : [];
   var seen = {};
@@ -208,6 +242,22 @@ function monitorResolutions(monitor) {
   if (live && !seen[live.key]) {
     seen[live.key] = true;
     found.push(live);
+  }
+  var maxWidth = 0;
+  var maxHeight = 0;
+  for (i = 0; i < found.length; i++) {
+    maxWidth = Math.max(maxWidth, found[i].width);
+    maxHeight = Math.max(maxHeight, found[i].height);
+  }
+  if (maxWidth > 0 && maxHeight > 0) {
+    var standards = standardResolutions();
+    for (i = 0; i < standards.length; i++) {
+      var std = parseMonitorResolution(standards[i]);
+      if (!std || seen[std.key]) continue;
+      if (std.width > maxWidth || std.height > maxHeight) continue;
+      seen[std.key] = true;
+      found.push(std);
+    }
   }
   found.sort(function (a, b) {
     return b.width * b.height - a.width * a.height || b.width - a.width;
@@ -265,6 +315,11 @@ function monitorRefreshRates(monitor, resolution) {
   var out = [];
   for (i = 0; i < found.length; i++) {
     out.push({ value: found[i].value, label: formatMonitorHz(found[i].refresh) + " Hz" });
+  }
+  if (out.length === 0) {
+    // Non-EDID resolution with no known rate at all: 60 Hz is the most
+    // compatible pick, so the resolution stays selectable.
+    out.push({ value: "60", label: "60 Hz" });
   }
   return out;
 }

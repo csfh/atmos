@@ -176,6 +176,116 @@ function monitorModeCopyText(monitor) {
   return label || name;
 }
 
+function parseMonitorResolution(raw) {
+  var m = /^(\d+)\s*[x×]\s*(\d+)$/.exec(String(raw || "").replace(/^\s+|\s+$/g, ""));
+  if (!m) return null;
+  var width = Number(m[1]);
+  var height = Number(m[2]);
+  if (!isFinite(width) || !isFinite(height) || width <= 0 || height <= 0) return null;
+  return { width: width, height: height, key: width + "x" + height };
+}
+
+// Every supported resolution on the output, largest first, with no refresh
+// rate attached. Falls back to the live resolution when EDID reports none.
+function monitorResolutions(monitor) {
+  var list = monitor && Array.isArray(monitor.availableModes) ? monitor.availableModes : [];
+  var seen = {};
+  var found = [];
+  var i;
+  for (i = 0; i < list.length; i++) {
+    var parsed = parseMonitorMode(list[i]);
+    if (!parsed) continue;
+    var res = parseMonitorResolution(parsed.width + "x" + parsed.height);
+    if (!res || seen[res.key]) continue;
+    seen[res.key] = true;
+    found.push(res);
+  }
+  var live = parseMonitorResolution(
+    String(Math.round(Number(monitor && monitor.width)) || "") +
+      "x" +
+      String(Math.round(Number(monitor && monitor.height)) || ""),
+  );
+  if (live && !seen[live.key]) {
+    seen[live.key] = true;
+    found.push(live);
+  }
+  found.sort(function (a, b) {
+    return b.width * b.height - a.width * a.height || b.width - a.width;
+  });
+  var out = [];
+  for (i = 0; i < found.length; i++) {
+    out.push({ value: found[i].key, label: found[i].width + "×" + found[i].height });
+  }
+  return out;
+}
+
+function currentMonitorResolutionValue(monitor) {
+  var live = parseMonitorResolution(
+    String(Math.round(Number(monitor && monitor.width)) || "") +
+      "x" +
+      String(Math.round(Number(monitor && monitor.height)) || ""),
+  );
+  if (live) return live.key;
+  var mode = parseMonitorMode(currentMonitorModeValue(monitor));
+  if (mode) return mode.width + "x" + mode.height;
+  return "";
+}
+
+function monitorRateValue(refresh) {
+  var n = Number(refresh);
+  if (!isFinite(n) || n <= 0) return "";
+  return String(Math.round(n * 100) / 100);
+}
+
+// Every refresh rate the output offers at one resolution, fastest first.
+// Values keep full precision so the written WxH@Hz mode matches EDID.
+function monitorRefreshRates(monitor, resolution) {
+  var res = parseMonitorResolution(resolution);
+  if (!res) return [];
+  var list = monitor && Array.isArray(monitor.availableModes) ? monitor.availableModes : [];
+  var seen = {};
+  var found = [];
+  var i;
+  for (i = 0; i < list.length; i++) {
+    var parsed = parseMonitorMode(list[i]);
+    if (!parsed || parsed.width !== res.width || parsed.height !== res.height) continue;
+    var value = monitorRateValue(parsed.refresh);
+    if (!value || seen[value]) continue;
+    seen[value] = true;
+    found.push({ value: value, refresh: parsed.refresh });
+  }
+  var live = monitorRateValue(monitor && monitor.refresh);
+  if (live && !seen[live]) {
+    seen[live] = true;
+    found.push({ value: live, refresh: Number(monitor.refresh) });
+  }
+  found.sort(function (a, b) {
+    return b.refresh - a.refresh;
+  });
+  var out = [];
+  for (i = 0; i < found.length; i++) {
+    out.push({ value: found[i].value, label: formatMonitorHz(found[i].refresh) + " Hz" });
+  }
+  return out;
+}
+
+function currentMonitorRefreshValue(monitor, resolution) {
+  var rates = monitorRefreshRates(monitor, resolution);
+  if (!rates.length) return "";
+  var live = Number(monitor && monitor.refresh);
+  var best = rates[0].value;
+  if (!isFinite(live) || live <= 0) return best;
+  var bestDiff = 1e9;
+  for (var i = 0; i < rates.length; i++) {
+    var diff = Math.abs(Number(rates[i].value) - live);
+    if (diff < bestDiff) {
+      bestDiff = diff;
+      best = rates[i].value;
+    }
+  }
+  return best;
+}
+
 function parseDiskSpeedLine(line) {
   var text = String(line || "").replace(/^\s+|\s+$/g, "");
   if (!text) return null;

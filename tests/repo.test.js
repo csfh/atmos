@@ -840,6 +840,14 @@ assert(
   displaysPageSrc.indexOf('description: "No monitors reported."') !== -1,
   "a missing monitor list says No monitors reported",
 );
+assert(
+  displaysPageSrc.indexOf('label: "Refresh rate"') !== -1 &&
+    displaysPageSrc.indexOf("RichUi.monitorResolutions(modelData)") !== -1 &&
+    displaysPageSrc.indexOf(
+      "RichUi.monitorRefreshRates(modelData, root.resolutionValue(modelData))",
+    ) !== -1,
+  "resolution lists sizes only with refresh rate in its own row behind it",
+);
 const prefsCheckSrc = fs.readFileSync(
   path.join(__dirname, "..", "components", "PrefsCheck.qml"),
   "utf8",

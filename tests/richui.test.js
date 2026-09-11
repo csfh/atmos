@@ -611,3 +611,66 @@ assert(ui.confirmIsDestructive("Update") === false, "confirmIsDestructive Update
 assert(ui.confirmIsDestructive("Set up") === false, "confirmIsDestructive Set up");
 assert(ui.confirmIsDestructive("Create") === false, "confirmIsDestructive Create");
 assert(ui.confirmIsDestructive("") === false, "confirmIsDestructive empty");
+
+const edidModes = [
+  "1920x1080@60.00Hz",
+  "1920x1080@143.86Hz",
+  "2560x1440@144.00Hz",
+  "3840x2160@30.00Hz",
+];
+const edidMonitor = { width: 1920, height: 1080, refresh: 60, availableModes: edidModes };
+assertEqual(
+  ui.parseMonitorResolution("2560x1440").key,
+  "2560x1440",
+  "parseMonitorResolution reads WxH",
+);
+assertEqual(ui.parseMonitorResolution("nope"), null, "parseMonitorResolution rejects junk");
+assertEqual(
+  ui
+    .monitorResolutions(edidMonitor)
+    .map(function (o) {
+      return o.value;
+    })
+    .join(","),
+  "3840x2160,2560x1440,1920x1080",
+  "monitorResolutions lists every resolution once, largest first",
+);
+assertEqual(
+  ui.currentMonitorResolutionValue(edidMonitor),
+  "1920x1080",
+  "currentMonitorResolutionValue reads the live size",
+);
+assertEqual(
+  ui
+    .monitorRefreshRates(edidMonitor, "1920x1080")
+    .map(function (o) {
+      return o.value;
+    })
+    .join(","),
+  "143.86,60",
+  "monitorRefreshRates lists one resolution's rates, fastest first",
+);
+assertEqual(
+  ui.currentMonitorRefreshValue(edidMonitor, "1920x1080"),
+  "60",
+  "currentMonitorRefreshValue matches the live rate",
+);
+assertEqual(
+  ui.currentMonitorRefreshValue(
+    { width: 1920, height: 1080, refresh: 0, availableModes: edidModes },
+    "1920x1080",
+  ),
+  "143.86",
+  "currentMonitorRefreshValue falls back to the fastest rate",
+);
+assertEqual(
+  ui.monitorResolutions({ width: 100, height: 100, refresh: 60, availableModes: [] }).length,
+  1,
+  "monitorResolutions synthesizes the live resolution",
+);
+assertEqual(
+  ui.monitorRefreshRates({ width: 100, height: 100, refresh: 60, availableModes: [] }, "100x100")
+    .length,
+  1,
+  "monitorRefreshRates synthesizes the live rate",
+);

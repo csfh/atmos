@@ -9,7 +9,7 @@ PrefsPage {
   id: root
   hubId: "display"
   title: "Displays"
-  description: "Each monitor keeps its own resolution. Scale and brightness apply to the one you are looking at. On a laptop you also get the built-in panel and its input devices. GPU switching is on Drivers."
+  description: "Each monitor keeps its own resolution and refresh rate. Scale and brightness apply to the one you are looking at. On a laptop you also get the built-in panel and its input devices. GPU switching is on Drivers."
 
   readonly property var scalePresets: [
     { value: "1", label: "100%" },
@@ -59,9 +59,24 @@ PrefsPage {
 
   function resolutionDescription(monitor) {
     var summary = root.monitorSummary(monitor)
-    var n = monitor && Array.isArray(monitor.availableModes) ? monitor.availableModes.length : 0
-    var modes = n > 1 ? (n + " modes on this output. ") : ""
-    return summary + " " + modes + "Picking a mode writes a monitor rule in ~/.config/hypr/monitors.lua."
+    var n = RichUi.monitorResolutions(monitor).length
+    var modes = n > 1 ? (n + " resolutions on this output. ") : ""
+    return summary + " " + modes + "Picking one writes a monitor rule in ~/.config/hypr/monitors.lua. The refresh rate behind it stays."
+  }
+
+  function resolutionValue(monitor) {
+    return RichUi.currentMonitorResolutionValue(monitor)
+  }
+
+  function refreshValue(monitor) {
+    return RichUi.currentMonitorRefreshValue(monitor, root.resolutionValue(monitor))
+  }
+
+  function writeMonitorMode(monitor, resolution, refresh) {
+    var name = monitor && monitor.name ? String(monitor.name) : ""
+    if (!name) return
+    var mode = MonJs.sanitizeMode(String(resolution || "") + "@" + String(refresh || ""))
+    if (mode) Omarchy.patchMonitorRule(name, { mode: mode, disabled: false })
   }
 
   function ruleFor(monitor) {
@@ -159,25 +174,44 @@ PrefsPage {
         label: "Resolution"
         description: root.resolutionDescription(modelData)
         hint: "~/.config/hypr/monitors.lua"
-        detail: "Hyprland's EDID list for this output. Atmos writes the pick as hl.monitor mode."
+        detail: "Every resolution Hyprland's EDID list reports for this output, largest first. Atmos writes the pick together with the refresh rate behind it as hl.monitor mode."
         query: root.query
         keywords: ["monitor", "display", "hdmi", "dp", "edp", "resolution", "refresh"]
 
         Row {
           spacing: Theme.space
           PrefsSelect {
-            value: RichUi.currentMonitorModeValue(modelData)
-            options: RichUi.monitorModeOptions(modelData)
+            value: root.resolutionValue(modelData)
+            options: RichUi.monitorResolutions(modelData)
             enabled: !!(modelData && modelData.name)
             onChanged: function(value) {
-              var mode = MonJs.modeFromHyprctl(value)
-              if (mode) Omarchy.patchMonitorRule(modelData.name, { mode: mode, disabled: false })
+              if (value !== root.resolutionValue(modelData))
+                root.writeMonitorMode(modelData, value, RichUi.currentMonitorRefreshValue(modelData, value))
             }
           }
           PrefsButton {
             text: "Copy"
             enabled: RichUi.monitorModeCopyText(modelData).length > 0
             onClicked: Omarchy.copyText(RichUi.monitorModeCopyText(modelData))
+          }
+        }
+      }
+
+      SettingRow {
+        label: "Refresh rate"
+        description: "How many frames this panel draws per second. Only the rates the resolution above supports are listed."
+        hint: "~/.config/hypr/monitors.lua"
+        detail: "Atmos writes the pick together with the resolution above as hl.monitor mode."
+        query: root.query
+        keywords: ["monitor", "display", "refresh", "hertz", "hz", "fps", "highrr"]
+
+        PrefsSelect {
+          value: root.refreshValue(modelData)
+          options: RichUi.monitorRefreshRates(modelData, root.resolutionValue(modelData))
+          enabled: !!(modelData && modelData.name)
+          onChanged: function(value) {
+            if (value !== root.refreshValue(modelData))
+              root.writeMonitorMode(modelData, root.resolutionValue(modelData), value)
           }
         }
       }

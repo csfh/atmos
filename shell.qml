@@ -771,6 +771,40 @@ ShellRoot {
       }
     }
 
+    // A second Atmos is refused, and told why. Quitting silently would look
+    // like a crash; continuing would let two windows race over the same
+    // config files.
+    Connections {
+      target: Omarchy
+      function onLostInstanceLockChanged() {
+        if (Omarchy.lostInstanceLock) secondInstanceDialog.open()
+      }
+    }
+
+    PrefsDialog {
+      id: secondInstanceDialog
+      title: "Atmos is already open"
+      closePolicy: Popup.NoAutoClose
+
+      PrefsText {
+        width: parent.width
+        text: "Another Atmos is running on this machine. Two of them would write the same configuration files at the same time, and whichever finished second would quietly overwrite the other, so this one will close.\n\nSwitch to the window that is already open."
+        color: Theme.foreground
+        font.family: Theme.fontFamily
+        font.pixelSize: Theme.labelSize
+        wrapMode: Text.WordWrap
+      }
+
+      Row {
+        anchors.right: parent.right
+        PrefsButton {
+          text: "Close this one"
+          primary: true
+          onClicked: Qt.quit()
+        }
+      }
+    }
+
     PrefsDialog {
       id: sudoModeDialog
       title: "Administrator password"

@@ -1806,6 +1806,38 @@ QtObject {
     runJob(["bash", diagReportScript, "agent"], header, "diag-report", { refresh: "none" })
   }
 
+  // One Atmos at a time.
+  //
+  // Quickshell already refuses a second instance of the same config path,
+  // which is why this looks solved and is not: running one copy from the
+  // install and another from a checkout opens two windows, and both write
+  // the same configuration files. Settings are shared mutable state on disk,
+  // so two writers race and the loser's change is lost silently.
+  //
+  // The lock is on the app, not the path. flock holds an exclusive lock for
+  // as long as the holder lives, so the kernel releases it if Atmos crashes
+  // -- something a lockfile holding a PID cannot promise.
+  property bool lostInstanceLock: false
+
+  readonly property string instanceLockPath: {
+    var dir = Quickshell.env("XDG_RUNTIME_DIR")
+    if (!dir) dir = "/tmp"
+    return dir + "/atmos.lock"
+  }
+
+  property Process instanceLock: Process {
+    running: true
+    // -n fails immediately rather than queueing behind the instance that
+    // already owns it. tail -f /dev/null parks cheaply and dies with us.
+    command: ["flock", "-n", root.instanceLockPath, "-c", "exec tail -f /dev/null"]
+    onExited: function (exitCode) {
+      // 1 is flock's "someone else holds it". Any other code means flock is
+      // missing or broken, and refusing to start over a missing utility
+      // would be worse than the race this prevents.
+      if (exitCode === 1) root.lostInstanceLock = true
+    }
+  }
+
   function clearLastError() {
     lastError = ""
   }

@@ -9,6 +9,7 @@ import "services/Accounts.js" as AccountsJs
 import "services/Hubs.js" as HubsJs
 import "services/Layout.js" as LayoutJs
 import "services/RichUi.js" as RichUi
+import "services/NavStatus.js" as NavStatusJs
 import "components"
 import "pages"
 import "pages/windows" as Win
@@ -26,6 +27,20 @@ ShellRoot {
   readonly property string profileHost: AccountsJs.profileHost(Omarchy.currentUser, Omarchy.hostname)
 
   readonly property var pages: HubsJs.navPages()
+
+  // The only state the sidebar badges read, bound once here so a change
+  // re-evaluates one object rather than every nav row independently.
+  readonly property var navState: ({
+    ready: Omarchy.snapshotReady,
+    systemdUnits: Omarchy.systemdUnits,
+    bluetoothDevices: Omarchy.bluetoothDevices,
+    monitors: Omarchy.monitors,
+    netKind: Omarchy.netKind,
+    netSsid: Omarchy.netSsid,
+    disks: Omarchy.disks,
+    updateAvailable: Omarchy.updateAvailable,
+    atmosUpdateAvailable: Omarchy.atmosUpdateAvailable
+  })
 
   readonly property var groupedPages: {
     var q = root.query
@@ -564,16 +579,40 @@ ShellRoot {
 
                     Text {
                       anchors.left: navIcon.right
-                      anchors.right: parent.right
+                      anchors.right: navBadge.visible ? navBadge.left : parent.right
                       anchors.verticalCenter: parent.verticalCenter
                       anchors.leftMargin: Theme.space
-                      anchors.rightMargin: Theme.pad
+                      anchors.rightMargin: navBadge.visible ? Theme.space : Theme.pad
                       text: modelData.title
                       color: Theme.foreground
                       font.family: Theme.fontFamily
                       font.pixelSize: Theme.labelSize
                       font.bold: navItem.selected
                       elide: Text.ElideRight
+                    }
+
+                    // Live state at the edge of the row. Silent when there
+                    // is nothing to say, which is the common case: a row
+                    // with no badge renders exactly as it does today.
+                    Text {
+                      id: navBadge
+                      anchors.right: parent.right
+                      anchors.rightMargin: Theme.pad
+                      anchors.verticalCenter: parent.verticalCenter
+                      readonly property var badge: NavStatusJs.forHub(
+                        modelData ? modelData.id : "", root.navState)
+                      visible: !!badge
+                      text: badge ? badge.text : ""
+                      color: {
+                        if (!badge) return Theme.muted
+                        if (badge.tone === "warn") return Theme.warn
+                        if (badge.tone === "ok") return Theme.ok
+                        return Theme.muted
+                      }
+                      font.family: Theme.fontFamily
+                      font.pixelSize: Theme.badgeSize
+                      Accessible.role: Accessible.StaticText
+                      Accessible.name: badge ? badge.title : ""
                     }
 
                     MouseArea {

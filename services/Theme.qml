@@ -49,6 +49,15 @@ QtObject {
   readonly property string iconStar: "star-line"
   readonly property string iconStarOn: "star-fill"
   readonly property int radius: 0
+
+  // Sidebar status badges. A step above caption so the glyph reads at a
+  // glance, which is the point of putting state in the nav rather than on
+  // the page.
+  readonly property int badgeSize: Math.max(12, fontSize + 1)
+  // Status ink. Grayscale chrome stays grayscale; only genuine state earns
+  // colour, and only these two.
+  readonly property color ok: "#6f8f6f"
+  readonly property color warn: "#b5904f"
   readonly property real normalFill: ThemeJs.numberToken(root.shellValues, "controls.normal-fill-alpha", 0.04)
   readonly property real hoverFill: ThemeJs.numberToken(root.shellValues, "controls.hover-cursor-fill-alpha", 0.08)
   readonly property real selectedFill: ThemeJs.numberToken(root.shellValues, "controls.selected-fill-alpha", 0.18)

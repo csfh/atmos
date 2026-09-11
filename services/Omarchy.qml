@@ -800,16 +800,21 @@ QtObject {
     })
   }
   function openBackgroundSwitcher() {
-    runCommand(["omarchy", "theme", "bg-switcher"], {
-      key: "background",
-      refresh: "all"
-    })
+    // Fire-and-forget on its own process: the image picker blocks waiting
+    // for a choice, and holding mutProc that long stalls every other queued
+    // setting. The background watcher picks up the result.
+    var switcherArgv = ["omarchy", "theme", "bg-switcher"]
+    bgPickerProc.running = false
+    bgPickerProc.command = switcherArgv
+    bgPickerProc.running = true
   }
   function setBackgroundFromFile() {
-    runCommand(["bash", "-c", "path=$(omarchy file select --title \"Set background\" --extensions \"jpg jpeg png gif webp bmp\" || true); [[ -n $path ]] && omarchy theme bg set \"$path\""], {
-      key: "background",
-      refresh: "all"
-    })
+    // Same fire-and-forget: the file picker blocks waiting for a choice.
+    // The background watcher picks up the applied file.
+    var fileArgv = ["bash", "-c", "path=$(omarchy file select --title \"Set background\" --extensions \"jpg jpeg png gif webp bmp\" || true); [[ -n $path ]] && omarchy theme bg set \"$path\""]
+    bgPickerProc.running = false
+    bgPickerProc.command = fileArgv
+    bgPickerProc.running = true
   }
   function openBackgroundFolder() { runCommand(["omarchy", "theme", "bg", "install"]) }
   function cacheBackgrounds() { runCommand(["omarchy", "theme", "bg", "cache"]) }
@@ -2857,6 +2862,12 @@ QtObject {
     onLoaded: root.loadFavorites(text())
     onLoadFailed: root.favoriteItems = []
     onFileChanged: reload()
+  }
+
+  // Fire-and-forget background pickers. Both wait for a user choice, so
+  // they get their own process instead of holding the mut queue.
+  property Process bgPickerProc: Process {
+    command: ["true"]
   }
 
   property Process mutProc: Process {

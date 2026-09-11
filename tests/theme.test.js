@@ -186,3 +186,11 @@ assert(
   !shell.haystackMatches("network", shell.joinSearchHaystack(["Theme", "font"])),
   "haystackMatches rejects unrelated rows",
 );
+
+const bgOmarchySrc = fs.readFileSync(path.join(__dirname, "..", "services", "Omarchy.qml"), "utf8");
+assert(
+  bgOmarchySrc.indexOf("property Process bgPickerProc: Process") !== -1 &&
+    bgOmarchySrc.indexOf("bgPickerProc.command = switcherArgv") !== -1 &&
+    bgOmarchySrc.indexOf("bgPickerProc.command = fileArgv") !== -1,
+  "the background pickers no longer hold the mut queue while picking",
+);

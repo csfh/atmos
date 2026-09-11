@@ -33,12 +33,27 @@ TOGGLES_LINE = 'require("default.hypr.toggles")'
 WINDOW_CLASS = "dev.csfh.atmos"
 PREFS_WINDOW_SEED = "\n".join(
     [
+        "-- Tile the Atmos window like other apps.",
+        f'o.window("{WINDOW_CLASS}", {{ tile = true }})',
+    ]
+)
+# The seed above used to float and center the window. Existing installs
+# still carry those exact lines; rewrite only that block so a customized
+# rule is never touched.
+FLOAT_WINDOW_SEED = "\n".join(
+    [
         "-- Float and center the Atmos window.",
         f'o.window("{WINDOW_CLASS}", {{ float = true }})',
         f'o.window("{WINDOW_CLASS}", {{ center = true }})',
         f'o.window("{WINDOW_CLASS}", {{ size = {{ 960, 680 }} }})',
     ]
 )
+
+
+def normalize_prefs_window_seed(text: str) -> str:
+    if FLOAT_WINDOW_SEED in (text or ""):
+        return text.replace(FLOAT_WINDOW_SEED, PREFS_WINDOW_SEED)
+    return text
 
 
 def lua_number(n: float | int) -> str:
@@ -1283,6 +1298,8 @@ def apply(kind: str, path: Path, payload: dict | None, reset: bool) -> str:
     text = path.read_text() if path.exists() else ""
     if kind == "windows" and not text.strip():
         text = PREFS_WINDOW_SEED + "\n"
+    if kind == "windows":
+        text = normalize_prefs_window_seed(text)
     if kind == "look":
         text = strip_sentinel(text, LEGACY_LOOK_BEGIN, LEGACY_LOOK_END)
         begin, end, serialize = LOOK_BEGIN, LOOK_END, serialize_look

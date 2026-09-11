@@ -400,10 +400,8 @@ function ensureLayoutRequire(text) {
 
 function prefsSeed() {
   return [
-    "-- Float and center the Atmos window.",
-    'o.window("' + WINDOW_CLASS + '", { float = true })',
-    'o.window("' + WINDOW_CLASS + '", { center = true })',
-    'o.window("' + WINDOW_CLASS + '", { size = { 960, 680 } })',
+    "-- Tile the Atmos window like other apps.",
+    'o.window("' + WINDOW_CLASS + '", { tile = true })',
   ].join("\n");
 }
 

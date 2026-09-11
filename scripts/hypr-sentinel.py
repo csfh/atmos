@@ -37,9 +37,18 @@ PREFS_WINDOW_SEED = "\n".join(
         f'o.window("{WINDOW_CLASS}", {{ tile = true }})',
     ]
 )
+FLOAT_SEED_LINES = {
+    f'o.window("{WINDOW_CLASS}", {{ float = true }})',
+    f'o.window("{WINDOW_CLASS}", {{ center = true }})',
+    f'o.window("{WINDOW_CLASS}", {{ size = {{ 960, 680 }} }})',
+}
+FLOAT_SEED_COMMENT = "-- Float and center the Atmos window."
+TILE_SEED_COMMENT = "-- Tile the Atmos window like other apps."
+TILE_SEED_LINE = f'o.window("{WINDOW_CLASS}", {{ tile = true }})'
 # The seed above used to float and center the window. Existing installs
-# still carry those exact lines; rewrite only that block so a customized
-# rule is never touched.
+# still carry those exact lines, either as the bare seed or under the
+# packaging header comments; rewrite only those verbatim lines so a
+# customized rule is never touched.
 FLOAT_WINDOW_SEED = "\n".join(
     [
         "-- Float and center the Atmos window.",
@@ -51,9 +60,28 @@ FLOAT_WINDOW_SEED = "\n".join(
 
 
 def normalize_prefs_window_seed(text: str) -> str:
-    if FLOAT_WINDOW_SEED in (text or ""):
-        return text.replace(FLOAT_WINDOW_SEED, PREFS_WINDOW_SEED)
-    return text
+    src = text or ""
+    if FLOAT_WINDOW_SEED in src:
+        return src.replace(FLOAT_WINDOW_SEED, PREFS_WINDOW_SEED)
+    if TILE_SEED_LINE in src:
+        return src
+    if FLOAT_SEED_COMMENT not in src:
+        return src
+    lines = src.split("\n")
+    if not any(ln.strip() in FLOAT_SEED_LINES for ln in lines):
+        return src
+    kept = [ln for ln in lines if ln.strip() not in FLOAT_SEED_LINES]
+    out = []
+    inserted = False
+    for ln in kept:
+        out.append(ln)
+        if not inserted and ln.strip() == FLOAT_SEED_COMMENT:
+            out.append(TILE_SEED_LINE)
+            inserted = True
+    src = "\n".join(out)
+    if not inserted:
+        src = TILE_SEED_LINE + "\n" + src
+    return src.replace(FLOAT_SEED_COMMENT, TILE_SEED_COMMENT)
 
 
 def lua_number(n: float | int) -> str:

@@ -178,6 +178,29 @@ assert(
       fs.readFileSync(lua, "utf8").indexOf("float = true") !== -1,
       "hypr-sentinel.py windows apply keeps a customized float rule",
     );
+    fs.writeFileSync(
+      lua,
+      '-- Float and center the Atmos window.\n-- Install as ~/.config/hypr/atmos.lua and require("hypr.atmos")\n-- from hyprland.lua next to require("hypr.omafetch"), before toggles.\no.window("dev.csfh.atmos", { float = true })\no.window("dev.csfh.atmos", { center = true })\no.window("dev.csfh.atmos", { size = { 960, 680 } })\n',
+    );
+    const headed = spawnSync(
+      "python3",
+      [
+        path.join(__dirname, "..", "scripts", "hypr-sentinel.py"),
+        "windows",
+        "apply",
+        lua,
+        '{"items":[]}',
+      ],
+      { encoding: "utf8" },
+    );
+    assertEqual(headed.status, 0, "hypr-sentinel.py windows apply exits 0 on a packaged header");
+    const headedText = fs.readFileSync(lua, "utf8");
+    assert(
+      headedText.indexOf('o.window("dev.csfh.atmos", { tile = true })') !== -1 &&
+        headedText.indexOf("float = true") === -1 &&
+        headedText.indexOf('require("hypr.atmos")') !== -1,
+      "hypr-sentinel.py windows apply migrates under packaging comments",
+    );
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }

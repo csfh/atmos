@@ -526,6 +526,7 @@ PrefsPage {
 
   PrefsGroup {
     title: "Advanced"
+    advanced: true
     query: root.query
     detail: "How many Snapper snapshots to keep, whether hourly snapshots run, and weekly SSD TRIM."
 

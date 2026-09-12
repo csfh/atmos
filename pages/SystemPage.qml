@@ -434,6 +434,7 @@ PrefsPage {
   PrefsGroup {
     framed: true
     title: "Advanced"
+    advanced: true
     query: root.query
     detail: "Leftover packages, the pacman download cache, and restore for Hyprland Lua or shell.json. Firmware updates are on Drivers."
 

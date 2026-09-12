@@ -348,6 +348,7 @@ PrefsPage {
 
   PrefsGroup {
     title: "Advanced"
+    advanced: true
     query: root.query
     detail: "Dim, animations, cursor, and tearing. These go in the same looknfeel.lua block as the sliders above."
 

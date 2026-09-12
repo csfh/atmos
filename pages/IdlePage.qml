@@ -145,6 +145,7 @@ PrefsPage {
 
   PrefsGroup {
     title: "Advanced"
+    advanced: true
     query: Omarchy.isLaptop ? root.query : "."
     detail: "Lid close already locks when the machine is undocked. Omarchy runs that from logind, not from Atmos."
 

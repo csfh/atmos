@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Window
 import "../services"
+import "../services/Disclosure.js" as DisclosureJs
 import "../services/Favorites.js" as FavJs
 import "../services/Hubs.js" as HubsJs
 import "../services/ShellConfig.js" as ShellConfigJs
@@ -22,6 +23,9 @@ Item {
   property string valueText: ""
   property bool stretchControl: false
   property bool available: true
+  // Opt-in fold. Simple hides the row; search and section help still
+  // reach it. Untagged rows never fold, so untriaged pages stay as they are.
+  property bool advanced: false
   // List rows (wifi SSIDs, devices) stay out of the section modal.
   property bool sectionHelp: true
   // Find a setting indexes SettingRow blocks unless this is false.
@@ -47,7 +51,17 @@ Item {
   }
 
   readonly property bool matches: ShellConfigJs.haystackMatches(query, searchHaystack)
-  readonly property bool shown: available && matches
+  readonly property bool folded: DisclosureJs.rowFolded({
+    advanced: root.advanced,
+    query: root.query,
+    label: root.label,
+    hub: root.resolvedHubId
+  }, {
+    simple: Disclosure.simple,
+    revealedHub: Disclosure.revealedHub,
+    revealedLabel: Disclosure.revealedLabel
+  })
+  readonly property bool shown: available && matches && !folded
 
   property string favoriteHub: ""
   readonly property string resolvedHubId: {

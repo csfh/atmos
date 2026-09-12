@@ -135,6 +135,7 @@ ShellRoot {
   }
 
   function loadHub(id) {
+    Disclosure.leaveHub(hubId(id))
     currentPage = id
     if (pageStack.depth > 0)
       pageStack.clear(StackView.Immediate)
@@ -181,6 +182,7 @@ ShellRoot {
     var sub = subId(id)
     for (var i = 0; i < pages.length; i++) {
       if (pages[i].id === hub) {
+        Disclosure.finishReveal(hub)
         loadHub(hub)
         window.visible = true
         window.minimized = false
@@ -193,6 +195,7 @@ ShellRoot {
         return "ok"
       }
     }
+    Disclosure.finishReveal("")
     return "unknown"
   }
 
@@ -209,7 +212,9 @@ ShellRoot {
 
   QtObject {
     id: prefsNavigator
-    function go(path) {
+    function go(path, label) {
+      if (label)
+        Disclosure.revealFromSearch(path, label)
       searchField.text = ""
       Qt.callLater(function() { root.openPage(path) })
     }

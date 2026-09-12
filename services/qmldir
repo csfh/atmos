@@ -1,3 +1,4 @@
 singleton Theme 1.0 Theme.qml
 singleton AccountsStore 1.0 AccountsStore.qml
 singleton Omarchy 1.0 Omarchy.qml
+singleton Disclosure 1.0 Disclosure.qml

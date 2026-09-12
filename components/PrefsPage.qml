@@ -1,5 +1,6 @@
 import QtQuick
 import "../services"
+import "../services/Disclosure.js" as DisclosureJs
 
 Item {
   id: root
@@ -12,6 +13,28 @@ Item {
   default property alias extra: sections.data
   readonly property alias prefsOverlay: overlayLayer
   readonly property bool hasSections: sections.implicitHeight > 0
+
+  function treeHasAdvanced(node, depth) {
+    if (!node || depth > 24) return false
+    if (node.advanced === true) return true
+    var kids = node.children
+    if (!kids) return false
+    var i
+    for (i = 0; i < kids.length; i++) {
+      if (treeHasAdvanced(kids[i], depth + 1)) return true
+    }
+    return false
+  }
+
+  readonly property bool hasAdvanced: {
+    var _n = sections.children.length
+    return treeHasAdvanced(sections, 0)
+  }
+
+  readonly property bool showDisclosure: DisclosureJs.showModeToggle(root.hasAdvanced, {
+    embed: root.embed,
+    query: root.query
+  })
 
   width: parent ? parent.width : 640
   implicitWidth: width
@@ -58,6 +81,28 @@ Item {
           color: Theme.muted
           font.family: Theme.fontFamily
           font.pixelSize: Theme.pageDescriptionSize
+        }
+
+        Row {
+          spacing: Theme.space
+          visible: root.showDisclosure
+          topPadding: Theme.titleGap
+
+          PrefsButton {
+            text: Disclosure.simple ? "Simple" : "Everything"
+            onClicked: Disclosure.simple = !Disclosure.simple
+          }
+
+          PrefsText {
+            anchors.verticalCenter: parent.verticalCenter
+            text: Disclosure.simple
+              ? "advanced rows folded — search still finds them"
+              : "showing every option"
+            color: Theme.muted
+            opacity: Theme.metaOpacity
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.captionSize
+          }
         }
       }
 

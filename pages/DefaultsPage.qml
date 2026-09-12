@@ -141,6 +141,7 @@ PrefsPage {
 
   PrefsGroup {
     title: "Advanced"
+    advanced: true
     query: root.query
     detail: "XDG defaults for PDFs, images, and video. Browser, terminal, and editor stay in the group above."
 

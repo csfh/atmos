@@ -363,6 +363,7 @@ PrefsPage {
 
   PrefsGroup {
     title: "Advanced"
+    advanced: true
     query: root.query
     detail: "Tailscale is a mesh VPN Omarchy can install. LocalSend and Taildrop are actions, not extra config."
 

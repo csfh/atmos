@@ -49,6 +49,9 @@ QtObject {
   readonly property string iconStar: "star-line"
   readonly property string iconStarOn: "star-fill"
   readonly property int radius: 0
+  // Sidebar status badges. A step above caption so the glyph reads at a
+  // glance. Status ink is Theme.urgent / Theme.muted, not a private green.
+  readonly property int badgeSize: Math.max(12, fontSize + 1)
   readonly property real normalFill: ThemeJs.numberToken(root.shellValues, "controls.normal-fill-alpha", 0.04)
   readonly property real hoverFill: ThemeJs.numberToken(root.shellValues, "controls.hover-cursor-fill-alpha", 0.08)
   readonly property real selectedFill: ThemeJs.numberToken(root.shellValues, "controls.selected-fill-alpha", 0.18)

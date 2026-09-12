@@ -18,6 +18,9 @@ Item {
 
   readonly property bool useSearch: searchable || (options && options.length >= 8)
 
+  // SettingRow keeps the row rail while this list is open on Overlay.
+  readonly property bool overlayOpen: popup.opened
+
   signal changed(string value)
 
   implicitWidth: Theme.controlColumnWidth

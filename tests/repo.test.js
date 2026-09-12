@@ -1769,10 +1769,7 @@ assert(
 const enqueueIoStart = omarchySrc.indexOf("function enqueueIo(");
 const enqueueIoEnd = omarchySrc.indexOf("function requestSudoMode(", enqueueIoStart);
 const enqueueIoBody = omarchySrc.slice(enqueueIoStart, enqueueIoEnd);
-assert(
-  enqueueIoBody.indexOf("lostInstanceLock") === -1,
-  "enqueueIo stays live in every window",
-);
+assert(enqueueIoBody.indexOf("lostInstanceLock") === -1, "enqueueIo stays live in every window");
 assert(
   shellSrc.indexOf("secondInstanceDialog") === -1 &&
     shellSrc.indexOf("lostInstanceLock") === -1 &&

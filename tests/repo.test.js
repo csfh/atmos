@@ -1356,8 +1356,7 @@ assert(
   "Machine does not treat present/limit as the primary battery readout",
 );
 assert(
-  machinePageSrc.indexOf("batteryValue") !== -1 &&
-    machinePageSrc.indexOf('|| "unknown"') !== -1,
+  machinePageSrc.indexOf("batteryValue") !== -1 && machinePageSrc.indexOf('|| "unknown"') !== -1,
   "Machine keeps unknown charge as unknown",
 );
 assert(

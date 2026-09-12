@@ -1561,7 +1561,10 @@ assert(
   runCommandBody.indexOf("lostInstanceLock") !== -1,
   "runCommand no-ops when the instance lock is lost",
 );
-assert(runJobBody.indexOf("lostInstanceLock") !== -1, "runJob no-ops when the instance lock is lost");
+assert(
+  runJobBody.indexOf("lostInstanceLock") !== -1,
+  "runJob no-ops when the instance lock is lost",
+);
 const enqueueIoStart = omarchySrc.indexOf("function enqueueIo(");
 const enqueueIoEnd = omarchySrc.indexOf("function requestSudoMode(", enqueueIoStart);
 const enqueueIoBody = omarchySrc.slice(enqueueIoStart, enqueueIoEnd);

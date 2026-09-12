@@ -8,7 +8,11 @@ A [Quickshell](https://quickshell.org) preferences window for [Omarchy](https://
 ./bin/atmos
 ```
 
-A second launch of the same install focuses the window that is already open. A second copy from a different path (install plus a checkout) is refused — both would write `~/.config`. Pass a page if you want to land somewhere specific:
+Every launch opens its own window: run it twice and two windows open, each
+with its own engine. Open windows stay in sync through the files they
+share — a change in one appears in the other — and concurrent writes
+serialize on disk, so they cannot tear a config file. Pass a page if you
+want a window to land somewhere specific:
 
 ```bash
 ./bin/atmos appearance

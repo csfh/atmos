@@ -6,6 +6,40 @@ ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 ACTION=${1:-}
 ID=${2:-}
 
+# Read-modify-write branches below serialize on the destination's sidecar
+# lock so two Atmos windows cannot interleave a read and a rename. Temp
+# files are unique per run ($dest.tmp was shared between concurrent runs).
+tweak_rmw() {
+  local dest=$1
+  shift
+  local lock="$dest.atmos.lock"
+  mkdir -p "$(dirname "$dest")" "$(dirname "$lock")"
+  exec {ATMOS_TWEAK_LOCK}>"$lock"
+  flock "$ATMOS_TWEAK_LOCK"
+  "$@"
+  exec {ATMOS_TWEAK_LOCK}>&-
+}
+
+tweak_filter() {
+  local dest=$1 pattern=$2 extra=${3:-}
+  local tmp
+  tmp=$(mktemp "${dest}.tmp.XXXXXX")
+  grep -v "$pattern" "$dest" >"$tmp" || true
+  if [[ -n $extra ]]; then
+    printf '%s\n' "$extra" >>"$tmp"
+  fi
+  mv "$tmp" "$dest"
+}
+
+tweak_seed() {
+  local dest=$1
+  shift
+  local tmp
+  tmp=$(mktemp "${dest}.tmp.XXXXXX")
+  printf '%s\n' "$@" >"$tmp"
+  mv "$tmp" "$dest"
+}
+
 case $ACTION in
   gtk-middle-paste)
     dest="${ATMOS_GTK4_FILE:-$HOME/.config/gtk-4.0/settings.ini}"
@@ -13,7 +47,7 @@ case $ACTION in
     if [[ ${3:-} == off ]]; then
       rm -f "$dest"
     else
-      printf '%s\n' "[Settings]" "gtk-enable-primary-paste=false" >"$dest"
+      tweak_rmw "$dest" tweak_seed "$dest" "[Settings]" "gtk-enable-primary-paste=false"
     fi
     ;;
   electron-wayland)
@@ -21,15 +55,12 @@ case $ACTION in
     mkdir -p "$(dirname "$dest")"
     if [[ ${3:-} == off ]]; then
       if [[ -f $dest ]]; then
-        grep -v '^ELECTRON_OZONE_PLATFORM_HINT=' "$dest" >"$dest.tmp" || true
-        printf '%s\n' "ELECTRON_OZONE_PLATFORM_HINT=auto" >>"$dest.tmp"
-        mv "$dest.tmp" "$dest"
+        tweak_rmw "$dest" tweak_filter "$dest" '^ELECTRON_OZONE_PLATFORM_HINT=' "ELECTRON_OZONE_PLATFORM_HINT=auto"
       else
-        printf '%s\n' "# atmos:env begin" "ELECTRON_OZONE_PLATFORM_HINT=auto" "# atmos:env end" >"$dest"
+        tweak_rmw "$dest" tweak_seed "$dest" "# atmos:env begin" "ELECTRON_OZONE_PLATFORM_HINT=auto" "# atmos:env end"
       fi
     elif [[ -f $dest ]]; then
-      grep -v '^ELECTRON_OZONE_PLATFORM_HINT=' "$dest" >"$dest.tmp" || true
-      mv "$dest.tmp" "$dest"
+      tweak_rmw "$dest" tweak_filter "$dest" '^ELECTRON_OZONE_PLATFORM_HINT='
     fi
     ;;
   force-zero-scaling)
@@ -37,13 +68,10 @@ case $ACTION in
     mkdir -p "$(dirname "$dest")"
     if [[ ${3:-} == off ]]; then
       if [[ -f $dest ]]; then
-        grep -v '^ATMOS_XWAYLAND_ZERO_SCALING=' "$dest" >"$dest.tmp" || true
-        printf '%s\n' "ATMOS_XWAYLAND_ZERO_SCALING=0" >>"$dest.tmp"
-        mv "$dest.tmp" "$dest"
+        tweak_rmw "$dest" tweak_filter "$dest" '^ATMOS_XWAYLAND_ZERO_SCALING=' "ATMOS_XWAYLAND_ZERO_SCALING=0"
       fi
     elif [[ -f $dest ]]; then
-      grep -v '^ATMOS_XWAYLAND_ZERO_SCALING=' "$dest" >"$dest.tmp" || true
-      mv "$dest.tmp" "$dest"
+      tweak_rmw "$dest" tweak_filter "$dest" '^ATMOS_XWAYLAND_ZERO_SCALING='
     fi
     ;;
   swappiness)

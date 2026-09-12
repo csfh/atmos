@@ -11,7 +11,7 @@ if [[ -z $json ]]; then
 fi
 
 python3 - "$DEST" "$json" <<'PY'
-import json, os, sys
+import fcntl, json, os, sys, tempfile
 from pathlib import Path
 
 dest = Path(sys.argv[1])
@@ -39,5 +39,23 @@ for item in vars_:
 lines.append(end)
 body = "\n".join(lines) + "\n"
 dest.parent.mkdir(parents=True, exist_ok=True)
-dest.write_text(body)
+# Full replace, published atomically under an exclusive lock so a
+# concurrent reader (or another Atmos window) never sees a torn file.
+lock = dest.parent / (dest.name + ".atmos.lock")
+with open(lock, "a+") as lf:
+    try:
+        fcntl.flock(lf.fileno(), fcntl.LOCK_EX)
+    except OSError:
+        pass
+    fd, tmp = tempfile.mkstemp(prefix="." + dest.name + ".", dir=str(dest.parent))
+    try:
+        with os.fdopen(fd, "w") as fh:
+            fh.write(body)
+        os.replace(tmp, dest)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
 PY

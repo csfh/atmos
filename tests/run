@@ -1031,6 +1031,46 @@ else
   echo "ok - skipping set-hypr-look.sh"
 fi
 
+if command -v python3 >/dev/null 2>&1; then
+  patch_home=$(mktemp -d)
+  look_file="$patch_home/looknfeel.lua"
+  python3 scripts/hypr-sentinel.py look apply "$look_file" '{"gapsIn":5,"gapsOut":10,"rounding":3}' >/dev/null
+  # A _patch write changes one field and keeps what is on disk, so two
+  # windows editing different fields converge instead of overwriting.
+  python3 scripts/hypr-sentinel.py look apply "$look_file" '{"_patch":{"rounding":9}}' >/dev/null
+  grep -q 'gaps_in = 5' "$look_file"
+  grep -q 'rounding = 9' "$look_file"
+  python3 scripts/hypr-sentinel.py look apply "$look_file" '{"_patch":{"gapsIn":7}}' &
+  python3 scripts/hypr-sentinel.py look apply "$look_file" '{"_patch":{"rounding":2}}' &
+  wait
+  grep -q 'gaps_in = 7' "$look_file" || { echo "not ok - concurrent look patches lost gapsIn"; rm -rf "$patch_home"; exit 1; }
+  grep -q 'rounding = 2' "$look_file" || { echo "not ok - concurrent look patches lost rounding"; rm -rf "$patch_home"; exit 1; }
+  input_file="$patch_home/input.lua"
+  python3 scripts/hypr-sentinel.py input apply "$input_file" '{"sensitivity":0,"naturalScroll":false}' >/dev/null
+  python3 scripts/hypr-sentinel.py input apply "$input_file" '{"_patch":{"naturalScroll":true}}' >/dev/null
+  grep -q 'sensitivity = 0' "$input_file"
+  grep -q 'natural_scroll = true' "$input_file"
+  rm -rf "$patch_home"
+  echo "ok - hypr-sentinel.py merges _patch writes under lock"
+else
+  echo "ok - skipping hypr-sentinel.py _patch"
+fi
+
+if [[ -x bin/atmos ]]; then
+  if grep -q 'quickshell -n' bin/atmos; then
+    echo "not ok - bin/atmos refuses a second instance with quickshell -n"
+    exit 1
+  fi
+  if grep -q 'focus_existing\|prefs_pid\|ipc ping' bin/atmos; then
+    echo "not ok - bin/atmos still funnels a second launch into the first window"
+    exit 1
+  fi
+  grep -q 'exec quickshell -p' bin/atmos
+  echo "ok - bin/atmos opens every launch as its own instance"
+else
+  echo "ok - skipping bin/atmos multi-instance"
+fi
+
 if [[ -x scripts/set-hypr-input.sh ]] && command -v python3 >/dev/null 2>&1; then
   input_home=$(mktemp -d)
   cat >"$input_home/input.lua" <<'LUA'
@@ -1801,10 +1841,12 @@ JSON
     rm -rf "$apply_dir"
     exit 1
   fi
-  # The sentinel writer replaces the whole block, so the call carries the
-  # settings the plan never mentioned as well as the ones it changed.
+  # The look call carries a _patch with only the changed fields (merged
+  # onto the file under lock, so concurrent windows do not clobber each
+  # other) plus the _full snapshot context the plan was built from.
   grep -q '"gapsIn":9' <<<"$out"
   grep -q '"rounding":8' <<<"$out"
+  grep -q '"_patch"' <<<"$out"
   grep -q '"gapsOut":10' <<<"$out"
   grep -q '"layout":"dwindle"' <<<"$out"
   # A paired writer takes both values, so the one that did not change is read

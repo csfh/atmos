@@ -50,6 +50,8 @@ install_accounts() {
     mkdir -p /var/lib/AccountsService/icons /var/lib/AccountsService/users
     cp -f -- "$file" "$icon"
     chmod 644 "$icon"
+    exec {ATMOS_AVATAR_LOCK}>"$cfg.atmos.lock"
+    flock "$ATMOS_AVATAR_LOCK"
     if [[ -f $cfg ]] && grep -q "^Icon=" "$cfg"; then
       sed -i "s|^Icon=.*|Icon=$icon|" "$cfg"
     elif [[ -f $cfg ]]; then
@@ -71,11 +73,14 @@ clear_accounts() {
     rm -f "/var/lib/AccountsService/icons/$user"
     cfg=/var/lib/AccountsService/users/$user
     if [[ -f $cfg ]]; then
-      grep -v "^Icon=" "$cfg" >"$cfg.tmp" || true
-      if grep -qE "^[A-Za-z]" "$cfg.tmp"; then
-        mv "$cfg.tmp" "$cfg"
+      exec {ATMOS_AVATAR_LOCK}>"$cfg.atmos.lock"
+      flock "$ATMOS_AVATAR_LOCK"
+      tmp=$(mktemp "$cfg.tmp.XXXXXX")
+      grep -v "^Icon=" "$cfg" >"$tmp" || true
+      if grep -qE "^[A-Za-z]" "$tmp"; then
+        mv "$tmp" "$cfg"
       else
-        rm -f "$cfg" "$cfg.tmp"
+        rm -f "$cfg" "$tmp"
       fi
     fi
   ' bash "$user"

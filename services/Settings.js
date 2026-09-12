@@ -2648,7 +2648,13 @@ function commandFor(key, value, snapshot, opts) {
     merged[field] = value;
     if (spec.group === "hyprInput" && workspaceGestureUnmanaged(snapshot, opts))
       delete merged.workspaceGesture;
-    var payload = JSON.stringify(merged);
+    // The writer merges _patch onto the file under an exclusive lock, so
+    // two windows changing different fields converge instead of the second
+    // full block overwriting the first. _full stays for readers that only
+    // understand a whole object. The optimistic apply still uses merged.
+    var patch = {};
+    patch[field] = merged[field];
+    var payload = JSON.stringify({ _patch: patch, _full: merged });
     var applyHypr = {};
     applyHypr[spec.group] = merged;
     applyHypr[spec.group === "hyprLook" ? "hyprLookManaged" : "hyprInputManaged"] = true;
@@ -2906,6 +2912,38 @@ function planCommands(changes, snapshot, opts) {
       continue;
     }
     if (merged) seen[merged] = true;
+    if (spec && spec.kind === "hypr-group" && cmd.stdin) {
+      // commandFor only saw the first coalesced key. Fold every change for
+      // this group into _patch so one write carries all of them; the writer
+      // merges the patch onto the file under lock.
+      var patchGroup = spec.group;
+      var combinedPatch = {};
+      var j, k2, f2;
+      for (j = 0; j < list.length; j++) {
+        k2 = String(list[j].key || "");
+        if (k2.indexOf(patchGroup + ".") !== 0) continue;
+        f2 = k2.slice(patchGroup.length + 1);
+        if (!f2) continue;
+        if (
+          patchGroup === "hyprInput" &&
+          f2 === "workspaceGesture" &&
+          workspaceGestureUnmanaged(cmdSnap, opts)
+        )
+          continue;
+        combinedPatch[f2] = readValue(cmdSnap, k2);
+      }
+      if (patchGroup === "hyprInput" && workspaceGestureUnmanaged(cmdSnap, opts))
+        delete combinedPatch.workspaceGesture;
+      try {
+        var parsedPayload = JSON.parse(cmd.stdin);
+        if (parsedPayload && typeof parsedPayload === "object" && parsedPayload._patch) {
+          parsedPayload._patch = combinedPatch;
+          var rebuilt = JSON.stringify(parsedPayload);
+          cmd.stdin = rebuilt;
+          if (cmd.argv && cmd.argv.length > 0) cmd.argv[cmd.argv.length - 1] = rebuilt;
+        }
+      } catch (e) {}
+    }
     out.push(cmd);
   }
   var muteSnap = copyObject(snapshot || {});

@@ -1681,3 +1681,50 @@ assertEqual(
   "",
   "parseApplyResult survives no JSON",
 );
+
+const patchCmd = settings.commandFor(
+  "hyprLook.gapsIn",
+  9,
+  { hyprLook: { gapsIn: 5, gapsOut: 10, rounding: 0 } },
+  {},
+);
+const patchPayload = JSON.parse(patchCmd.stdin);
+assertEqual(
+  JSON.stringify(patchPayload._patch),
+  JSON.stringify({ gapsIn: 9 }),
+  "a hyprLook write sends only the changed field as _patch",
+);
+assertEqual(patchPayload._full.gapsOut, 10, "a hyprLook write keeps snapshot context in _full");
+assertEqual(
+  patchCmd.argv[patchCmd.argv.length - 1],
+  patchCmd.stdin,
+  "a hyprLook write carries the payload on argv and stdin alike",
+);
+
+const coalescedPatch = settings.planCommands(
+  [
+    { key: "hyprLook.gapsIn", value: 9 },
+    { key: "hyprLook.rounding", value: 8 },
+  ],
+  { hyprLook: { gapsIn: 5, gapsOut: 10, rounding: 0, layout: "dwindle" } },
+  {},
+);
+assertEqual(coalescedPatch.length, 1, "coalesced look writes stay one call with _patch");
+const coalescedPayload = JSON.parse(coalescedPatch[0].stdin);
+assertEqual(
+  JSON.stringify(coalescedPayload._patch),
+  JSON.stringify({ gapsIn: 9, rounding: 8 }),
+  "a coalesced look write patches every changed field",
+);
+
+const inputPatch = settings.commandFor(
+  "hyprInput.sensitivity",
+  0.4,
+  { hyprInput: { sensitivity: 0, naturalScroll: false } },
+  {},
+);
+assertEqual(
+  JSON.stringify(JSON.parse(inputPatch.stdin)._patch),
+  JSON.stringify({ sensitivity: 0.4 }),
+  "a hyprInput write sends only the changed field as _patch",
+);

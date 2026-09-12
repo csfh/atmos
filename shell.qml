@@ -55,6 +55,61 @@ ShellRoot {
     return LayoutJs.clusterByGroup(matched, q.length === 0)
   }
 
+  // The nav in the order it is drawn, so j/k walk what the eye sees rather
+  // than the unfiltered catalogue. Follows the live search filter.
+  readonly property var flatNavPages: LayoutJs.flattenNavPages(root.groupedPages)
+
+  // True while a text field owns the keyboard, so a plain letter types
+  // instead of navigating. WindowShortcut still fires when a PrefsField,
+  // PrefsPassword, PrefsSelect filter, or the sudo box has focus — so this
+  // watches the real focus item, not only the sidebar search field.
+  readonly property bool typing: {
+    var item = window.activeFocusItem
+    return !!(item && (item instanceof TextInput || item instanceof TextEdit))
+  }
+
+  // Page-level PrefsDialogs (add binding, LUKS, …) never appear as ids here.
+  // Walk the focus parent chain so a j cannot change hub under a modal or
+  // while a key-grab is listening.
+  function focusIsUnderPopup(item) {
+    var p = item
+    while (p) {
+      if (p instanceof Popup) return true
+      p = p.parent
+    }
+    return false
+  }
+
+  readonly property bool modalOpen: errorDialog.visible
+    || sudoModeDialog.visible
+    || keysDialog.visible
+    || secondInstanceDialog.visible
+    || focusIsUnderPopup(window.activeFocusItem)
+
+  readonly property bool navBusy: typing || modalOpen
+
+  function moveNav(delta) {
+    var list = root.flatNavPages
+    var next = LayoutJs.stepNavIndex(list, root.currentPage, delta)
+    if (next < 0) return
+    var id = list[next]
+    if (id === root.currentPage) return
+    root.currentPage = id
+    if (searchField.text.length > 0) searchField.text = ""
+    else root.loadHub(id)
+  }
+
+  function jumpNav(toEnd) {
+    var list = root.flatNavPages
+    var next = LayoutJs.jumpNavIndex(list, toEnd)
+    if (next < 0) return
+    var id = list[next]
+    if (id === root.currentPage) return
+    root.currentPage = id
+    if (searchField.text.length > 0) searchField.text = ""
+    else root.loadHub(id)
+  }
+
   function pageMatches(page, q) {
     var nq = String(q || "").toLowerCase()
     if (!nq) return true
@@ -99,6 +154,24 @@ ShellRoot {
     navHighlight.y = pos.y
     navHighlight.visible = true
     if (!slide) highlightSlide.enabled = true
+    root.revealNavItem(item)
+  }
+
+  // G and a held j select rows below the fold. Keep the current hub in
+  // the nav viewport; the rail is useless if you cannot see it.
+  function revealNavItem(item) {
+    if (!item || !navFlick) return
+    var pos = item.mapToItem(navContent, 0, 0)
+    if (pos.y !== pos.y) return
+    var top = pos.y
+    var bottom = top + item.height
+    var viewH = navFlick.height
+    var maxY = Math.max(0, navFlick.contentHeight - viewH)
+    var y = navFlick.contentY
+    if (top < y)
+      navFlick.contentY = Math.max(0, Math.min(maxY, top))
+    else if (bottom > y + viewH)
+      navFlick.contentY = Math.max(0, Math.min(maxY, bottom - viewH))
   }
 
   function openPage(id) {
@@ -452,8 +525,11 @@ ShellRoot {
               root.query = text
               root.syncSearchPane()
             }
-            Keys.onEscapePressed: {
-              if (text.length > 0) text = ""
+            Keys.onEscapePressed: function(event) {
+              // Blur first so the filter stays and j/k can walk it. The
+              // window Escape shortcut clears on the next press.
+              searchField.focus = false
+              event.accepted = true
             }
 
             Text {
@@ -844,6 +920,61 @@ ShellRoot {
       }
     }
 
+    // A keyboard-first app has to teach its own keys rather than send you
+    // to a README.
+    PrefsDialog {
+      id: keysDialog
+      title: "Keyboard"
+      closePolicy: Popup.CloseOnEscape
+
+      Repeater {
+        model: [
+          { keys: "j  /  k", what: "Move down and up the sidebar" },
+          { keys: "g  /  G", what: "Jump to the first or last hub" },
+          { keys: "/  /  Ctrl+F", what: "Search settings" },
+          { keys: "Enter", what: "Open or toggle what is focused" },
+          { keys: "Tab", what: "Move through controls on the page" },
+          { keys: "Escape", what: "Go back, leave search, or clear the filter" },
+          { keys: "?", what: "This sheet" }
+        ]
+        delegate: Item {
+          required property var modelData
+          width: parent ? parent.width : 0
+          height: Theme.rowHeight
+
+          PrefsText {
+            anchors.left: parent.left
+            anchors.verticalCenter: parent.verticalCenter
+            width: Theme.spinWidth + Theme.spaceMd
+            text: modelData.keys
+            color: Theme.accent
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.labelSize
+            font.bold: true
+          }
+          PrefsText {
+            anchors.left: parent.left
+            anchors.leftMargin: Theme.spinWidth + Theme.spaceLg
+            anchors.right: parent.right
+            anchors.verticalCenter: parent.verticalCenter
+            text: modelData.what
+            color: Theme.foreground
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.labelSize
+          }
+        }
+      }
+
+      Row {
+        anchors.right: parent.right
+        PrefsButton {
+          text: "Close"
+          primary: true
+          onClicked: keysDialog.close()
+        }
+      }
+    }
+
     PrefsDialog {
       id: sudoModeDialog
       title: "Administrator password"
@@ -925,7 +1056,37 @@ ShellRoot {
 
     Shortcut {
       sequences: ["Ctrl+F", "/"]
+      enabled: !root.modalOpen
       onActivated: searchField.forceActiveFocus()
+    }
+
+    // Atmos's audience runs a tiling window manager and lives on the
+    // keyboard. Every binding is disabled while a text field or modal has
+    // focus, so typing a j into a field types a j.
+    Shortcut {
+      sequences: ["J"]
+      enabled: !root.navBusy
+      onActivated: root.moveNav(1)
+    }
+    Shortcut {
+      sequences: ["K"]
+      enabled: !root.navBusy
+      onActivated: root.moveNav(-1)
+    }
+    Shortcut {
+      sequences: ["G"]
+      enabled: !root.navBusy
+      onActivated: root.jumpNav(false)
+    }
+    Shortcut {
+      sequences: ["Shift+G"]
+      enabled: !root.navBusy
+      onActivated: root.jumpNav(true)
+    }
+    Shortcut {
+      sequences: ["?"]
+      enabled: !root.navBusy
+      onActivated: keysDialog.open()
     }
 
     Shortcut {

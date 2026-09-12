@@ -183,3 +183,37 @@ function clusterByGroup(pages, grouped) {
   }
   return groups;
 }
+
+// Sidebar order as drawn: each cluster's pages, left to right, top to
+// bottom. Search uses one unlabeled cluster, so this is the filtered list.
+function flattenNavPages(groups) {
+  var out = [];
+  var list = Array.isArray(groups) ? groups : [];
+  var i, j;
+  for (i = 0; i < list.length; i++) {
+    var pages = list[i] && list[i].pages ? list[i].pages : [];
+    for (j = 0; j < pages.length; j++) {
+      if (pages[j] && pages[j].id) out.push(pages[j].id);
+    }
+  }
+  return out;
+}
+
+// Next index for j/k. Clamp at the ends; if the current hub is not in
+// the drawn list (filtered away), j lands on the first match and k on
+// the last.
+function stepNavIndex(list, current, delta) {
+  var ids = Array.isArray(list) ? list : [];
+  if (ids.length === 0) return -1;
+  var at = ids.indexOf(current);
+  var next = at < 0 ? (delta > 0 ? 0 : ids.length - 1) : at + Number(delta);
+  if (next < 0) next = 0;
+  if (next > ids.length - 1) next = ids.length - 1;
+  return next;
+}
+
+function jumpNavIndex(list, toEnd) {
+  var ids = Array.isArray(list) ? list : [];
+  if (ids.length === 0) return -1;
+  return toEnd ? ids.length - 1 : 0;
+}

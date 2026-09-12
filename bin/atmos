@@ -1,5 +1,10 @@
 #!/bin/bash
-# Launch or focus the Atmos window.
+# Open an Atmos window. Every launch is its own instance: run this twice
+# and two windows open, each with its own engine and Omarchy queue.
+# Instances converge through the files they share. Writes serialize in
+# hypr-sentinel.py (flock + atomic rename) and the shell.json writers, so
+# concurrent edits cannot tear a file. File watchers re-read what another
+# window wrote, so all open windows settle on the same state.
 
 set -euo pipefail
 
@@ -28,45 +33,6 @@ if [[ -n $PAGE && $HUB != favorites && $HUB != appearance && $HUB != display && 
   exit 1
 fi
 
-prefs_pid() {
-  ps -eo pid=,args= | awk -v root="$ROOT" '
-    $2 == "quickshell" {
-      for (i = 3; i <= NF; i++) if ($i == "-p" && $(i + 1) == root) { print $1; exit }
-    }
-  '
-}
-
-ipc() {
-  quickshell ipc -p "$ROOT" call -- prefs "$@"
-}
-
-focus_existing() {
-  if [[ -n $PAGE ]]; then
-    ipc open "$PAGE"
-  else
-    ipc show
-  fi
-}
-
-if ipc ping >/dev/null 2>&1; then
-  focus_existing
-  exit 0
-fi
-
-# A starting instance has a process before IpcHandler answers. Do not spawn
-# a second engine with the same QS_APP_ID; the portal rejects it.
-if [[ -n $(prefs_pid) ]]; then
-  for _ in 1 2 3 4 5 6 7 8 9 10; do
-    if ipc ping >/dev/null 2>&1; then
-      focus_existing
-      exit 0
-    fi
-    sleep 0.15
-  done
-  echo "atmos: a preferences process is running but IPC is not answering" >&2
-  exit 1
-fi
-
 if [[ -n $PAGE ]]; then
   export ATMOS_PAGE=$PAGE
 fi
@@ -76,4 +42,7 @@ export QS_APP_ID=dev.csfh.atmos
 # for the desktop file name. It does not stop the window from opening.
 export QT_LOGGING_RULES="${QT_LOGGING_RULES:-qt.qpa.services=false}"
 
-exec quickshell -n -p "$ROOT"
+# No -n duplicate refusal and no focus-stealing: each launch owns its
+# window. The shared QS_APP_ID keeps the Hyprland window rule matching;
+# concurrent engines with the same id open fine (the portal log is noise).
+exec quickshell -p "$ROOT"

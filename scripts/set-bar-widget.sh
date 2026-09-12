@@ -38,6 +38,14 @@ jq -cn --argjson value "$value" '$value' >/dev/null || {
 # shellcheck disable=SC1091
 source omarchy-shell-config
 
+# Same shared lock as set-idle.sh: commit() reads shell.json, patches one
+# widget key with jq, and renames. Two windows patching different widgets
+# must not read the same stale file and drop each other's key.
+_SHELL_JSON_LOCK="$HOME/.config/omarchy/shell.json.atmos.lock"
+mkdir -p "$(dirname "$_SHELL_JSON_LOCK")"
+exec {ATMOS_SHELL_LOCK}>"$_SHELL_JSON_LOCK"
+flock "$ATMOS_SHELL_LOCK"
+
 commit "$NORMALIZE
   | def entry_id:
       if type == \"object\" then (.id // \"\" | tostring) else tostring end;

@@ -89,6 +89,8 @@ QtObject {
   readonly property string faceFile: Quickshell.env("HOME") + "/.face"
   readonly property string vconsoleFile: "/etc/vconsole.conf"
   readonly property string localeConfFile: "/etc/locale.conf"
+  readonly property string gtkSettingsFile: Quickshell.env("HOME") + "/.config/gtk-4.0/settings.ini"
+  readonly property string swappinessFile: "/etc/sysctl.d/99-atmos-swappiness.conf"
   readonly property string gumStubDir: shellDir + "/scripts/stubs"
   readonly property string userShellJson: Quickshell.env("HOME") + "/.config/omarchy/shell.json"
   readonly property string defaultShellJson: "/usr/share/omarchy/config/omarchy/shell.json"
@@ -2751,7 +2753,9 @@ QtObject {
     localtimeFile: localtimeFile,
     vconsoleFile: vconsoleFile,
     localeConfFile: localeConfFile,
-    pacmanConfFile: pacmanConfFile
+    pacmanConfFile: pacmanConfFile,
+    gtkSettingsFile: gtkSettingsFile,
+    swappinessFile: swappinessFile
   })
 
   function applyThemeNameFromFile(slug) {

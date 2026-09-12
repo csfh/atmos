@@ -8,6 +8,18 @@ source "$ROOT/atmos-env.sh"
 
 STATE=${ATMOS_PRESENTATION_FILE:-$HOME/.local/state/omarchy/atmos-presentation.json}
 mkdir -p "$(dirname "$STATE")"
+# The state file is one small JSON document fully replaced per write.
+# Publish through a temp file + rename under a sidecar lock so a second
+# Atmos window (or its file watcher) never reads a half-written document.
+exec {ATMOS_PRES_LOCK}>"$STATE.atmos.lock"
+flock "$ATMOS_PRES_LOCK"
+
+write_state() {
+  local tmp
+  tmp=$(mktemp "${STATE}.tmp.XXXXXX")
+  cat >"$tmp"
+  mv "$tmp" "$STATE"
+}
 
 on_off=${1:-}
 minutes=${2:-120}
@@ -20,7 +32,7 @@ case $on_off in
     now=$(date +%s)
     until=$((now + minutes * 60))
     jq -n --argjson on true --argjson until "$until" --argjson minutes "$minutes" \
-      '{on:$on, until:$until, minutes:$minutes}' >"$STATE"
+      '{on:$on, until:$until, minutes:$minutes}' | write_state
     omarchy toggle idle stay-awake >/dev/null 2>&1 || true
     if [[ $(omarchy-shell notifications isDnd 2>/dev/null || true) != on ]]; then
       omarchy toggle notification silencing >/dev/null 2>&1 || true
@@ -30,7 +42,7 @@ case $on_off in
     fi
     ;;
   off | false)
-    jq -n '{on:false, until:0, minutes:0}' >"$STATE"
+    jq -n '{on:false, until:0, minutes:0}' | write_state
     omarchy toggle idle allow-idle >/dev/null 2>&1 || true
     if [[ $(omarchy-shell notifications isDnd 2>/dev/null || true) == on ]]; then
       omarchy toggle notification silencing >/dev/null 2>&1 || true

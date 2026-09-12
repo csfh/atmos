@@ -2,15 +2,26 @@
 
 Notable changes to Atmos. Each section is a git tag on `main` and `alpha`. Install and in-app Update follow the `alpha` branch.
 
-## Unreleased
+## [v0.0.1-alpha.18] - 2026-09-12
 
 ### Added
 
-- **History** and **Preview** on System. Every real `runCommand` write is recorded in memory for this window (command, target file, source, time; newest first; cap 200). Preview holds the write and shows the command; Apply is the only path that runs held entries, and Discard clears them. Off by default and not persisted. ([#37](https://github.com/csfh/atmos/pull/37)) by Fred Nix ([@nixfred](https://github.com/nixfred)).
+- **History** and **Preview** on System. Every real `runCommand` write is recorded in memory for this window (command, target file, source, time; newest first; cap 200). Preview holds the write and shows the command; Apply is the only path that runs held entries, and Discard clears them. Off by default and not persisted. ([#56](https://github.com/csfh/atmos/pull/56), from [#37](https://github.com/csfh/atmos/pull/37)) by Fred Nix ([@nixfred](https://github.com/nixfred)).
+- **Machine** dashboard under System. Model, processor, graphics, load, memory, and battery from snapshot and hardware inventory already on hand. Diagnostics stays the copyable report. ([#54](https://github.com/csfh/atmos/pull/54), from [#36](https://github.com/csfh/atmos/pull/36)) by Fred Nix ([@nixfred](https://github.com/nixfred)).
+- Concurrent Atmos windows. Writers serialize with flock and atomic rename (Hypr sentinel `_patch` merge, shared `shell.json` lock, sidecar locks on env/hyprsunset/tweaks/avatar/presentation). ([#55](https://github.com/csfh/atmos/pull/55))
+- The prefs window **tiles**. Fresh seeds and the historical float seed migrate to `tile = true`; a hand-customized rule is left alone. ([#43](https://github.com/csfh/atmos/pull/43)) by Taha Sadough ([@tahadx](https://github.com/tahadx)).
+- Displays **Refresh rate** is its own picker, split from resolution. ([#57](https://github.com/csfh/atmos/pull/57), from [#41](https://github.com/csfh/atmos/pull/41)) by Taha Sadough ([@tahadx](https://github.com/tahadx)).
+- Live badges on sidebar hubs: failed units, connected Bluetooth, disabled outputs, wired/Wi-Fi, pending Omarchy/Atmos updates. Silent when there is nothing to say. ([#46](https://github.com/csfh/atmos/pull/46))
+- Keyboard-first sidebar navigation and a shortcut sheet. ([#47](https://github.com/csfh/atmos/pull/47))
+- Hover **Current theme** paints this window from that palette without committing it. ([#49](https://github.com/csfh/atmos/pull/49))
+- Each section names the config file it writes. ([#50](https://github.com/csfh/atmos/pull/50))
+- Advanced sections fold in Simple and still show up in search. ([#51](https://github.com/csfh/atmos/pull/51))
+- PrefsButton uses an Omarchy-style chamfered cut corner. ([#53](https://github.com/csfh/atmos/pull/53))
+- The whole settings row lights on hover and focus. ([#48](https://github.com/csfh/atmos/pull/48))
 
 ### Fixed
 
-- A second Atmos from a different path (install plus a checkout) is refused. Quickshell only keys single-instance on the config path; an app-level flock in `$XDG_RUNTIME_DIR` now dies with the process, and the loser cannot write. ([#27](https://github.com/csfh/atmos/issues/27))
+- Blocking pickers (file, theme) run off the mutation queue so they do not stall other writes. ([#45](https://github.com/csfh/atmos/pull/45))
 
 ## [v0.0.1-alpha.17] - 2026-09-09
 
@@ -31,7 +42,7 @@ Notable changes to Atmos. Each section is a git tag on `main` and `alpha`. Insta
 - The workspace count slider no longer repeats the number on the label line.
 - The bar strip follows the shown-count slider. Show names in the bar keeps its state after a count change.
 
-
+## [v0.0.1-alpha.16] - 2026-09-08
 
 ### Fixed
 
@@ -294,6 +305,7 @@ First public alpha. Standalone [Quickshell](https://quickshell.org) preferences 
 - Keyboard use on controls (tab focus and activation). File watching of Omarchy/Hyprland paths so outside changes can refresh the snapshot. Shared page routing and content-column layout.
 - MIT license. Contributions assign copyright to Christoffer Hallas ([CLA](CLA.md)).
 
+[v0.0.1-alpha.18]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.17...v0.0.1-alpha.18
 [v0.0.1-alpha.17]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.16...v0.0.1-alpha.17
 [v0.0.1-alpha.16]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.15...v0.0.1-alpha.16
 [v0.0.1-alpha.15]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.14...v0.0.1-alpha.15

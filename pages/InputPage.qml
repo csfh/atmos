@@ -36,6 +36,7 @@ PrefsPage {
   PrefsGroup {
     title: "Pointer"
     query: root.query
+    writesFile: "~/.config/hypr/input.lua"
     detail: "Sensitivity and acceleration for the mouse and trackpad. These write a managed block in ~/.config/hypr/input.lua."
 
     SettingRow {
@@ -108,6 +109,7 @@ PrefsPage {
   PrefsGroup {
     title: "Touchpad"
     query: root.query
+    writesFile: "~/.config/hypr/input.lua"
     detail: "Feel for the trackpad. The on/off switch for the device itself is on Displays."
 
     SettingRow {
@@ -189,6 +191,7 @@ PrefsPage {
   PrefsGroup {
     title: "Keyboard"
     query: root.query
+    writesFile: "~/.config/hypr/input.lua"
     detail: "Repeat and numlock for Hyprland. The console and login layout stay on System."
 
     SettingRow {
@@ -269,6 +272,8 @@ PrefsPage {
   PrefsGroup {
     title: "Advanced"
     query: root.query
+    writesFile: "~/.config/hypr/input.lua"
+    writesNote: Omarchy.hyprWorkspaceGestureUnmanaged ? "your gesture stays" : ""
     detail: "Follow mouse, waking the screen, an optional Hyprland layout list, and a three-finger workspace swipe."
 
     SettingRow {

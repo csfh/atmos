@@ -1340,6 +1340,23 @@ assert(
     systemSrc.indexOf("stack.push(machinePage)") !== -1,
   "System opens the Machine child page",
 );
+assert(
+  systemSrc.indexOf('label: "History"') !== -1 &&
+    systemSrc.indexOf('openSubpage("history")') !== -1 &&
+    systemSrc.indexOf('id === "history"') !== -1 &&
+    systemSrc.indexOf("stack.push(historyPage)") !== -1,
+  "System opens the History child page when stack is set",
+);
+const historyPageSrc = fs.readFileSync(
+  path.join(__dirname, "..", "pages", "system", "HistoryPage.qml"),
+  "utf8",
+);
+assert(
+  historyPageSrc.indexOf('hubId: "system/history"') !== -1 &&
+    historyPageSrc.indexOf("Omarchy.applyHeld()") !== -1 &&
+    historyPageSrc.indexOf("Omarchy.discardHeld()") !== -1,
+  "History page applies and discards held writes",
+);
 const machinePageSrc = fs.readFileSync(
   path.join(__dirname, "..", "pages", "system", "MachinePage.qml"),
   "utf8",
@@ -1746,6 +1763,32 @@ assert(
   "runJob honors snapshot groups through normalizeGroup",
 );
 assert(runJobBody.indexOf("opts.apply") !== -1, "runJob copies opts.apply onto the job");
+assert(
+  runCommandBody.indexOf("Preview.active") !== -1 &&
+    runCommandBody.indexOf("bypassPreview") !== -1 &&
+    runCommandBody.indexOf("holdChange") !== -1 &&
+    runCommandBody.indexOf("recordChange") !== -1,
+  "runCommand holds in Preview and records a real write",
+);
+assert(
+  omarchySrc.indexOf("HistoryJs.applyHeld(held, runCommand)") !== -1,
+  "applyHeld replays through History.js so every option is forwarded",
+);
+assert(
+  runCommandBody.indexOf("opts.stdin") !== -1 &&
+    runCommandBody.indexOf("opts.key") !== -1 &&
+    runCommandBody.indexOf("opts.apply") !== -1 &&
+    runCommandBody.indexOf("opts.refresh") !== -1 &&
+    runCommandBody.indexOf("opts.sudo") !== -1,
+  "runCommand still forwards key, apply, refresh, sudo, and stdin",
+);
+const previewQml = fs.readFileSync(path.join(__dirname, "..", "services", "Preview.qml"), "utf8");
+assert(
+  previewQml.indexOf("property bool active: false") !== -1 &&
+    previewQml.indexOf("FileView") === -1 &&
+    previewQml.indexOf("StandardPaths") === -1,
+  "Preview starts off and is not persisted",
+);
 assert(shellSrc.indexOf("inotifywait") === -1, "inotifywait is not in shell.qml");
 assert(
   omarchySrc.indexOf("syncThemeFromDiskIfStale") === -1 &&

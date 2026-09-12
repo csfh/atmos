@@ -71,6 +71,7 @@ QtObject {
   readonly property string createHookScript: shellDir + "/scripts/create-hook.sh"
   readonly property string setHookSampleScript: shellDir + "/scripts/set-hook-sample.sh"
   readonly property string diagReportScript: shellDir + "/scripts/diag-report.sh"
+  readonly property string instanceLockScript: shellDir + "/scripts/instance-lock.sh"
   readonly property string envFile: Quickshell.env("HOME") + "/.config/environment.d/10-atmos.conf"
   readonly property string presentationFile: Quickshell.env("HOME") + "/.local/state/omarchy/atmos-presentation.json"
   readonly property string favoritesFile: Quickshell.env("HOME") + "/.local/state/omarchy/atmos-favorites.json"
@@ -465,6 +466,10 @@ QtObject {
   }
 
   function startIoJob(job) {
+    if (lostInstanceLock && job.kind !== "read") {
+      ioFinished()
+      return
+    }
     if (job.kind === "read") {
       snapshotProc.command = ["bash", root.snapshotScript, job.group || "all"]
       snapshotProc.running = true
@@ -506,6 +511,7 @@ QtObject {
   }
 
   function runCommand(argv, opts) {
+    if (lostInstanceLock) return
     if (!(argv instanceof Array) || argv.length === 0) return
     opts = opts || {}
     enqueueIo({
@@ -635,7 +641,7 @@ QtObject {
   // Job record: kind ("read"|"mut"|"job"), argv, stdin, key, apply, refresh,
   // sudo, jobKind, onStdoutLine, onFinished. apply is consumed for mut and job.
   function enqueueIo(job) {
-    if (!job) return
+    if (!job || lostInstanceLock) return
     if (job.sudo && !passwordlessSudo) {
       sudoPendingJob = job
       sudoError = ""
@@ -665,8 +671,7 @@ QtObject {
       sudoPendingJob = null
       if (pending) {
         pending.sudo = false
-        WorkQueue.enqueueWrite(ioQueue, pending)
-        kickIo()
+        enqueueIo(pending)
       }
       return
     }
@@ -682,6 +687,7 @@ QtObject {
   }
 
   function runJob(argv, stdinText, kind, opts) {
+    if (lostInstanceLock) return
     if (!(argv instanceof Array) || argv.length === 0) return
     opts = opts || {}
     kind = String(kind || "")
@@ -1804,6 +1810,31 @@ QtObject {
     var header = DiagnosticsJs.reportText(diagnostics)
     if (!header) return
     runJob(["bash", diagReportScript, "agent"], header, "diag-report", { refresh: "none" })
+  }
+
+  // One Atmos at a time.
+  //
+  // Quickshell already refuses a second instance of the same config path,
+  // which is why this looks solved and is not: running one copy from the
+  // install and another from a checkout opens two windows, and both write
+  // the same configuration files. Settings are shared mutable state on disk,
+  // so two writers race and the loser's change is lost silently.
+  //
+  // The lock is on the app, not the path. scripts/instance-lock.sh flocks
+  // an fd on itself and execs tail --pid=$PPID so the holder dies with
+  // Atmos (including SIGKILL). flock -c is unsafe: the lock fd lands on
+  // a grandchild tail that is reparented to init.
+  property bool lostInstanceLock: false
+
+  property Process instanceLock: Process {
+    running: true
+    command: ["bash", root.instanceLockScript]
+    onExited: function (exitCode) {
+      // 1 is flock's "someone else holds it". Any other code means flock is
+      // missing or broken, and refusing to start over a missing utility
+      // would be worse than the race this prevents.
+      if (exitCode === 1) root.lostInstanceLock = true
+    }
   }
 
   function clearLastError() {

@@ -8,7 +8,7 @@ A [Quickshell](https://quickshell.org) preferences window for [Omarchy](https://
 ./bin/atmos
 ```
 
-A second launch focuses the window that is already open. Pass a page if you want to land somewhere specific:
+A second launch of the same install focuses the window that is already open. A second copy from a different path (install plus a checkout) is refused — both would write `~/.config`. Pass a page if you want to land somewhere specific:
 
 ```bash
 ./bin/atmos appearance

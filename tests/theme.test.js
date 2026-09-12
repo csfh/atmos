@@ -9,6 +9,18 @@ assert(
   "Theme.qml restarts inotifywait after 1s, not a poll",
 );
 assert(themeQml.indexOf("interval: 800") === -1, "Theme.qml has no 800ms theme poll");
+assert(
+  themeQml.indexOf("readonly property int radius: 0") !== -1 &&
+    themeQml.indexOf("readonly property int chamfer:") !== -1 &&
+    themeQml.indexOf("readonly property int chamferSm:") !== -1 &&
+    /readonly property int chamfer:\s*Math\.max\(5, Math\.round\(fontSize \* 0\.62\)\)/.test(
+      themeQml,
+    ) &&
+    /readonly property int chamferSm:\s*Math\.max\(3, Math\.round\(fontSize \* 0\.36\)\)/.test(
+      themeQml,
+    ),
+  "Theme sizes chamfer tokens off fontSize and keeps radius 0",
+);
 
 const theme = load("services/Theme.js");
 const shell = load("services/ShellConfig.js");

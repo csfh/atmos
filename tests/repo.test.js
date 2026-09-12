@@ -276,6 +276,8 @@ assert(
 );
 assert(
   themeQml.indexOf("readonly property int radius: 0") !== -1 &&
+    themeQml.indexOf("readonly property int chamfer:") !== -1 &&
+    themeQml.indexOf("readonly property int chamferSm:") !== -1 &&
     themeQml.indexOf("readonly property int contentMaxWidth: 1000") !== -1 &&
     themeQml.indexOf("readonly property int railWidth:") !== -1,
   "Theme keeps square chrome, a capped content column, and a sidebar rail",
@@ -297,6 +299,27 @@ assert(
 assert(
   prefsButtonSrc.indexOf("TextMetrics") !== -1 && prefsButtonSrc.indexOf("labelMetrics") !== -1,
   "PrefsButton sizes from TextMetrics so a hidden row still gets a width",
+);
+assert(
+  prefsButtonSrc.indexOf("Chamfer") !== -1 &&
+    prefsButtonSrc.indexOf("Theme.chamferSm") !== -1 &&
+    prefsButtonSrc.indexOf('color: "transparent"') !== -1 &&
+    prefsButtonSrc.indexOf("border.width: 0") !== -1,
+  "PrefsButton keeps a Rectangle root and paints a chamfered silhouette",
+);
+assert(
+  prefsButtonSrc.indexOf("Behavior on bodyColor") !== -1 &&
+    prefsButtonSrc.indexOf("Behavior on edgeColor") !== -1 &&
+    prefsButtonSrc.indexOf("mouse.containsMouse") !== -1 &&
+    prefsButtonSrc.indexOf("root.activeFocus") !== -1 &&
+    prefsButtonSrc.indexOf("Theme.fill(Theme.hoverFill)") !== -1 &&
+    prefsButtonSrc.indexOf("Theme.accentFill(Theme.primaryFill)") !== -1,
+  "PrefsButton still animates hover, focus, and primary fill on the chamfer",
+);
+assert(
+  prefsButtonSrc.indexOf("anchors.fill: parent") !== -1 &&
+    prefsButtonSrc.indexOf("hoverEnabled: true") !== -1,
+  "PrefsButton keeps a full-rect MouseArea so a transparent root still clicks",
 );
 const prefsSliderSrc = fs.readFileSync(
   path.join(__dirname, "..", "components", "PrefsSlider.qml"),

@@ -130,8 +130,10 @@ Item {
           valueText: modelData.hubTitle || modelData.hub || ""
           onClicked: {
             // hub is a hub id or a hub/subpage path such as windows/bindings.
+            // Pass the label so Simple can pin the landing row after chrome
+            // search clears the query.
             if (root.navigator && root.navigator.go)
-              root.navigator.go(modelData.hub)
+              root.navigator.go(modelData.hub, modelData.label)
           }
         }
       }

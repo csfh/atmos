@@ -237,6 +237,7 @@ PrefsPage {
 
   PrefsGroup {
     title: "Advanced"
+    advanced: true
     query: root.query
     detail: "Passwordless sudo is timed. Sudoless Docker puts this account in the docker group."
 

@@ -271,6 +271,7 @@ PrefsPage {
 
   PrefsGroup {
     title: "Advanced"
+    advanced: true
     query: root.query
     writesFile: "~/.config/hypr/input.lua"
     writesNote: Omarchy.hyprWorkspaceGestureUnmanaged ? "your gesture stays" : ""

@@ -20,6 +20,10 @@ assert(
   searchPageSrc.indexOf('SearchIndex.js", "query"') === -1,
   "SearchPage does not spawn a query process per keystroke",
 );
+assert(
+  searchPageSrc.indexOf("root.navigator.go(modelData.hub, modelData.label)") !== -1,
+  "SearchPage passes the hit label so Simple can pin the landing row",
+);
 const omarchyQml = fs.readFileSync(path.join(__dirname, "..", "services", "Omarchy.qml"), "utf8");
 assert(
   omarchyQml.indexOf('enqueueRead(ioQueue, "rest")') !== -1,
@@ -411,6 +415,42 @@ assert(
     prefsPageSrc.indexOf("Theme.copyInset") !== -1,
   "PrefsPage uses Theme page title, description, margin, section spacing, and copy inset",
 );
+assert(
+  prefsPageSrc.indexOf("readonly property bool showDisclosure:") !== -1 &&
+    prefsPageSrc.indexOf("DisclosureJs.showModeToggle(root.hasAdvanced") !== -1,
+  "PrefsPage shows Simple/Everything only on pages that opted in",
+);
+assert(
+  prefsPageSrc.indexOf(
+    "visible: root.query.length === 0 && !root.embed && root.title.length > 0",
+  ) === -1,
+  "PrefsPage does not paint the mode toggle on every titled hub",
+);
+
+const disclosureQml = fs.readFileSync(
+  path.join(__dirname, "..", "services", "Disclosure.qml"),
+  "utf8",
+);
+assert(
+  disclosureQml.indexOf("pragma Singleton") !== -1 &&
+    disclosureQml.indexOf("property bool simple: false") !== -1 &&
+    disclosureQml.indexOf("Settings") === -1 &&
+    disclosureQml.indexOf("store") === -1,
+  "Disclosure is a session singleton and is not persisted",
+);
+const qmldir = fs.readFileSync(path.join(__dirname, "..", "services", "qmldir"), "utf8");
+assert(
+  qmldir.indexOf("singleton Disclosure 1.0 Disclosure.qml") !== -1,
+  "qmldir registers the Disclosure singleton",
+);
+const chromeSrc = fs.readFileSync(path.join(__dirname, "..", "shell.qml"), "utf8");
+assert(
+  chromeSrc.indexOf("function go(path, label)") !== -1 &&
+    chromeSrc.indexOf("Disclosure.revealFromSearch(path, label)") !== -1 &&
+    chromeSrc.indexOf("Disclosure.finishReveal(hub)") !== -1 &&
+    chromeSrc.indexOf("Disclosure.leaveHub(hubId(id))") !== -1,
+  "chrome search pins the landing row and drops the pin when leaving the hub",
+);
 
 const settingRowSrc = fs.readFileSync(
   path.join(__dirname, "..", "components", "SettingRow.qml"),
@@ -421,6 +461,18 @@ assert(
     settingRowSrc.indexOf("Theme.iconStar") !== -1 &&
     settingRowSrc.indexOf("Omarchy.toggleFavorite") !== -1,
   "SettingRow stars a row through Omarchy.toggleFavorite",
+);
+assert(
+  settingRowSrc.indexOf("property bool advanced: false") !== -1 &&
+    settingRowSrc.indexOf("DisclosureJs.rowFolded") !== -1 &&
+    settingRowSrc.indexOf("shown: available && matches && !folded") !== -1,
+  "SettingRow folds through Disclosure.js so search can pin the landing row",
+);
+assert(
+  prefsGroupSrcEarly.indexOf("property bool advanced: false") !== -1 &&
+    prefsGroupSrcEarly.indexOf("DisclosureJs.groupFolded") !== -1 &&
+    prefsGroupSrcEarly.indexOf("collectPrefsRows({ includeFolded: true })") !== -1,
+  "PrefsGroup folds Advanced sections with the same Disclosure model and keeps them in section help",
 );
 assert(
   settingRowSrc.indexOf("readonly property int favoriteGutter:") !== -1 &&
@@ -957,7 +1009,7 @@ assert(
   "the first row in a framed card has no hairline under the card edge",
 );
 assert(
-  prefsGroupSrc.indexOf("function collectPrefsRows()") !== -1 &&
+  prefsGroupSrc.indexOf("function collectPrefsRows(") !== -1 &&
     prefsGroupSrc.indexOf("kid.available === false") !== -1 &&
     prefsGroupSrc.indexOf("walk(kid)") !== -1,
   "framed split walks Repeater delegates and skips a hidden empty row",

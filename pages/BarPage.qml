@@ -641,6 +641,7 @@ PrefsPage {
 
   PrefsGroup {
     title: "Advanced"
+    advanced: true
     query: root.query
     detail: "Shell plugins Omarchy discovered. The bar itself cannot be disabled. Other widgets and services can."
 

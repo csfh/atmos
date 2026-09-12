@@ -202,6 +202,7 @@ PrefsPage {
 
   PrefsGroup {
     title: "Advanced"
+    advanced: true
     query: root.query
     detail: "Voxtype is Omarchy's dictation tool. Install pulls the package and a model. Hold F9 after it is ready."
 

@@ -242,6 +242,7 @@ PrefsPage {
   PrefsGroup {
     framed: true
     title: "Advanced"
+    advanced: true
     query: root.query
     detail: "Autostart writes a managed block at the end of ~/.config/hypr/autostart.lua. Lines you typed yourself stay. Remove only deletes a line Atmos added."
     hint: "~/.config/hypr/autostart.lua"

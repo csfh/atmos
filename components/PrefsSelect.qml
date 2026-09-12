@@ -23,6 +23,28 @@ Item {
 
   signal changed(string value)
 
+  // Opt-in live preview. Emitted as the pointer (or highlight) moves over
+  // options, and with "" when it leaves the list or the popup closes.
+  // Callers that do not subscribe are unaffected.
+  signal previewed(string value)
+
+  // Last value handed out, so a repeat of the same option does not re-apply
+  // on every mouse move across one row.
+  property string hoveredOption: ""
+
+  function hoverOption(value) {
+    var next = String(value || "")
+    if (next === root.hoveredOption) return
+    root.hoveredOption = next
+    root.previewed(next)
+  }
+
+  // Pick already committed through changed(). Clearing without emitting
+  // "" means the subscriber must not restore over that paint.
+  function clearHover() {
+    root.hoveredOption = ""
+  }
+
   implicitWidth: Theme.controlColumnWidth
   implicitHeight: Theme.controlHeight
   width: implicitWidth
@@ -85,6 +107,7 @@ Item {
     changed(next)
     if (value === next) _holding = false
     refreshDisplayLabel()
+    root.clearHover()
     popup.close()
   }
 
@@ -199,7 +222,12 @@ Item {
       else list.forceActiveFocus()
       Qt.callLater(root.placePopup)
     }
-    onClosed: root.filter = ""
+    onClosed: {
+      root.filter = ""
+      // Dismiss by Escape or click-away puts the live value back. pickValue
+      // already cleared hoveredOption, so this is a no-op after a click.
+      root.hoverOption("")
+    }
 
     background: Rectangle {
       color: Theme.background
@@ -210,6 +238,13 @@ Item {
 
     contentItem: Column {
       width: popup.width
+
+      // One revert site, so there is no race between a row losing the
+      // pointer and its neighbour gaining it.
+      HoverHandler {
+        id: listHover
+        onHoveredChanged: if (!hovered) root.hoverOption("")
+      }
 
       Rectangle {
         visible: root.useSearch
@@ -261,6 +296,11 @@ Item {
         highlightFollowsCurrentItem: true
         Keys.onReturnPressed: root.pickCurrent()
         Keys.onSpacePressed: root.pickCurrent()
+        onCurrentIndexChanged: {
+          if (!popup.opened || currentIndex < 0) return
+          if (currentIndex >= (root.shownOptions || []).length) return
+          root.hoverOption(root.optionValue(root.shownOptions[currentIndex]))
+        }
 
         // Same viewport wheel handler as PrefsFlickable. Delegate MouseAreas
         // swallow the wheel, and a WheelHandler on this ListView never fires.
@@ -310,6 +350,12 @@ Item {
             anchors.fill: parent
             hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
+            // Enter only. The matching revert is on the list and on the
+            // popup, never on the row -- moving between two adjacent rows
+            // can fire the old row's onExited after the new row's onEntered,
+            // which undoes the preview the instant it is set and makes the
+            // whole feature look like it does nothing.
+            onEntered: root.hoverOption(root.optionValue(modelData))
             onClicked: root.pickValue(root.optionValue(modelData))
           }
         }

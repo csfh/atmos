@@ -761,6 +761,9 @@ QtObject {
   function setTheme(name) {
     name = String(name || "")
     if (!name || name === theme) return
+    // A hover snapshot is stale once we commit. Drop it so a later
+    // restorePreview cannot paint the pre-click chrome back over this.
+    Theme.discardPreview()
     Theme.applyNamedTheme(name)
     var cmd = SettingsJs.commandFor("theme", name, snapshotData, scriptOpts())
     if (!cmd || cmd.skip) return

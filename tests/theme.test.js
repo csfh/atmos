@@ -212,3 +212,181 @@ assert(
     bgOmarchySrc.indexOf("function runInteractive(") !== -1,
   "native background pickers do not hold the mut queue",
 );
+
+function qmlFunctionBody(src, name) {
+  const start = src.indexOf("function " + name + "(");
+  if (start < 0) return "";
+  const brace = src.indexOf("{", start);
+  if (brace < 0) return "";
+  let depth = 0;
+  for (let i = brace; i < src.length; i++) {
+    if (src[i] === "{") depth++;
+    else if (src[i] === "}") {
+      depth--;
+      if (depth === 0) return src.slice(start, i + 1);
+    }
+  }
+  return "";
+}
+
+const liveColors = {
+  foreground: "#aaa111",
+  background: "#111111",
+  accent: "#222222",
+  muted: "#333333",
+  urgent: "#444444",
+};
+const liveShell = { "font.base-size": "16", "controls.normal-fill-alpha": "0.2" };
+const snap = theme.snapshotLiveTheme(liveColors, liveShell);
+assertEqual(snap.source, "live", "snapshotLiveTheme tags the restore source as live");
+assertEqual(snap.colors.foreground, "#aaa111", "snapshotLiveTheme copies live foreground");
+assertEqual(
+  snap.themeShellValues["font.base-size"],
+  "16",
+  "snapshotLiveTheme copies live themeShellValues",
+);
+liveShell["font.base-size"] = "99";
+assertEqual(
+  snap.themeShellValues["font.base-size"],
+  "16",
+  "snapshotLiveTheme copies themeShellValues, it does not alias them",
+);
+const restored = theme.restoreLiveTheme(snap);
+assertEqual(restored.source, "live", "restoreLiveTheme keeps the live source tag");
+assertEqual(restored.colors.background, "#111111", "restoreLiveTheme returns snapshotted colors");
+assertEqual(
+  restored.themeShellValues["font.base-size"],
+  "16",
+  "restoreLiveTheme returns snapshotted shell tokens",
+);
+assertEqual(theme.restoreLiveTheme(null), null, "restoreLiveTheme rejects a missing snapshot");
+assertEqual(
+  theme.restoreLiveTheme({ source: "named", colors: liveColors, themeShellValues: {} }),
+  null,
+  "restoreLiveTheme rejects a named-directory snapshot",
+);
+
+const files = {
+  "/home/u/.config/omarchy/themes/miasma/colors.toml": 'foreground = "#aabbcc"\n',
+  "/usr/share/omarchy/themes/miasma/shell.toml": "[font]\nbase-size = 18\n",
+};
+const readFn = function (p) {
+  return files[p] || "";
+};
+assertEqual(
+  theme.firstThemeFile("Miasma", "colors.toml", "/home/u", readFn, "/usr/share/omarchy"),
+  'foreground = "#aabbcc"\n',
+  "firstThemeFile reads a named theme colors.toml for preview",
+);
+assertEqual(
+  theme.firstThemeFile("Miasma", "shell.toml", "/home/u", readFn, "/usr/share/omarchy"),
+  "[font]\nbase-size = 18\n",
+  "firstThemeFile can read shell.toml when asked",
+);
+assert(
+  theme.themeFileCandidates("Miasma", "colors.toml", "/home/u").indexOf("/home/u/.local/state") ===
+    -1,
+  "named theme candidates never include current/theme",
+);
+
+const previewFn = qmlFunctionBody(themeQml, "previewNamedTheme");
+assert(
+  previewFn.indexOf("captureLivePreview") !== -1,
+  "previewNamedTheme snapshots live chrome first",
+);
+assert(
+  previewFn.indexOf("colors.toml") !== -1 && previewFn.indexOf("shell.toml") === -1,
+  "previewNamedTheme reads colors.toml only, not shell.toml",
+);
+assert(
+  previewFn.indexOf("applyNamedTheme") === -1 &&
+    previewFn.indexOf("setTheme") === -1 &&
+    previewFn.indexOf("omarchy") === -1,
+  "previewNamedTheme does not commit a theme",
+);
+
+const restoreFn = qmlFunctionBody(themeQml, "restorePreview");
+assert(
+  restoreFn.indexOf("restoreLiveTheme") !== -1 && restoreFn.indexOf("applyNamedTheme") === -1,
+  "restorePreview reapplies the live snapshot, not applyNamedTheme",
+);
+assert(
+  restoreFn.indexOf("themeFileCandidates") === -1 && restoreFn.indexOf("currentThemePath") === -1,
+  "restorePreview does not reread named dirs or current/ files",
+);
+
+const applyFn = qmlFunctionBody(themeQml, "applyNamedTheme");
+assert(
+  applyFn.indexOf("themeShellValues = raw ? ThemeJs.parseShell(raw) : ({})") !== -1,
+  "applyNamedTheme resets themeShellValues when a theme has no shell.toml",
+);
+
+const setThemeFn = qmlFunctionBody(bgOmarchySrc, "setTheme");
+assert(
+  setThemeFn.indexOf("Theme.discardPreview()") !== -1 &&
+    setThemeFn.indexOf("Theme.restorePreview()") === -1,
+  "setTheme drops a hover snapshot instead of restoring it",
+);
+
+const selectSrc = fs.readFileSync(
+  path.join(__dirname, "..", "components", "PrefsSelect.qml"),
+  "utf8",
+);
+assert(selectSrc.indexOf("signal previewed(string value)") !== -1, "PrefsSelect emits previewed");
+assert(
+  selectSrc.indexOf("onEntered: root.hoverOption(root.optionValue(modelData))") !== -1 &&
+    selectSrc.indexOf("onExited:") === -1,
+  "PrefsSelect previews on enter only, never per-row onExited",
+);
+assert(
+  selectSrc.indexOf("HoverHandler") !== -1 && selectSrc.indexOf('root.hoverOption("")') !== -1,
+  "PrefsSelect reverts from the list HoverHandler and popup close",
+);
+const pickFn = qmlFunctionBody(selectSrc, "pickValue");
+assert(
+  pickFn.indexOf("root.clearHover()") !== -1 && pickFn.indexOf("hoverOption") === -1,
+  'pickValue clears hover state without emitting previewed("")',
+);
+const clearFn = qmlFunctionBody(selectSrc, "clearHover");
+assert(
+  clearFn.indexOf("hoveredOption") !== -1 && clearFn.indexOf("previewed") === -1,
+  "clearHover does not emit previewed",
+);
+assert(
+  selectSrc.indexOf("onCurrentIndexChanged:") !== -1,
+  "PrefsSelect previews keyboard highlight moves",
+);
+
+const appearanceSrc = fs.readFileSync(
+  path.join(__dirname, "..", "pages", "AppearancePage.qml"),
+  "utf8",
+);
+const themeSelectStart = appearanceSrc.indexOf('label: "Current theme"');
+const themeSelectEnd = appearanceSrc.indexOf('label: "Theme files"', themeSelectStart);
+const themeSelect = appearanceSrc.slice(themeSelectStart, themeSelectEnd);
+assert(
+  themeSelect.indexOf("onPreviewed:") !== -1 &&
+    themeSelect.indexOf("Theme.previewNamedTheme") !== -1,
+  "Current theme hover calls previewNamedTheme",
+);
+assert(
+  themeSelect.indexOf("Theme.restorePreview()") !== -1 &&
+    themeSelect.indexOf("applyNamedTheme") === -1,
+  "Current theme restore uses restorePreview, not applyNamedTheme",
+);
+assert(
+  themeSelect.indexOf("Omarchy.setTheme") !== -1 &&
+    /onPreviewed:[\s\S]*setTheme/.test(themeSelect) === false,
+  "Current theme hover does not call setTheme",
+);
+assert(
+  themeSelect.indexOf("onChanged:") !== -1 && themeSelect.indexOf("Omarchy.setTheme(value)") !== -1,
+  "Current theme click still commits through Omarchy.setTheme",
+);
+
+const extraSelectStart = appearanceSrc.indexOf('label: "Installed themes"');
+const extraBlock = appearanceSrc.slice(extraSelectStart, extraSelectStart + 1800);
+assert(
+  extraBlock.indexOf("onPreviewed") === -1,
+  "Additional themes picker does not subscribe to previewed",
+);

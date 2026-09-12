@@ -1392,8 +1392,10 @@ fi
 if [[ -x scripts/set-hypr-windows.sh ]] && command -v python3 >/dev/null 2>&1; then
   win_home=$(mktemp -d)
   cat >"$win_home/atmos.lua" <<'LUA'
+-- Float and center the Atmos window.
 o.window("dev.csfh.atmos", { float = true })
 o.window("dev.csfh.atmos", { center = true })
+o.window("dev.csfh.atmos", { size = { 960, 680 } })
 LUA
   cat >"$win_home/hyprland.lua" <<'LUA'
 require("hypr.autostart")
@@ -1401,12 +1403,17 @@ require("default.hypr.toggles")
 LUA
   ATMOS_WINDOWS_FILE="$win_home/atmos.lua" ATMOS_HYPRLAND_FILE="$win_home/hyprland.lua" ATMOS_SKIP_HYPR=1 \
     bash scripts/set-hypr-windows.sh '{"items":[{"match":"^Emulator$","placement":"float","center":true,"width":1280,"height":800}]}'
-  grep -q 'o.window("dev.csfh.atmos", { float = true })' "$win_home/atmos.lua"
+  grep -q 'o.window("dev.csfh.atmos", { tile = true })' "$win_home/atmos.lua"
+  if grep -q 'o.window("dev.csfh.atmos", { float = true })' "$win_home/atmos.lua"; then
+    echo "not ok - set-hypr-windows.sh left the float seed"
+    rm -rf "$win_home"
+    exit 1
+  fi
   grep -q -- '-- atmos:windows begin' "$win_home/atmos.lua"
   grep -q 'o.window("^Emulator$", { float = true, center = true, size = { 1280, 800 } })' "$win_home/atmos.lua"
   grep -q 'require("hypr.atmos")' "$win_home/hyprland.lua"
   listed=$(python3 scripts/hypr-sentinel.py windows list "$win_home/atmos.lua")
-  echo "$listed" | jq -e 'map(select(.match == "dev.csfh.atmos" and .managed == false)) | length == 2' >/dev/null
+  echo "$listed" | jq -e 'map(select(.match == "dev.csfh.atmos" and .managed == false)) | length == 1' >/dev/null
   echo "$listed" | jq -e 'map(select(.match == "^Emulator$" and .managed == true)) | length == 1' >/dev/null
   rm -rf "$win_home"
   echo "ok - set-hypr-windows.sh writes a sentinel and ensures the prefs require"
@@ -1445,7 +1452,10 @@ o.bind("SUPER + F", "Files", "nautilus")
 -- atmos:bindings end
 LUA
   cat >"$reset_home/atmos.lua" <<'LUA'
+-- Float and center the Atmos window.
 o.window("dev.csfh.atmos", { float = true })
+o.window("dev.csfh.atmos", { center = true })
+o.window("dev.csfh.atmos", { size = { 960, 680 } })
 -- atmos:windows begin
 o.window("^Emulator$", { float = true })
 -- atmos:windows end
@@ -1492,7 +1502,12 @@ LUA
     rm -rf "$reset_home"
     exit 1
   fi
-  grep -q 'o.window("dev.csfh.atmos", { float = true })' "$reset_home/atmos.lua"
+  grep -q 'o.window("dev.csfh.atmos", { tile = true })' "$reset_home/atmos.lua"
+  if grep -q 'o.window("dev.csfh.atmos", { float = true })' "$reset_home/atmos.lua"; then
+    echo "not ok - reset-atmos.sh left the float seed"
+    rm -rf "$reset_home"
+    exit 1
+  fi
   if grep -q -- '-- atmos:windows begin' "$reset_home/atmos.lua"; then
     echo "not ok - reset-atmos.sh left the windows sentinel"
     rm -rf "$reset_home"

@@ -186,20 +186,24 @@ const paths = {
   autostartLuaFile: "/home/x/.config/hypr/autostart.lua",
   bindingsLuaFile: "/home/x/.config/hypr/bindings.lua",
   windowsLuaFile: "/home/x/.config/hypr/atmos.lua",
+  envFile: "/home/x/.config/environment.d/10-atmos.conf",
+  presentationFile: "/home/x/.local/state/omarchy/atmos-presentation.json",
   localtimeFile: "/etc/localtime",
   vconsoleFile: "/etc/vconsole.conf",
   localeConfFile: "/etc/locale.conf",
   pacmanConfFile: "/etc/pacman.conf",
+  gtkSettingsFile: "/home/x/.config/gtk-4.0/settings.ini",
+  swappinessFile: "/etc/sysctl.d/99-atmos-swappiness.conf",
 };
 const specs = groups.watchSpecs(paths);
-assertEqual(specs.length, 44, "watchSpecs drops extraThemesDir and keeps 44 path/group pairs");
+assertEqual(specs.length, 47, "watchSpecs covers 47 path/group pairs for every window");
 assertEqual(
   specs
     .map(function (row) {
       return row.group;
     })
     .join(","),
-  "look,look,look,look,look,look,look,look,look,look,look,look,look,look,look,look,look,look,look,look,look,look,all,rest,rest,rest,rest,rest,rest,rest,rest,rest,rest,rest,rest,rest,rest,rest,system,look,rest,rest,rest,rest",
+  "look,look,look,look,look,look,look,look,look,look,look,look,look,look,look,look,look,look,look,look,look,look,all,rest,rest,rest,rest,rest,rest,rest,rest,rest,rest,rest,rest,rest,rest,rest,system,look,rest,rest,rest,rest,rest,rest,rest",
   "watchSpecs group order matches today's Omarchy array",
 );
 assertEqual(specs[0].path, "/u/shell.json", "watchSpecs uses the passed userShellJson path");
@@ -212,6 +216,12 @@ assert(
 );
 assertEqual(specs[22].group, "all", "togglesDir stays all");
 assertEqual(specs[22].path, paths.togglesDir, "togglesDir path is the live map value");
+assertEqual(specs[44].path, paths.envFile, "envFile is watched twice for system and rest");
+assertEqual(specs[44].group, "rest", "the second envFile watch refreshes rest tweaks");
+assertEqual(specs[45].path, paths.gtkSettingsFile, "gtk settings are watched for tweaks");
+assertEqual(specs[45].group, "rest", "gtk settings refresh rest");
+assertEqual(specs[46].path, paths.swappinessFile, "swappiness is watched for tweaks");
+assertEqual(specs[46].group, "rest", "swappiness refreshes rest");
 assertEqual(
   groups.snapshotGroupForWatchPath(paths.looknfeelLuaFile, specs),
   "look",

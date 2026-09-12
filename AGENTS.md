@@ -4,7 +4,7 @@ Atmos is a standalone Quickshell preferences app for Omarchy. Do not import `qs.
 
 ## Run
 
-- `./bin/atmos` — launch or focus
+- `./bin/atmos` — launch (each launch is its own window)
 - `npm install` — oxlint and oxfmt; also sets `core.hooksPath` to `.githooks`
 - `npm run lint` / `npm run fmt` — lint and format `services` and `tests`
 - `./tests/run` — oxlint, oxfmt --check, `scripts/*.py` syntax, parser tests, plus a live snapshot check when `omarchy` is present
@@ -21,4 +21,4 @@ Atmos is a standalone Quickshell preferences app for Omarchy. Do not import `qs.
 - Keep parsers in `services/*.js` so Node can test them without Quickshell.
 - Do not import `qs.Ui`. Restyle Qt Quick Controls through `Prefs*` wrappers. Visual language lives in `services/Theme.qml`; use those tokens instead of one-off sizes.
 - Do not launch floating terminals for settings work. Long jobs use `Omarchy.runJob` or an in-page `Process`.
-- One Atmos at a time. `scripts/instance-lock.sh` holds `$XDG_RUNTIME_DIR/atmos-$UID.lock` (or `/tmp/atmos-$UID.lock`) on its own fd and `exec`s `tail --pid=$PPID`. Do not use `flock -c`. A second instance sets `lostInstanceLock`; `runCommand` / `runJob` / `enqueueIo` no-op and `shell.qml` opens the already-open dialog from `onCompleted` as well as the changed signal.
+- Concurrent Atmos windows are allowed. Writers serialize with flock + atomic rename (`hypr-sentinel.py` `_patch` merge, shared `shell.json` lock, and sidecar locks on env/hyprsunset/tweaks/avatar/presentation). Do not reintroduce `instance-lock.sh`, `lostInstanceLock`, `quickshell -n`, or launcher `focus_existing`.

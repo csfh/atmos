@@ -1104,8 +1104,7 @@ assert(
   shellSrc.indexOf("p instanceof Popup") !== -1 &&
     shellSrc.indexOf("keysDialog.visible") !== -1 &&
     shellSrc.indexOf("sudoModeDialog.visible") !== -1 &&
-    shellSrc.indexOf("errorDialog.visible") !== -1 &&
-    shellSrc.indexOf("secondInstanceDialog.visible") !== -1,
+    shellSrc.indexOf("errorDialog.visible") !== -1,
   "nav shortcuts stay off while a shell dialog or page-level popup is open",
 );
 assert(
@@ -1777,70 +1776,37 @@ assert(
   "jobProc calls applyWritePatch before enqueueRead",
 );
 
-const instanceLockScriptSrc = fs.readFileSync(
-  path.join(__dirname, "..", "scripts", "instance-lock.sh"),
-  "utf8",
+assert(
+  !fs.existsSync(path.join(__dirname, "..", "scripts", "instance-lock.sh")),
+  "instance-lock.sh is gone; concurrent windows serialize on disk instead",
 );
 assert(
-  !/^\s*flock -c\b/m.test(instanceLockScriptSrc) &&
-    !/^\s*exec flock\b/m.test(instanceLockScriptSrc),
-  "instance-lock.sh does not invoke flock -c or flock FILE COMMAND (both fork)",
+  omarchySrc.indexOf("instance-lock.sh") === -1 &&
+    omarchySrc.indexOf("lostInstanceLock") === -1 &&
+    omarchySrc.indexOf("property Process instanceLock") === -1,
+  "Omarchy does not refuse a second window",
 );
 assert(
-  instanceLockScriptSrc.indexOf("exec 9>") !== -1 &&
-    instanceLockScriptSrc.indexOf("flock -n 9") !== -1 &&
-    instanceLockScriptSrc.indexOf('exec tail --pid="$parent"') !== -1,
-  "instance-lock.sh locks an fd on itself and execs tail --pid of the parent",
-);
-assert(
-  instanceLockScriptSrc.indexOf("id -u") !== -1 &&
-    instanceLockScriptSrc.indexOf("atmos-$uid.lock") !== -1 &&
-    instanceLockScriptSrc.indexOf("/tmp/atmos.lock") === -1,
-  "instance-lock.sh uses a UID-scoped lock path",
-);
-assert(
-  instanceLockScriptSrc.indexOf("ATMOS_INSTANCE_LOCK") !== -1,
-  "instance-lock.sh accepts ATMOS_INSTANCE_LOCK for tests",
-);
-assert(
-  omarchySrc.indexOf("instance-lock.sh") !== -1 &&
-    omarchySrc.indexOf("property bool lostInstanceLock") !== -1 &&
-    omarchySrc.indexOf("property Process instanceLock") !== -1,
-  "Omarchy holds the instance lock through instance-lock.sh",
-);
-assert(
-  omarchySrc.indexOf('flock", "-n"') === -1 && omarchySrc.indexOf("tail -f /dev/null") === -1,
-  "Omarchy does not park a grandchild tail via flock -c",
-);
-assert(
-  runCommandBody.indexOf("lostInstanceLock") !== -1,
-  "runCommand no-ops when the instance lock is lost",
-);
-assert(
-  runJobBody.indexOf("lostInstanceLock") !== -1,
-  "runJob no-ops when the instance lock is lost",
+  runCommandBody.indexOf("lostInstanceLock") === -1 &&
+    runJobBody.indexOf("lostInstanceLock") === -1,
+  "runCommand and runJob stay live in every window",
 );
 const enqueueIoStart = omarchySrc.indexOf("function enqueueIo(");
 const enqueueIoEnd = omarchySrc.indexOf("function requestSudoMode(", enqueueIoStart);
 const enqueueIoBody = omarchySrc.slice(enqueueIoStart, enqueueIoEnd);
+assert(enqueueIoBody.indexOf("lostInstanceLock") === -1, "enqueueIo stays live in every window");
 assert(
-  enqueueIoBody.indexOf("lostInstanceLock") !== -1,
-  "enqueueIo no-ops when the instance lock is lost",
-);
-assert(shellSrc.indexOf("id: secondInstanceDialog") !== -1, "already-open dialog is a PrefsDialog");
-assert(
-  shellSrc.indexOf('title: "Atmos is already open"') !== -1,
-  "already-open dialog says Atmos is already open",
-);
-const lostLockAt = shellSrc.indexOf("onLostInstanceLockChanged");
-assert(lostLockAt !== -1, "shell watches lostInstanceLock");
-const lostLockWindow = shellSrc.slice(Math.max(0, lostLockAt - 500), lostLockAt + 400);
-assert(
-  lostLockWindow.indexOf("Component.onCompleted") !== -1 &&
-    lostLockWindow.indexOf("secondInstanceDialog.open()") !== -1,
-  "already-open dialog opens from onCompleted as well as the changed signal",
+  shellSrc.indexOf("secondInstanceDialog") === -1 &&
+    shellSrc.indexOf("lostInstanceLock") === -1 &&
+    shellSrc.indexOf("Atmos is already open") === -1,
+  "shell does not show an already-open refusal",
 );
 assert(
-  testsRun.indexOf("instance-lock.sh") !== -1 && testsRun.indexOf("ATMOS_INSTANCE_LOCK") !== -1,
-  "tests/run exercises the instance-lock.sh contract",
+  testsRun.indexOf("instance-lock.sh must stay gone") !== -1 &&
+    testsRun.indexOf("ATMOS_INSTANCE_LOCK") === -1,
+  "tests/run pins that instance-lock.sh stays gone",
+);
+assert(
+  testsRun.indexOf("bin/atmos opens every launch as its own instance") !== -1,
+  "tests/run asserts the launcher opens a window per launch",
 );

@@ -3,9 +3,12 @@
 
 from __future__ import annotations
 
+import fcntl
 import json
+import os
 import re
 import sys
+import tempfile
 from pathlib import Path
 
 LOOK_BEGIN = "-- atmos:look begin"
@@ -344,6 +347,184 @@ def replace_sentinel(text: str, begin: str, end: str, block: str) -> str:
         return (trimmed + "\n\n" + body + "\n") if trimmed else body + "\n"
     start, stop = bounds
     return text[:start] + body + text[stop:]
+
+
+def lock_path_for(dest: Path) -> Path:
+    return dest.parent / (dest.name + ".atmos.lock")
+
+
+def atomic_write_text(dest: Path, text: str) -> None:
+    body = text if text.endswith("\n") or not text else text + "\n"
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(prefix="." + dest.name + ".", dir=str(dest.parent))
+    try:
+        with os.fdopen(fd, "w") as fh:
+            fh.write(body)
+            fh.flush()
+            try:
+                os.fsync(fh.fileno())
+            except OSError:
+                pass
+        os.replace(tmp, dest)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
+
+
+def _lua_bool_field(body: str, name: str) -> bool | None:
+    m = re.search(rf"{re.escape(name)}\s*=\s*(true|false)", body)
+    if not m:
+        return None
+    return m.group(1) == "true"
+
+
+def _lua_num_field(block: str, name: str) -> str:
+    m = re.search(rf"{re.escape(name)}\s*=\s*(-?[0-9]+(?:\.[0-9]+)?)", block)
+    return m.group(1) if m else ""
+
+
+def _lua_str_field(block: str, name: str) -> str:
+    m = re.search(rf'{re.escape(name)}\s*=\s*"((?:\\.|[^"\\])*)"', block)
+    if not m:
+        return ""
+    return unescape_lua(m.group(1))
+
+
+def parse_look_block(text: str) -> dict:
+    bounds = sentinel_bounds(text or "", LOOK_BEGIN, LOOK_END)
+    if not bounds:
+        return {}
+    body = text[bounds[0] : bounds[1]]
+    out: dict = {}
+    num_keys = (
+        ("gaps_in", "gapsIn"),
+        ("gaps_out", "gapsOut"),
+        ("border_size", "borderSize"),
+        ("rounding", "rounding"),
+        ("dim_strength", "dimStrength"),
+        ("active_opacity", "activeOpacity"),
+        ("inactive_opacity", "inactiveOpacity"),
+        ("column_width", "columnWidth"),
+        ("on_focus_under_fullscreen", "onFocusUnderFullscreen"),
+    )
+    for lua_name, key in num_keys:
+        raw = _lua_num_field(body, lua_name)
+        if raw == "":
+            continue
+        try:
+            out[key] = float(raw) if "." in raw else int(raw)
+        except ValueError:
+            continue
+    bool_keys = (
+        ("allow_tearing", "allowTearing"),
+        ("resize_on_border", "resizeOnBorder"),
+        ("dim_inactive", "dimInactive"),
+        ("focus_on_activate", "focusOnActivate"),
+        ("enable_swallow", "enableSwallow"),
+        ("hide_on_key_press", "cursorHideOnKey"),
+        ("preserve_split", "preserveSplit"),
+    )
+    for lua_name, key in bool_keys:
+        val = _lua_bool_field(body, lua_name)
+        if val is not None:
+            out[key] = val
+    for section, key in (("shadow", "shadow"), ("blur", "blur")):
+        m = re.search(rf"{section}\s*=\s*\{{\s*enabled\s*=\s*(true|false)", body)
+        if m:
+            out[key] = m.group(1) == "true"
+    m = re.search(r"animations\s*=\s*\{\s*enabled\s*=\s*(true|false)", body)
+    if m:
+        out["animations"] = m.group(1) == "true"
+    layout = _lua_str_field(body, "layout")
+    if layout:
+        out["layout"] = layout
+    swallow = _lua_str_field(body, "swallow_regex")
+    if swallow or "swallow_regex" in body:
+        out["swallowRegex"] = swallow
+    warp = re.search(r"warp_on_change_workspace\s*=\s*(true|false|1|0)", body)
+    if warp:
+        out["cursorWarp"] = warp.group(1) in ("true", "1")
+    m = re.search(r'hl\.env\(\s*"HYPRCURSOR_SIZE"\s*,\s*"([^"]*)"\s*\)', body)
+    if not m:
+        m = re.search(r'hl\.env\(\s*"XCURSOR_SIZE"\s*,\s*"([^"]*)"\s*\)', body)
+    if m:
+        try:
+            out["cursorSize"] = int(float(m.group(1)))
+        except ValueError:
+            pass
+    return out
+
+
+def parse_input_block(text: str) -> dict:
+    bounds = sentinel_bounds(text or "", INPUT_BEGIN, INPUT_END)
+    if not bounds:
+        return {}
+    body = text[bounds[0] : bounds[1]]
+    out: dict = {}
+    raw = _lua_num_field(body, "sensitivity")
+    if raw != "":
+        try:
+            out["sensitivity"] = float(raw)
+        except ValueError:
+            pass
+    accel = _lua_str_field(body, "accel_profile")
+    if accel or "accel_profile" in body:
+        out["accelProfile"] = accel
+    for lua_name, key in (
+        ("emulate_discrete_scroll", "emulateDiscreteScroll"),
+        ("drag_3fg", "drag3fg"),
+        ("repeat_rate", "repeatRate"),
+        ("repeat_delay", "repeatDelay"),
+        ("follow_mouse", "followMouse"),
+    ):
+        raw = _lua_num_field(body, lua_name)
+        if raw == "":
+            continue
+        try:
+            out[key] = float(raw) if "." in raw else int(raw)
+        except ValueError:
+            continue
+    for lua_name, key in (
+        ("natural_scroll", "naturalScroll"),
+        ("clickfinger_behavior", "clickfinger"),
+        ("disable_while_typing", "disableWhileTyping"),
+        ("numlock_by_default", "numlock"),
+        ("key_press_enables_dpms", "keyPressDpms"),
+        ("mouse_move_enables_dpms", "mouseMoveDpms"),
+    ):
+        val = _lua_bool_field(body, lua_name)
+        if val is not None:
+            out[key] = val
+    scroll = _lua_num_field(body, "scroll_factor")
+    if scroll != "":
+        try:
+            out["scrollFactor"] = float(scroll)
+        except ValueError:
+            pass
+    layout = _lua_str_field(body, "kb_layout")
+    if layout or "kb_layout" in body:
+        out["kbLayoutOverride"] = layout
+    variant = _lua_str_field(body, "kb_variant")
+    if variant or "kb_variant" in body:
+        out["kbVariantOverride"] = variant
+    options = _lua_str_field(body, "kb_options")
+    if options or "kb_options" in body:
+        out["kbGroupToggle"] = "grp:alts_toggle" in options
+    if re.search(r"""action\s*=\s*["']workspace["']""", body):
+        out["workspaceGesture"] = True
+    return out
+
+
+def split_patch(payload: dict | None) -> dict | None:
+    if not isinstance(payload, dict):
+        return None
+    patch = payload.get("_patch")
+    if isinstance(patch, dict):
+        return {k: v for k, v in patch.items() if not str(k).startswith("_")}
+    return None
 
 
 def sanitize_command(raw) -> str:
@@ -1084,7 +1265,7 @@ def ensure_layout_file(dest: Path) -> None:
     dest.parent.mkdir(parents=True, exist_ok=True)
     if dest.exists() and dest.read_text() == body:
         return
-    dest.write_text(body)
+    atomic_write_text(dest, body)
 
 
 def ensure_layout_require(text: str) -> str:
@@ -1212,16 +1393,6 @@ def serialize_monitors(raw: dict) -> str:
     return "\n".join(lines)
 
 
-def _lua_str_field(body: str, name: str) -> str:
-    m = re.search(rf'{name}\s*=\s*"((?:\\.|[^"\\])*)"', body)
-    return m.group(1) if m else ""
-
-
-def _lua_num_field(body: str, name: str) -> str:
-    m = re.search(rf"{name}\s*=\s*([0-9.]+)", body)
-    return m.group(1) if m else ""
-
-
 def parse_workspaces(text: str) -> list:
     start = text.find(WORKSPACES_BEGIN)
     stop = text.find(WORKSPACES_END)
@@ -1279,8 +1450,8 @@ def parse_monitors(text: str) -> list:
     return out
 
 
-def apply(kind: str, path: Path, payload: dict | None, reset: bool) -> str:
-    text = path.read_text() if path.exists() else ""
+def apply(kind: str, path: Path, payload: dict | None, reset: bool, _text: str | None = None) -> str:
+    text = _text if _text is not None else (path.read_text() if path.exists() else "")
     if kind == "windows" and not text.strip():
         text = PREFS_WINDOW_SEED + "\n"
     if kind == "look":
@@ -1301,8 +1472,25 @@ def apply(kind: str, path: Path, payload: dict | None, reset: bool) -> str:
         begin, end, serialize = INPUT_BEGIN, INPUT_END, serialize_input
     if reset:
         return strip_sentinel(text, begin, end)
+    # A _patch payload carries only the fields one write changed. Merge
+    # those onto what is on disk right now (under the caller's lock) so two
+    # windows editing different fields do not clobber each other. A plain
+    # object without _patch is a full managed block, as before.
     if kind == "input":
+        patch = split_patch(payload)
+        if patch is not None:
+            base = parse_input_block(text)
+            base.update(patch)
+            if "workspaceGesture" not in patch and "workspaceGesture" not in base:
+                base["workspaceGesture"] = input_has_workspace_gesture(text)
+            return replace_sentinel(text, begin, end, serialize_input(base, text))
         return replace_sentinel(text, begin, end, serialize_input(payload or {}, text))
+    if kind == "look":
+        patch = split_patch(payload)
+        if patch is not None:
+            base = parse_look_block(text)
+            base.update(patch)
+            return replace_sentinel(text, begin, end, serialize_look(base))
     return replace_sentinel(text, begin, end, serialize(payload or {}))
 
 
@@ -1327,13 +1515,20 @@ def main() -> int:
             return 2
         if not dest.exists():
             return 0
-        text = dest.read_text()
-        if not text.strip():
-            return 0
-        ensure_layout_file(dest.parent / "atmos_layout.lua")
-        updated = ensure_atmos_require(text)
-        updated = ensure_layout_require(updated)
-        dest.write_text(updated if updated.endswith("\n") or not updated else updated + "\n")
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        with open(lock_path_for(dest), "a+") as lock:
+            try:
+                fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+            except OSError:
+                pass
+            text = dest.read_text()
+            if not text.strip():
+                return 0
+            ensure_layout_file(dest.parent / "atmos_layout.lua")
+            updated = ensure_atmos_require(text)
+            updated = ensure_layout_require(updated)
+            if updated != text:
+                atomic_write_text(dest, updated)
         return 0
     if action == "list":
         text = dest.read_text() if dest.exists() else ""
@@ -1368,8 +1563,18 @@ def main() -> int:
             print("hypr-sentinel.py: JSON object required", file=sys.stderr)
             return 2
     dest.parent.mkdir(parents=True, exist_ok=True)
-    updated = apply(kind, dest, payload, reset=action == "reset")
-    dest.write_text(updated if updated.endswith("\n") or not updated else updated + "\n")
+    # Serialize concurrent writers from every Atmos window (and imports)
+    # through one exclusive lock per destination file, and publish with an
+    # atomic rename so readers never see a torn mid-write file.
+    with open(lock_path_for(dest), "a+") as lock:
+        try:
+            fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+        except OSError:
+            pass
+        text = dest.read_text() if dest.exists() else ""
+        updated = apply(kind, dest, payload, reset=action == "reset", _text=text)
+        if updated != text:
+            atomic_write_text(dest, updated)
     return 0
 
 

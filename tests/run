@@ -1031,6 +1031,52 @@ else
   echo "ok - skipping set-hypr-look.sh"
 fi
 
+if command -v python3 >/dev/null 2>&1; then
+  patch_home=$(mktemp -d)
+  look_file="$patch_home/looknfeel.lua"
+  python3 scripts/hypr-sentinel.py look apply "$look_file" '{"gapsIn":5,"gapsOut":10,"rounding":3}' >/dev/null
+  # A _patch write changes one field and keeps what is on disk, so two
+  # windows editing different fields converge instead of overwriting.
+  python3 scripts/hypr-sentinel.py look apply "$look_file" '{"_patch":{"rounding":9}}' >/dev/null
+  grep -q 'gaps_in = 5' "$look_file"
+  grep -q 'rounding = 9' "$look_file"
+  python3 scripts/hypr-sentinel.py look apply "$look_file" '{"_patch":{"gapsIn":7}}' &
+  python3 scripts/hypr-sentinel.py look apply "$look_file" '{"_patch":{"rounding":2}}' &
+  wait
+  grep -q 'gaps_in = 7' "$look_file" || { echo "not ok - concurrent look patches lost gapsIn"; rm -rf "$patch_home"; exit 1; }
+  grep -q 'rounding = 2' "$look_file" || { echo "not ok - concurrent look patches lost rounding"; rm -rf "$patch_home"; exit 1; }
+  input_file="$patch_home/input.lua"
+  python3 scripts/hypr-sentinel.py input apply "$input_file" '{"sensitivity":0,"naturalScroll":false}' >/dev/null
+  python3 scripts/hypr-sentinel.py input apply "$input_file" '{"_patch":{"naturalScroll":true}}' >/dev/null
+  grep -q 'sensitivity = 0' "$input_file"
+  grep -q 'natural_scroll = true' "$input_file"
+  rm -rf "$patch_home"
+  echo "ok - hypr-sentinel.py merges _patch writes under lock"
+else
+  echo "ok - skipping hypr-sentinel.py _patch"
+fi
+
+if [[ -x bin/atmos ]]; then
+  if grep -q 'quickshell -n' bin/atmos; then
+    echo "not ok - bin/atmos refuses a second instance with quickshell -n"
+    exit 1
+  fi
+  if grep -q 'focus_existing\|prefs_pid\|ipc ping' bin/atmos; then
+    echo "not ok - bin/atmos still funnels a second launch into the first window"
+    exit 1
+  fi
+  grep -q 'exec quickshell -p' bin/atmos
+  echo "ok - bin/atmos opens every launch as its own instance"
+else
+  echo "ok - skipping bin/atmos multi-instance"
+fi
+
+if [[ -e scripts/instance-lock.sh ]]; then
+  echo "not ok - instance-lock.sh must stay gone (multi-window)"
+  exit 1
+fi
+echo "ok - instance-lock.sh is gone"
+
 if [[ -x scripts/set-hypr-input.sh ]] && command -v python3 >/dev/null 2>&1; then
   input_home=$(mktemp -d)
   cat >"$input_home/input.lua" <<'LUA'
@@ -1562,117 +1608,6 @@ else
   echo "ok - skipping bin/atmos symlink root"
 fi
 
-if [[ -x scripts/instance-lock.sh ]] && command -v flock >/dev/null 2>&1 && command -v timeout >/dev/null 2>&1; then
-  lock_home=$(mktemp -d)
-  lock_file="$lock_home/atmos.lock"
-  lock_parent=""
-  lock_cleanup() {
-    if [[ -n ${lock_parent:-} ]] && kill -0 "$lock_parent" 2>/dev/null; then
-      kill -9 "$lock_parent" 2>/dev/null || true
-      wait "$lock_parent" 2>/dev/null || true
-    fi
-    rm -rf "$lock_home"
-  }
-  trap lock_cleanup EXIT
-
-  # A wrapper so the helper's $PPID is a process we can SIGKILL without
-  # killing this test script. The helper execs tail --pid=$parent.
-  cat >"$lock_home/wrapper.sh" <<'SH'
-#!/bin/bash
-set -euo pipefail
-ATMOS_INSTANCE_LOCK=$1 bash "$2" &
-# exec so the wrapper pid stays the helper's parent and cleanup is one kill.
-exec sleep 60
-SH
-  chmod +x "$lock_home/wrapper.sh"
-
-  wait_held() {
-    local i
-    for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
-      if ! flock -n "$lock_file" true; then
-        return 0
-      fi
-      sleep 0.05
-    done
-    return 1
-  }
-
-  wait_released() {
-    local i
-    for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30; do
-      if flock -n "$lock_file" true; then
-        return 0
-      fi
-      sleep 0.1
-    done
-    return 1
-  }
-
-  "$lock_home/wrapper.sh" "$lock_file" "$ROOT/scripts/instance-lock.sh" &
-  lock_parent=$!
-  if ! wait_held; then
-    echo "not ok - instance-lock.sh did not acquire the lock"
-    lock_cleanup
-    trap - EXIT
-    exit 1
-  fi
-
-  set +e
-  timeout 1 env ATMOS_INSTANCE_LOCK="$lock_file" bash "$ROOT/scripts/instance-lock.sh"
-  second_status=$?
-  set -e
-  if [[ $second_status -ne 1 ]]; then
-    echo "not ok - second instance-lock.sh status $second_status, want 1"
-    lock_cleanup
-    trap - EXIT
-    exit 1
-  fi
-  echo "ok - instance-lock.sh exits 1 while held"
-
-  lock_child=$(ps -eo pid=,ppid= | awk -v p="$lock_parent" '$2 == p { print $1; exit }')
-  if [[ -z $lock_child ]]; then
-    echo "not ok - instance-lock.sh wrapper has no child"
-    lock_cleanup
-    trap - EXIT
-    exit 1
-  fi
-  kill -9 "$lock_child"
-  if ! wait_released; then
-    echo "not ok - lock survived killing the locker"
-    lock_cleanup
-    trap - EXIT
-    exit 1
-  fi
-  echo "ok - instance-lock.sh releases when the locker is killed"
-  kill -9 "$lock_parent" 2>/dev/null || true
-  wait "$lock_parent" 2>/dev/null || true
-  lock_parent=""
-
-  "$lock_home/wrapper.sh" "$lock_file" "$ROOT/scripts/instance-lock.sh" &
-  lock_parent=$!
-  if ! wait_held; then
-    echo "not ok - instance-lock.sh did not reacquire for parent-kill"
-    lock_cleanup
-    trap - EXIT
-    exit 1
-  fi
-  kill -9 "$lock_parent"
-  wait "$lock_parent" 2>/dev/null || true
-  lock_parent=""
-  if ! wait_released; then
-    echo "not ok - lock survived SIGKILL of the parent"
-    lock_cleanup
-    trap - EXIT
-    exit 1
-  fi
-  echo "ok - instance-lock.sh releases when the parent is SIGKILL'd"
-
-  lock_cleanup
-  trap - EXIT
-else
-  echo "ok - skipping instance-lock.sh (flock/timeout not available)"
-fi
-
 if [[ -f scripts/atmos-xdg.sh ]] && command -v python3 >/dev/null 2>&1; then
   menu_home=$(mktemp -d)
   mkdir -p "$menu_home/.config/omarchy/extensions"
@@ -1801,10 +1736,12 @@ JSON
     rm -rf "$apply_dir"
     exit 1
   fi
-  # The sentinel writer replaces the whole block, so the call carries the
-  # settings the plan never mentioned as well as the ones it changed.
+  # The look call carries a _patch with only the changed fields (merged
+  # onto the file under lock, so concurrent windows do not clobber each
+  # other) plus the _full snapshot context the plan was built from.
   grep -q '"gapsIn":9' <<<"$out"
   grep -q '"rounding":8' <<<"$out"
+  grep -q '"_patch"' <<<"$out"
   grep -q '"gapsOut":10' <<<"$out"
   grep -q '"layout":"dwindle"' <<<"$out"
   # A paired writer takes both values, so the one that did not change is read

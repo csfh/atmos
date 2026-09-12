@@ -44,7 +44,7 @@ if temp < 3000 or temp > 6500:
 fi
 
 python3 - "$FILE" "$json" <<'PY'
-import json, re, sys
+import fcntl, json, os, re, sys, tempfile
 from pathlib import Path
 
 dest = Path(sys.argv[1])
@@ -86,7 +86,24 @@ if night_on:
         ]
     )
 dest.parent.mkdir(parents=True, exist_ok=True)
-dest.write_text("\n".join(lines) + "\n")
+body = "\n".join(lines) + "\n"
+lock = dest.parent / (dest.name + ".atmos.lock")
+with open(lock, "a+") as lf:
+    try:
+        fcntl.flock(lf.fileno(), fcntl.LOCK_EX)
+    except OSError:
+        pass
+    fd, tmp = tempfile.mkstemp(prefix="." + dest.name + ".", dir=str(dest.parent))
+    try:
+        with os.fdopen(fd, "w") as fh:
+            fh.write(body)
+        os.replace(tmp, dest)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
 PY
 
 if [[ $SKIP_HYPR == 1 ]]; then

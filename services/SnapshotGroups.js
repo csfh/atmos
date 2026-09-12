@@ -360,6 +360,15 @@ var WATCH_SPEC_KEYS = [
   ["vconsoleFile", "rest"],
   ["localeConfFile", "rest"],
   ["pacmanConfFile", "rest"],
+  // A second envFile entry re-reads rest after an env write: the Electron
+  // and zero-scaling tweaks live in the env file but their snapshot key is
+  // rest, while envVars itself is system. Two FileViews on one path is
+  // cheaper than a missed cross-window refresh.
+  ["envFile", "rest"],
+  // Tweak sources without a watcher stayed stale in a second window until
+  // an unrelated rest refresh. Both snapshot keys are rest.
+  ["gtkSettingsFile", "rest"],
+  ["swappinessFile", "rest"],
 ];
 
 function normalizeGroup(g) {

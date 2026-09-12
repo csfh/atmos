@@ -76,6 +76,13 @@ command -v omarchy-shell-config >/dev/null 2>&1 || {
 # shellcheck disable=SC1091
 source omarchy-shell-config
 
+# write_shell below reads shell.json and renames a patched copy, so it
+# takes the same shared lock as set-idle.sh and set-bar-widget.sh.
+_SHELL_JSON_LOCK="$HOME/.config/omarchy/shell.json.atmos.lock"
+mkdir -p "$(dirname "$_SHELL_JSON_LOCK")"
+exec {ATMOS_SHELL_LOCK}>"$_SHELL_JSON_LOCK"
+flock "$ATMOS_SHELL_LOCK"
+
 write_shell() {
   mkdir -p "$(dirname "$CONFIG_FILE")"
   _SHELL_CONFIG_TMP=$(mktemp)

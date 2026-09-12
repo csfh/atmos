@@ -23,15 +23,24 @@ usage() {
 # conf comments the example out; moving the slider must not enable it.
 if [[ -f $ATMOS_HYPRSUNSET_FILE ]]; then
   python3 - "$ATMOS_HYPRSUNSET_FILE" "$temp" <<'PY'
+import fcntl
+import os
 import re
 import sys
+import tempfile
 from pathlib import Path
 
 dest = Path(sys.argv[1])
 temp = int(sys.argv[2])
-raw = dest.read_text()
-if not raw:
-    raise SystemExit(0)
+lock = dest.parent / (dest.name + ".atmos.lock")
+with open(lock, "a+") as lf:
+    try:
+        fcntl.flock(lf.fileno(), fcntl.LOCK_EX)
+    except OSError:
+        pass
+    raw = dest.read_text()
+    if not raw:
+        raise SystemExit(0)
 
 temp_re = re.compile(r"^(\s*temperature\s*=\s*)([0-9]+)([ \t]*(#.*)?)?(\r?\n)?$")
 in_profile = False
@@ -54,7 +63,18 @@ for line in raw.splitlines(keepends=True):
         in_profile = False
     out.append(line)
 if changed:
-    dest.write_text("".join(out))
+    body = "".join(out)
+    fd, tmp = tempfile.mkstemp(prefix="." + dest.name + ".", dir=str(dest.parent))
+    try:
+        with os.fdopen(fd, "w") as fh:
+            fh.write(body)
+        os.replace(tmp, dest)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
 PY
 fi
 

@@ -12,7 +12,8 @@ atmos_hypr_reload set-hypr-look.sh errors
 
 json=$ATMOS_HYPR_JSON
 if [[ ${ATMOS_SKIP_HYPR:-0} != 1 && -n $json ]] && command -v hyprctl >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
-  size=$(jq -r '.cursorSize // empty' <<<"$json" 2>/dev/null || true)
+  # Payloads carry _patch/_full; plain objects still work.
+  size=$(jq -r '._patch.cursorSize // ._full.cursorSize // .cursorSize // empty' <<<"$json" 2>/dev/null || true)
   theme=${HYPRCURSOR_THEME:-${XCURSOR_THEME:-}}
   if [[ $size =~ ^[0-9]+$ && -n $theme ]]; then
     hyprctl setcursor "$theme" "$size" >/dev/null 2>&1 || true

@@ -1,6 +1,7 @@
 import QtQuick
 import "../services"
 import "../services/Layout.js" as LayoutJs
+import "../services/WritesFile.js" as WritesFile
 
 Column {
   id: root
@@ -14,6 +15,15 @@ Column {
   // Boxes are for collections, objects, and special operations.
   // Ordinary settings are a heading plus rows.
   property bool framed: false
+  // Opt-in write target. writesMode is sentinel (Atmos block), file
+  // (Atmos owns the file), or command. Default sentinel so a copied
+  // Input section cannot claim whole-file ownership by omission.
+  property string writesFile: ""
+  property string writesMode: "sentinel"
+  property string writesNote: ""
+  readonly property string writesCaption: WritesFile.caption(root.writesFile, root.writesMode, {
+    note: root.writesNote
+  })
 
   width: parent ? parent.width : 640
   spacing: Theme.headingGap
@@ -102,7 +112,7 @@ Column {
   Item {
     id: headingHost
     width: parent.width
-    implicitHeight: root.title.length > 0 ? Math.max(titleLabel.implicitHeight, groupHelp.implicitHeight) : 0
+    implicitHeight: headingColumn.implicitHeight
     height: implicitHeight
     visible: root.title.length > 0
 
@@ -110,31 +120,56 @@ Column {
       id: headingHover
     }
 
-    PrefsText {
-      id: titleLabel
-      anchors.left: parent.left
-      anchors.leftMargin: root.titleInset
-      anchors.right: groupHelp.visible ? groupHelp.left : parent.right
-      anchors.rightMargin: groupHelp.visible ? Theme.space : root.titleInset
-      anchors.verticalCenter: parent.verticalCenter
-      text: root.title.toUpperCase()
-      color: Theme.muted
-      font.family: Theme.fontFamily
-      font.pixelSize: Theme.sectionSize
-      font.bold: true
-      font.letterSpacing: Theme.sectionTracking
-    }
+    Column {
+      id: headingColumn
+      width: parent.width
+      spacing: Theme.titleGap
 
-    PrefsHelp {
-      id: groupHelp
-      anchors.right: parent.right
-      anchors.rightMargin: root.titleInset
-      anchors.verticalCenter: parent.verticalCenter
-      title: root.title
-      reveal: headingHover.hovered
-      body: root.helpPayload && root.helpPayload.body ? root.helpPayload.body : ""
-      command: root.helpPayload && root.helpPayload.command ? root.helpPayload.command : ""
-      topics: root.showHelp && root.helpPayload ? root.helpPayload.topics : []
+      Item {
+        id: titleRow
+        width: parent.width
+        implicitHeight: Math.max(titleLabel.implicitHeight, groupHelp.implicitHeight)
+        height: implicitHeight
+
+        PrefsText {
+          id: titleLabel
+          anchors.left: parent.left
+          anchors.leftMargin: root.titleInset
+          anchors.right: groupHelp.visible ? groupHelp.left : parent.right
+          anchors.rightMargin: groupHelp.visible ? Theme.space : root.titleInset
+          anchors.verticalCenter: parent.verticalCenter
+          text: root.title.toUpperCase()
+          color: Theme.muted
+          font.family: Theme.fontFamily
+          font.pixelSize: Theme.sectionSize
+          font.bold: true
+          font.letterSpacing: Theme.sectionTracking
+        }
+
+        PrefsHelp {
+          id: groupHelp
+          anchors.right: parent.right
+          anchors.rightMargin: root.titleInset
+          anchors.verticalCenter: parent.verticalCenter
+          title: root.title
+          reveal: headingHover.hovered
+          body: root.helpPayload && root.helpPayload.body ? root.helpPayload.body : ""
+          command: root.helpPayload && root.helpPayload.command ? root.helpPayload.command : ""
+          topics: root.showHelp && root.helpPayload ? root.helpPayload.topics : []
+        }
+      }
+
+      PrefsText {
+        id: provenanceLabel
+        visible: root.writesCaption.length > 0
+        x: root.titleInset
+        width: parent.width - root.titleInset * 2
+        text: root.writesCaption
+        color: Theme.muted
+        opacity: Theme.metaOpacity
+        font.family: Theme.fontFamily
+        font.pixelSize: Theme.metaSize
+      }
     }
   }
 

@@ -7,6 +7,7 @@ import "AtmosUpdate.js" as AtmosUpdate
 import "Diagnostics.js" as DiagnosticsJs
 import "Favorites.js" as FavoritesJs
 import "Hardware.js" as HardwareJs
+import "History.js" as HistoryJs
 import "Hooks.js" as HooksJs
 import "Hubs.js" as HubsJs
 import "HyprPrefs.js" as HyprPrefs
@@ -510,12 +511,71 @@ QtObject {
     return SnapshotGroups.normalizeGroup(g)
   }
 
+  // Every mutation passes through here, which makes it the one honest place
+  // to record from or to hold. Hooking each page instead would mean trusting
+  // every future control to remember, and the changes that got missed would
+  // be exactly the ones nobody thought about -- the ones you most want when
+  // working out what broke yesterday. The lists stay in this window's
+  // memory: after multi-window Atmos each launch is its own process.
+  property var changeHistory: []
+  property var heldChanges: []
+
+  function recordChange(argv, opts) {
+    var o = opts || {}
+    changeHistory = HistoryJs.push(
+      changeHistory,
+      HistoryJs.entry(argv, {
+        key: o.key || "",
+        file: HistoryJs.targetFile(argv, Quickshell.env("HOME")),
+        source: "you",
+        sudo: o.sudo === true
+      })
+    )
+  }
+
+  function holdChange(argv, opts) {
+    var o = opts || {}
+    var item = HistoryJs.entry(argv, {
+      key: o.key || "",
+      file: HistoryJs.targetFile(argv, Quickshell.env("HOME")),
+      source: "preview",
+      sudo: o.sudo === true
+    })
+    // The rendered text is for reading; the argv and opts are what Apply
+    // replays. Keeping only the text makes Apply a no-op that looks like it
+    // worked, which is the worst way for this to fail.
+    item.argv = argv
+    item.opts = o
+    heldChanges = HistoryJs.push(heldChanges, item)
+  }
+
+  function discardHeld() {
+    heldChanges = []
+  }
+
+  // The only path by which a held command ever runs, so "preview" cannot
+  // quietly become "apply later". Replay copies every option the original
+  // runCommand call carried (key, apply, refresh, sudo, stdin, payload, …)
+  // and sets bypassPreview so Apply cannot re-hold itself.
+  function applyHeld() {
+    var held = heldChanges
+    heldChanges = []
+    HistoryJs.applyHeld(held, runCommand)
+  }
+
   function runCommand(argv, opts) {
     if (!(argv instanceof Array) || argv.length === 0) return
     opts = opts || {}
+    // Preview stops the write and shows it instead. Held, not queued.
+    if (Preview.active === true && opts.bypassPreview !== true) {
+      holdChange(argv, opts)
+      return
+    }
+    recordChange(argv, opts)
     enqueueIo({
       kind: "mut",
       argv: argv,
+      stdin: opts.stdin != null ? String(opts.stdin) : "",
       key: opts.key ? String(opts.key) : "",
       apply: opts.apply && typeof opts.apply === "object" ? opts.apply : null,
       refresh: snapshotRefreshGroup(opts.refresh),

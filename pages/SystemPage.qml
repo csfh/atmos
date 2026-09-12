@@ -19,6 +19,7 @@ PrefsPage {
       if (id === "machine") stack.push(machinePage)
       else if (id === "environment") stack.push(environmentPage)
       else if (id === "kernel") stack.push(kernelPage)
+      else if (id === "history") stack.push(historyPage)
       else if (id === "diagnostics") stack.push(diagnosticsPage)
       return
     }
@@ -39,6 +40,7 @@ PrefsPage {
   Component { id: environmentPage; Sys.EnvironmentPage {} }
   Component { id: kernelPage; Sys.KernelPage {} }
   Component { id: machinePage; Sys.MachinePage {} }
+  Component { id: historyPage; Sys.HistoryPage {} }
 
   PrefsConfirm {
     id: channelConfirm
@@ -781,6 +783,18 @@ PrefsPage {
       PrefsButton {
         text: "Open…"
         onClicked: root.openSubpage("kernel")
+      }
+    }
+
+    SettingRow {
+      label: "History"
+      description: "Every change this window made, and a preview mode that shows a change before it happens. In memory for this session, not a disk log."
+      query: root.query
+      keywords: ["history", "undo", "changes", "preview", "audit"]
+
+      PrefsButton {
+        text: "Open…"
+        onClicked: root.openSubpage("history")
       }
     }
 

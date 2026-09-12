@@ -4,6 +4,10 @@ Notable changes to Atmos. Each section is a git tag on `main` and `alpha`. Insta
 
 ## Unreleased
 
+### Added
+
+- **History** and **Preview** on System. Every real `runCommand` write is recorded in memory for this window (command, target file, source, time; newest first; cap 200). Preview holds the write and shows the command; Apply is the only path that runs held entries, and Discard clears them. Off by default and not persisted. ([#37](https://github.com/csfh/atmos/pull/37)) by Fred Nix ([@nixfred](https://github.com/nixfred)).
+
 ### Fixed
 
 - A second Atmos from a different path (install plus a checkout) is refused. Quickshell only keys single-instance on the config path; an app-level flock in `$XDG_RUNTIME_DIR` now dies with the process, and the loser cannot write. ([#27](https://github.com/csfh/atmos/issues/27))

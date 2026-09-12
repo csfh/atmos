@@ -248,6 +248,9 @@ QtObject {
   property string jobStdoutBuf: ""
   property var jobStdoutLineCb: null
   property var jobFinishedCb: null
+  property var interactiveApply: null
+  property string interactiveRefresh: "none"
+  property string interactiveKind: ""
   property var wifiQrRows: []
   property int wifiQrSize: 0
   property string wifiQrSsid: ""
@@ -710,6 +713,25 @@ QtObject {
     jobProc.running = false
   }
 
+  // Blocking pickers and region tools (file select, slurp, theme switcher)
+  // stay off ioQueue. mutProc is a single lock; holding it while a dialog
+  // waits stalls every other setting. The wrapper is the Process so a
+  // SIGTERM can kill file-select / slurp children instead of orphaning them.
+  function runInteractive(argv, opts) {
+    if (!(argv instanceof Array) || argv.length === 0) return
+    opts = opts || {}
+    lastError = ""
+    interactiveKind = String(opts.kind || "")
+    interactiveApply = opts.apply && typeof opts.apply === "object" ? opts.apply : null
+    interactiveRefresh = snapshotRefreshGroup(opts.refresh)
+    var cmd = ["bash", "-c", "trap 'trap - INT TERM; kill 0 2>/dev/null; exit 143' INT TERM; \"$@\"", "prefs-interactive"]
+    var i
+    for (i = 0; i < argv.length; i++) cmd.push(argv[i])
+    interactiveProc.running = false
+    interactiveProc.command = cmd
+    interactiveProc.running = true
+  }
+
   function commandFailureText(err, out) {
     var e = String(err || "").replace(/^\s+|\s+$/g, "")
     var o = String(out || "").replace(/^\s+|\s+$/g, "")
@@ -755,8 +777,8 @@ QtObject {
     })
   }
   function openThemeSwitcher() {
-    runCommand(["bash", "-c", "theme=$(omarchy theme switcher || true); [[ -n $theme ]] && omarchy theme set \"$theme\" >/dev/null 2>&1 &"], {
-      key: "theme",
+    runInteractive(["bash", "-c", "theme=$(omarchy theme switcher || true); [[ -n $theme ]] && omarchy theme set \"$theme\" >/dev/null 2>&1 &"], {
+      kind: "theme-switcher",
       refresh: "none"
     })
   }
@@ -806,18 +828,18 @@ QtObject {
     })
   }
   function openBackgroundSwitcher() {
-    runCommand(["omarchy", "theme", "bg-switcher"], {
-      key: "background",
+    runInteractive(["omarchy", "theme", "bg-switcher"], {
+      kind: "background-switcher",
       refresh: "all"
     })
   }
   function setBackgroundFromFile() {
-    runCommand(["bash", "-c", "path=$(omarchy file select --title \"Set background\" --extensions \"jpg jpeg png gif webp bmp\" || true); [[ -n $path ]] && omarchy theme bg set \"$path\""], {
-      key: "background",
+    runInteractive(["bash", "-c", "path=$(omarchy file select --title \"Set background\" --extensions \"jpg jpeg png gif webp bmp\" || true); [[ -n $path ]] && omarchy theme bg set \"$path\""], {
+      kind: "background-file",
       refresh: "all"
     })
   }
-  function openBackgroundFolder() { runCommand(["omarchy", "theme", "bg", "install"]) }
+  function openBackgroundFolder() { launchDetached(["omarchy", "theme", "bg", "install"]) }
   function cacheBackgrounds() { runCommand(["omarchy", "theme", "bg", "cache"]) }
   function setFont(name) {
     name = String(name || "")
@@ -1157,7 +1179,7 @@ QtObject {
     if (!servers) return
     runJob(["bash", setDnsCustomScript, servers], "", "dns-custom")
   }
-  function openAether() { runCommand(["aether"]) }
+  function openAether() { launchDetached(["aether"]) }
 
   function setIdle(screensaver, lock) {
     var saver = Math.round(Number(screensaver)) || 0
@@ -1195,8 +1217,8 @@ QtObject {
       })
       return
     }
-    runCommand(["omarchy", "branding", "screensaver", action], {
-      key: "screensaverBranding",
+    runInteractive(["omarchy", "branding", "screensaver", action], {
+      kind: "screensaver-branding",
       refresh: "all"
     })
   }
@@ -1212,8 +1234,8 @@ QtObject {
       })
       return
     }
-    runCommand(["omarchy", "branding", "about", action], {
-      key: "aboutBranding",
+    runInteractive(["omarchy", "branding", "about", action], {
+      kind: "about-branding",
       refresh: "all"
     })
   }
@@ -2251,7 +2273,7 @@ QtObject {
     dest = String(dest || "slurp")
     if (mode !== "smart" && mode !== "region" && mode !== "windows" && mode !== "fullscreen") return
     if (dest !== "slurp" && dest !== "copy" && dest !== "save") return
-    runCommand(["omarchy", "capture", "screenshot", mode, dest])
+    runInteractive(["omarchy", "capture", "screenshot", mode, dest], { kind: "screenshot" })
   }
   function startScreenrecording(desktopAudio, microphone, webcam, webcamSize, fullscreen) {
     var argv = ["omarchy", "capture", "screenrecording"]
@@ -2262,13 +2284,15 @@ QtObject {
     var size = String(webcamSize || "medium")
     if (size !== "small" && size !== "medium" && size !== "large") size = "medium"
     if (webcam) argv.push("--webcam-size=" + size)
-    runCommand(argv, {
-      key: "recordingActive",
+    runInteractive(argv, {
+      kind: "recording",
       apply: { recordingActive: true, webcamOverlay: webcam === true },
       refresh: "none"
     })
   }
   function stopScreenrecording() {
+    if (interactiveKind === "recording" && interactiveProc.running)
+      interactiveProc.running = false
     runCommand(["omarchy", "capture", "screenrecording", "--stop-recording"], {
       key: "recordingActive",
       apply: { recordingActive: false },
@@ -2276,10 +2300,10 @@ QtObject {
     })
   }
   function captureText() {
-    runCommand(["omarchy", "capture", "text"])
+    runInteractive(["omarchy", "capture", "text"], { kind: "capture-text" })
   }
   function captureQr() {
-    runCommand(["omarchy", "capture", "qr"])
+    runInteractive(["omarchy", "capture", "qr"], { kind: "capture-qr" })
   }
   function resizeWebcam(action) {
     action = String(action || "")
@@ -2306,13 +2330,13 @@ QtObject {
     path = String(path || "")
     if (path.length > 0) {
       if (path.charAt(0) !== "/" || path.indexOf("..") !== -1) return
-      runCommand(["omarchy", "tailscale", "send", machine, path])
+      runInteractive(["omarchy", "tailscale", "send", machine, path], { kind: "tailscale-send" })
       return
     }
-    runCommand(["omarchy", "tailscale", "send", machine])
+    runInteractive(["omarchy", "tailscale", "send", machine], { kind: "tailscale-send" })
   }
   function tailscaleReceive() {
-    runCommand(["omarchy", "tailscale", "receive", "--once"])
+    runInteractive(["omarchy", "tailscale", "receive", "--once"], { kind: "tailscale-receive" })
   }
 
   function runSoftware(argv, kind) {
@@ -2451,7 +2475,7 @@ QtObject {
 
   function launchHerdr() {
     if (!(extras && extras.herdr === true)) return
-    runCommand(["omarchy", "launch", "terminal", "herdr"])
+    launchDetached(["omarchy", "launch", "terminal", "herdr"])
   }
 
   function setNightlightSchedule(day, night, nightOn) {
@@ -2888,6 +2912,38 @@ QtObject {
     onLoaded: root.loadFavorites(text())
     onLoadFailed: root.favoriteItems = []
     onFileChanged: reload()
+  }
+
+  property Process interactiveProc: Process {
+    command: ["true"]
+    stdout: StdioCollector {
+      id: interactiveOut
+      waitForEnd: true
+    }
+    stderr: StdioCollector {
+      id: interactiveErr
+      waitForEnd: true
+    }
+    onExited: function(exitCode) {
+      var apply = root.interactiveApply
+      var refresh = root.interactiveRefresh
+      root.interactiveKind = ""
+      root.interactiveApply = null
+      root.interactiveRefresh = "none"
+      if (exitCode === 143) return
+      if (exitCode !== 0) {
+        var msg = root.commandFailureText(interactiveErr.text, interactiveOut.text)
+        if (!msg) return
+        if (root.stderrLooksLikeFailure(msg))
+          root.lastError = msg
+        else
+          root.lastError = ""
+        return
+      }
+      if (apply) root.applyWritePatch({ apply: apply, key: "" })
+      if (refresh && refresh !== "none")
+        root.scheduleRefresh(refresh)
+    }
   }
 
   property Process mutProc: Process {

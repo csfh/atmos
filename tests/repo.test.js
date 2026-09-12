@@ -990,6 +990,57 @@ assert(
 );
 assert(omarchySrc.indexOf("id: mutOut") !== -1, "mutProc keeps stdout for failure text");
 assert(
+  omarchySrc.indexOf("function runInteractive(") !== -1 &&
+    omarchySrc.indexOf("property Process interactiveProc: Process") !== -1 &&
+    omarchySrc.indexOf("prefs-interactive") !== -1 &&
+    omarchySrc.indexOf("kill 0") !== -1,
+  "interactive tools use their own Process and kill the process group on cancel",
+);
+const runInteractiveStart = omarchySrc.indexOf("function runInteractive(");
+const runInteractiveEnd = omarchySrc.indexOf("function commandFailureText(", runInteractiveStart);
+const runInteractiveBody = omarchySrc.slice(runInteractiveStart, runInteractiveEnd);
+assert(
+  runInteractiveBody.indexOf("enqueueIo") === -1 && runInteractiveBody.indexOf("mutProc") === -1,
+  "runInteractive does not hold the mut queue",
+);
+const brandingStart = omarchySrc.indexOf("function setScreensaverBranding(");
+const brandingEnd = omarchySrc.indexOf("function setTimezone(", brandingStart);
+const brandingBody = omarchySrc.slice(brandingStart, brandingEnd);
+assert(
+  brandingBody.indexOf('runInteractive(["omarchy", "branding", "screensaver"') !== -1 &&
+    brandingBody.indexOf('runInteractive(["omarchy", "branding", "about"') !== -1 &&
+    brandingBody.indexOf('runCommand(["omarchy", "branding", "screensaver", "reset"]') !== -1 &&
+    brandingBody.indexOf('runCommand(["omarchy", "branding", "about", "reset"]') !== -1,
+  "branding Choose/Edit stay off the mut queue; reset stays on it",
+);
+const captureStart = omarchySrc.indexOf("function captureScreenshot(");
+const captureEnd = omarchySrc.indexOf("function resizeWebcam(", captureStart);
+const captureBody = omarchySrc.slice(captureStart, captureEnd);
+assert(
+  captureBody.indexOf("runInteractive") !== -1 &&
+    captureBody.indexOf('kind: "screenshot"') !== -1 &&
+    captureBody.indexOf('kind: "recording"') !== -1 &&
+    captureBody.indexOf('kind: "capture-text"') !== -1 &&
+    captureBody.indexOf('kind: "capture-qr"') !== -1 &&
+    captureBody.indexOf("interactiveProc.running = false") !== -1,
+  "capture pickers stay off the mut queue; stop cancels a pending start",
+);
+assert(
+  omarchySrc.indexOf(
+    'function openBackgroundFolder() { launchDetached(["omarchy", "theme", "bg", "install"]) }',
+  ) !== -1 &&
+    omarchySrc.indexOf('function openAether() { launchDetached(["aether"]) }') !== -1 &&
+    omarchySrc.indexOf('launchDetached(["omarchy", "launch", "terminal", "herdr"])') !== -1,
+  "folder and GUI launches detach instead of holding mutProc",
+);
+assert(
+  omarchySrc.indexOf('runInteractive(["omarchy", "theme", "bg-switcher"]') !== -1 &&
+    omarchySrc.indexOf("omarchy file select") !== -1 &&
+    omarchySrc.indexOf('kind: "background-file"') !== -1 &&
+    omarchySrc.indexOf('kind: "theme-switcher"') !== -1,
+  "unused switcher helpers stay off the mut queue if a later UI wires them",
+);
+assert(
   omarchySrc.indexOf("presentationMode = on") !== -1 &&
     omarchySrc.indexOf("WorkQueue.hasQueuedKey(ioQueue, job.key)") !== -1,
   "Presentation Mode updates immediately and a later write skips a stale apply",

@@ -182,3 +182,37 @@ const searched = layout.clusterByGroup(
 assertEqual(searched.length, 1, "clusterByGroup is one list while searching");
 assertEqual(searched[0].title, "", "clusterByGroup drops labels while searching");
 assertEqual(searched[0].pages.length, 2, "clusterByGroup keeps every search hit");
+assertEqual(
+  layout.flattenNavPages(clustered).join(","),
+  "appearance,display,input,system",
+  "flattenNavPages walks clustered pages in drawn order",
+);
+assertEqual(
+  layout.flattenNavPages(searched).join(","),
+  "appearance,system",
+  "flattenNavPages follows the filtered cluster, not the catalogue",
+);
+assertEqual(layout.flattenNavPages(null).length, 0, "flattenNavPages ignores a non-array");
+assertEqual(
+  layout.flattenNavPages([{ title: "Desktop" }]).length,
+  0,
+  "flattenNavPages skips a cluster with no pages",
+);
+assertEqual(layout.stepNavIndex(["a", "b", "c"], "a", 1), 1, "stepNavIndex j moves down");
+assertEqual(layout.stepNavIndex(["a", "b", "c"], "b", -1), 0, "stepNavIndex k moves up");
+assertEqual(layout.stepNavIndex(["a", "b", "c"], "a", -1), 0, "stepNavIndex k clamps at the top");
+assertEqual(layout.stepNavIndex(["a", "b", "c"], "c", 1), 2, "stepNavIndex j clamps at the bottom");
+assertEqual(
+  layout.stepNavIndex(["a", "c"], "b", 1),
+  0,
+  "stepNavIndex j lands on the first match when the current hub is filtered away",
+);
+assertEqual(
+  layout.stepNavIndex(["a", "c"], "b", -1),
+  1,
+  "stepNavIndex k lands on the last match when the current hub is filtered away",
+);
+assertEqual(layout.stepNavIndex([], "a", 1), -1, "stepNavIndex no-ops on an empty list");
+assertEqual(layout.jumpNavIndex(["a", "b", "c"], false), 0, "jumpNavIndex g is the first hub");
+assertEqual(layout.jumpNavIndex(["a", "b", "c"], true), 2, "jumpNavIndex G is the last hub");
+assertEqual(layout.jumpNavIndex([], true), -1, "jumpNavIndex no-ops on an empty list");

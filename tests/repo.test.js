@@ -962,6 +962,61 @@ assert(
     navItemSrc.indexOf("Keys.onReturnPressed") !== -1,
   "sidebar hubs are keyboard-activable buttons",
 );
+assert(
+  shellSrc.indexOf("readonly property var flatNavPages:") !== -1 &&
+    shellSrc.indexOf("LayoutJs.flattenNavPages(root.groupedPages)") !== -1,
+  "flatNavPages walks groupedPages, not the unfiltered catalogue",
+);
+assert(
+  shellSrc.indexOf("typing: searchField.activeFocus") === -1,
+  "typing is not searchField.activeFocus alone",
+);
+assert(
+  shellSrc.indexOf("item instanceof TextInput") !== -1 &&
+    shellSrc.indexOf("item instanceof TextEdit") !== -1,
+  "typing watches the real focus item for text fields",
+);
+assert(
+  shellSrc.indexOf("p instanceof Popup") !== -1 &&
+    shellSrc.indexOf("keysDialog.visible") !== -1 &&
+    shellSrc.indexOf("sudoModeDialog.visible") !== -1 &&
+    shellSrc.indexOf("errorDialog.visible") !== -1 &&
+    shellSrc.indexOf("secondInstanceDialog.visible") !== -1,
+  "nav shortcuts stay off while a shell dialog or page-level popup is open",
+);
+assert(
+  shellSrc.indexOf("enabled: !root.navBusy") !== -1 &&
+    shellSrc.indexOf("readonly property bool navBusy:") !== -1,
+  "j/k/g/G/? are gated on navBusy, not search focus alone",
+);
+assert(
+  shellSrc.indexOf("function revealNavItem(") !== -1 &&
+    shellSrc.indexOf("navFlick.contentY") !== -1,
+  "placeNavHighlight scrolls the selected hub into the nav viewport",
+);
+const searchFieldSrc = shellSrc.slice(
+  shellSrc.indexOf("id: searchField"),
+  shellSrc.indexOf("id: navFlick"),
+);
+assert(
+  searchFieldSrc.indexOf("Keys.onEscapePressed") !== -1 &&
+    searchFieldSrc.indexOf("focus = false") !== -1 &&
+    searchFieldSrc.indexOf('text = ""') === -1,
+  "Escape on search blurs first so j/k can walk the filter",
+);
+const keysDialogSrc = shellSrc.slice(
+  shellSrc.indexOf("id: keysDialog"),
+  shellSrc.indexOf("id: sudoModeDialog"),
+);
+assert(keysDialogSrc.indexOf("id: keysDialog") !== -1, "shortcut sheet is a PrefsDialog");
+assert(
+  keysDialogSrc.indexOf("Ctrl+F") !== -1 && keysDialogSrc.indexOf("/") !== -1,
+  "shortcut sheet lists Ctrl+F alongside /",
+);
+assert(
+  keysDialogSrc.indexOf("PrefsText") !== -1,
+  "shortcut sheet uses PrefsText like the other dialogs",
+);
 assert(shellSrc.indexOf("id: errorDialog") !== -1, "error dialog is a PrefsDialog");
 assert(shellSrc.indexOf("Omarchy.copyLastError()") !== -1, "error dialog copies lastError");
 assert(shellSrc.indexOf("Omarchy.clearLastError()") !== -1, "error dialog dismisses lastError");

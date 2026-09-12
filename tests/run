@@ -1562,6 +1562,116 @@ else
   echo "ok - skipping bin/atmos symlink root"
 fi
 
+if [[ -x scripts/instance-lock.sh ]] && command -v flock >/dev/null 2>&1 && command -v timeout >/dev/null 2>&1; then
+  lock_home=$(mktemp -d)
+  lock_file="$lock_home/atmos.lock"
+  lock_parent=""
+  lock_cleanup() {
+    if [[ -n ${lock_parent:-} ]] && kill -0 "$lock_parent" 2>/dev/null; then
+      kill -9 "$lock_parent" 2>/dev/null || true
+      wait "$lock_parent" 2>/dev/null || true
+    fi
+    rm -rf "$lock_home"
+  }
+  trap lock_cleanup EXIT
+
+  # A wrapper so the helper's $PPID is a process we can SIGKILL without
+  # killing this test script. The helper execs tail --pid=$parent.
+  cat >"$lock_home/wrapper.sh" <<'SH'
+#!/bin/bash
+set -euo pipefail
+ATMOS_INSTANCE_LOCK=$1 bash "$2" &
+wait
+SH
+  chmod +x "$lock_home/wrapper.sh"
+
+  wait_held() {
+    local i
+    for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
+      if ! flock -n "$lock_file" true; then
+        return 0
+      fi
+      sleep 0.05
+    done
+    return 1
+  }
+
+  wait_released() {
+    local i
+    for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30; do
+      if flock -n "$lock_file" true; then
+        return 0
+      fi
+      sleep 0.1
+    done
+    return 1
+  }
+
+  "$lock_home/wrapper.sh" "$lock_file" "$ROOT/scripts/instance-lock.sh" &
+  lock_parent=$!
+  if ! wait_held; then
+    echo "not ok - instance-lock.sh did not acquire the lock"
+    lock_cleanup
+    trap - EXIT
+    exit 1
+  fi
+
+  set +e
+  timeout 1 env ATMOS_INSTANCE_LOCK="$lock_file" bash "$ROOT/scripts/instance-lock.sh"
+  second_status=$?
+  set -e
+  if [[ $second_status -ne 1 ]]; then
+    echo "not ok - second instance-lock.sh status $second_status, want 1"
+    lock_cleanup
+    trap - EXIT
+    exit 1
+  fi
+  echo "ok - instance-lock.sh exits 1 while held"
+
+  lock_child=$(ps -eo pid=,ppid= | awk -v p="$lock_parent" '$2 == p { print $1; exit }')
+  if [[ -z $lock_child ]]; then
+    echo "not ok - instance-lock.sh wrapper has no child"
+    lock_cleanup
+    trap - EXIT
+    exit 1
+  fi
+  kill -9 "$lock_child"
+  if ! wait_released; then
+    echo "not ok - lock survived killing the locker"
+    lock_cleanup
+    trap - EXIT
+    exit 1
+  fi
+  echo "ok - instance-lock.sh releases when the locker is killed"
+  kill -9 "$lock_parent" 2>/dev/null || true
+  wait "$lock_parent" 2>/dev/null || true
+  lock_parent=""
+
+  "$lock_home/wrapper.sh" "$lock_file" "$ROOT/scripts/instance-lock.sh" &
+  lock_parent=$!
+  if ! wait_held; then
+    echo "not ok - instance-lock.sh did not reacquire for parent-kill"
+    lock_cleanup
+    trap - EXIT
+    exit 1
+  fi
+  kill -9 "$lock_parent"
+  wait "$lock_parent" 2>/dev/null || true
+  lock_parent=""
+  if ! wait_released; then
+    echo "not ok - lock survived SIGKILL of the parent"
+    lock_cleanup
+    trap - EXIT
+    exit 1
+  fi
+  echo "ok - instance-lock.sh releases when the parent is SIGKILL'd"
+
+  lock_cleanup
+  trap - EXIT
+else
+  echo "ok - skipping instance-lock.sh (flock/timeout not available)"
+fi
+
 if [[ -f scripts/atmos-xdg.sh ]] && command -v python3 >/dev/null 2>&1; then
   menu_home=$(mktemp -d)
   mkdir -p "$menu_home/.config/omarchy/extensions"

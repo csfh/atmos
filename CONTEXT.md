@@ -30,6 +30,10 @@
 
 **ATMOS_SKIP_HYPR** — Shell env that skips Hypr writes. Lives in `atmos-env.sh` / `apply-settings.sh`, not in JS.
 
+**Instance lock** — App-level `flock` so install + checkout cannot both write `~/.config`. Helper is `scripts/instance-lock.sh`: lock an fd on itself, `exec tail --pid=$parent`. Path is `$XDG_RUNTIME_DIR/atmos-$UID.lock` or `/tmp/atmos-$UID.lock`. `ATMOS_INSTANCE_LOCK` overrides for tests. Lost lock: `Omarchy.lostInstanceLock`; writes no-op.
+
+**ATMOS_INSTANCE_LOCK** — Test override for the instance lock file path.
+
 **Look payload** — A snapshot (or `job.apply`) whose group is `look`. Not the Appearance hub.
 
 **job.apply** — Optional object on an enqueueIo job (`kind` `mut` or `job`). `mutProc` and `jobProc` adopt it on success as an object (no JSON round-trip through the Emit parser), then enqueue the job's refresh group.

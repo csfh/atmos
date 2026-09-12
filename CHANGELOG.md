@@ -2,6 +2,12 @@
 
 Notable changes to Atmos. Each section is a git tag on `main` and `alpha`. Install and in-app Update follow the `alpha` branch.
 
+## Unreleased
+
+### Fixed
+
+- A second Atmos from a different path (install plus a checkout) is refused. Quickshell only keys single-instance on the config path; an app-level flock in `$XDG_RUNTIME_DIR` now dies with the process, and the loser cannot write. ([#27](https://github.com/csfh/atmos/issues/27))
+
 ## [v0.0.1-alpha.17] - 2026-09-09
 
 ### Added

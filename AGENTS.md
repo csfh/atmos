@@ -21,3 +21,4 @@ Atmos is a standalone Quickshell preferences app for Omarchy. Do not import `qs.
 - Keep parsers in `services/*.js` so Node can test them without Quickshell.
 - Do not import `qs.Ui`. Restyle Qt Quick Controls through `Prefs*` wrappers. Visual language lives in `services/Theme.qml`; use those tokens instead of one-off sizes.
 - Do not launch floating terminals for settings work. Long jobs use `Omarchy.runJob` or an in-page `Process`.
+- One Atmos at a time. `scripts/instance-lock.sh` holds `$XDG_RUNTIME_DIR/atmos-$UID.lock` (or `/tmp/atmos-$UID.lock`) on its own fd and `exec`s `tail --pid=$PPID`. Do not use `flock -c`. A second instance sets `lostInstanceLock`; `runCommand` / `runJob` / `enqueueIo` no-op and `shell.qml` opens the already-open dialog from `onCompleted` as well as the changed signal.

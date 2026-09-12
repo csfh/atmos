@@ -1477,6 +1477,9 @@ const updateStart = omarchySrc.indexOf("function updateThemes(");
 const updateEnd = omarchySrc.indexOf("function removeTheme(", updateStart);
 const updateBody = omarchySrc.slice(updateStart, updateEnd);
 assert(updateBody.indexOf('refresh: "look"') !== -1, "updateThemes refreshes look");
+const runCommandStart = omarchySrc.indexOf("function runCommand(");
+const runCommandEnd = omarchySrc.indexOf("function scriptOpts(", runCommandStart);
+const runCommandBody = omarchySrc.slice(runCommandStart, runCommandEnd);
 const runJobStart = omarchySrc.indexOf("function runJob(");
 const runJobEnd = omarchySrc.indexOf("function cancelJob(", runJobStart);
 const runJobBody = omarchySrc.slice(runJobStart, runJobEnd);
@@ -1517,4 +1520,69 @@ const readAt = jobProcSrc.indexOf("enqueueRead", applyAt);
 assert(
   applyAt !== -1 && readAt !== -1 && applyAt < readAt,
   "jobProc calls applyWritePatch before enqueueRead",
+);
+
+const instanceLockScriptSrc = fs.readFileSync(
+  path.join(__dirname, "..", "scripts", "instance-lock.sh"),
+  "utf8",
+);
+assert(
+  instanceLockScriptSrc.indexOf("flock -c") === -1 &&
+    instanceLockScriptSrc.indexOf("exec flock") === -1,
+  "instance-lock.sh does not use flock -c or flock FILE COMMAND (both fork)",
+);
+assert(
+  instanceLockScriptSrc.indexOf("exec 9>") !== -1 &&
+    instanceLockScriptSrc.indexOf("flock -n 9") !== -1 &&
+    instanceLockScriptSrc.indexOf('exec tail --pid="$parent"') !== -1,
+  "instance-lock.sh locks an fd on itself and execs tail --pid of the parent",
+);
+assert(
+  instanceLockScriptSrc.indexOf("id -u") !== -1 &&
+    instanceLockScriptSrc.indexOf("atmos-$uid.lock") !== -1 &&
+    instanceLockScriptSrc.indexOf("/tmp/atmos.lock") === -1,
+  "instance-lock.sh uses a UID-scoped lock path",
+);
+assert(
+  instanceLockScriptSrc.indexOf("ATMOS_INSTANCE_LOCK") !== -1,
+  "instance-lock.sh accepts ATMOS_INSTANCE_LOCK for tests",
+);
+assert(
+  omarchySrc.indexOf("instance-lock.sh") !== -1 &&
+    omarchySrc.indexOf("property bool lostInstanceLock") !== -1 &&
+    omarchySrc.indexOf("property Process instanceLock") !== -1,
+  "Omarchy holds the instance lock through instance-lock.sh",
+);
+assert(
+  omarchySrc.indexOf('flock", "-n"') === -1 && omarchySrc.indexOf("tail -f /dev/null") === -1,
+  "Omarchy does not park a grandchild tail via flock -c",
+);
+assert(
+  runCommandBody.indexOf("lostInstanceLock") !== -1,
+  "runCommand no-ops when the instance lock is lost",
+);
+assert(runJobBody.indexOf("lostInstanceLock") !== -1, "runJob no-ops when the instance lock is lost");
+const enqueueIoStart = omarchySrc.indexOf("function enqueueIo(");
+const enqueueIoEnd = omarchySrc.indexOf("function requestSudoMode(", enqueueIoStart);
+const enqueueIoBody = omarchySrc.slice(enqueueIoStart, enqueueIoEnd);
+assert(
+  enqueueIoBody.indexOf("lostInstanceLock") !== -1,
+  "enqueueIo no-ops when the instance lock is lost",
+);
+assert(shellSrc.indexOf("id: secondInstanceDialog") !== -1, "already-open dialog is a PrefsDialog");
+assert(
+  shellSrc.indexOf('title: "Atmos is already open"') !== -1,
+  "already-open dialog says Atmos is already open",
+);
+const lostLockAt = shellSrc.indexOf("onLostInstanceLockChanged");
+assert(lostLockAt !== -1, "shell watches lostInstanceLock");
+const lostLockWindow = shellSrc.slice(Math.max(0, lostLockAt - 500), lostLockAt + 400);
+assert(
+  lostLockWindow.indexOf("Component.onCompleted") !== -1 &&
+    lostLockWindow.indexOf("secondInstanceDialog.open()") !== -1,
+  "already-open dialog opens from onCompleted as well as the changed signal",
+);
+assert(
+  testsRun.indexOf("instance-lock.sh") !== -1 && testsRun.indexOf("ATMOS_INSTANCE_LOCK") !== -1,
+  "tests/run exercises the instance-lock.sh contract",
 );

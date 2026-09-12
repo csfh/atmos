@@ -379,9 +379,10 @@ function hubs() {
       file: "SystemPage.qml",
       keywords: keywordList(
         "crash capture diagnostics coredump weather location city forecast coordinates latitude longitude gps units celsius fahrenheit metric imperial refresh interval about logo branding fastfetch timezone tz utc region city date time zoneinfo timedatectl hostname computer machine device name hostnamectl keyboard layout keymap xkb qwerty language input localectl ntp timesync synchronize automatic clock network time locale lang utf-8 i18n translation pacman parallel downloads packages mirrors aur update channel orphan prune version printer cups print restore hyprland shell restart atmos git pull reset sentinel overrides report journal systemd portal pipewire kernel environment path editor shell",
-        ["hostname", "locale", "update", "diagnostics", "kernel", "uki"],
+        ["hostname", "locale", "update", "diagnostics", "kernel", "uki", "machine"],
       ),
       children: [
+        child("system/machine", "Machine", "system/MachinePage.qml"),
         child("system/environment", "Environment", "system/EnvironmentPage.qml"),
         child("system/kernel", "Kernel", "system/KernelPage.qml"),
         child("system/diagnostics", "Diagnostics", "system/DiagnosticsPage.qml"),

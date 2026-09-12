@@ -227,6 +227,12 @@ assert(
 );
 assert(
   qmlCatalog.some(function (row) {
+    return row.label === "Processor load" && row.hub === "system/machine";
+  }),
+  "qml catalog sends Machine dashboard rows to the machine subpage",
+);
+assert(
+  qmlCatalog.some(function (row) {
     return row.label === "Wi-Fi radio" && row.hub === "network/wifi";
   }),
   "qml catalog sends Wi-Fi rows to the wifi subpage",

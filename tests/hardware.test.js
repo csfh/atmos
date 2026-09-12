@@ -172,6 +172,13 @@ assert(
     -1,
   "batterySummary names capacity",
 );
+assertEqual(hw.batterySummary({}), "", "batterySummary is empty when charge is unknown");
+assertEqual(hw.batterySummary({ capacity: 0 }), "", "batterySummary does not invent 0%");
+assert(
+  hw.batterySummary({ status: "Discharging" }).indexOf("Discharging") !== -1 &&
+    hw.batterySummary({ status: "Discharging" }).indexOf("0%") === -1,
+  "batterySummary keeps status without inventing capacity",
+);
 assertEqual(
   hw
     .boardSummary({ vendor: "Framework", name: "Mainboard", version: "A7" })

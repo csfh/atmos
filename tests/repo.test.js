@@ -95,10 +95,7 @@ assert(
     selectSrc.indexOf("overlayOpen: popup.opened") !== -1,
   "PrefsSelect exposes overlayOpen so SettingRow can keep the row rail",
 );
-const menuSrc = fs.readFileSync(
-  path.join(__dirname, "..", "components", "PrefsMenu.qml"),
-  "utf8",
-);
+const menuSrc = fs.readFileSync(path.join(__dirname, "..", "components", "PrefsMenu.qml"), "utf8");
 assert(
   menuSrc.indexOf("readonly property bool overlayOpen:") !== -1 &&
     menuSrc.indexOf("overlayOpen: popup.opened") !== -1,

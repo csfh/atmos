@@ -30,9 +30,7 @@
 
 **ATMOS_SKIP_HYPR** — Shell env that skips Hypr writes. Lives in `atmos-env.sh` / `apply-settings.sh`, not in JS.
 
-**Instance lock** — App-level `flock` so install + checkout cannot both write `~/.config`. Helper is `scripts/instance-lock.sh`: lock an fd on itself, `exec tail --pid=$parent`. Path is `$XDG_RUNTIME_DIR/atmos-$UID.lock` or `/tmp/atmos-$UID.lock`. `ATMOS_INSTANCE_LOCK` overrides for tests. Lost lock: `Omarchy.lostInstanceLock`; writes no-op.
-
-**ATMOS_INSTANCE_LOCK** — Test override for the instance lock file path.
+**Writer lock** — Concurrent Atmos windows serialize on disk. `hypr-sentinel.py` takes a per-destination flock sidecar, merges `_patch` onto the on-disk block, and publishes with atomic rename. `set-idle.sh` / `set-bar-widget.sh` / `set-workspace-bar.sh` share `shell.json.atmos.lock`. Remaining writers (`set-env.sh`, `set-hyprsunset.sh`, `set-nightlight-temp.sh`, `set-presentation.sh`, `set-tweaks.sh`, `set-avatar.sh`) lock and publish atomically. Watchers on `gtkSettingsFile` / `swappinessFile` and a second `envFile`→rest watch keep open windows in sync.
 
 **Look payload** — A snapshot (or `job.apply`) whose group is `look`. Not the Appearance hub.
 

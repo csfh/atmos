@@ -442,7 +442,7 @@ def parse_look_block(text: str) -> dict:
     if layout:
         out["layout"] = layout
     swallow = _lua_str_field(body, "swallow_regex")
-    if swallow or 'swallow_regex' in body:
+    if swallow or "swallow_regex" in body:
         out["swallowRegex"] = swallow
     warp = re.search(r"warp_on_change_workspace\s*=\s*(true|false|1|0)", body)
     if warp:
@@ -1391,16 +1391,6 @@ def serialize_monitors(raw: dict) -> str:
         lines.append("hl.monitor({ " + ", ".join(parts) + " })")
     lines.append(MONITORS_END)
     return "\n".join(lines)
-
-
-def _lua_str_field(body: str, name: str) -> str:
-    m = re.search(rf'{name}\s*=\s*"((?:\\.|[^"\\])*)"', body)
-    return m.group(1) if m else ""
-
-
-def _lua_num_field(body: str, name: str) -> str:
-    m = re.search(rf"{name}\s*=\s*([0-9.]+)", body)
-    return m.group(1) if m else ""
 
 
 def parse_workspaces(text: str) -> list:

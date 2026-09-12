@@ -153,27 +153,176 @@ function currentMonitorModeValue(monitor) {
   return "";
 }
 
-function monitorModeOptions(monitor) {
-  var list = monitor && Array.isArray(monitor.availableModes) ? monitor.availableModes : [];
-  var seen = {};
-  var out = [];
-  function add(raw) {
-    var text = String(raw || "");
-    if (!text || seen[text]) return;
-    var parsed = parseMonitorMode(text);
-    seen[text] = true;
-    out.push({ value: text, label: parsed ? formatMonitorMode(parsed) : text });
-  }
-  for (var i = 0; i < list.length; i++) add(list[i]);
-  add(currentMonitorModeValue(monitor));
-  return out;
-}
-
 function monitorModeCopyText(monitor) {
   var label = formatMonitorMode(currentMonitorModeValue(monitor));
   var name = monitor && monitor.name ? String(monitor.name) : "";
   if (label && name) return name + " " + label;
   return label || name;
+}
+
+function parseMonitorResolution(raw) {
+  var m = /^(\d+)\s*[x×]\s*(\d+)$/.exec(String(raw || "").replace(/^\s+|\s+$/g, ""));
+  if (!m) return null;
+  var width = Number(m[1]);
+  var height = Number(m[2]);
+  if (!isFinite(width) || !isFinite(height) || width <= 0 || height <= 0) return null;
+  return { width: width, height: height, key: width + "x" + height };
+}
+
+// Standard modes users commonly want even when EDID omits them, notably
+// lower ones for performance or compatibility.
+function standardResolutions() {
+  return [
+    "5120x1440",
+    "3440x1440",
+    "3840x2160",
+    "2560x1600",
+    "2560x1440",
+    "2560x1080",
+    "1920x1200",
+    "1920x1080",
+    "1680x1050",
+    "1600x1200",
+    "1600x900",
+    "1440x900",
+    "1400x1050",
+    "1366x768",
+    "1280x1024",
+    "1280x960",
+    "1280x800",
+    "1280x720",
+    "1152x864",
+    "1024x768",
+    "960x540",
+    "854x480",
+    "800x600",
+    "640x480",
+    "640x360",
+  ];
+}
+
+// Every supported resolution on the output, largest first, with no refresh
+// rate attached: EDID modes plus standard modes no wider or taller than the
+// largest reported size, so lower choices are always offered and impossible
+// higher ones never are. Falls back to the live resolution when EDID reports none.
+function monitorResolutions(monitor) {
+  var list = monitor && Array.isArray(monitor.availableModes) ? monitor.availableModes : [];
+  var seen = {};
+  var found = [];
+  var i;
+  for (i = 0; i < list.length; i++) {
+    var parsed = parseMonitorMode(list[i]);
+    if (!parsed) continue;
+    var res = parseMonitorResolution(parsed.width + "x" + parsed.height);
+    if (!res || seen[res.key]) continue;
+    seen[res.key] = true;
+    found.push(res);
+  }
+  var live = parseMonitorResolution(
+    String(Math.round(Number(monitor && monitor.width)) || "") +
+      "x" +
+      String(Math.round(Number(monitor && monitor.height)) || ""),
+  );
+  if (live && !seen[live.key]) {
+    seen[live.key] = true;
+    found.push(live);
+  }
+  var maxWidth = 0;
+  var maxHeight = 0;
+  for (i = 0; i < found.length; i++) {
+    maxWidth = Math.max(maxWidth, found[i].width);
+    maxHeight = Math.max(maxHeight, found[i].height);
+  }
+  if (maxWidth > 0 && maxHeight > 0) {
+    var standards = standardResolutions();
+    for (i = 0; i < standards.length; i++) {
+      var std = parseMonitorResolution(standards[i]);
+      if (!std || seen[std.key]) continue;
+      if (std.width > maxWidth || std.height > maxHeight) continue;
+      seen[std.key] = true;
+      found.push(std);
+    }
+  }
+  found.sort(function (a, b) {
+    return b.width * b.height - a.width * a.height || b.width - a.width;
+  });
+  var out = [];
+  for (i = 0; i < found.length; i++) {
+    out.push({ value: found[i].key, label: found[i].width + "×" + found[i].height });
+  }
+  return out;
+}
+
+function currentMonitorResolutionValue(monitor) {
+  var live = parseMonitorResolution(
+    String(Math.round(Number(monitor && monitor.width)) || "") +
+      "x" +
+      String(Math.round(Number(monitor && monitor.height)) || ""),
+  );
+  if (live) return live.key;
+  var mode = parseMonitorMode(currentMonitorModeValue(monitor));
+  if (mode) return mode.width + "x" + mode.height;
+  return "";
+}
+
+function monitorRateValue(refresh) {
+  var n = Number(refresh);
+  if (!isFinite(n) || n <= 0) return "";
+  return String(Math.round(n * 100) / 100);
+}
+
+// Every refresh rate the output offers at one resolution, fastest first.
+// Values keep full precision so the written WxH@Hz mode matches EDID.
+function monitorRefreshRates(monitor, resolution) {
+  var res = parseMonitorResolution(resolution);
+  if (!res) return [];
+  var list = monitor && Array.isArray(monitor.availableModes) ? monitor.availableModes : [];
+  var seen = {};
+  var found = [];
+  var i;
+  for (i = 0; i < list.length; i++) {
+    var parsed = parseMonitorMode(list[i]);
+    if (!parsed || parsed.width !== res.width || parsed.height !== res.height) continue;
+    var value = monitorRateValue(parsed.refresh);
+    if (!value || seen[value]) continue;
+    seen[value] = true;
+    found.push({ value: value, refresh: parsed.refresh });
+  }
+  var live = monitorRateValue(monitor && monitor.refresh);
+  if (live && !seen[live]) {
+    seen[live] = true;
+    found.push({ value: live, refresh: Number(monitor.refresh) });
+  }
+  found.sort(function (a, b) {
+    return b.refresh - a.refresh;
+  });
+  var out = [];
+  for (i = 0; i < found.length; i++) {
+    out.push({ value: found[i].value, label: formatMonitorHz(found[i].refresh) + " Hz" });
+  }
+  if (out.length === 0) {
+    // Non-EDID resolution with no known rate at all: 60 Hz is the most
+    // compatible pick, so the resolution stays selectable.
+    out.push({ value: "60", label: "60 Hz" });
+  }
+  return out;
+}
+
+function currentMonitorRefreshValue(monitor, resolution) {
+  var rates = monitorRefreshRates(monitor, resolution);
+  if (!rates.length) return "";
+  var live = Number(monitor && monitor.refresh);
+  var best = rates[0].value;
+  if (!isFinite(live) || live <= 0) return best;
+  var bestDiff = 1e9;
+  for (var i = 0; i < rates.length; i++) {
+    var diff = Math.abs(Number(rates[i].value) - live);
+    if (diff < bestDiff) {
+      bestDiff = diff;
+      best = rates[i].value;
+    }
+  }
+  return best;
 }
 
 function parseDiskSpeedLine(line) {

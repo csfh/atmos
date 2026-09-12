@@ -11,6 +11,16 @@ assertEqual(
   "modeFromHyprctl strips Hz",
 );
 assertEqual(mon.modeFromHyprctl("preferred"), "preferred", "modeFromHyprctl keeps preferred");
+assertEqual(
+  mon.sanitizeMode("1920x1080@143.86"),
+  "1920x1080@143.86",
+  "sanitizeMode keeps fractional Hz on a composed WxH@Hz mode",
+);
+assertEqual(
+  mon.sanitizeMode("2560x1440@60"),
+  "2560x1440@60",
+  "sanitizeMode keeps an integer Hz mode",
+);
 assertEqual(mon.normalizeItem({ output: "DP-1;rm" }), null, "normalizeItem drops an unsafe output");
 const row = mon.normalizeItem({
   output: "DP-1",

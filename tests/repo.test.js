@@ -964,6 +964,38 @@ assert(
   displaysPageSrc.indexOf('description: "No monitors reported."') !== -1,
   "a missing monitor list says No monitors reported",
 );
+assert(
+  displaysPageSrc.indexOf("root.canDisable(modelData)") !== -1 &&
+    displaysPageSrc.indexOf("This is the only display on, so it has to stay on.") !== -1 &&
+    displaysPageSrc.indexOf("Another display is mirroring this one.") !== -1,
+  "disabling the last display on, or a mirror source, stays off",
+);
+assert(
+  displaysPageSrc.indexOf("enabled: Omarchy.internalPresent") !== -1 &&
+    displaysPageSrc.indexOf("enabled: Omarchy.externalPresent") !== -1,
+  "layouts that would leave no display on stay off",
+);
+assert(
+  displaysPageSrc.indexOf('label: "Refresh rate"') !== -1 &&
+    displaysPageSrc.indexOf("RichUi.monitorResolutions(modelData)") !== -1 &&
+    displaysPageSrc.indexOf(
+      "RichUi.monitorRefreshRates(modelData, root.resolutionValue(modelData))",
+    ) !== -1 &&
+    displaysPageSrc.indexOf("RichUi.monitorModeOptions") === -1 &&
+    displaysPageSrc.indexOf("MonJs.sanitizeMode(") !== -1 &&
+    displaysPageSrc.indexOf("RichUi.monitorModeCopyText(modelData)") !== -1,
+  "resolution lists sizes only with refresh rate in its own row behind it",
+);
+const richUiSrc = fs.readFileSync(path.join(__dirname, "..", "services", "RichUi.js"), "utf8");
+assert(
+  richUiSrc.indexOf("function monitorModeOptions") === -1 &&
+    richUiSrc.indexOf("function monitorResolutions") !== -1 &&
+    richUiSrc.indexOf("function monitorRefreshRates") !== -1 &&
+    richUiSrc.indexOf("function currentMonitorResolutionValue") !== -1 &&
+    richUiSrc.indexOf("function currentMonitorRefreshValue") !== -1 &&
+    richUiSrc.indexOf("function monitorModeCopyText") !== -1,
+  "RichUi splits size and refresh and drops the combined mode picker",
+);
 const prefsCheckSrc = fs.readFileSync(
   path.join(__dirname, "..", "components", "PrefsCheck.qml"),
   "utf8",
@@ -1148,6 +1180,11 @@ assert(
   "error dialog asks the default agent",
 );
 const omarchySrc = fs.readFileSync(path.join(__dirname, "..", "services", "Omarchy.qml"), "utf8");
+assert(
+  omarchySrc.indexOf('if (key === "laptop" && !internalPresent) return') !== -1 &&
+    omarchySrc.indexOf('if (key === "docked" && !externalPresent) return') !== -1,
+  "applyMonitorLayout refuses Laptop or Docked when that would leave no display on",
+);
 assert(omarchySrc.indexOf("function copyLastError()") !== -1, "Omarchy.copyLastError is defined");
 assert(omarchySrc.indexOf("function clearLastError()") !== -1, "Omarchy.clearLastError is defined");
 assert(

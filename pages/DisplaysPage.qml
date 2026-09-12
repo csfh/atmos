@@ -9,7 +9,7 @@ PrefsPage {
   id: root
   hubId: "display"
   title: "Displays"
-  description: "Each monitor keeps its own resolution. Scale and brightness apply to the one you are looking at. On a laptop you also get the built-in panel and its input devices. GPU switching is on Drivers."
+  description: "Each monitor keeps its own resolution and refresh rate. Scale and brightness apply to the one you are looking at. On a laptop you also get the built-in panel and its input devices. GPU switching is on Drivers."
 
   readonly property var scalePresets: [
     { value: "1", label: "100%" },
@@ -59,9 +59,24 @@ PrefsPage {
 
   function resolutionDescription(monitor) {
     var summary = root.monitorSummary(monitor)
-    var n = monitor && Array.isArray(monitor.availableModes) ? monitor.availableModes.length : 0
-    var modes = n > 1 ? (n + " modes on this output. ") : ""
-    return summary + " " + modes + "Picking a mode writes a monitor rule in ~/.config/hypr/monitors.lua."
+    var n = RichUi.monitorResolutions(monitor).length
+    var modes = n > 1 ? (n + " resolutions on this output. ") : ""
+    return summary + " " + modes + "Picking one writes a monitor rule in ~/.config/hypr/monitors.lua. The refresh rate behind it stays."
+  }
+
+  function resolutionValue(monitor) {
+    return RichUi.currentMonitorResolutionValue(monitor)
+  }
+
+  function refreshValue(monitor) {
+    return RichUi.currentMonitorRefreshValue(monitor, root.resolutionValue(monitor))
+  }
+
+  function writeMonitorMode(monitor, resolution, refresh) {
+    var name = monitor && monitor.name ? String(monitor.name) : ""
+    if (!name) return
+    var mode = MonJs.sanitizeMode(String(resolution || "") + "@" + String(refresh || ""))
+    if (mode) Omarchy.patchMonitorRule(name, { mode: mode, disabled: false })
   }
 
   function ruleFor(monitor) {
@@ -83,6 +98,44 @@ PrefsPage {
     var rule = root.ruleFor(monitor)
     if (rule) return rule.disabled === true
     return monitor && monitor.enabled === false
+  }
+
+  function enabledMonitorCount() {
+    var list = Omarchy.monitors || []
+    var n = 0
+    for (var i = 0; i < list.length; i++) {
+      if (!root.ruleDisabled(list[i])) n++
+    }
+    return n
+  }
+
+  function isMirrorSource(monitor) {
+    var name = monitor && monitor.name ? String(monitor.name) : ""
+    if (!name) return false
+    var list = Omarchy.monitors || []
+    for (var i = 0; i < list.length; i++) {
+      var m = list[i] || {}
+      if (String(m.mirrorOf || "") === name && !root.ruleDisabled(m)) return true
+    }
+    return false
+  }
+
+  // Turning a display off is only safe when something else stays on, and a
+  // display feeding a mirror cannot go off first. Re-enabling is always safe.
+  function canDisable(monitor) {
+    if (!monitor || !monitor.name) return false
+    if (root.ruleDisabled(monitor)) return true
+    if (root.isMirrorSource(monitor)) return false
+    return root.enabledMonitorCount() > 1
+  }
+
+  function disableDescription(monitor) {
+    if (root.ruleDisabled(monitor)) return "Off for now. Turn it back on when you need it."
+    if (root.isMirrorSource(monitor))
+      return "Another display is mirroring this one. Unmirror it first."
+    if (!root.canDisable(monitor))
+      return "This is the only display on, so it has to stay on."
+    return "Keeps the rule so you can turn it back on. Does not delete the output from the file."
   }
 
   function ruleVrr(monitor) {
@@ -159,25 +212,44 @@ PrefsPage {
         label: "Resolution"
         description: root.resolutionDescription(modelData)
         hint: "~/.config/hypr/monitors.lua"
-        detail: "Hyprland's EDID list for this output. Atmos writes the pick as hl.monitor mode."
+        detail: "Every resolution the output reports, plus standard lower modes, largest first. Atmos writes the pick together with the refresh rate behind it as hl.monitor mode."
         query: root.query
         keywords: ["monitor", "display", "hdmi", "dp", "edp", "resolution", "refresh"]
 
         Row {
           spacing: Theme.space
           PrefsSelect {
-            value: RichUi.currentMonitorModeValue(modelData)
-            options: RichUi.monitorModeOptions(modelData)
+            value: root.resolutionValue(modelData)
+            options: RichUi.monitorResolutions(modelData)
             enabled: !!(modelData && modelData.name)
             onChanged: function(value) {
-              var mode = MonJs.modeFromHyprctl(value)
-              if (mode) Omarchy.patchMonitorRule(modelData.name, { mode: mode, disabled: false })
+              if (value !== root.resolutionValue(modelData))
+                root.writeMonitorMode(modelData, value, RichUi.currentMonitorRefreshValue(modelData, value))
             }
           }
           PrefsButton {
             text: "Copy"
             enabled: RichUi.monitorModeCopyText(modelData).length > 0
             onClicked: Omarchy.copyText(RichUi.monitorModeCopyText(modelData))
+          }
+        }
+      }
+
+      SettingRow {
+        label: "Refresh rate"
+        description: "How many frames this panel draws per second. Only the rates the resolution above supports are listed."
+        hint: "~/.config/hypr/monitors.lua"
+        detail: "Atmos writes the pick together with the resolution above as hl.monitor mode."
+        query: root.query
+        keywords: ["monitor", "display", "refresh", "hertz", "hz", "fps", "highrr"]
+
+        PrefsSelect {
+          value: root.refreshValue(modelData)
+          options: RichUi.monitorRefreshRates(modelData, root.resolutionValue(modelData))
+          enabled: !!(modelData && modelData.name)
+          onChanged: function(value) {
+            if (value !== root.refreshValue(modelData))
+              root.writeMonitorMode(modelData, root.resolutionValue(modelData), value)
           }
         }
       }
@@ -207,14 +279,18 @@ PrefsPage {
       SettingRow {
         available: !!(modelData && modelData.name)
         label: "Disable this display"
-        description: "Keeps the rule so you can turn it back on. Does not delete the output from the file."
+        description: root.disableDescription(modelData)
         hint: "hl.monitor disabled"
         query: root.query
         keywords: ["disable", "off", "lid"]
 
         PrefsToggle {
           checked: root.ruleDisabled(modelData)
-          onToggled: Omarchy.patchMonitorRule(modelData.name, { disabled: !root.ruleDisabled(modelData) })
+          enabled: root.canDisable(modelData)
+          onToggled: {
+            if (!root.ruleDisabled(modelData) && !root.canDisable(modelData)) return
+            Omarchy.patchMonitorRule(modelData.name, { disabled: !root.ruleDisabled(modelData) })
+          }
         }
       }
 
@@ -368,12 +444,12 @@ PrefsPage {
   PrefsGroup {
     title: "Layouts"
     query: Omarchy.monitors.length ? root.query : "."
-    detail: "Desk keeps every output on. Laptop keeps the built-in panel. Docked turns the built-in panel off. Each write is a monitor rule in ~/.config/hypr/monitors.lua."
+    detail: "Desk keeps every output on. Laptop keeps the built-in panel and needs one. Docked turns the built-in panel off and needs an external monitor. Each write is a monitor rule in ~/.config/hypr/monitors.lua."
     hint: "~/.config/hypr/monitors.lua"
 
     SettingRow {
       label: "Apply a layout"
-      description: "Uses the outputs Hyprland sees right now."
+      description: "Uses the outputs Hyprland sees right now. Layouts that would leave no display on stay off."
       hint: "hl.monitor"
       query: root.query
       keywords: ["desk", "laptop", "docked", "layout", "profile"]
@@ -386,10 +462,12 @@ PrefsPage {
         }
         PrefsButton {
           text: "Laptop"
+          enabled: Omarchy.internalPresent
           onClicked: Omarchy.applyMonitorLayout("laptop")
         }
         PrefsButton {
           text: "Docked"
+          enabled: Omarchy.externalPresent
           onClicked: Omarchy.applyMonitorLayout("docked")
         }
       }

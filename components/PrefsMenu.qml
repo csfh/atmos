@@ -17,6 +17,9 @@ Item {
   height: implicitHeight
   opacity: Theme.controlOpacity(enabled)
 
+  // SettingRow keeps the row rail while this menu is open on Overlay.
+  readonly property bool overlayOpen: popup.opened
+
   Accessible.role: Accessible.Button
   Accessible.name: root.accessibleName
   Accessible.onPressAction: root.togglePopup()

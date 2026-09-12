@@ -91,6 +91,17 @@ assert(
   "PrefsSelect reparents the list onto Overlay so the pane clip cannot crop it",
 );
 assert(
+  selectSrc.indexOf("readonly property bool overlayOpen:") !== -1 &&
+    selectSrc.indexOf("overlayOpen: popup.opened") !== -1,
+  "PrefsSelect exposes overlayOpen so SettingRow can keep the row rail",
+);
+const menuSrc = fs.readFileSync(path.join(__dirname, "..", "components", "PrefsMenu.qml"), "utf8");
+assert(
+  menuSrc.indexOf("readonly property bool overlayOpen:") !== -1 &&
+    menuSrc.indexOf("overlayOpen: popup.opened") !== -1,
+  "PrefsMenu exposes overlayOpen so SettingRow can keep the row rail",
+);
+assert(
   selectSrc.indexOf("parent: list") !== -1 &&
     selectSrc.indexOf("acceptedButtons: Qt.NoButton") !== -1,
   "PrefsSelect sizes a viewport wheel area on the options ListView",
@@ -502,6 +513,44 @@ assert(
   settingRowSrc.indexOf("property alias leading:") !== -1 &&
     settingRowSrc.indexOf("property bool interactive:") !== -1,
   "SettingRow can lead with a checkbox and toggle from the row",
+);
+assert(
+  settingRowSrc.indexOf("import QtQuick.Window") !== -1 &&
+    settingRowSrc.indexOf("root.Window.activeFocusItem") !== -1 &&
+    settingRowSrc.indexOf("readonly property bool focusInside:") !== -1 &&
+    settingRowSrc.indexOf("item === root") !== -1 &&
+    settingRowSrc.indexOf("item = item.parent") !== -1 &&
+    settingRowSrc.indexOf("guard < 40") !== -1,
+  "SettingRow walks Window.activeFocusItem ancestry, not root.activeFocus",
+);
+assert(
+  /readonly property bool (focusInside|keyboardHere|lit):[\s\S]{0,200}root\.activeFocus/.test(
+    settingRowSrc,
+  ) === false,
+  "SettingRow does not treat root.activeFocus as the row-lit test",
+);
+assert(
+  settingRowSrc.indexOf("visible: root.lit") !== -1 &&
+    settingRowSrc.indexOf("Theme.fill(Theme.hoverFill)") !== -1 &&
+    settingRowSrc.indexOf("z: -2") !== -1,
+  "SettingRow hover fills the whole row behind the splitter",
+);
+assert(
+  settingRowSrc.indexOf("visible: root.keyboardHere") !== -1 &&
+    settingRowSrc.indexOf("Theme.railWidth") !== -1 &&
+    settingRowSrc.indexOf("color: Theme.accent") !== -1 &&
+    settingRowSrc.indexOf("z: -1") !== -1,
+  "SettingRow paints the accent rail only when keyboard ancestry hits",
+);
+assert(
+  settingRowSrc.indexOf("Behavior on opacity") === -1 &&
+    settingRowSrc.indexOf("Theme.selectedFill") === -1,
+  "SettingRow row chrome is instant hoverFill, not a selected-fill fade",
+);
+assert(
+  settingRowSrc.indexOf("item.overlayOpen === true") !== -1 &&
+    settingRowSrc.indexOf("readonly property bool childOverlayOpen:") !== -1,
+  "SettingRow keeps the rail while a descendant overlay is open",
 );
 const collectionRowSrc = fs.readFileSync(
   path.join(__dirname, "..", "components", "CollectionRow.qml"),

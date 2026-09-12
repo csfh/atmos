@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Window
 import "../services"
 import "../services/Favorites.js" as FavJs
 import "../services/Hubs.js" as HubsJs
@@ -75,6 +76,49 @@ Item {
 
   readonly property bool hovered: rowHover.hovered
 
+  // Fill when the pointer is over the row, or when anything inside it
+  // holds the keyboard. The rail is keyboard-only, so hover on A and Tab
+  // on B stay distinguishable.
+  //
+  // root.activeFocus is not enough on its own. A plain Item reports
+  // activeFocus only for itself, and focus actually lands on the control
+  // inside the row -- so a Tab into a field would light nothing, which is
+  // the case this exists for. Walk up from the window's focus item instead.
+  readonly property var focusItem: root.Window.activeFocusItem
+  readonly property bool focusInside: {
+    var item = root.focusItem
+    var guard = 0
+    while (item && guard < 40) {
+      if (item === root) return true
+      item = item.parent
+      guard += 1
+    }
+    return false
+  }
+
+  // Overlay popups reparent off the row and take focus with them. A
+  // descendant that exposes overlayOpen keeps the rail lit for the opener.
+  function childHoldsOverlay(item, depth) {
+    if (!item || depth > 8) return false
+    if (item.overlayOpen === true) return true
+    var kids = item.children
+    for (var i = 0; i < kids.length; i++) {
+      if (childHoldsOverlay(kids[i], depth + 1)) return true
+    }
+    return false
+  }
+
+  readonly property bool childOverlayOpen: {
+    var _n = root.controlCount
+    var _lead = leadingSlot.children.length
+    if (childHoldsOverlay(controlSlot, 0)) return true
+    if (childHoldsOverlay(leadingSlot, 0)) return true
+    return false
+  }
+
+  readonly property bool keyboardHere: root.focusInside || root.childOverlayOpen
+  readonly property bool lit: root.hovered || root.keyboardHere
+
   HoverHandler {
     id: rowHover
   }
@@ -136,6 +180,34 @@ Item {
   implicitWidth: width
   implicitHeight: visible ? body.implicitHeight + Theme.rowPad * 2 : 0
   height: implicitHeight
+
+  // Light the whole row, not a control inside it.
+  //
+  // A settings page is a wall of near-identical rows, and once you navigate
+  // by keyboard "where am I" has to be answerable at a glance. A thin ring
+  // around whichever control happens to hold focus does not answer it.
+  // Banding the row also makes it read as one thing rather than three that
+  // happen to sit near each other.
+  //
+  // Full-bleed and behind the splitter, so it reads as the row being lit
+  // rather than a box drawn on top of it. Instant on/off, like the rest of
+  // the chrome. Hover is fill only; the accent rail marks keyboard location.
+  Rectangle {
+    anchors.fill: parent
+    z: -2
+    visible: root.lit
+    color: Theme.fill(Theme.hoverFill)
+  }
+
+  Rectangle {
+    anchors.left: parent.left
+    anchors.top: parent.top
+    anchors.bottom: parent.bottom
+    width: Theme.railWidth
+    z: -1
+    visible: root.keyboardHere
+    color: Theme.accent
+  }
 
   Rectangle {
     width: parent.width

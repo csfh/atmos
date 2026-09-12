@@ -8,7 +8,9 @@ import "services"
 import "services/Accounts.js" as AccountsJs
 import "services/Hubs.js" as HubsJs
 import "services/Layout.js" as LayoutJs
+import "services/NavStatus.js" as NavStatusJs
 import "services/RichUi.js" as RichUi
+import "services/Systemd.js" as SystemdJs
 import "components"
 import "pages"
 import "pages/windows" as Win
@@ -26,6 +28,21 @@ ShellRoot {
   readonly property string profileHost: AccountsJs.profileHost(Omarchy.currentUser, Omarchy.hostname)
 
   readonly property var pages: HubsJs.navPages()
+
+  // Fields the sidebar badges read, boxed so the binding list lives in
+  // one place. A change still re-runs forHub on every row; that is cheap
+  // at this size.
+  readonly property var navState: ({
+    ready: Omarchy.snapshotReady,
+    systemdUnits: Omarchy.systemdUnits,
+    bluetoothDevices: Omarchy.bluetoothDevices,
+    monitors: Omarchy.monitors,
+    netKind: Omarchy.netKind,
+    netSsid: Omarchy.netSsid,
+    updateAvailable: Omarchy.updateAvailable,
+    atmosUpdateAvailable: Omarchy.atmosUpdateAvailable,
+    isFailed: SystemdJs.isFailed
+  })
 
   readonly property var groupedPages: {
     var q = root.query
@@ -564,16 +581,34 @@ ShellRoot {
 
                     Text {
                       anchors.left: navIcon.right
-                      anchors.right: parent.right
+                      anchors.right: navBadge.visible ? navBadge.left : parent.right
                       anchors.verticalCenter: parent.verticalCenter
                       anchors.leftMargin: Theme.space
-                      anchors.rightMargin: Theme.pad
+                      anchors.rightMargin: navBadge.visible ? Theme.space : Theme.pad
                       text: modelData.title
                       color: Theme.foreground
                       font.family: Theme.fontFamily
                       font.pixelSize: Theme.labelSize
                       font.bold: navItem.selected
                       elide: Text.ElideRight
+                    }
+
+                    // Live state at the row edge. Silent when there is
+                    // nothing to say, which is the common case.
+                    Text {
+                      id: navBadge
+                      anchors.right: parent.right
+                      anchors.rightMargin: Theme.pad
+                      anchors.verticalCenter: parent.verticalCenter
+                      readonly property var badge: NavStatusJs.forHub(
+                        modelData ? modelData.id : "", root.navState)
+                      visible: !!badge
+                      text: badge ? badge.text : ""
+                      color: badge && badge.tone === "warn" ? Theme.urgent : Theme.muted
+                      font.family: Theme.fontFamily
+                      font.pixelSize: Theme.badgeSize
+                      Accessible.role: Accessible.StaticText
+                      Accessible.name: badge ? badge.title : ""
                     }
 
                     MouseArea {

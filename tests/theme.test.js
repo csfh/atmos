@@ -186,3 +186,29 @@ assert(
   !shell.haystackMatches("network", shell.joinSearchHaystack(["Theme", "font"])),
   "haystackMatches rejects unrelated rows",
 );
+
+const bgPageSrc = fs.readFileSync(
+  path.join(__dirname, "..", "pages", "appearance", "BackgroundPage.qml"),
+  "utf8",
+);
+assert(
+  bgPageSrc.indexOf("FileDialog") !== -1 &&
+    bgPageSrc.indexOf("Omarchy.setBackgroundPath") !== -1 &&
+    bgPageSrc.indexOf("setBackgroundFromFile") === -1 &&
+    bgPageSrc.indexOf("openBackgroundSwitcher") === -1,
+  "Background Choose… is a Qt FileDialog, not the native switcher helpers",
+);
+const bgOmarchySrc = fs.readFileSync(path.join(__dirname, "..", "services", "Omarchy.qml"), "utf8");
+const bgChooseStart = bgOmarchySrc.indexOf("function setBackgroundPath(");
+const bgChooseEnd = bgOmarchySrc.indexOf("function cacheBackgrounds(", bgChooseStart);
+const bgChooseBody = bgOmarchySrc.slice(bgChooseStart, bgChooseEnd);
+assert(
+  bgChooseBody.indexOf("dispatchSetting") !== -1,
+  "setBackgroundPath still applies a picked path through dispatchSetting",
+);
+assert(
+  bgOmarchySrc.indexOf('runInteractive(["omarchy", "theme", "bg-switcher"]') !== -1 &&
+    bgOmarchySrc.indexOf('kind: "background-file"') !== -1 &&
+    bgOmarchySrc.indexOf("function runInteractive(") !== -1,
+  "native background pickers do not hold the mut queue",
+);

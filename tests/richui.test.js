@@ -44,11 +44,7 @@ assertEqual(
   "2560x1440@144.00Hz",
   "currentMonitorModeValue matches availableModes",
 );
-assertEqual(
-  ui.monitorModeOptions({ width: 100, height: 100, refresh: 60, availableModes: [] }).length,
-  1,
-  "monitorModeOptions synthesizes the current mode",
-);
+assert(typeof ui.monitorModeOptions === "undefined", "monitorModeOptions is gone");
 assertEqual(
   ui.monitorModeCopyText({
     name: "DP-1",
@@ -611,3 +607,130 @@ assert(ui.confirmIsDestructive("Update") === false, "confirmIsDestructive Update
 assert(ui.confirmIsDestructive("Set up") === false, "confirmIsDestructive Set up");
 assert(ui.confirmIsDestructive("Create") === false, "confirmIsDestructive Create");
 assert(ui.confirmIsDestructive("") === false, "confirmIsDestructive empty");
+
+const edidModes = [
+  "1920x1080@60.00Hz",
+  "1920x1080@143.86Hz",
+  "2560x1440@144.00Hz",
+  "3840x2160@30.00Hz",
+];
+const edidMonitor = { width: 1920, height: 1080, refresh: 60, availableModes: edidModes };
+assertEqual(
+  ui.parseMonitorResolution("2560x1440").key,
+  "2560x1440",
+  "parseMonitorResolution reads WxH",
+);
+assertEqual(ui.parseMonitorResolution("nope"), null, "parseMonitorResolution rejects junk");
+const edidValues = ui
+  .monitorResolutions(edidMonitor)
+  .map(function (o) {
+    return o.value;
+  })
+  .join(",");
+assertEqual(
+  ui.monitorResolutions(edidMonitor)[0].value,
+  "3840x2160",
+  "monitorResolutions sorts largest first",
+);
+assert(
+  edidValues.indexOf("2560x1440") !== -1 &&
+    edidValues.indexOf("1920x1080") !== -1 &&
+    edidValues.indexOf("1280x720") !== -1,
+  "monitorResolutions keeps EDID sizes and adds standards",
+);
+assertEqual(
+  ui.currentMonitorResolutionValue(edidMonitor),
+  "1920x1080",
+  "currentMonitorResolutionValue reads the live size",
+);
+assertEqual(
+  ui
+    .monitorRefreshRates(edidMonitor, "1920x1080")
+    .map(function (o) {
+      return o.value;
+    })
+    .join(","),
+  "143.86,60",
+  "monitorRefreshRates lists one resolution's rates, fastest first",
+);
+assertEqual(
+  ui.currentMonitorRefreshValue(edidMonitor, "1920x1080"),
+  "60",
+  "currentMonitorRefreshValue matches the live rate",
+);
+assertEqual(
+  ui.currentMonitorRefreshValue(
+    { width: 1920, height: 1080, refresh: 0, availableModes: edidModes },
+    "1920x1080",
+  ),
+  "143.86",
+  "currentMonitorRefreshValue falls back to the fastest rate",
+);
+assertEqual(
+  ui.monitorRefreshRates({ width: 100, height: 100, refresh: 60, availableModes: [] }, "100x100")
+    .length,
+  1,
+  "monitorRefreshRates synthesizes the live rate",
+);
+const lowEdid = { width: 1920, height: 1080, refresh: 60, availableModes: ["1920x1080@60.00Hz"] };
+const lowValues = ui
+  .monitorResolutions(lowEdid)
+  .map(function (o) {
+    return o.value;
+  })
+  .join(",");
+assertEqual(
+  ui.monitorResolutions(lowEdid)[0].value,
+  "1920x1080",
+  "standard modes still sort largest first",
+);
+assert(
+  lowValues.indexOf("1280x720") !== -1 &&
+    lowValues.indexOf("1024x768") !== -1 &&
+    lowValues.indexOf("800x600") !== -1,
+  "standard lower resolutions are offered too",
+);
+assert(
+  lowValues.indexOf("2560x1440") === -1 && lowValues.indexOf("3840x2160") === -1,
+  "no impossible higher resolution is offered",
+);
+assert(lowValues.indexOf("1600x1200") === -1, "no resolution taller than the panel is offered");
+assert(
+  lowValues.indexOf("1280x1024") !== -1,
+  "a narrower standard resolution still fits under the panel",
+);
+assertEqual(
+  ui
+    .monitorRefreshRates(lowEdid, "1280x720")
+    .map(function (o) {
+      return o.value;
+    })
+    .join(","),
+  "60",
+  "a non-EDID resolution still offers the live rate",
+);
+assertEqual(
+  ui
+    .monitorRefreshRates({ width: 0, height: 0, refresh: 0, availableModes: [] }, "1280x720")
+    .map(function (o) {
+      return o.value;
+    })
+    .join(","),
+  "60",
+  "a resolution with no known rate falls back to 60 Hz",
+);
+const mon = load("services/Monitors.js");
+assertEqual(
+  mon.sanitizeMode(
+    ui.currentMonitorResolutionValue(edidMonitor) +
+      "@" +
+      ui.currentMonitorRefreshValue(edidMonitor, ui.currentMonitorResolutionValue(edidMonitor)),
+  ),
+  "1920x1080@60",
+  "size and refresh compose into a sanitizeMode WxH@Hz write",
+);
+assertEqual(
+  mon.sanitizeMode("1920x1080@143.86"),
+  "1920x1080@143.86",
+  "sanitizeMode keeps the EDID fractional rate",
+);

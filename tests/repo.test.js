@@ -1335,6 +1335,31 @@ assert(
   "System opens the Diagnostics child page",
 );
 assert(
+  systemSrc.indexOf('label: "Machine"') !== -1 &&
+    systemSrc.indexOf('openSubpage("machine")') !== -1 &&
+    systemSrc.indexOf('id === "machine"') !== -1 &&
+    systemSrc.indexOf("stack.push(machinePage)") !== -1,
+  "System opens the Machine child page",
+);
+const machinePageSrc = fs.readFileSync(
+  path.join(__dirname, "..", "pages", "system", "MachinePage.qml"),
+  "utf8",
+);
+assert(
+  machinePageSrc.indexOf("HardwareJs.batterySummary") !== -1 &&
+    machinePageSrc.indexOf('hubId: "system/machine"') !== -1,
+  "Machine uses Hardware batterySummary for live charge",
+);
+assert(
+  machinePageSrc.indexOf('valueText: "present"') === -1 &&
+    machinePageSrc.indexOf('"charge limited to "') === -1,
+  "Machine does not treat present/limit as the primary battery readout",
+);
+assert(
+  machinePageSrc.indexOf("batteryValue") !== -1 && machinePageSrc.indexOf('|| "unknown"') !== -1,
+  "Machine keeps unknown charge as unknown",
+);
+assert(
   systemSrc.indexOf('label: "Crash capture"') === -1,
   "Crash capture moved off System onto Diagnostics",
 );

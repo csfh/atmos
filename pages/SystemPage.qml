@@ -15,14 +15,15 @@ PrefsPage {
   property var navigator: null
 
   function openSubpage(id) {
-    if (root.navigator && root.navigator.go) {
-      root.navigator.go("system/" + id)
+    if (stack) {
+      if (id === "machine") stack.push(machinePage)
+      else if (id === "environment") stack.push(environmentPage)
+      else if (id === "kernel") stack.push(kernelPage)
+      else if (id === "diagnostics") stack.push(diagnosticsPage)
       return
     }
-    if (!stack) return
-    if (id === "diagnostics") stack.push(diagnosticsPage)
-    else if (id === "environment") stack.push(environmentPage)
-    else if (id === "kernel") stack.push(kernelPage)
+    if (root.navigator && root.navigator.go)
+      root.navigator.go("system/" + id)
   }
 
   readonly property string diagnosticsDescription: {
@@ -37,6 +38,7 @@ PrefsPage {
   Component { id: diagnosticsPage; Sys.DiagnosticsPage {} }
   Component { id: environmentPage; Sys.EnvironmentPage {} }
   Component { id: kernelPage; Sys.KernelPage {} }
+  Component { id: machinePage; Sys.MachinePage {} }
 
   PrefsConfirm {
     id: channelConfirm
@@ -743,6 +745,18 @@ PrefsPage {
     title: "Diagnostics"
     query: root.query
     detail: "Health, failed units, Hyprland errors, and a copyable report. Crash capture lives on that page."
+
+    SettingRow {
+      label: "Machine"
+      description: "What this computer is and how it is doing, in one screen."
+      query: root.query
+      keywords: ["machine", "hardware", "battery", "dashboard", "cpu", "memory"]
+
+      PrefsButton {
+        text: "Open…"
+        onClicked: root.openSubpage("machine")
+      }
+    }
 
     SettingRow {
       label: "Environment"

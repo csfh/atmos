@@ -28,6 +28,7 @@ assert(catalog.length > 0, "hubs() returns the catalog");
 assertEqual(hubs.hubTitle("idle"), "Idle", "idle hub title is Idle");
 assertEqual(hubs.hubTitle("export"), "Omafile", "export hub title is Omafile");
 assertEqual(hubs.hubTitle("system/kernel"), "Kernel", "kernel is a System child");
+assertEqual(hubs.hubTitle("system/machine"), "Machine", "machine is a System child");
 assert(
   hubs.hubById("export").keywords.indexOf("omafile") !== -1 &&
     hubs.hubById("export").keywords.indexOf("import") !== -1 &&
@@ -132,6 +133,7 @@ const pageFiles = [
   "system/DiagnosticsPage.qml",
   "system/EnvironmentPage.qml",
   "system/KernelPage.qml",
+  "system/MachinePage.qml",
   "applications/StartupPage.qml",
   "WorkspacesPage.qml",
   "TweaksPage.qml",

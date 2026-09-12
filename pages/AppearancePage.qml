@@ -146,7 +146,7 @@ PrefsPage {
 
     SettingRow {
       label: "Current theme"
-      description: "The palette in use right now. The shell and themed apps follow this."
+      description: "The palette in use right now. The shell and themed apps follow this. Hover a name to preview its colors on this window."
       hint: "omarchy theme set"
       query: root.query
       keywords: ["appearance", "color", "style", "palette"]
@@ -155,7 +155,24 @@ PrefsPage {
         value: Omarchy.theme
         options: Omarchy.themes
         enabled: Omarchy.themes.length > 0
-        onChanged: function(value) { if (value !== Omarchy.theme) Omarchy.setTheme(value) }
+        onChanged: function(value) {
+          if (value !== Omarchy.theme) Omarchy.setTheme(value)
+          else Theme.restorePreview()
+        }
+
+        // Hover paints this window from the named theme's colors.toml.
+        // Wallpaper, bar, terminals, and Hyprland stay put. Preview never
+        // runs omarchy theme set. Leave the list or close the popup to put
+        // the live chrome back (the in-memory snapshot from current/, not
+        // the named theme directory). Click commits through setTheme;
+        // pickValue clears hover without emitting previewed("") so that
+        // paint is not undone while Omarchy.theme is still the old name.
+        onPreviewed: function(value) {
+          if (value.length > 0 && value !== Omarchy.theme)
+            Theme.previewNamedTheme(value)
+          else
+            Theme.restorePreview()
+        }
       }
     }
 

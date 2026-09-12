@@ -23,6 +23,12 @@ QtObject {
   property var userShellValues: ({})
   property var shellValues: ({})
 
+  // In-memory copy of the live FileView chrome. Hover preview paints over
+  // Theme colors, then restorePreview puts these back. source: "live" --
+  // never a named theme directory.
+  property var livePreviewSnapshot: null
+  property bool livePreviewing: false
+
   // Visual language. Monospace, grayscale chrome, 1px hairlines, radius 0,
   // dense native controls, a capped content column, a persistent sidebar.
   // Tokens record the live look. Do not round cards, add shadows, or grow
@@ -185,12 +191,54 @@ QtObject {
     raw = ""
     for (i = 0; i < paths.length; i++) {
       raw = root.readPath(paths[i])
-      if (raw) {
-        root.themeShellValues = ThemeJs.parseShell(raw)
-        root.mergeShell()
-        break
-      }
+      if (raw) break
     }
+    // Always replace. A theme with no shell.toml must not keep the previous
+    // theme's font.base-size / fills, or the chrome (and an open popup) jump
+    // to leftover tokens.
+    root.themeShellValues = raw ? ThemeJs.parseShell(raw) : ({})
+    root.mergeShell()
+  }
+
+  function discardPreview() {
+    root.livePreviewSnapshot = null
+    root.livePreviewing = false
+  }
+
+  function captureLivePreview() {
+    if (root.livePreviewing) return
+    root.livePreviewSnapshot = ThemeJs.snapshotLiveTheme({
+      foreground: String(root.foreground),
+      background: String(root.background),
+      accent: String(root.accent),
+      muted: String(root.muted),
+      urgent: String(root.urgent)
+    }, root.themeShellValues)
+    root.livePreviewing = true
+  }
+
+  function restorePreview() {
+    if (!root.livePreviewing) return
+    var restored = ThemeJs.restoreLiveTheme(root.livePreviewSnapshot)
+    root.discardPreview()
+    if (!restored) return
+    root.foreground = restored.colors.foreground
+    root.background = restored.colors.background
+    root.accent = restored.colors.accent
+    root.muted = restored.colors.muted
+    root.urgent = restored.colors.urgent
+    root.themeShellValues = restored.themeShellValues
+    root.mergeShell()
+  }
+
+  // Hover path. Colors.toml only -- no shell.toml, no omarchy theme set --
+  // so fontSize / rowHeight stay put and the open popup does not reflow.
+  function previewNamedTheme(name) {
+    root.captureLivePreview()
+    var raw = ThemeJs.firstThemeFile(name, "colors.toml", root.home, function(path) {
+      return root.readPath(path)
+    })
+    if (raw) root.applyColors(raw)
   }
 
   // omarchy-theme-set rm -rf's current/theme then mv's a new directory in.

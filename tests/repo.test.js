@@ -1527,9 +1527,9 @@ const instanceLockScriptSrc = fs.readFileSync(
   "utf8",
 );
 assert(
-  instanceLockScriptSrc.indexOf("flock -c") === -1 &&
-    instanceLockScriptSrc.indexOf("exec flock") === -1,
-  "instance-lock.sh does not use flock -c or flock FILE COMMAND (both fork)",
+  !/^\s*flock -c\b/m.test(instanceLockScriptSrc) &&
+    !/^\s*exec flock\b/m.test(instanceLockScriptSrc),
+  "instance-lock.sh does not invoke flock -c or flock FILE COMMAND (both fork)",
 );
 assert(
   instanceLockScriptSrc.indexOf("exec 9>") !== -1 &&

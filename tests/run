@@ -1581,7 +1581,8 @@ if [[ -x scripts/instance-lock.sh ]] && command -v flock >/dev/null 2>&1 && comm
 #!/bin/bash
 set -euo pipefail
 ATMOS_INSTANCE_LOCK=$1 bash "$2" &
-wait
+# exec so the wrapper pid stays the helper's parent and cleanup is one kill.
+exec sleep 60
 SH
   chmod +x "$lock_home/wrapper.sh"
 

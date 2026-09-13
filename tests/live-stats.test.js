@@ -92,6 +92,84 @@ assert(
   "sparklinePoints puts a larger value higher",
 );
 
+const hot = live.parse(
+  JSON.stringify({
+    cpuIdle: 50,
+    cpuTotal: 100,
+    cpuTemp: 87,
+    gpus: [
+      {
+        card: "card0",
+        name: "AMD",
+        vendor: "0x1002",
+        driver: "amdgpu",
+        integrated: false,
+        temp: 61,
+      },
+      {
+        card: "card1",
+        name: "Intel",
+        vendor: "0x8086",
+        driver: "i915",
+        integrated: true,
+        temp: null,
+      },
+    ],
+  }),
+);
+assertEqual(hot.cpuTemp, 87, "parse reads cpuTemp");
+assertEqual(hot.gpus.length, 2, "parse keeps GPU rows");
+assertEqual(hot.gpus[0].temp, 61, "parse passes a GPU temperature");
+assertEqual(hot.gpus[1].temp, null, "parse keeps an unknown GPU temperature as null");
+assertEqual(hot.gpus[1].integrated, true, "parse keeps the integrated flag");
+assertEqual(live.gpuTempAt(hot, "card0"), 61, "gpuTempAt prefers the GPU sensor");
+assertEqual(live.gpuTempAt(hot, "card1"), 87, "gpuTempAt falls back to package on integrated");
+assertEqual(
+  live.gpuTempAt(
+    live.parse(
+      JSON.stringify({
+        cpuTemp: 70,
+        gpus: [{ card: "card9", name: "NVIDIA", driver: "nvidia", integrated: false }],
+      }),
+    ),
+    "card9",
+  ),
+  null,
+  "gpuTempAt never borrows the CPU on discrete",
+);
+assertEqual(live.gpuTempAt(hot, "nope"), null, "gpuTempAt misses unknown cards");
+assertEqual(live.formatTemp(87), "87 °C", "formatTemp formats celsius");
+assertEqual(live.formatTemp(null), "", "formatTemp unknown is empty");
+
+let th = live.pushSample(
+  [],
+  live.parse(JSON.stringify({ gpus: [{ card: "card0", name: "AMD", temp: 60 }] })),
+  1,
+);
+th = live.pushSample(
+  th,
+  live.parse(JSON.stringify({ gpus: [{ card: "card0", name: "AMD", temp: 62 }] })),
+  2,
+);
+assertEqual(live.gpuSeries(th, "card0").join(","), "60,62", "gpuSeries collects temps by card");
+assertEqual(live.gpuSeries(th, "card9").length, 0, "gpuSeries misses unknown cards");
+
+let ig = live.pushSample(
+  [],
+  live.parse(
+    JSON.stringify({
+      cpuTemp: 70,
+      gpus: [{ card: "card2", name: "Intel", driver: "i915", integrated: true, temp: null }],
+    }),
+  ),
+  1,
+);
+assertEqual(
+  live.gpuSeries(ig, "card2").join(","),
+  "70",
+  "gpuSeries graphs the package on integrated",
+);
+
 function write(file, text) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, text);
@@ -148,5 +226,8 @@ assertEqual(emitted.netRx, 500, "live-stats.py skips loopback rx");
 assertEqual(emitted.processes.length, 1, "live-stats.py keeps this user's processes");
 assertEqual(emitted.processes[0].pid, 200, "live-stats.py emits firefox");
 assertEqual(emitted.processes[0].ticks, 40, "live-stats.py ticks are utime+stime");
+assertEqual(emitted.cpuTemp, null, "live-stats.py has no thermal on a bare fixture");
+assertEqual(Array.isArray(emitted.gpus), true, "live-stats.py emits a GPU list");
+assertEqual(emitted.gpus.length, 0, "live-stats.py has no DRM cards on a bare fixture");
 
 fs.rmSync(fixture, { recursive: true, force: true });

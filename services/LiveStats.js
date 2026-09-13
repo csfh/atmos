@@ -65,8 +65,32 @@ function parse(raw) {
     netRx: nonNeg(data.netRx),
     netTx: nonNeg(data.netTx),
     clkTck: nonNeg(data.clkTck) || 100,
+    cpuTemp: nonNeg(data.cpuTemp),
+    gpus: parseGpus(data.gpus),
     processes: processes,
   };
+}
+
+function parseGpus(raw) {
+  var src = Array.isArray(raw) ? raw : [];
+  var out = [];
+  var i;
+  var g;
+  var temp;
+  for (i = 0; i < src.length; i++) {
+    g = src[i];
+    if (!g || typeof g !== "object") continue;
+    temp = finiteNumber(g.temp);
+    out.push({
+      card: String(g.card || ""),
+      name: String(g.name || ""),
+      vendor: String(g.vendor || ""),
+      driver: String(g.driver || ""),
+      integrated: g.integrated === true,
+      temp: temp,
+    });
+  }
+  return out;
 }
 
 function cpuPercent(prev, next) {
@@ -162,6 +186,8 @@ function pushSample(history, sample, now) {
     netRx: parsed.netRx,
     netTx: parsed.netTx,
     clkTck: parsed.clkTck,
+    cpuTemp: parsed.cpuTemp,
+    gpus: parsed.gpus,
     cpu: cpuPercent(prev, parsed),
     mem: memPercent(parsed),
     rxBps: rates.rxBps,
@@ -190,12 +216,50 @@ function series(history, key) {
   return out;
 }
 
+function gpuSeries(history, card) {
+  var list = Array.isArray(history) ? history : [];
+  var out = [];
+  var i;
+  var t;
+  for (i = 0; i < list.length; i++) {
+    t = gpuTempAt(list[i], card);
+    if (t !== null) out.push(t);
+  }
+  return out;
+}
+
+// A GPU's own sensor wins. An integrated part without one shares the die
+// with the CPU, so the package temperature (which already includes the
+// graphics tile) is the honest proxy. Discrete parts without a sensor
+// stay unknown instead of borrowing the CPU.
+function gpuTempAt(sample, card) {
+  var gs = sample && Array.isArray(sample.gpus) ? sample.gpus : [];
+  var i;
+  var g;
+  var t;
+  for (i = 0; i < gs.length; i++) {
+    g = gs[i];
+    if (!g || g.card !== card) continue;
+    t = finiteNumber(g.temp);
+    if (t !== null) return t;
+    if (g.integrated === true) return finiteNumber(sample.cpuTemp);
+    return null;
+  }
+  return null;
+}
+
 function formatPercent(n) {
   var v = finiteNumber(n);
   if (v === null) return "";
   if (v < 0) v = 0;
   if (v < 10) return (Math.round(v * 10) / 10).toFixed(1) + "%";
   return Math.round(v) + "%";
+}
+
+function formatTemp(n) {
+  var v = finiteNumber(n);
+  if (v === null) return "";
+  return Math.round(v) + " °C";
 }
 
 function formatBps(n) {
@@ -275,7 +339,10 @@ if (typeof module !== "undefined" && module.exports) {
     pushSample: pushSample,
     latest: latest,
     series: series,
+    gpuSeries: gpuSeries,
+    gpuTempAt: gpuTempAt,
     formatPercent: formatPercent,
+    formatTemp: formatTemp,
     formatBps: formatBps,
     formatNet: formatNet,
     memBytes: memBytes,

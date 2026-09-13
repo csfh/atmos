@@ -5,10 +5,32 @@ from __future__ import annotations
 
 import json
 import os
+import re
+import subprocess
 import sys
 
 SYS = os.environ.get("ATMOS_SYS_ROOT") or "/"
 PF_KTHREAD = 0x00200000
+
+CPU_HWMON_NAMES = {"coretemp", "k10temp", "k8temp", "zenpower"}
+CPU_TZ_TYPES = {
+    "x86_pkg_temp",
+    "cpu-thermal",
+    "cpu_thermal",
+    "k10temp",
+    "soc-thermal",
+    "tjmax",
+    "pkg-temp",
+}
+GPU_VENDOR_NAMES = {
+    "0x1002": "AMD",
+    "0x10de": "NVIDIA",
+    "0x8086": "Intel",
+    "0x1a03": "ASPEED",
+}
+GPU_CLASSES = ("[0300]", "[0302]", "[0380]")
+PCI_TAIL = re.compile(r"\[\s*([^\]]+?)\s*\]\s*\[[0-9a-fA-F]+\]\s*$")
+PCI_VENDOR = re.compile(r"\[([0-9a-fA-F]{4})\]")
 
 
 def root(*parts: str) -> str:
@@ -21,6 +43,17 @@ def read_text(path: str, limit: int = 65536) -> str:
             return fh.read(limit)
     except OSError:
         return ""
+
+
+def read_line(path: str) -> str:
+    text = read_text(path, 4096)
+    return text.splitlines()[0].strip() if text else ""
+
+
+def mc_to_c(raw: str) -> int | None:
+    if not raw.lstrip("-").isdigit():
+        return None
+    return (int(raw) + 500) // 1000
 
 
 def uid_wanted() -> int:
@@ -173,6 +206,218 @@ def iter_pids() -> list[str]:
     return out
 
 
+def read_cpu_temp() -> int | None:
+    try:
+        hwmons = sorted(os.listdir(root("sys/class/hwmon")))
+    except OSError:
+        hwmons = []
+    for hw in hwmons:
+        if not hw.startswith("hwmon"):
+            continue
+        base = root("sys/class/hwmon", hw)
+        if read_line(os.path.join(base, "name")) in CPU_HWMON_NAMES:
+            temp = mc_to_c(read_line(os.path.join(base, "temp1_input")))
+            if temp is not None:
+                return temp
+    try:
+        zones = sorted(os.listdir(root("sys/class/thermal")))
+    except OSError:
+        zones = []
+    for zone in zones:
+        if not zone.startswith("thermal_zone"):
+            continue
+        base = root("sys/class/thermal", zone)
+        ttype = read_line(os.path.join(base, "type")).strip().lower()
+        if ttype in CPU_TZ_TYPES or ttype.startswith("cpu"):
+            temp = mc_to_c(read_line(os.path.join(base, "temp")))
+            if temp is not None:
+                return temp
+    return None
+
+
+def driver_of(dev: str) -> str:
+    try:
+        return os.path.basename(os.readlink(os.path.join(dev, "driver")))
+    except (OSError, ValueError):
+        return ""
+
+
+def read_drm_gpu_temp(dev: str) -> int | None:
+    base = os.path.join(dev, "hwmon")
+    try:
+        hwmons = sorted(os.listdir(base))
+    except OSError:
+        return None
+    for hw in hwmons:
+        if not hw.startswith("hwmon"):
+            continue
+        temp = mc_to_c(read_line(os.path.join(base, hw, "temp1_input")))
+        if temp is not None:
+            return temp
+    return None
+
+
+def nvidia_smi_rows() -> list[dict]:
+    rows: list[dict] = []
+    try:
+        import shutil
+
+        binary = shutil.which("nvidia-smi")
+        if not binary:
+            return rows
+        out = subprocess.run(
+            [binary, "--query-gpu=uuid,name,temperature.gpu", "--format=csv,noheader,nounits"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        ).stdout or ""
+    except (OSError, subprocess.TimeoutExpired):
+        return rows
+    for line in out.splitlines():
+        parts = [part.strip() for part in line.split(",", 2)]
+        if len(parts) == 3 and parts[2].isdigit():
+            rows.append({"uuid": parts[0], "name": parts[1], "temp": int(parts[2])})
+    return rows
+
+
+def pci_gpus() -> list[dict]:
+    if SYS != "/":
+        return []
+    rows: list[dict] = []
+    try:
+        import shutil
+
+        binary = shutil.which("lspci")
+        if not binary:
+            return rows
+        out = subprocess.run(
+            [binary, "-mmnn"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        ).stdout or ""
+    except (OSError, subprocess.TimeoutExpired):
+        return rows
+    for line in out.splitlines():
+        try:
+            import shlex
+
+            parts = shlex.split(line)
+        except ValueError:
+            continue
+        if len(parts) < 4 or "[" not in parts[1]:
+            continue
+        cls = parts[1]
+        if not any(code in cls for code in GPU_CLASSES):
+            continue
+        vendor_text = parts[2].strip('"')
+        vendor_m = PCI_VENDOR.search(vendor_text)
+        vendor = "0x" + vendor_m.group(1).lower() if vendor_m else ""
+        rows.append(
+            {
+                "slot": parts[0],
+                "cls": cls.strip('"'),
+                "vendor": vendor,
+                "model": pci_model(parts[3].strip('"')),
+            }
+        )
+    return rows
+
+
+def pci_model(device: str) -> str:
+    m = PCI_TAIL.search(device)
+    if m:
+        return m.group(1).strip()
+    m = re.search(r"\[([^\]]+)\]\s*$", device)
+    if m:
+        return m.group(1).strip()
+    text = device.strip()
+    if " / " in text:
+        text = text.split(" / ", 1)[1]
+    return text.strip()
+
+
+def read_gpus(nvidia_rows: list[dict]) -> list[dict]:
+    try:
+        names = sorted(os.listdir(root("sys/class/drm")))
+    except OSError:
+        names = []
+    smi_by_uuid = {row["uuid"]: row for row in nvidia_rows if row.get("uuid")}
+    pci_rows = pci_gpus()
+    out: list[dict] = []
+    claimed = set()
+    for name in names:
+        if not name.startswith("card") or "-" in name:
+            continue
+        dev = root("sys/class/drm", name, "device")
+        if not os.path.isdir(dev):
+            continue
+        driver = driver_of(dev)
+        vendor = read_line(os.path.join(dev, "vendor")).strip().lower()
+        brand = GPU_VENDOR_NAMES.get(vendor, vendor or "")
+        slot = ""
+        for line in read_text(os.path.join(dev, "uevent")).splitlines():
+            if line.startswith("PCI_SLOT_NAME="):
+                slot = line.split("=", 1)[1].strip()
+                break
+        claimed.add(slot)
+        bus = slot.split(":")[1] if slot.count(":") >= 2 else ""
+        # i915 only ever drives integrated parts; xe on bus 00 is the on-die
+        # Tile, Arc discrete cards sit on higher buses.
+        integrated = driver == "i915" or (driver == "xe" and bus == "00")
+        gpu = {
+            "card": name,
+            "name": brand or driver or name,
+            "vendor": brand or vendor,
+            "driver": driver,
+            "integrated": integrated,
+            "temp": read_drm_gpu_temp(dev),
+        }
+        uuid = ""
+        if driver == "nvidia":
+            gpu["temp"] = None
+            info = read_text(root("proc/driver/nvidia/gpus", slot, "information"))
+            for line in info.splitlines():
+                if line.startswith("Model:"):
+                    model = line.split(":", 1)[1].strip()
+                    if model:
+                        gpu["name"] = model
+                elif line.startswith("GPU UUID:"):
+                    uuid = line.split(":", 1)[1].strip()
+            smi = smi_by_uuid.get(uuid) if uuid else None
+            temp = smi["temp"] if smi else None
+            if temp is None and len(nvidia_rows) == 1:
+                temp = nvidia_rows[0]["temp"]
+                smi = nvidia_rows[0]
+            if smi and smi["name"].strip():
+                gpu["name"] = smi["name"]
+            gpu["temp"] = temp
+        else:
+            for pci in pci_rows:
+                if slot and slot.endswith(pci["slot"]):
+                    if pci["model"]:
+                        gpu["name"] = pci["model"]
+                    if pci["vendor"]:
+                        gpu["vendor"] = GPU_VENDOR_NAMES.get(pci["vendor"], pci["vendor"])
+                    break
+        out.append(gpu)
+    for pci in pci_rows:
+        if any(slot and slot.endswith(pci["slot"]) for slot in claimed):
+            continue
+        vendor_brand = GPU_VENDOR_NAMES.get(pci["vendor"], pci["vendor"] or "")
+        out.append(
+            {
+                "card": "pci:" + pci["slot"],
+                "name": pci["model"] or vendor_brand or "GPU",
+                "vendor": vendor_brand,
+                "driver": "",
+                "integrated": False,
+                "temp": None,
+            }
+        )
+    return out
+
+
 def read_processes(want_uid: int) -> list[dict]:
     rows = []
     for pid_s in iter_pids():
@@ -209,6 +454,7 @@ def main() -> int:
     idle, total = read_cpu()
     used, mem_total, avail = read_mem()
     rx, tx = read_net()
+    nvidia_rows = nvidia_smi_rows()
     payload = {
         "cpuIdle": idle,
         "cpuTotal": total,
@@ -218,6 +464,8 @@ def main() -> int:
         "netRx": rx,
         "netTx": tx,
         "clkTck": clk_tck(),
+        "cpuTemp": read_cpu_temp(),
+        "gpus": read_gpus(nvidia_rows),
         "processes": read_processes(uid_wanted()),
     }
     json.dump(payload, sys.stdout, separators=(",", ":"))

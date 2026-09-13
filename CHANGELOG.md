@@ -2,6 +2,12 @@
 
 Notable changes to Atmos. Each section is a git tag on `main` and `alpha`. Install and in-app Update follow the `alpha` branch.
 
+## [v0.0.1-alpha.19] - 2026-09-12
+
+### Added
+
+- **Home** is the landing hub. Activity charts processor, memory, and network from a 2s `/proc` poll into in-memory sparklines (60 samples, this window only). Processes lists this user's pids; End sends SIGTERM, Force quit sends SIGKILL, both with a confirm. Pid 1, other users, and Atmos itself are refused. System → Machine stays the identity page. The poll is `scripts/live-stats.py` on the Home page, not `snapshot.sh`.
+
 ## [v0.0.1-alpha.18] - 2026-09-12
 
 ### Added
@@ -305,6 +311,7 @@ First public alpha. Standalone [Quickshell](https://quickshell.org) preferences 
 - Keyboard use on controls (tab focus and activation). File watching of Omarchy/Hyprland paths so outside changes can refresh the snapshot. Shared page routing and content-column layout.
 - MIT license. Contributions assign copyright to Christoffer Hallas ([CLA](CLA.md)).
 
+[v0.0.1-alpha.19]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.18...v0.0.1-alpha.19
 [v0.0.1-alpha.18]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.17...v0.0.1-alpha.18
 [v0.0.1-alpha.17]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.16...v0.0.1-alpha.17
 [v0.0.1-alpha.16]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.15...v0.0.1-alpha.16

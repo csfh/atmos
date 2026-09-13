@@ -1742,6 +1742,36 @@ hubsJs.childIds().forEach(function (id) {
 });
 assert(shellSrc.indexOf("HubsJs.navPages()") !== -1, "shell pages come from Hubs.navPages");
 assert(
+  shellSrc.indexOf('currentPage: "home"') !== -1 &&
+    shellSrc.indexOf('ATMOS_PAGE") || "home"') !== -1 &&
+    shellSrc.indexOf("home: homePage") !== -1,
+  "shell lands on Home",
+);
+const homePageSrc = fs.readFileSync(path.join(__dirname, "..", "pages", "HomePage.qml"), "utf8");
+assert(
+  homePageSrc.indexOf('hubId: "home"') !== -1 &&
+    homePageSrc.indexOf("Omarchy.liveStatsScript") !== -1 &&
+    homePageSrc.indexOf("snapshot.sh") === -1 &&
+    homePageSrc.indexOf("Omarchy.signalProcess") !== -1,
+  "Home polls live-stats.py and signals through Omarchy",
+);
+assert(
+  homePageSrc.indexOf("interval: 2000") !== -1 && homePageSrc.indexOf("enqueueRead") === -1,
+  "Home polls locally every 2s and does not enqueue a snapshot",
+);
+const sparkSrc = fs.readFileSync(
+  path.join(__dirname, "..", "components", "PrefsSparkline.qml"),
+  "utf8",
+);
+assert(sparkSrc.indexOf("Canvas") !== -1, "PrefsSparkline paints on a Canvas");
+assert(
+  omarchySrc.indexOf("function signalProcess(") !== -1 &&
+    omarchySrc.indexOf("ProcessesJs.signalArgv") !== -1 &&
+    omarchySrc.indexOf('refresh: "none"') !== -1,
+  "Omarchy.signalProcess runs through runCommand",
+);
+assert(omarchySrc.indexOf('ATMOS_PAGE") || "home"') !== -1, "Omarchy starts the session from Home");
+assert(
   shellSrc.indexOf('id: "appearance", title: "Appearance"') === -1,
   "shell does not inline hub titles",
 );

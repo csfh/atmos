@@ -18,8 +18,11 @@ assert(
     ) &&
     /readonly property int chamferSm:\s*Math\.max\(3, Math\.round\(fontSize \* 0\.36\)\)/.test(
       themeQml,
+    ) &&
+    /readonly property int sparklineHeight:\s*Math\.max\(28, Math\.round\(fontSize \* 2\.2\)\)/.test(
+      themeQml,
     ),
-  "Theme sizes chamfer tokens off fontSize and keeps radius 0",
+  "Theme sizes chamfer and sparkline tokens off fontSize and keeps radius 0",
 );
 
 const theme = load("services/Theme.js");

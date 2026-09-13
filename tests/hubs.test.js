@@ -100,6 +100,7 @@ catalog.forEach(function (hub) {
 });
 
 const pageFiles = [
+  "HomePage.qml",
   "FavoritesPage.qml",
   "AppearancePage.qml",
   "DisplaysPage.qml",
@@ -173,9 +174,11 @@ const aliases = hubs.launcherSuffixes();
 });
 
 const nav = hubs.navPages();
-assertEqual(nav[0].id, "favorites", "navPages starts at favorites");
-assertEqual(nav[0].group, "look", "navPages uses navGroup as group");
-assert(nav[0].keywords.indexOf("star") !== -1, "navPages keywords include the union");
+assertEqual(nav[0].id, "home", "navPages starts at home");
+assertEqual(nav[0].group, "home", "navPages uses navGroup as group");
+assert(nav[0].keywords.indexOf("dashboard") !== -1, "navPages keywords include the union");
+assertEqual(hubs.hubById("home").navGroup, "home", "home nav cluster is home");
+assertEqual(hubs.snapshotGroupForHub("home"), "look", "home snapshot group is look");
 function consecutiveNavGroup(group) {
   const ids = nav
     .filter(function (page) {
@@ -216,7 +219,8 @@ assertEqual(
 );
 
 const search = hubs.searchHubs();
-assertEqual(search[0].description.indexOf("starred") !== -1, true, "searchHubs keeps descriptions");
+assertEqual(search[0].id, "home", "searchHubs starts at home");
+assert(search[0].description.indexOf("processes") !== -1, "searchHubs keeps descriptions");
 assert(Array.isArray(search[0].keywords), "searchHubs keywords are an array");
 assert(
   hubs.hubById("input").keywords.indexOf("keyboard") !== -1,

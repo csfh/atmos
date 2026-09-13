@@ -233,6 +233,12 @@ assert(
 );
 assert(
   qmlCatalog.some(function (row) {
+    return row.label === "Processor" && row.hub === "home";
+  }),
+  "qml catalog indexes Home processor row",
+);
+assert(
+  qmlCatalog.some(function (row) {
     return row.label === "Wi-Fi radio" && row.hub === "network/wifi";
   }),
   "qml catalog sends Wi-Fi rows to the wifi subpage",

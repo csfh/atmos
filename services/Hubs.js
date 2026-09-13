@@ -31,6 +31,20 @@ function child(id, title, file) {
 function hubs() {
   return [
     {
+      id: "home",
+      title: "Home",
+      description: "Live load, memory, network, and this user's processes.",
+      navGroup: "home",
+      snapshotGroup: "look",
+      icon: "dashboard-line",
+      file: "HomePage.qml",
+      keywords: keywordList(
+        "dashboard home cpu memory ram network bandwidth process pid kill sparkline chart graph load activity",
+        ["dashboard", "cpu", "process"],
+      ),
+      children: [],
+    },
+    {
       id: "favorites",
       title: "Favorites",
       description: "Settings you starred, in one place.",

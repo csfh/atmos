@@ -15,6 +15,7 @@ import "HyprSunset.js" as HyprSunset
 import "RichUi.js" as RichUi
 import "Settings.js" as SettingsJs
 import "NetworkPrefs.js" as NetworkPrefs
+import "Processes.js" as ProcessesJs
 import "Monitors.js" as MonitorsJs
 import "Snapshot.js" as SnapshotJs
 import "SnapshotGroups.js" as SnapshotGroups
@@ -72,6 +73,8 @@ QtObject {
   readonly property string createHookScript: shellDir + "/scripts/create-hook.sh"
   readonly property string setHookSampleScript: shellDir + "/scripts/set-hook-sample.sh"
   readonly property string diagReportScript: shellDir + "/scripts/diag-report.sh"
+  readonly property string liveStatsScript: shellDir + "/scripts/live-stats.py"
+  readonly property string signalProcessScript: shellDir + "/scripts/signal-process.sh"
   readonly property string envFile: Quickshell.env("HOME") + "/.config/environment.d/10-atmos.conf"
   readonly property string presentationFile: Quickshell.env("HOME") + "/.local/state/omarchy/atmos-presentation.json"
   readonly property string favoritesFile: Quickshell.env("HOME") + "/.local/state/omarchy/atmos-favorites.json"
@@ -1853,6 +1856,12 @@ QtObject {
   function setTweak(id, on) {
     dispatchSetting("tweaks." + String(id || ""), on === true)
   }
+  function signalProcess(pid, signal) {
+    var argv = ProcessesJs.signalArgv(pid, signal, signalProcessScript)
+    if (!argv) return
+    runCommand(argv, { key: "process:" + pid, refresh: "none" })
+  }
+
   function systemdAction(action, unit, scope) {
     var argv = ["systemctl"]
     if (scope === "user") argv.push("--user")
@@ -2796,7 +2805,7 @@ QtObject {
   Component.onCompleted: {
     SnapshotGroups.setSnapshotGroupForHub(HubsJs.snapshotGroupForHub)
     Theme.currentThemeSwapped.connect(root.applyThemeNameFromFile)
-    startSession(Quickshell.env("ATMOS_PAGE") || "appearance")
+    startSession(Quickshell.env("ATMOS_PAGE") || "home")
   }
 
   readonly property var watchSpecs: SnapshotGroups.watchSpecs({

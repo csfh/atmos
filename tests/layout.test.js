@@ -159,6 +159,13 @@ assertEqual(layout.navGroupLabel("apps"), "Apps", "navGroupLabel names apps");
 assertEqual(layout.navGroupLabel("general"), "General", "navGroupLabel names general");
 assertEqual(layout.navGroupLabel("admin"), "Admin", "navGroupLabel names admin");
 assertEqual(layout.navGroupLabel("nope"), "", "navGroupLabel misses an unknown group");
+assertEqual(layout.navGroupLabel("home"), "", "navGroupLabel leaves home unlabeled");
+const homeCluster = layout.clusterByGroup([
+  { id: "home", group: "home" },
+  { id: "favorites", group: "look" },
+]);
+assertEqual(homeCluster[0].title, "", "clusterByGroup draws home without a heading");
+assertEqual(homeCluster[0].pages[0].id, "home", "clusterByGroup keeps home first");
 const clustered = layout.clusterByGroup([
   { id: "appearance", group: "look" },
   { id: "display", group: "look" },

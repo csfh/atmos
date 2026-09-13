@@ -19,8 +19,8 @@ import "pages/network" as Net
 ShellRoot {
   id: root
 
-  property string launchPath: Quickshell.env("ATMOS_PAGE") || "appearance"
-  property string currentPage: "appearance"
+  property string launchPath: Quickshell.env("ATMOS_PAGE") || "home"
+  property string currentPage: "home"
   property string query: ""
   onQueryChanged: if (query.length > 0) placeNavHighlight(null)
 
@@ -118,7 +118,7 @@ ShellRoot {
   }
 
   function pageComponent(id) {
-    return pageById[id] || appearancePage
+    return pageById[id] || homePage
   }
 
   function hubId(id) {
@@ -236,6 +236,7 @@ ShellRoot {
       root.loadHub(root.currentPage)
   }
 
+  Component { id: homePage; HomePage { query: root.query } }
   Component { id: favoritesPage; FavoritesPage { query: root.query; navigator: prefsNavigator } }
   Component { id: appearancePage; AppearancePage { query: root.query; stack: pageStack } }
   Component { id: displayPage; DisplaysPage { query: root.query } }
@@ -269,6 +270,7 @@ ShellRoot {
   Component { id: searchPage; SearchPage { query: root.query; navigator: prefsNavigator } }
 
   readonly property var pageById: ({
+    home: homePage,
     favorites: favoritesPage,
     appearance: appearancePage,
     display: displayPage,

@@ -296,6 +296,9 @@ fill_look_surface() {
     --argjson inactiveOpacity "$(hypr_opt decoration:inactive_opacity)" \
     --argjson preserveSplit "$(hypr_opt dwindle:preserve_split)" \
     --argjson focusOnActivate "$(hypr_opt misc:focus_on_activate)" \
+    --argjson enableSwallow "$(hypr_opt misc:enable_swallow)" \
+    --argjson swallowRegex "$(hypr_opt misc:swallow_regex)" \
+    --argjson onFocusUnderFullscreen "$(hypr_opt misc:on_focus_under_fullscreen)" \
     '
     def num(o; fb):
       if o.int != null then o.int
@@ -325,7 +328,10 @@ fill_look_surface() {
       activeOpacity: num($activeOpacity; 1),
       inactiveOpacity: num($inactiveOpacity; 1),
       preserveSplit: flag($preserveSplit; false),
-      focusOnActivate: flag($focusOnActivate; false)
+      focusOnActivate: flag($focusOnActivate; false),
+      enableSwallow: flag($enableSwallow; false),
+      swallowRegex: txt($swallowRegex; ""),
+      onFocusUnderFullscreen: num($onFocusUnderFullscreen; 1)
     }
   ' 2>/dev/null || echo '{}')
   [[ -n $hypr_look_json ]] || hypr_look_json='{}'
@@ -2165,6 +2171,9 @@ hypr_look_json=$(jq -n \
   --argjson inactiveOpacity "$(hypr_opt decoration:inactive_opacity)" \
   --argjson preserveSplit "$(hypr_opt dwindle:preserve_split)" \
   --argjson focusOnActivate "$(hypr_opt misc:focus_on_activate)" \
+  --argjson enableSwallow "$(hypr_opt misc:enable_swallow)" \
+  --argjson swallowRegex "$(hypr_opt misc:swallow_regex)" \
+  --argjson onFocusUnderFullscreen "$(hypr_opt misc:on_focus_under_fullscreen)" \
   '
   def num(o; fb):
     if o.int != null then o.int
@@ -2194,7 +2203,10 @@ hypr_look_json=$(jq -n \
     activeOpacity: num($activeOpacity; 1),
     inactiveOpacity: num($inactiveOpacity; 1),
     preserveSplit: flag($preserveSplit; false),
-    focusOnActivate: flag($focusOnActivate; false)
+    focusOnActivate: flag($focusOnActivate; false),
+    enableSwallow: flag($enableSwallow; false),
+    swallowRegex: txt($swallowRegex; ""),
+    onFocusUnderFullscreen: num($onFocusUnderFullscreen; 1)
   }
 ' 2>/dev/null || echo '{}')
 [[ -n $hypr_look_json ]] || hypr_look_json='{}'

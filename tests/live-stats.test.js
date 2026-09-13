@@ -92,6 +92,76 @@ assert(
   "sparklinePoints puts a larger value higher",
 );
 
+function entriesOf(vals, step) {
+  var out = [];
+  for (var i = 0; i < vals.length; i++)
+    out.push({ at: 1000000 + i * (step || 2000), value: vals[i] });
+  return out;
+}
+
+const timed = live.timedSeries([{ at: 10, cpu: 5 }, { at: 20, cpu: null }, { at: 30 }], "cpu");
+assertEqual(timed.length, 1, "timedSeries drops unknown values");
+assertEqual(timed[0].at, 10, "timedSeries keeps the sample time");
+assertEqual(timed[0].value, 5, "timedSeries keeps the sample value");
+assertEqual(
+  live.zipSeries([1, null, 3], [10, 20, 30]).length,
+  2,
+  "zipSeries pairs values with times",
+);
+assertEqual(live.windowSpanMs(entriesOf([1, 2, 3])), 4000, "windowSpanMs is last minus first");
+assertEqual(live.windowSpanMs(entriesOf([1])), 0, "windowSpanMs needs two samples");
+assertEqual(live.formatWindow(0), "", "formatWindow is empty without a span");
+assertEqual(live.formatWindow(45000), "Last 45 s", "formatWindow seconds");
+assertEqual(live.formatWindow(120000), "Last 2 min", "formatWindow minutes");
+assertEqual(live.formatWindow(3 * 3600000), "Last 3 h", "formatWindow hours");
+assert(
+  /^\d{2}:\d{2}:\d{2}$/.test(live.formatClock(1000000, 60000)),
+  true,
+  "formatClock shows seconds in short windows",
+);
+assert(
+  /^\d{2}:\d{2}$/.test(live.formatClock(1000000, 600000)),
+  true,
+  "formatClock shows hours and minutes in long windows",
+);
+assert(
+  /\d+\/\d+ \d{2}:\d{2}/.test(live.formatClock(1000000, 7200000)),
+  true,
+  "formatClock shows a date past an hour",
+);
+
+const manyTicks = live.axisTicks(entriesOf([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]));
+assertEqual(manyTicks.length, 4, "axisTicks caps at four labels");
+assertEqual(manyTicks[0].frac, 0, "axisTicks starts at the oldest sample");
+assertEqual(manyTicks[3].frac, 1, "axisTicks ends at the newest sample");
+assert(manyTicks[0].label !== "" && manyTicks[3].label !== "", "axisTicks labels real times");
+assertEqual(
+  live.axisTicks(entriesOf([1, 2, 3, 4, 5])).length,
+  3,
+  "axisTicks uses three labels on short windows",
+);
+assertEqual(live.axisTicks(entriesOf([1, 2])).length, 2, "axisTicks labels both samples when tiny");
+assertEqual(live.axisTicks(entriesOf([1])).length, 0, "axisTicks needs two samples");
+
+function flatSpike(n, peak, at) {
+  var vals = [];
+  for (var i = 0; i < n; i++) vals.push(10);
+  vals[at] = peak;
+  return entriesOf(vals);
+}
+assertEqual(
+  live.spikeOf(entriesOf([10, 10, 10, 10, 10, 10, 10, 10])),
+  null,
+  "spikeOf ignores a flat line",
+);
+assertEqual(live.spikeOf(entriesOf([10, 10, 73])), null, "spikeOf needs enough samples");
+assertEqual(live.spikeOf(flatSpike(20, 12, 5)), null, "spikeOf ignores a tiny blip");
+assertEqual(live.spikeOf(flatSpike(20, 15, 5)), null, "spikeOf needs double the median");
+const spike = live.spikeOf(flatSpike(20, 73, 5));
+assertEqual(spike && spike.index, 5, "spikeOf marks the peak sample");
+assertEqual(spike && spike.value, 73, "spikeOf reports the peak value");
+assert(spike && spike.at > 0, "spikeOf reports the peak time");
+
 const hot = live.parse(
   JSON.stringify({
     cpuIdle: 50,

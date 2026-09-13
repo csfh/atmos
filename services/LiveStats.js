@@ -216,6 +216,120 @@ function series(history, key) {
   return out;
 }
 
+// (timestamp, value) pairs for samples where the key is known. Samples are
+// ~2 s apart, so pairs stay parallel to series() for the same key.
+function timedSeries(history, key) {
+  var list = Array.isArray(history) ? history : [];
+  var out = [];
+  var i;
+  var n;
+  var at;
+  for (i = 0; i < list.length; i++) {
+    n = list[i] ? finiteNumber(list[i][key]) : null;
+    at = list[i] ? Number(list[i].at) : NaN;
+    if (n !== null && isFinite(at)) out.push({ at: at, value: n });
+  }
+  return out;
+}
+
+function zipSeries(values, times) {
+  var vs = Array.isArray(values) ? values : [];
+  var ts = Array.isArray(times) ? times : [];
+  var out = [];
+  var i;
+  var n;
+  var at;
+  for (i = 0; i < vs.length && i < ts.length; i++) {
+    n = finiteNumber(vs[i]);
+    at = Number(ts[i]);
+    if (n !== null && isFinite(at)) out.push({ at: at, value: n });
+  }
+  return out;
+}
+
+function windowSpanMs(entries) {
+  var src = Array.isArray(entries) ? entries : [];
+  if (src.length < 2) return 0;
+  var span = Number(src[src.length - 1].at) - Number(src[0].at);
+  return span > 0 ? span : 0;
+}
+
+function formatWindow(spanMs) {
+  if (!(spanMs > 0)) return "";
+  var s = Math.round(spanMs / 1000);
+  if (s < 60) return "Last " + s + " s";
+  var m = Math.floor(s / 60);
+  if (m < 60) return "Last " + m + " min";
+  return "Last " + Math.floor(m / 60) + " h";
+}
+
+function pad2(n) {
+  var v = Math.floor(Math.abs(Number(n)));
+  if (!isFinite(v)) return "00";
+  return (v < 10 ? "0" : "") + v;
+}
+
+// Local timezone via the Date getters. Short clock for short windows so the
+// axis stays readable; date appears once the window exceeds an hour.
+function formatClock(at, spanMs) {
+  var d = new Date(Number(at));
+  if (!isFinite(d.getTime())) return "";
+  var hh = pad2(d.getHours());
+  var mm = pad2(d.getMinutes());
+  if (spanMs <= 120000) return hh + ":" + mm + ":" + pad2(d.getSeconds());
+  if (spanMs <= 3600000) return hh + ":" + mm;
+  return d.getMonth() + 1 + "/" + d.getDate() + " " + hh + ":" + mm;
+}
+
+// Up to maxLabels real sample times, evenly spread, always including the
+// oldest and newest. frac positions each label over its sample: the poll is
+// periodic, so index fractions track the line points.
+function axisTicks(entries, maxLabels) {
+  var src = Array.isArray(entries) ? entries : [];
+  var n = src.length;
+  if (n < 2) return [];
+  var k = Math.max(2, Math.min(Number(maxLabels) || 4, n));
+  if (n >= 3) k = Math.max(3, k);
+  if (n <= 8) k = Math.min(3, n);
+  var span = windowSpanMs(src);
+  var out = [];
+  var j;
+  var idx;
+  for (j = 0; j < k; j++) {
+    idx = Math.round((j * (n - 1)) / (k - 1));
+    out.push({
+      index: idx,
+      at: src[idx].at,
+      frac: idx / (n - 1),
+      label: formatClock(src[idx].at, span),
+    });
+  }
+  return out;
+}
+
+// The window peak, only when it stands clearly above the median. Returns
+// {index, at, value} or null. Needs enough samples and a peak at least
+// double the median with a 5-unit margin, so flat lines and tiny blips
+// never mark.
+function spikeOf(entries) {
+  var src = Array.isArray(entries) ? entries : [];
+  if (src.length < 8) return null;
+  var vals = [];
+  var i;
+  for (i = 0; i < src.length; i++) vals.push(src[i].value);
+  var sorted = vals.slice().sort(function (a, b) {
+    return a - b;
+  });
+  var med = sorted[Math.floor(sorted.length / 2)];
+  var peak = sorted[sorted.length - 1];
+  if (!(peak > med * 2)) return null;
+  if (!(peak - med > 5)) return null;
+  for (i = 0; i < src.length; i++) {
+    if (src[i].value === peak) return { index: i, at: src[i].at, value: peak };
+  }
+  return null;
+}
+
 function gpuSeries(history, card) {
   var list = Array.isArray(history) ? history : [];
   var out = [];
@@ -339,6 +453,13 @@ if (typeof module !== "undefined" && module.exports) {
     pushSample: pushSample,
     latest: latest,
     series: series,
+    timedSeries: timedSeries,
+    zipSeries: zipSeries,
+    windowSpanMs: windowSpanMs,
+    formatWindow: formatWindow,
+    formatClock: formatClock,
+    axisTicks: axisTicks,
+    spikeOf: spikeOf,
     gpuSeries: gpuSeries,
     gpuTempAt: gpuTempAt,
     formatPercent: formatPercent,

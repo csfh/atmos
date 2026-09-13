@@ -28,12 +28,26 @@ PrefsPage {
   readonly property var memValues: LiveStatsJs.series(root.history, "mem")
   readonly property var netValues: LiveStatsJs.series(root.history, "rxBps")
   readonly property var cpuTempValues: LiveStatsJs.series(root.history, "cpuTemp")
+  readonly property var cpuTimes: LiveStatsJs.timedSeries(root.history, "cpu").map(function(e) { return e.at })
+  readonly property var memTimes: LiveStatsJs.timedSeries(root.history, "mem").map(function(e) { return e.at })
+  readonly property var netTimes: LiveStatsJs.timedSeries(root.history, "rxBps").map(function(e) { return e.at })
+  readonly property var cpuTempTimes: LiveStatsJs.timedSeries(root.history, "cpuTemp").map(function(e) { return e.at })
   readonly property var gpuCards: root.latest && root.latest.gpus
     ? root.latest.gpus.map(function(g) { return g.card })
     : []
 
   function gpuValues(card) {
     return LiveStatsJs.gpuSeries(root.history, card)
+  }
+
+  // Parallel to gpuValues: the sample times of the resolved temperatures.
+  function gpuTimes(card) {
+    var out = []
+    for (var i = 0; i < root.history.length; i++) {
+      var s = root.history[i]
+      if (LiveStatsJs.gpuTempAt(s, card) != null && s && isFinite(s.at)) out.push(s.at)
+    }
+    return out
   }
 
   function gpuRow(card) {
@@ -184,6 +198,8 @@ PrefsPage {
       PrefsSparkline {
         width: parent.width
         values: root.cpuValues
+        times: root.cpuTimes
+        metric: "CPU"
         valueText: root.cpuCaption()
       }
     }
@@ -204,6 +220,8 @@ PrefsPage {
         PrefsSparkline {
           width: parent.width
           values: root.memValues
+          times: root.memTimes
+          metric: "Memory"
           valueText: root.memCaption()
         }
 
@@ -229,6 +247,9 @@ PrefsPage {
       PrefsSparkline {
         width: parent.width
         values: root.netValues
+        times: root.netTimes
+        unit: "B/s"
+        metric: "Network ↓"
         valueText: root.netCaption()
       }
     }
@@ -251,6 +272,9 @@ PrefsPage {
       PrefsSparkline {
         width: parent.width
         values: root.cpuTempValues
+        times: root.cpuTempTimes
+        unit: "°C"
+        metric: "Package"
         valueText: root.cpuTempCaption()
       }
     }
@@ -271,6 +295,9 @@ PrefsPage {
         PrefsSparkline {
           width: parent.width
           values: root.gpuValues(modelData)
+          times: root.gpuTimes(modelData)
+          unit: "°C"
+          metric: root.gpuName(modelData)
           valueText: root.gpuCaption(modelData)
         }
       }

@@ -87,13 +87,13 @@ PrefsPage {
   PrefsGroup {
     title: "Count and switching"
     query: root.query
-    detail: "Hyprland keeps numbered workspaces 1–10 persistent, so Super+N still has somewhere to go. The slider is how many of those the bar paints."
+    detail: "Hyprland keeps numbered workspaces 1–10 persistent, so Super+N still has somewhere to go. The slider is how many of those the bar always paints. Workspaces past that with windows still show, like stock Hypr."
     hint: "~/.config/hypr/atmos.lua"
 
     SettingRow {
       stretchControl: true
       label: "Number of workspaces"
-      description: "How many numbered workspaces the bar shows. Hyprland still keeps 1–10."
+      description: "How many numbered workspaces the bar always shows. Workspaces past that with windows still appear. Hyprland still keeps 1–10."
       hint: "~/.config/omarchy/shell.json"
       query: root.query
       keywords: ["count", "number", "ten", "bar"]

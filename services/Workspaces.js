@@ -115,6 +115,42 @@ function clampShown(raw) {
   return n;
 }
 
+function liveWorkspaceId(row) {
+  if (row && typeof row === "object") return Number(row.id || row.workspace);
+  return Number(row);
+}
+
+function liveWorkspaceOccupied(row) {
+  if (!row || typeof row !== "object") return false;
+  if (row.occupied === true) return true;
+  if (Number(row.windows) > 0) return true;
+  if (Number(row.toplevels) > 0) return true;
+  return false;
+}
+
+// Stock Omarchy paints [1..count] plus any Hypr workspace 1–10 that exists.
+// Atmos keeps 1–10 persistent, so empty extras would always exist. Match the
+// stock bar the user sees: extras past the count only when occupied or focused.
+function shownIds(count, live, focusedId) {
+  var n = clampShown(count);
+  var ids = [];
+  var i;
+  for (i = 1; i <= n; i++) ids.push(i);
+  var rows = Array.isArray(live) ? live : [];
+  var focused = Number(focusedId);
+  if (!isFinite(focused)) focused = 0;
+  for (i = 0; i < rows.length; i++) {
+    var id = liveWorkspaceId(rows[i]);
+    if (!isFinite(id) || id < 1 || id > 10) continue;
+    if (ids.indexOf(id) !== -1) continue;
+    if (liveWorkspaceOccupied(rows[i]) || id === focused) ids.push(id);
+  }
+  ids.sort(function (left, right) {
+    return left - right;
+  });
+  return ids;
+}
+
 function clampState(raw) {
   var src = raw && typeof raw === "object" ? raw : {};
   var list = Array.isArray(src.items) ? src.items : [];
@@ -377,6 +413,7 @@ if (typeof module !== "undefined" && module.exports) {
     END: END,
     clampCount: clampCount,
     clampShown: clampShown,
+    shownIds: shownIds,
     countFromItems: countFromItems,
     clampState: clampState,
     normalizeItem: normalizeItem,

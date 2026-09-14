@@ -95,9 +95,9 @@ write_shell() {
   _SHELL_CONFIG_TMP=""
 }
 
-if [[ ! -f $clone_dir/Workspaces.qml ]]; then
-  install_clone
-fi
+# Refresh the Atmos-managed clone so a count write picks up widget fixes
+# (occupied extras past the count) without a shell reload.
+install_clone
 
 program='
   | def entry_id:

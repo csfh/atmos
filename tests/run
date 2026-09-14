@@ -605,10 +605,13 @@ JSON
     bash scripts/set-workspace-bar.sh off
   jq -e '.bar.layout.left[1].id == "tester.workspaces" and .bar.layout.left[1].showNames == false' \
     "$bar_home/.config/omarchy/shell.json" >/dev/null
+  printf '%s\n' "// stale clone" >"$bar_home/.config/omarchy/plugins/tester.workspaces/Workspaces.qml"
   USER=tester HOME="$bar_home" OMARCHY_PATH="${OMARCHY_PATH:-/usr/share/omarchy}" \
     bash scripts/set-workspace-bar.sh count 7
   jq -e '.bar.layout.left[1].count == 7 and .bar.layout.left[1].showNames == false' \
     "$bar_home/.config/omarchy/shell.json" >/dev/null
+  grep -q 'occupied || id === focusedId' \
+    "$bar_home/.config/omarchy/plugins/tester.workspaces/Workspaces.qml"
   USER=tester HOME="$bar_home" OMARCHY_PATH="${OMARCHY_PATH:-/usr/share/omarchy}" \
     bash scripts/set-workspace-bar.sh on
   jq -e '.bar.layout.left[1].count == 7 and .bar.layout.left[1].showNames == true' \

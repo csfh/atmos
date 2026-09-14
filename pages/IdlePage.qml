@@ -84,9 +84,9 @@ PrefsPage {
     SettingRow {
       label: "Screensaver"
       description: "The screensaver runs after the idle timeout."
-      hint: "omarchy toggle screensaver"
+      hint: "omarchy toggle screensaver-off"
       query: root.query
-      keywords: ["screensaver", "allow", "disable", "tte"]
+      keywords: ["screensaver", "allow", "disable"]
 
       PrefsToggle {
         checked: Omarchy.screensaverEnabled
@@ -97,7 +97,7 @@ PrefsPage {
     SettingRow {
       label: "Suspend menu"
       description: "Suspend stays in the system menu."
-      hint: "omarchy toggle suspend"
+      hint: "omarchy toggle suspend-off"
       query: root.query
       keywords: ["sleep", "power", "system menu", "allow", "suspend"]
 
@@ -120,7 +120,7 @@ PrefsPage {
         : "The stock Omarchy logo. Choose a picture to turn into ASCII. Edit opens the text file."
       hint: "omarchy branding screensaver"
       query: root.query
-      keywords: ["ascii", "logo", "branding", "tte"]
+      keywords: ["ascii", "logo", "branding"]
 
       Row {
         spacing: Theme.space

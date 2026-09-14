@@ -262,6 +262,10 @@ assertEqual(
   2,
   "snapshot.sh emits onFocusUnderFullscreen from the live option",
 );
+assert(
+  snapshotSh.indexOf("^ATMOS_XWAYLAND_ZERO_SCALING=0") !== -1,
+  "snapshot.sh reads the XWayland zero-scaling opt-out from the env file",
+);
 const workflow = fs.readFileSync(
   path.join(__dirname, "..", ".github", "workflows", "tests.yml"),
   "utf8",

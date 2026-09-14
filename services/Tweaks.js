@@ -126,6 +126,7 @@ function environmentLines(state) {
   var s = clampState(state);
   var lines = [];
   if (s.electronWayland === false) lines.push("ELECTRON_OZONE_PLATFORM_HINT=auto");
+  if (s.forceZeroScaling === false) lines.push("ATMOS_XWAYLAND_ZERO_SCALING=0");
   return lines;
 }
 

@@ -867,6 +867,23 @@ assert(
   tweakCmd && tweakCmd.argv && tweakCmd.argv.join(" ").indexOf("gtk-middle-paste") !== -1,
   "tweaks.middlePaste uses set-tweaks.sh",
 );
+assertEqual(
+  tweakCmd.argv[tweakCmd.argv.length - 2],
+  "gtk-middle-paste",
+  "tweaks.middlePaste action is argv $1 after bash + script",
+);
+assertEqual(tweakCmd.argv[tweakCmd.argv.length - 1], "on", "tweaks.middlePaste on is argv $2");
+const tweakOff = settings.commandFor("tweaks.middlePaste", false, {}, {});
+assertEqual(tweakOff.argv[tweakOff.argv.length - 1], "off", "tweaks.middlePaste off is argv $2");
+const zeroOff = settings.commandFor("tweaks.forceZeroScaling", false, {}, {});
+assertEqual(
+  zeroOff.argv.slice(-2).join(" "),
+  "force-zero-scaling off",
+  "forceZeroScaling off is action + mode, not a third arg",
+);
+const swapOn = settings.commandFor("tweaks.swappiness", true, {}, {});
+assertEqual(swapOn.sudo, true, "swappiness asks for sudo");
+assertEqual(swapOn.argv[swapOn.argv.length - 1], "on", "swappiness on is argv $2");
 const envCmd = settings.commandFor(
   "envVars",
   [{ key: "EDITOR", value: "nvim" }],

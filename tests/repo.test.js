@@ -1759,11 +1759,23 @@ assert(
   homePageSrc.indexOf("interval: 2000") !== -1 && homePageSrc.indexOf("enqueueRead") === -1,
   "Home polls locally every 2s and does not enqueue a snapshot",
 );
+assert(
+  homePageSrc.indexOf('title: "Thermal"') !== -1 &&
+    homePageSrc.indexOf("HardwareJs.normalize") !== -1 &&
+    homePageSrc.indexOf("LiveStatsJs.gpuRows") !== -1 &&
+    homePageSrc.indexOf("LiveStatsJs.formatTemp") !== -1 &&
+    homePageSrc.indexOf("0 °C") === -1,
+  "Home lists GPUs from hardware inventory and keeps missing temps unknown",
+);
 const sparkSrc = fs.readFileSync(
   path.join(__dirname, "..", "components", "PrefsSparkline.qml"),
   "utf8",
 );
 assert(sparkSrc.indexOf("Canvas") !== -1, "PrefsSparkline paints on a Canvas");
+assert(
+  sparkSrc.indexOf("radius:") === -1 && sparkSrc.indexOf("shadow") === -1,
+  "PrefsSparkline does not round cards or add shadows",
+);
 assert(
   omarchySrc.indexOf("function signalProcess(") !== -1 &&
     omarchySrc.indexOf("ProcessesJs.signalArgv") !== -1 &&

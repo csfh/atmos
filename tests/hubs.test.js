@@ -178,6 +178,11 @@ assertEqual(nav[0].id, "home", "navPages starts at home");
 assertEqual(nav[0].group, "home", "navPages uses navGroup as group");
 assert(nav[0].keywords.indexOf("dashboard") !== -1, "navPages keywords include the union");
 assertEqual(hubs.hubById("home").navGroup, "home", "home nav cluster is home");
+assert(
+  hubs.hubById("home").keywords.indexOf("thermal") !== -1 &&
+    hubs.hubById("home").keywords.indexOf("gpu") !== -1,
+  "Home search matches thermal and gpu",
+);
 assertEqual(hubs.snapshotGroupForHub("home"), "look", "home snapshot group is look");
 function consecutiveNavGroup(group) {
   const ids = nav

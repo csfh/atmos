@@ -95,9 +95,10 @@ write_shell() {
   _SHELL_CONFIG_TMP=""
 }
 
-if [[ ! -f $clone_dir/Workspaces.qml ]]; then
-  install_clone
-fi
+# Refresh the Atmos-managed clone so a count write picks up widget fixes.
+# install_file cmp-skips identical QML/manifest. The jq patch only sets
+# count and showNames on the bar entry. No shell reload.
+install_clone
 
 program='
   | def entry_id:

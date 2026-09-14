@@ -10,6 +10,105 @@ assertEqual(ws.clampCount(0), 10, "clampCount floors empty to 10");
 assertEqual(ws.clampShown(3), 3, "clampShown keeps 3");
 assertEqual(ws.clampShown(0), 5, "clampShown floors empty to 5");
 assertEqual(ws.clampShown(99), 10, "clampShown caps at 10");
+assertEqual(
+  ws.shownIds(5, []).join(","),
+  "1,2,3,4,5",
+  "shownIds is 1..count when nothing extra is live",
+);
+assertEqual(
+  ws.shownIds(5, [{ id: 10, occupied: true }]).join(","),
+  "1,2,3,4,5,10",
+  "shownIds keeps a workspace past the count when it has windows",
+);
+assertEqual(
+  ws.shownIds(5, [{ id: 10, occupied: false }]).join(","),
+  "1,2,3,4,5",
+  "shownIds drops an empty workspace past the count",
+);
+assertEqual(
+  ws.shownIds(5, [{ id: 10 }], 10).join(","),
+  "1,2,3,4,5,10",
+  "shownIds keeps the focused workspace past the count",
+);
+assertEqual(
+  ws
+    .shownIds(5, [
+      { id: 6, occupied: true },
+      { id: 9, occupied: false },
+      { id: 10, windows: 1 },
+    ])
+    .join(","),
+  "1,2,3,4,5,6,10",
+  "shownIds appends occupied extras in order and skips empty ones",
+);
+assertEqual(
+  ws.shownIds(3, [{ id: 2, occupied: true }]).join(","),
+  "1,2,3",
+  "shownIds does not duplicate an occupied workspace already in 1..count",
+);
+assertEqual(
+  ws.shownIds(5, [{ id: 11, occupied: true }]).join(","),
+  "1,2,3,4,5",
+  "shownIds ignores workspace ids above 10",
+);
+assertEqual(
+  ws.shownIds(0, [{ id: 10, occupied: true }]).join(","),
+  "1,2,3,4,5,10",
+  "shownIds floors an empty count to 5 and still keeps occupied extras",
+);
+assertEqual(
+  ws
+    .shownIds(10, [
+      { id: 6, occupied: true },
+      { id: 10, occupied: true },
+    ])
+    .join(","),
+  "1,2,3,4,5,6,7,8,9,10",
+  "shownIds at count 10 has no extras path",
+);
+assertEqual(
+  ws
+    .shownIds(5, [
+      { id: 10, occupied: true },
+      { id: 7, occupied: true },
+      { id: 6, occupied: true },
+    ])
+    .join(","),
+  "1,2,3,4,5,6,7,10",
+  "shownIds sorts multiple extras",
+);
+assertEqual(
+  ws
+    .shownIds(5, [
+      { id: 0, occupied: true },
+      { id: -3, occupied: true },
+      { id: "special:notes", occupied: true },
+      { id: 11, occupied: true },
+    ])
+    .join(","),
+  "1,2,3,4,5",
+  "shownIds ignores ids at or below 0, above 10, and specials",
+);
+assertEqual(
+  ws
+    .shownIds(5, [
+      { id: 8, occupied: true },
+      { id: 8, occupied: true },
+    ])
+    .join(","),
+  "1,2,3,4,5,8",
+  "shownIds does not duplicate an extra id",
+);
+assertEqual(
+  ws.shownIds(5, [{ id: 10, toplevels: { values: ["win"] } }]).join(","),
+  "1,2,3,4,5,10",
+  "shownIds treats QML-shaped toplevels.values as occupied",
+);
+assertEqual(
+  ws.shownIds(5, [{ id: 10, toplevels: { values: [] } }]).join(","),
+  "1,2,3,4,5",
+  "shownIds treats empty toplevels.values as empty",
+);
 const state = ws.clampState({
   count: 2,
   items: [{ id: "1", name: "code", monitor: "DP-1", isDefault: true }],
@@ -163,8 +262,10 @@ assert(
     barSh.indexOf("omarchy plugin clone") === -1 &&
     barSh.indexOf("setBarWidget") !== -1 &&
     barSh.indexOf("qs ipc") !== -1 &&
-    barSh.indexOf("if [[ ! -f $clone_dir/Workspaces.qml ]]") !== -1,
-  "set-workspace-bar.sh does not reload the shell",
+    barSh.indexOf("install_clone") !== -1 &&
+    barSh.indexOf("cmp -s") !== -1 &&
+    barSh.indexOf("if [[ ! -f $clone_dir/Workspaces.qml ]]") === -1,
+  "set-workspace-bar.sh refreshes the clone without reloading the shell",
 );
 const barQml = fs.readFileSync(
   path.join(__dirname, "..", "scripts", "workspace-bar", "Workspaces.qml"),
@@ -194,10 +295,25 @@ assert(
   "the count slider paints how many workspaces the bar shows",
 );
 assert(
+  pageSrc.indexOf("Workspaces past that with windows still appear") !== -1,
+  "count slider copy mentions extras with windows",
+);
+assert(
   barQml.indexOf("shownCount") !== -1 &&
     barQml.indexOf("settings.count") !== -1 &&
     barQml.indexOf("model: root.shownIds") !== -1,
   "workspace bar widget reads the shown count from settings",
+);
+const extrasRule = "extras-rule: always 1..count; append count+1..10 if occupied or focused.";
+const jsSrc = fs.readFileSync(path.join(__dirname, "..", "services", "Workspaces.js"), "utf8");
+assert(jsSrc.indexOf(extrasRule) !== -1, "Workspaces.js states the extras-rule");
+assert(barQml.indexOf(extrasRule) !== -1, "Workspaces.qml states the same extras-rule");
+assert(
+  barQml.indexOf("id > n && id > 0 && id <= 10") !== -1 &&
+    barQml.indexOf("occupied || id === focusedId") !== -1 &&
+    barQml.indexOf("workspace.toplevels.values.length") !== -1 &&
+    barQml.indexOf("root.shownIds.length") !== -1,
+  "workspace bar widget paints occupied or focused extras past the count",
 );
 const omarchySrc = fs.readFileSync(path.join(__dirname, "..", "services", "Omarchy.qml"), "utf8");
 const writeWs = omarchySrc.slice(

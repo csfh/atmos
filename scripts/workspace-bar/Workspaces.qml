@@ -30,11 +30,25 @@ BarWidget {
 
   readonly property bool showNames: !(settings && settings.showNames === false)
 
+  // extras-rule: always 1..count; append count+1..10 if occupied or focused.
+  // Occupied is toplevels.values.length, same as stock omarchy.workspaces.
+  // HyprlandWorkspace.toplevels is a constant ObjectModel; windows show up there.
   readonly property var shownIds: {
     var ids = []
     var i
     var n = root.shownCount
     for (i = 1; i <= n; i++) ids.push(i)
+    var values = Hyprland.workspaces.values
+    var focusedId = Hyprland.focusedWorkspace !== null ? Hyprland.focusedWorkspace.id : 0
+    for (i = 0; i < values.length; i++) {
+      var workspace = values[i]
+      var id = workspace.id
+      if (!(id > n && id > 0 && id <= 10)) continue
+      if (ids.indexOf(id) !== -1) continue
+      var occupied = workspace.toplevels.values.length > 0
+      if (occupied || id === focusedId) ids.push(id)
+    }
+    ids.sort(function(left, right) { return left - right })
     return ids
   }
 
@@ -52,7 +66,7 @@ BarWidget {
     id: grid
     anchors.fill: parent
     anchors.rightMargin: root.trailingGap
-    columns: root.vertical ? 1 : Math.max(1, root.shownCount)
+    columns: root.vertical ? 1 : Math.max(1, root.shownIds.length)
     columnSpacing: root.vertical ? 0 : Style.space(1)
     rowSpacing: root.vertical ? Style.space(2) : 0
 

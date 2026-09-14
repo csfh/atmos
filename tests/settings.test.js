@@ -927,6 +927,26 @@ assertEqual(
   "nightlight stays a flip with no on/off",
 );
 
+const nightlightWarm = settings.commandFor("nightlightTemperature", 3500, { nightlight: false });
+assertEqual(nightlightWarm.apply.nightlightTemperature, 3500, "warmth apply keeps the kelvin");
+assertEqual(
+  nightlightWarm.apply.nightlight,
+  undefined,
+  "warmth apply does not fabricate the nightlight toggle",
+);
+const nightlightDaylight = settings.commandFor("nightlightTemperature", 6500, {
+  nightlight: true,
+});
+assertEqual(
+  nightlightDaylight.apply.nightlight,
+  undefined,
+  "daylight warmth apply does not mark nightlight off",
+);
+assert(
+  nightlightWarm.argv[nightlightWarm.argv.length - 1] === "3500",
+  "warmth argv is the kelvin only",
+);
+
 const lookPlan = settings.planCommands(
   [
     { key: "hyprLook.gapsIn", value: 9 },

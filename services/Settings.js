@@ -2694,7 +2694,7 @@ function commandFor(key, value, snapshot, opts) {
     var temp = Math.round(Number(value));
     return commandRecord(key, bashScript(opts, "nightlightTemp").concat([String(temp)]), spec, {
       backup: "nightlightTemp",
-      apply: { nightlightTemperature: temp, nightlight: temp < 6000 },
+      apply: { nightlightTemperature: temp },
       sudo: sudo,
     });
   }

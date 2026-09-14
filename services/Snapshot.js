@@ -574,7 +574,7 @@ function clampPatchedValue(key, value, adapters) {
   if (key === "indicatorsItems") return normalizedIndicatorItems(value);
   if (key === "agentsRefreshIntervalSec") {
     var refresh = Number(value) || 900;
-    if (refresh < 30) refresh = 900;
+    if (refresh < 30) refresh = 30;
     return refresh;
   }
   if (key === "spacerSize") {
@@ -587,7 +587,9 @@ function clampPatchedValue(key, value, adapters) {
   if (key === "idleScreensaver" || key === "idleLock") return Number(value) || 0;
   if (key === "nightlightTemperature") {
     var temp = Math.round(Number(value)) || 0;
-    if (temp < 0) temp = 0;
+    if (temp === 0) return 0;
+    if (temp < 3000) temp = 3000;
+    if (temp > 6500) temp = 6500;
     return temp;
   }
   if (key === "wifiBandSelected") return String(value || "auto");

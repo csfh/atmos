@@ -251,6 +251,31 @@ assertEqual(
   "",
   "adopt drops an unknown week start",
 );
+assertEqual(
+  snapshot.adopt({}, { agentsRefreshIntervalSec: 15 }, adapters).agentsRefreshIntervalSec,
+  30,
+  "adopt clamps agents refresh below 30s to 30, matching snapshot.sh",
+);
+assertEqual(
+  snapshot.adopt({}, { agentsRefreshIntervalSec: 900 }, adapters).agentsRefreshIntervalSec,
+  900,
+  "adopt keeps a valid agents refresh",
+);
+assertEqual(
+  snapshot.adopt({}, { nightlightTemperature: 0 }, adapters).nightlightTemperature,
+  0,
+  "adopt keeps nightlight 0 as unset",
+);
+assertEqual(
+  snapshot.adopt({}, { nightlightTemperature: 1000 }, adapters).nightlightTemperature,
+  3000,
+  "adopt clamps nightlight warmth up to the writer floor",
+);
+assertEqual(
+  snapshot.adopt({}, { nightlightTemperature: 9000 }, adapters).nightlightTemperature,
+  6500,
+  "adopt clamps nightlight warmth down to the writer ceiling",
+);
 
 const look = snapshot.adopt({}, { hyprLook: { gapsIn: 80, layout: "niri" } }, adapters);
 assertEqual(look.hyprLook.gapsIn, 64, "adopt clamps hyprLook gapsIn via clampLook");

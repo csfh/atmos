@@ -474,7 +474,8 @@ function settingsCatalog() {
       type: "integer",
       min: 1,
       max: 10,
-      consequence: "How many numbered workspaces the bar always paints. Occupied workspaces past that still show. Hyprland still keeps 1–10.",
+      consequence:
+        "How many numbered workspaces the bar always paints. Occupied workspaces past that still show. Hyprland still keeps 1–10.",
     }),
     listEntry("monitorRules", "Displays", {
       hostBound: true,

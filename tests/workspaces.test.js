@@ -10,7 +10,11 @@ assertEqual(ws.clampCount(0), 10, "clampCount floors empty to 10");
 assertEqual(ws.clampShown(3), 3, "clampShown keeps 3");
 assertEqual(ws.clampShown(0), 5, "clampShown floors empty to 5");
 assertEqual(ws.clampShown(99), 10, "clampShown caps at 10");
-assertEqual(ws.shownIds(5, []).join(","), "1,2,3,4,5", "shownIds is 1..count when nothing extra is live");
+assertEqual(
+  ws.shownIds(5, []).join(","),
+  "1,2,3,4,5",
+  "shownIds is 1..count when nothing extra is live",
+);
 assertEqual(
   ws.shownIds(5, [{ id: 10, occupied: true }]).join(","),
   "1,2,3,4,5,10",
@@ -27,11 +31,13 @@ assertEqual(
   "shownIds keeps the focused workspace past the count",
 );
 assertEqual(
-  ws.shownIds(5, [
-    { id: 6, occupied: true },
-    { id: 9, occupied: false },
-    { id: 10, windows: 1 },
-  ]).join(","),
+  ws
+    .shownIds(5, [
+      { id: 6, occupied: true },
+      { id: 9, occupied: false },
+      { id: 10, windows: 1 },
+    ])
+    .join(","),
   "1,2,3,4,5,6,10",
   "shownIds appends occupied extras in order and skips empty ones",
 );

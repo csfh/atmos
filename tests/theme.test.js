@@ -399,9 +399,26 @@ assert(
   "Current theme click still commits through Omarchy.setTheme",
 );
 
-const extraSelectStart = appearanceSrc.indexOf('label: "Installed themes"');
-const extraBlock = appearanceSrc.slice(extraSelectStart, extraSelectStart + 1800);
+const extraGroupStart = appearanceSrc.indexOf('title: "Additional themes"');
+const extraGroupEnd = appearanceSrc.indexOf('label: "Add a theme"', extraGroupStart);
+const extraBlock = appearanceSrc.slice(extraGroupStart, extraGroupEnd);
 assert(
-  extraBlock.indexOf("onPreviewed") === -1,
-  "Additional themes picker does not subscribe to previewed",
+  extraBlock.indexOf("onPreviewed:") !== -1 && extraBlock.indexOf("Theme.previewNamedTheme") !== -1,
+  "Installed themes hover calls previewNamedTheme",
+);
+assert(
+  extraBlock.indexOf("Theme.restorePreview()") !== -1 &&
+    extraBlock.indexOf("applyNamedTheme") === -1,
+  "Installed themes restore uses restorePreview, not applyNamedTheme",
+);
+assert(
+  extraBlock.indexOf("Omarchy.setTheme") !== -1 &&
+    /onPreviewed:[\s\S]*setTheme/.test(extraBlock) === false,
+  "Installed themes hover does not call setTheme",
+);
+assert(
+  extraBlock.indexOf("onChanged:") !== -1 &&
+    extraBlock.indexOf("root.extraToRemove = value") !== -1 &&
+    extraBlock.indexOf("Omarchy.setTheme(value)") !== -1,
+  "Installed themes click still records extraToRemove and commits through Omarchy.setTheme",
 );

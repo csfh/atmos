@@ -222,7 +222,7 @@ PrefsPage {
     SettingRow {
       available: Omarchy.extraThemes.length > 0
       label: "Installed themes"
-      description: root.extraCountText() + " Pick one to remove, or pull the latest commit on all of them."
+      description: root.extraCountText() + " Pick one to apply or remove, or pull the latest commit on all of them. Hover a name to preview its colors on this window."
       hint: "omarchy theme extras · omarchy theme update · omarchy theme remove"
       query: root.query
       keywords: ["git", "extra", "clone", "uninstall", "delete", "pull"]
@@ -236,7 +236,21 @@ PrefsPage {
           value: root.extraToRemove
           options: Omarchy.extraThemes
           enabled: Omarchy.extraThemes.length > 0
-          onChanged: function(value) { root.extraToRemove = value }
+          onChanged: function(value) {
+            root.extraToRemove = value
+            if (value !== Omarchy.theme) Omarchy.setTheme(value)
+            else Theme.restorePreview()
+          }
+
+          // Same hover path as Current theme: colors.toml only, then
+          // restorePreview puts the live chrome back. Click still records
+          // extraToRemove for Remove… and commits through setTheme.
+          onPreviewed: function(value) {
+            if (value.length > 0 && value !== Omarchy.theme)
+              Theme.previewNamedTheme(value)
+            else
+              Theme.restorePreview()
+          }
         }
 
         Row {

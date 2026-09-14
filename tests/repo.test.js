@@ -232,6 +232,36 @@ assert(
   snapshotSh.indexOf("grep -q 'action = \"workspace\"'") === -1,
   "snapshot.sh does not grep the whole input.lua for a workspace gesture",
 );
+assertEqual(
+  (snapshotSh.match(/hypr_opt misc:enable_swallow/g) || []).length,
+  2,
+  "snapshot.sh look and full dumps query misc:enable_swallow",
+);
+assertEqual(
+  (snapshotSh.match(/hypr_opt misc:swallow_regex/g) || []).length,
+  2,
+  "snapshot.sh look and full dumps query misc:swallow_regex",
+);
+assertEqual(
+  (snapshotSh.match(/hypr_opt misc:on_focus_under_fullscreen/g) || []).length,
+  2,
+  "snapshot.sh look and full dumps query misc:on_focus_under_fullscreen",
+);
+assertEqual(
+  (snapshotSh.match(/enableSwallow: flag\(\$enableSwallow; false\)/g) || []).length,
+  2,
+  "snapshot.sh emits enableSwallow from the live option",
+);
+assertEqual(
+  (snapshotSh.match(/swallowRegex: txt\(\$swallowRegex; ""\)/g) || []).length,
+  2,
+  "snapshot.sh emits swallowRegex from the live option",
+);
+assertEqual(
+  (snapshotSh.match(/onFocusUnderFullscreen: num\(\$onFocusUnderFullscreen; 1\)/g) || []).length,
+  2,
+  "snapshot.sh emits onFocusUnderFullscreen from the live option",
+);
 const workflow = fs.readFileSync(
   path.join(__dirname, "..", ".github", "workflows", "tests.yml"),
   "utf8",

@@ -1,6 +1,7 @@
 import QtQuick
 import "../../components"
 import "../../services"
+import "../../services/Charts.js" as ChartsJs
 import "../../services/LiveStats.js" as LiveStatsJs
 import "../../services/Processes.js" as ProcessesJs
 
@@ -39,6 +40,8 @@ PrefsPage {
     }
   )
   readonly property int rawCount: root.latest && root.latest.processes ? root.latest.processes.length : 0
+  readonly property var parallelRows: ChartsJs.processParallel(root.processes)
+  readonly property var parallelAxes: ["cpu", "rss", "fds", "threads", "nice"]
 
   function actOn(row, action) {
     if (!row || !action) return
@@ -81,6 +84,27 @@ PrefsPage {
     onCanceled: {
       root.pendingProc = null
       root.pendingSignal = ""
+    }
+  }
+
+  PrefsGroup {
+    title: "Parallel coordinates"
+    query: root.query
+    wide: true
+    detail: "One polyline per listed process across CPU%, RSS, FDs, threads, and nice. Rows without those fields stay off the chart."
+    hint: "/proc/*/stat"
+
+    Column {
+      width: parent.width - Theme.copyInset * 2
+      x: Theme.copyInset
+
+      PrefsChart {
+        width: parent.width
+        kind: "parallel"
+        model: root.parallelRows
+        modelB: root.parallelAxes
+        valueText: "Process parallel coordinates"
+      }
     }
   }
 

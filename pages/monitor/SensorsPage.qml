@@ -2,6 +2,7 @@ import QtQuick
 import "../../components"
 import "../../services"
 import "../../services/Hardware.js" as HardwareJs
+import "../../services/Charts.js" as ChartsJs
 import "../../services/LiveStats.js" as LiveStatsJs
 import "../../services/Monitor.js" as MonitorJs
 import "../../services/RichUi.js" as RichUi
@@ -19,6 +20,12 @@ PrefsPage {
   readonly property var history: LiveStatsStore.history
   readonly property var hw: HardwareJs.normalize(Omarchy.hardware)
   readonly property var gpuList: LiveStatsJs.gpuRows(root.hw.gpus, root.latest)
+  readonly property var thermalDays: ChartsJs.thermalDays(root.history)
+  readonly property var raplSteps: {
+    var h = root.history
+    if (!h || h.length < 2) return []
+    return ChartsJs.raplSteps(h[h.length - 2], h[h.length - 1])
+  }
   readonly property var sensors: {
     var src = root.latest && root.latest.sensors ? root.latest.sensors : []
     var q = String(root.sensorFilter || "").toLowerCase()
@@ -83,6 +90,46 @@ PrefsPage {
         values: LiveStatsJs.series(root.history, "cpuTemp")
         valueText: LiveStatsJs.formatTemp(root.latest && root.latest.cpuTemp)
         alert: root.latest && root.latest.cpuTemp != null && root.latest.cpuTemp >= 90
+      }
+    }
+  }
+
+  PrefsGroup {
+    title: "Thermal calendar"
+    query: root.query
+    wide: true
+    detail: "Week × weekday cells of daily-max °C from hwmon temp*_input in this window's sample ring. No private history store."
+    hint: "/sys/class/hwmon/*/temp*_input"
+
+    Column {
+      width: parent.width - Theme.copyInset * 2
+      x: Theme.copyInset
+
+      PrefsChart {
+        width: parent.width
+        kind: "calendar"
+        model: root.thermalDays
+        valueText: "Hwmon thermal calendar"
+      }
+    }
+  }
+
+  PrefsGroup {
+    title: "RAPL waterfall"
+    query: root.query
+    wide: true
+    detail: "Sequential joules since the last sample from powercap energy_uj. This AMD host may have no RAPL nodes; the chart stays empty instead of inventing zeros."
+    hint: "/sys/class/powercap/intel-rapl*/energy_uj"
+
+    Column {
+      width: parent.width - Theme.copyInset * 2
+      x: Theme.copyInset
+
+      PrefsChart {
+        width: parent.width
+        kind: "waterfall"
+        model: root.raplSteps
+        valueText: "RAPL energy waterfall"
       }
     }
   }

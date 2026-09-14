@@ -195,6 +195,11 @@ def read_mem() -> dict:
         swap_used = swap_total - swap_free
         if swap_used < 0:
             swap_used = 0
+    file_pages = None
+    active_file = mem_field(fields, "Active(file)")
+    inactive_file = mem_field(fields, "Inactive(file)")
+    if active_file is not None or inactive_file is not None:
+        file_pages = (active_file or 0) + (inactive_file or 0)
     return {
         "used": used,
         "total": total,
@@ -206,6 +211,10 @@ def read_mem() -> dict:
         "sreclaimable": mem_field(fields, "SReclaimable"),
         "anon": mem_field(fields, "AnonPages"),
         "dirty": mem_field(fields, "Dirty"),
+        "slab": mem_field(fields, "Slab"),
+        "pagetables": mem_field(fields, "PageTables"),
+        "kernelstack": mem_field(fields, "KernelStack"),
+        "file": file_pages,
         "swapUsed": swap_used,
         "swapTotal": swap_total,
     }
@@ -569,6 +578,7 @@ def read_processes(want_uid: int) -> list[dict]:
         except ValueError:
             continue
         read_b, write_b = read_io(pid_s)
+        fds = read_fd_count(pid_s)
         rows.append(
             {
                 "pid": pid,
@@ -584,10 +594,19 @@ def read_processes(want_uid: int) -> list[dict]:
                 "kthread": kthread,
                 "readBytes": read_b,
                 "writeBytes": write_b,
+                "fds": fds,
                 "mine": uid == want_uid,
             }
         )
     return rows
+
+
+def read_fd_count(pid_s: str) -> int | None:
+    path = root("proc", pid_s, "fd")
+    try:
+        return len(os.listdir(path))
+    except OSError:
+        return None
 
 
 def read_ifaces() -> list[dict]:
@@ -607,12 +626,30 @@ def read_ifaces() -> list[dict]:
             continue
         try:
             rx = int(cols[0])
+            rx_packets = int(cols[1])
+            rx_err = int(cols[2])
+            rx_drop = int(cols[3])
             tx = int(cols[8])
+            tx_packets = int(cols[9]) if len(cols) > 9 else 0
+            tx_err = int(cols[10]) if len(cols) > 10 else 0
+            tx_drop = int(cols[11]) if len(cols) > 11 else 0
         except ValueError:
             continue
         if rx < 0 or tx < 0:
             continue
-        out.append({"name": iface, "rx": rx, "tx": tx})
+        out.append(
+            {
+                "name": iface,
+                "rx": rx,
+                "tx": tx,
+                "rxPackets": rx_packets,
+                "txPackets": tx_packets,
+                "rxErr": rx_err,
+                "txErr": tx_err,
+                "rxDrop": rx_drop,
+                "txDrop": tx_drop,
+            }
+        )
     return out
 
 
@@ -677,6 +714,20 @@ TCP_STATES = {
     "08": "closeWait",
 }
 
+TCP_SOCKET_STATES = {
+    "01": "ESTABLISHED",
+    "02": "SYN_SENT",
+    "03": "SYN_RECV",
+    "04": "FIN_WAIT1",
+    "05": "FIN_WAIT2",
+    "06": "TIME_WAIT",
+    "07": "CLOSE",
+    "08": "CLOSE_WAIT",
+    "09": "LAST_ACK",
+    "0A": "LISTEN",
+    "0B": "CLOSING",
+}
+
 
 def read_tcp() -> dict:
     counts = {
@@ -705,6 +756,181 @@ def hwmon_label(base: str, prefix: str, idx: str) -> str:
     if label:
         return label
     return f"{prefix}{idx}"
+
+
+def read_tcp_sockets() -> list[dict]:
+    out: list[dict] = []
+    for fname in ("proc/net/tcp", "proc/net/tcp6"):
+        lines = read_text(root(fname)).splitlines()
+        for line in lines[1:]:
+            cols = line.split()
+            if len(cols) < 10:
+                continue
+            st = TCP_SOCKET_STATES.get(cols[3].upper())
+            if not st:
+                continue
+            inode = cols[9]
+            out.append({"inode": inode, "state": st})
+            if len(out) >= 240:
+                return out
+    return out
+
+
+def parse_irq_table(text: str) -> dict | None:
+    lines = [ln for ln in text.splitlines() if ln.strip()]
+    if len(lines) < 2:
+        return None
+    header = lines[0].split()
+    cpus = 0
+    for part in header:
+        if part.startswith("CPU"):
+            cpus += 1
+    if cpus <= 0:
+        return None
+    rows: list[dict] = []
+    for line in lines[1:]:
+        cols = line.split()
+        if len(cols) < cpus + 1:
+            continue
+        name = cols[0].rstrip(":")
+        values: list[int] = []
+        ok = True
+        for part in cols[1 : 1 + cpus]:
+            if not part.isdigit():
+                ok = False
+                break
+            values.append(int(part))
+        if not ok:
+            continue
+        rows.append({"id": name, "values": values})
+        if len(rows) >= 48:
+            break
+    if not rows:
+        return None
+    return {"cpus": cpus, "rows": rows}
+
+
+def read_interrupts() -> dict | None:
+    return parse_irq_table(read_text(root("proc/interrupts")))
+
+
+def read_softirqs() -> dict | None:
+    return parse_irq_table(read_text(root("proc/softirqs")))
+
+
+def read_buddy() -> list[int] | None:
+    text = read_text(root("proc/buddyinfo"))
+    if not text:
+        return None
+    totals: list[int] = []
+    for line in text.splitlines():
+        cols = line.split()
+        if "zone" not in cols:
+            continue
+        zone_at = cols.index("zone")
+        orders: list[int] = []
+        for part in cols[zone_at + 2 :]:
+            if not part.isdigit():
+                continue
+            orders.append(int(part))
+        if len(orders) < 8:
+            continue
+        if not totals:
+            totals = [0] * len(orders)
+        for i, n in enumerate(totals):
+            if i < len(orders):
+                totals[i] = n + orders[i]
+    if not totals:
+        return None
+    return totals[:11]
+
+
+def read_cgroup_node(path: str, rel: str, depth: int) -> dict | None:
+    if depth > 4:
+        return None
+    current_raw = read_line(os.path.join(path, "memory.current"))
+    if not current_raw.isdigit():
+        current = None
+    else:
+        current = int(current_raw)
+        if current < 0:
+            current = None
+    children: list[dict] = []
+    try:
+        names = sorted(os.listdir(path))
+    except OSError:
+        names = []
+    if depth < 4:
+        for name in names:
+            child_path = os.path.join(path, name)
+            if not os.path.isdir(child_path):
+                continue
+            if name.startswith("."):
+                continue
+            child = read_cgroup_node(child_path, (rel + "/" + name).lstrip("/"), depth + 1)
+            if child:
+                children.append(child)
+            if len(children) >= 24:
+                break
+    if current is None and not children:
+        return None
+    node: dict = {"id": rel or "/", "path": rel or "/"}
+    if current is not None:
+        node["value"] = current
+    if children:
+        node["children"] = children
+    return node
+
+
+def read_cgroups() -> dict | None:
+    base = root("sys/fs/cgroup")
+    if not os.path.isdir(base):
+        return None
+    return read_cgroup_node(base, "", 0)
+
+
+def read_rapl() -> list[dict]:
+    base = root("sys/class/powercap")
+    try:
+        names = sorted(os.listdir(base))
+    except OSError:
+        return []
+    out: list[dict] = []
+    for name in names:
+        energy = read_line(os.path.join(base, name, "energy_uj"))
+        if not energy.isdigit():
+            continue
+        uj = int(energy)
+        if uj < 0:
+            continue
+        label = read_line(os.path.join(base, name, "name")) or name
+        out.append({"id": name, "name": label, "uj": uj})
+        if len(out) >= 12:
+            break
+    return out
+
+
+def read_slabinfo() -> list[dict]:
+    text = read_text(root("proc/slabinfo"), 256000)
+    if not text:
+        return []
+    out: list[dict] = []
+    for line in text.splitlines():
+        if not line or line.startswith("#") or line.startswith("slabinfo"):
+            continue
+        cols = line.split()
+        if len(cols) < 3:
+            continue
+        name = cols[0]
+        if not cols[1].isdigit() or not cols[2].isdigit():
+            continue
+        active = int(cols[1])
+        num = int(cols[2])
+        if active < 0 or num < 0:
+            continue
+        out.append({"name": name, "active": active, "num": num})
+    out.sort(key=lambda row: row["active"], reverse=True)
+    return out[:40]
 
 
 def read_sensors() -> list[dict]:
@@ -780,6 +1006,10 @@ def main() -> int:
         "memSReclaimable": mem["sreclaimable"],
         "memAnon": mem["anon"],
         "memDirty": mem["dirty"],
+        "memSlab": mem["slab"],
+        "memPageTables": mem["pagetables"],
+        "memKernelStack": mem["kernelstack"],
+        "memFile": mem["file"],
         "swapUsed": mem["swapUsed"],
         "swapTotal": mem["swapTotal"],
         "netRx": rx,
@@ -788,6 +1018,13 @@ def main() -> int:
         "disks": read_disks(),
         "psi": read_psi(),
         "tcp": read_tcp(),
+        "tcpSockets": read_tcp_sockets(),
+        "interrupts": read_interrupts(),
+        "softirqs": read_softirqs(),
+        "buddy": read_buddy(),
+        "cgroups": read_cgroups(),
+        "rapl": read_rapl(),
+        "slabs": read_slabinfo(),
         "clkTck": clk_tck(),
         "cpuTemp": read_cpu_temp(),
         "gpus": read_gpus(),

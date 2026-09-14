@@ -1,6 +1,7 @@
 import QtQuick
 import "../../components"
 import "../../services"
+import "../../services/Charts.js" as ChartsJs
 import "../../services/LiveStats.js" as LiveStatsJs
 import "../../services/Monitor.js" as MonitorJs
 import "../../services/Processes.js" as ProcessesJs
@@ -17,6 +18,11 @@ PrefsPage {
   readonly property var memValues: LiveStatsJs.series(root.history, "mem")
   readonly property var swapValues: LiveStatsJs.series(root.history, "swap")
   readonly property var parts: LiveStatsJs.memParts(root.latest)
+  readonly property var buddyValues: ChartsJs.buddySeries(root.history)
+  readonly property var rssTree: ChartsJs.rssTree(root.latest && root.latest.processes)
+  readonly property var memSankey: ChartsJs.meminfoSankey(root.latest)
+  readonly property var cgroupTree: ChartsJs.cgroupTree(root.latest && root.latest.cgroups)
+  readonly property var slabTree: ChartsJs.slabTree(root.latest && root.latest.slabs)
   readonly property var fatProcs: ProcessesJs.list(
     root.latest && root.latest.processes ? root.latest.processes : [],
     "",
@@ -127,6 +133,106 @@ PrefsPage {
       query: root.query
       keywords: ["dirty", "writeback"]
       valueText: root.latest ? root.kbText(root.latest.memDirty) : root.waiting()
+    }
+  }
+
+  PrefsGroup {
+    title: "Buddy horizon"
+    query: root.query
+    wide: true
+    detail: "Free pages from /proc/buddyinfo, weighted by order, folded into horizon bands. Darker is a larger free pool."
+    hint: "/proc/buddyinfo"
+
+    Column {
+      width: parent.width - Theme.copyInset * 2
+      x: Theme.copyInset
+
+      PrefsChart {
+        width: parent.width
+        kind: "horizon"
+        model: root.buddyValues
+        valueText: "Buddy-order horizon"
+      }
+    }
+  }
+
+  PrefsGroup {
+    title: "RSS treemap"
+    query: root.query
+    wide: true
+    detail: "Squarified treemap of VmRSS nested by user then comm. Area is proportional to resident set."
+    hint: "/proc/*/status"
+
+    Column {
+      width: parent.width - Theme.copyInset * 2
+      x: Theme.copyInset
+
+      PrefsChart {
+        width: parent.width
+        kind: "treemap"
+        model: root.rssTree
+        valueText: "Process RSS treemap"
+      }
+    }
+  }
+
+  PrefsGroup {
+    title: "Meminfo Sankey"
+    query: root.query
+    wide: true
+    detail: "MemTotal flowing into Anon, File, Slab, PageTables, KernelStack, Shmem, and Swap. Link width is the kilobyte flow."
+    hint: "/proc/meminfo"
+
+    Column {
+      width: parent.width - Theme.copyInset * 2
+      x: Theme.copyInset
+
+      PrefsChart {
+        width: parent.width
+        kind: "sankey"
+        model: root.memSankey
+        valueText: "Meminfo composition Sankey"
+      }
+    }
+  }
+
+  PrefsGroup {
+    title: "Cgroup sunburst"
+    query: root.query
+    wide: true
+    detail: "Concentric rings of memory.current. Angle is proportional to bytes; radius is cgroup depth. Unreadable cgroup files stay empty."
+    hint: "/sys/fs/cgroup/**/memory.current"
+
+    Column {
+      width: parent.width - Theme.copyInset * 2
+      x: Theme.copyInset
+
+      PrefsChart {
+        width: parent.width
+        kind: "sunburst"
+        model: root.cgroupTree
+        valueText: "Cgroup memory sunburst"
+      }
+    }
+  }
+
+  PrefsGroup {
+    title: "Slab icicle"
+    query: root.query
+    wide: true
+    detail: "Cascading rectangles of /proc/slabinfo occupancy. Length is active objects; depth is the cache prefix. Unreadable slabinfo stays empty."
+    hint: "/proc/slabinfo"
+
+    Column {
+      width: parent.width - Theme.copyInset * 2
+      x: Theme.copyInset
+
+      PrefsChart {
+        width: parent.width
+        kind: "icicle"
+        model: root.slabTree
+        valueText: "Slab cache icicle"
+      }
     }
   }
 

@@ -1,6 +1,7 @@
 import QtQuick
 import "../../components"
 import "../../services"
+import "../../services/Charts.js" as ChartsJs
 import "../../services/LiveStats.js" as LiveStatsJs
 import "../../services/Monitor.js" as MonitorJs
 
@@ -40,6 +41,15 @@ PrefsPage {
   readonly property var tcpParts: MonitorJs.tcpParts(root.latest && root.latest.tcp)
   readonly property var netRxValues: LiveStatsJs.series(root.history, "rxBps")
   readonly property var netTxValues: LiveStatsJs.series(root.history, "txBps")
+  readonly property var tcpBees: ChartsJs.tcpBees(root.latest)
+  readonly property var netRadar: ChartsJs.netdevRadar(root.latest && root.latest.ifaces)
+  readonly property var radarAxes: [
+    { key: "rx", label: "rx" },
+    { key: "tx", label: "tx" },
+    { key: "packets", label: "packets" },
+    { key: "drops", label: "drops" },
+    { key: "errs", label: "errs" }
+  ]
 
   function waiting() {
     return LiveStatsStore.waiting ? "waiting for samples" : "unknown"
@@ -72,6 +82,47 @@ PrefsPage {
         valuesB: root.netTxValues
         valueText: LiveStatsJs.formatNet(root.latest)
         fill: false
+      }
+    }
+  }
+
+  PrefsGroup {
+    title: "TCP beeswarm"
+    query: root.query
+    wide: true
+    detail: "One point per socket from /proc/net/tcp and tcp6, jittered and grouped by TCP state."
+    hint: "/proc/net/tcp"
+
+    Column {
+      width: parent.width - Theme.copyInset * 2
+      x: Theme.copyInset
+
+      PrefsChart {
+        width: parent.width
+        kind: "beeswarm"
+        model: root.tcpBees
+        valueText: "TCP state beeswarm"
+      }
+    }
+  }
+
+  PrefsGroup {
+    title: "Netdev radar"
+    query: root.query
+    wide: true
+    detail: "One polygon per NIC on shared rx/tx bytes, packets, drops, and errs axes from /proc/net/dev."
+    hint: "/proc/net/dev"
+
+    Column {
+      width: parent.width - Theme.copyInset * 2
+      x: Theme.copyInset
+
+      PrefsChart {
+        width: parent.width
+        kind: "radar"
+        model: root.netRadar
+        modelB: root.radarAxes
+        valueText: "Netdev counter radar"
       }
     }
   }

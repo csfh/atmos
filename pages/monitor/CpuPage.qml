@@ -1,6 +1,7 @@
 import QtQuick
 import "../../components"
 import "../../services"
+import "../../services/Charts.js" as ChartsJs
 import "../../services/LiveStats.js" as LiveStatsJs
 import "../../services/Monitor.js" as MonitorJs
 import "../../services/Processes.js" as ProcessesJs
@@ -18,6 +19,18 @@ PrefsPage {
   readonly property var cpuValues: LiveStatsJs.series(root.history, "cpu")
   readonly property var loadValues: LiveStatsJs.series(root.history, "load1")
   readonly property var hist: MonitorJs.cpuHistogram(root.latest && root.latest.processes ? root.latest.processes : [])
+  readonly property var irqRates: {
+    var h = root.history
+    if (!h || h.length < 2) return []
+    return ChartsJs.irqRateMatrix(h[h.length - 2].interrupts, h[h.length - 1].interrupts)
+  }
+  readonly property var psiRidges: ChartsJs.psiRidges(root.history)
+  readonly property var freqViolins: ChartsJs.freqViolins(root.history)
+  readonly property var softirqWedges: {
+    var h = root.history
+    if (!h || h.length < 2) return []
+    return ChartsJs.softirqWedges(h[h.length - 2].softirqs, h[h.length - 1].softirqs)
+  }
   readonly property var hotProcs: ProcessesJs.list(
     root.latest && root.latest.processes ? root.latest.processes : [],
     "",
@@ -78,6 +91,46 @@ PrefsPage {
   }
 
   PrefsGroup {
+    title: "IRQ land"
+    query: root.query
+    wide: true
+    detail: "Per-CPU interrupt rate since the last sample. Fill is relative to the hottest cell. Missing /proc/interrupts stays empty."
+    hint: "/proc/interrupts"
+
+    Column {
+      width: parent.width - Theme.copyInset * 2
+      x: Theme.copyInset
+
+      PrefsChart {
+        width: parent.width
+        kind: "heatmap"
+        model: root.irqRates
+        valueText: "IRQ land heatmap"
+      }
+    }
+  }
+
+  PrefsGroup {
+    title: "PSI ridgeline"
+    query: root.query
+    wide: true
+    detail: "cpu, memory, and io some avg10 overlapping on one time scale."
+    hint: "/proc/pressure"
+
+    Column {
+      width: parent.width - Theme.copyInset * 2
+      x: Theme.copyInset
+
+      PrefsChart {
+        width: parent.width
+        kind: "ridgeline"
+        model: root.psiRidges
+        valueText: "PSI stall ridgeline"
+      }
+    }
+  }
+
+  PrefsGroup {
     title: "Cores"
     query: root.query
     wide: true
@@ -120,6 +173,46 @@ PrefsPage {
           valueText: LiveStatsJs.formatPercent(modelData && modelData.cpu)
           alert: MonitorJs.alertLevel(modelData && modelData.cpu) === "hot"
         }
+      }
+    }
+  }
+
+  PrefsGroup {
+    title: "Core frequency"
+    query: root.query
+    wide: true
+    detail: "Violin of scaling_cur_freq P-state spread per core over the sample window."
+    hint: "scaling_cur_freq"
+
+    Column {
+      width: parent.width - Theme.copyInset * 2
+      x: Theme.copyInset
+
+      PrefsChart {
+        width: parent.width
+        kind: "violin"
+        model: root.freqViolins
+        valueText: "Core-freq violin"
+      }
+    }
+  }
+
+  PrefsGroup {
+    title: "Softirq rose"
+    query: root.query
+    wide: true
+    detail: "Nightingale rose of /proc/softirqs rates. Wedge area encodes the rate."
+    hint: "/proc/softirqs"
+
+    Column {
+      width: parent.width - Theme.copyInset * 2
+      x: Theme.copyInset
+
+      PrefsChart {
+        width: parent.width
+        kind: "rose"
+        model: root.softirqWedges
+        valueText: "Softirq Nightingale rose"
       }
     }
   }

@@ -215,7 +215,34 @@ write(
 );
 write(
   path.join(fixture, "proc/meminfo"),
-  "MemTotal:        1000 kB\nMemFree:          100 kB\nMemAvailable:     400 kB\n",
+  "MemTotal:        1000 kB\nMemFree:          100 kB\nMemAvailable:     400 kB\n" +
+    "AnonPages:        200 kB\nSlab:              40 kB\nPageTables:        10 kB\n" +
+    "KernelStack:       8 kB\nActive(file):      30 kB\nInactive(file):    20 kB\n" +
+    "Shmem:             15 kB\n",
+);
+write(
+  path.join(fixture, "proc/interrupts"),
+  "           CPU0       CPU1\n" +
+    "  0:         10          2   IO-APIC   2-edge      timer\n" +
+    "NMI:          1          3   Non-maskable interrupts\n",
+);
+write(
+  path.join(fixture, "proc/softirqs"),
+  "                CPU0       CPU1\nNET_RX:          8          4\nTIMER:           2          1\n",
+);
+write(
+  path.join(fixture, "proc/buddyinfo"),
+  "Node 0, zone    DMA32      1    0    2    0    0    0    0    0    0    0    0\n",
+);
+write(path.join(fixture, "proc/200/fd/0"), "");
+write(path.join(fixture, "proc/200/fd/1"), "");
+write(path.join(fixture, "sys/fs/cgroup/memory.current"), "1000\n");
+write(path.join(fixture, "sys/fs/cgroup/user.slice/memory.current"), "800\n");
+write(path.join(fixture, "sys/class/powercap/intel-rapl:0/name"), "package-0\n");
+write(path.join(fixture, "sys/class/powercap/intel-rapl:0/energy_uj"), "5000000\n");
+write(
+  path.join(fixture, "proc/slabinfo"),
+  "slabinfo - version: 2.1\n# name            <active_objs> <num_objs>\nkmalloc-8             30     40\ndentry                10     12\n",
 );
 write(
   path.join(fixture, "proc/net/dev"),
@@ -284,6 +311,27 @@ assertEqual(emitted.psi.cpu, 1.25, "live-stats.py reads PSI avg10");
 assertEqual(emitted.tcp.listen, 1, "live-stats.py counts LISTEN");
 assertEqual(emitted.tcp.established, 1, "live-stats.py counts ESTABLISHED");
 assertEqual(Array.isArray(emitted.sensors), true, "live-stats.py emits sensors");
+assertEqual(emitted.memSlab, 40, "live-stats.py reads Slab");
+assertEqual(emitted.memFile, 50, "live-stats.py sums Active(file) and Inactive(file)");
+assert(
+  emitted.interrupts && emitted.interrupts.rows.length >= 2,
+  "live-stats.py reads /proc/interrupts",
+);
+assertEqual(emitted.interrupts.rows[0].values[0], 10, "live-stats.py keeps per-CPU IRQ counts");
+assert(
+  emitted.softirqs && emitted.softirqs.rows[0].id === "NET_RX",
+  "live-stats.py reads /proc/softirqs",
+);
+assertEqual(emitted.buddy[0], 1, "live-stats.py reads /proc/buddyinfo order 0");
+assert(emitted.tcpSockets.length >= 2, "live-stats.py lists TCP sockets");
+assertEqual(firefox.fds, 2, "live-stats.py counts /proc/pid/fd");
+assert(
+  emitted.cgroups && emitted.cgroups.value === 1000,
+  "live-stats.py reads cgroup memory.current",
+);
+assertEqual(emitted.rapl[0].uj, 5000000, "live-stats.py reads RAPL energy_uj");
+assertEqual(emitted.slabs[0].name, "kmalloc-8", "live-stats.py reads /proc/slabinfo");
+assertEqual(emitted.ifaces[0].rxPackets, 0, "live-stats.py reads netdev packet counters");
 
 write(path.join(fixture, "sys/class/hwmon/hwmon0/name"), "coretemp\n");
 write(path.join(fixture, "sys/class/hwmon/hwmon0/temp1_input"), "0\n");

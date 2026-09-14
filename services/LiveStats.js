@@ -80,6 +80,7 @@ function parseProcess(row) {
     writeBytes: nonNeg(row.writeBytes),
     readBps: nonNeg(row.readBps),
     writeBps: nonNeg(row.writeBps),
+    fds: nonNeg(row.fds),
     depth: nonNeg(row.depth) || 0,
   };
 }
@@ -108,6 +109,12 @@ function parseIface(row) {
     tx: nonNeg(row.tx),
     rxBps: nonNeg(row.rxBps),
     txBps: nonNeg(row.txBps),
+    rxPackets: nonNeg(row.rxPackets),
+    txPackets: nonNeg(row.txPackets),
+    rxErr: nonNeg(row.rxErr),
+    txErr: nonNeg(row.txErr),
+    rxDrop: nonNeg(row.rxDrop),
+    txDrop: nonNeg(row.txDrop),
   };
 }
 
@@ -160,6 +167,117 @@ function parseTcp(raw) {
   };
 }
 
+function parseIrqTable(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  var rows = Array.isArray(raw.rows) ? raw.rows : [];
+  var out = [];
+  var i;
+  var j;
+  var vals;
+  var cells;
+  var n;
+  var row;
+  for (i = 0; i < rows.length; i++) {
+    row = rows[i];
+    if (!row || row.id == null) continue;
+    vals = [];
+    cells = Array.isArray(row.values) ? row.values : [];
+    for (j = 0; j < cells.length; j++) {
+      n = nonNeg(cells[j]);
+      vals.push(n);
+    }
+    if (!vals.length) continue;
+    out.push({ id: String(row.id), values: vals });
+  }
+  if (!out.length) return null;
+  return { cpus: nonNeg(raw.cpus), rows: out };
+}
+
+function parseTcpSockets(raw) {
+  var src = Array.isArray(raw) ? raw : [];
+  var out = [];
+  var i;
+  var state;
+  for (i = 0; i < src.length; i++) {
+    if (!src[i]) continue;
+    state = String(src[i].state || "");
+    if (!state) continue;
+    out.push({
+      inode: src[i].inode != null ? String(src[i].inode) : String(i),
+      state: state,
+    });
+  }
+  return out;
+}
+
+function parseBuddy(raw) {
+  var src = Array.isArray(raw) ? raw : [];
+  var out = [];
+  var i;
+  var n;
+  for (i = 0; i < src.length; i++) {
+    n = nonNeg(src[i]);
+    if (n === null) return null;
+    out.push(n);
+  }
+  return out.length ? out : null;
+}
+
+function parseCgroupNode(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  var kids = Array.isArray(raw.children) ? raw.children : [];
+  var children = [];
+  var i;
+  var child;
+  for (i = 0; i < kids.length; i++) {
+    child = parseCgroupNode(kids[i]);
+    if (child) children.push(child);
+  }
+  var value = nonNeg(raw.value);
+  if (value === null && !children.length) return null;
+  var node = { id: String(raw.id || raw.path || "") };
+  if (value !== null) node.value = value;
+  if (children.length) node.children = children;
+  return node;
+}
+
+function parseRapl(raw) {
+  var src = Array.isArray(raw) ? raw : [];
+  var out = [];
+  var i;
+  var uj;
+  for (i = 0; i < src.length; i++) {
+    if (!src[i] || src[i].id == null) continue;
+    uj = nonNeg(src[i].uj);
+    if (uj === null) continue;
+    out.push({
+      id: String(src[i].id),
+      name: String(src[i].name || src[i].id),
+      uj: uj,
+    });
+  }
+  return out;
+}
+
+function parseSlabs(raw) {
+  var src = Array.isArray(raw) ? raw : [];
+  var out = [];
+  var i;
+  var active;
+  var name;
+  for (i = 0; i < src.length; i++) {
+    name = String(src[i] && src[i].name ? src[i].name : "");
+    active = nonNeg(src[i] && src[i].active);
+    if (!name || active === null) continue;
+    out.push({
+      name: name,
+      active: active,
+      num: nonNeg(src[i].num),
+    });
+  }
+  return out;
+}
+
 function mapList(raw, fn) {
   var src = Array.isArray(raw) ? raw : [];
   var out = [];
@@ -210,6 +328,10 @@ function parse(raw) {
     memSReclaimable: nonNeg(data.memSReclaimable),
     memAnon: nonNeg(data.memAnon),
     memDirty: nonNeg(data.memDirty),
+    memSlab: nonNeg(data.memSlab),
+    memPageTables: nonNeg(data.memPageTables),
+    memKernelStack: nonNeg(data.memKernelStack),
+    memFile: nonNeg(data.memFile),
     swapUsed: nonNeg(data.swapUsed),
     swapTotal: nonNeg(data.swapTotal),
     netRx: nonNeg(data.netRx),
@@ -218,6 +340,13 @@ function parse(raw) {
     disks: mapList(data.disks, parseDisk),
     psi: parsePsi(data.psi),
     tcp: parseTcp(data.tcp),
+    tcpSockets: parseTcpSockets(data.tcpSockets),
+    interrupts: parseIrqTable(data.interrupts),
+    softirqs: parseIrqTable(data.softirqs),
+    buddy: parseBuddy(data.buddy),
+    cgroups: parseCgroupNode(data.cgroups),
+    rapl: parseRapl(data.rapl),
+    slabs: parseSlabs(data.slabs),
     clkTck: nonNeg(data.clkTck) || 100,
     cpuTemp: parseTemp(data.cpuTemp),
     gpus: parseGpus(data.gpus),
@@ -326,6 +455,7 @@ function decorateProcesses(prev, sample, dtMs) {
       writeBytes: row.writeBytes,
       readBps: last ? byteRate(last.readBytes, row.readBytes, dtMs) : null,
       writeBps: last ? byteRate(last.writeBytes, row.writeBytes, dtMs) : null,
+      fds: row.fds,
       depth: 0,
     });
   }
@@ -384,6 +514,12 @@ function decorateIfaces(prev, sample, dtMs) {
       tx: row.tx,
       rxBps: rates.rxBps,
       txBps: rates.txBps,
+      rxPackets: row.rxPackets,
+      txPackets: row.txPackets,
+      rxErr: row.rxErr,
+      txErr: row.txErr,
+      rxDrop: row.rxDrop,
+      txDrop: row.txDrop,
     });
   }
   return out;
@@ -449,6 +585,10 @@ function pushSample(history, sample, now) {
     memSReclaimable: parsed.memSReclaimable,
     memAnon: parsed.memAnon,
     memDirty: parsed.memDirty,
+    memSlab: parsed.memSlab,
+    memPageTables: parsed.memPageTables,
+    memKernelStack: parsed.memKernelStack,
+    memFile: parsed.memFile,
     swapUsed: parsed.swapUsed,
     swapTotal: parsed.swapTotal,
     netRx: parsed.netRx,
@@ -457,6 +597,13 @@ function pushSample(history, sample, now) {
     disks: decorateDisks(prev, parsed, dt),
     psi: parsed.psi,
     tcp: parsed.tcp,
+    tcpSockets: parsed.tcpSockets,
+    interrupts: parsed.interrupts,
+    softirqs: parsed.softirqs,
+    buddy: parsed.buddy,
+    cgroups: parsed.cgroups,
+    rapl: parsed.rapl,
+    slabs: parsed.slabs,
     clkTck: parsed.clkTck,
     cpuTemp: parsed.cpuTemp,
     gpus: parsed.gpus,

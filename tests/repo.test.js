@@ -1858,6 +1858,121 @@ assert(
   "PrefsSparkline does not round cards or add shadows",
 );
 assert(sparkSrc.indexOf("valuesB") !== -1, "PrefsSparkline can stroke a second series");
+const chartsSrc = fs.readFileSync(path.join(__dirname, "..", "services", "Charts.js"), "utf8");
+const prefsChartSrc = fs.readFileSync(
+  path.join(__dirname, "..", "components", "PrefsChart.qml"),
+  "utf8",
+);
+const cpuPageSrc = fs.readFileSync(
+  path.join(__dirname, "..", "pages", "monitor", "CpuPage.qml"),
+  "utf8",
+);
+const memPageSrc = fs.readFileSync(
+  path.join(__dirname, "..", "pages", "monitor", "MemoryPage.qml"),
+  "utf8",
+);
+const diskPageSrc = fs.readFileSync(
+  path.join(__dirname, "..", "pages", "monitor", "DiskPage.qml"),
+  "utf8",
+);
+const trafficPageSrc = fs.readFileSync(
+  path.join(__dirname, "..", "pages", "monitor", "TrafficPage.qml"),
+  "utf8",
+);
+const sensorsPageSrc = fs.readFileSync(
+  path.join(__dirname, "..", "pages", "monitor", "SensorsPage.qml"),
+  "utf8",
+);
+const processesPageSrc = fs.readFileSync(
+  path.join(__dirname, "..", "pages", "monitor", "ProcessesPage.qml"),
+  "utf8",
+);
+const liveStatsPy = fs.readFileSync(path.join(__dirname, "..", "scripts", "live-stats.py"), "utf8");
+assert(prefsChartSrc.indexOf("qs.Ui") === -1, "PrefsChart does not import qs.Ui");
+assert(prefsChartSrc.indexOf("ChartsJs.heatmapCells") !== -1, "PrefsChart paints heatmap cells");
+assert(
+  cpuPageSrc.indexOf('kind: "heatmap"') !== -1 &&
+    cpuPageSrc.indexOf("/proc/interrupts") !== -1 &&
+    liveStatsPy.indexOf('root("proc/interrupts")') !== -1,
+  "IRQ land heatmap is bound to /proc/interrupts",
+);
+assert(
+  cpuPageSrc.indexOf('kind: "ridgeline"') !== -1 && cpuPageSrc.indexOf("/proc/pressure") !== -1,
+  "PSI stall ridgeline is bound to /proc/pressure",
+);
+assert(
+  cpuPageSrc.indexOf('kind: "violin"') !== -1 && cpuPageSrc.indexOf("scaling_cur_freq") !== -1,
+  "core-freq violin is bound to scaling_cur_freq",
+);
+assert(
+  cpuPageSrc.indexOf('kind: "rose"') !== -1 &&
+    cpuPageSrc.indexOf("/proc/softirqs") !== -1 &&
+    liveStatsPy.indexOf('root("proc/softirqs")') !== -1,
+  "softirq Nightingale rose is bound to /proc/softirqs",
+);
+assert(
+  memPageSrc.indexOf('kind: "horizon"') !== -1 &&
+    memPageSrc.indexOf("/proc/buddyinfo") !== -1 &&
+    liveStatsPy.indexOf('root("proc/buddyinfo")') !== -1,
+  "buddy-order horizon is bound to /proc/buddyinfo",
+);
+assert(
+  memPageSrc.indexOf('kind: "treemap"') !== -1 && memPageSrc.indexOf("/proc/*/status") !== -1,
+  "process RSS treemap is bound to /proc/*/status",
+);
+assert(
+  memPageSrc.indexOf('kind: "sankey"') !== -1 && memPageSrc.indexOf("/proc/meminfo") !== -1,
+  "meminfo composition Sankey is bound to /proc/meminfo",
+);
+assert(
+  memPageSrc.indexOf('kind: "sunburst"') !== -1 &&
+    memPageSrc.indexOf("memory.current") !== -1 &&
+    liveStatsPy.indexOf("memory.current") !== -1,
+  "cgroup memory sunburst is bound to memory.current",
+);
+assert(
+  memPageSrc.indexOf('kind: "icicle"') !== -1 &&
+    memPageSrc.indexOf("/proc/slabinfo") !== -1 &&
+    liveStatsPy.indexOf('root("proc/slabinfo")') !== -1,
+  "slab cache icicle is bound to /proc/slabinfo",
+);
+assert(
+  diskPageSrc.indexOf('kind: "streamgraph"') !== -1 &&
+    diskPageSrc.indexOf("/proc/diskstats") !== -1,
+  "blockdev I/O streamgraph is bound to /proc/diskstats",
+);
+assert(
+  trafficPageSrc.indexOf('kind: "beeswarm"') !== -1 &&
+    trafficPageSrc.indexOf("/proc/net/tcp") !== -1 &&
+    liveStatsPy.indexOf("proc/net/tcp6") !== -1,
+  "TCP state beeswarm is bound to /proc/net/tcp and tcp6",
+);
+assert(
+  trafficPageSrc.indexOf('kind: "radar"') !== -1 && trafficPageSrc.indexOf("/proc/net/dev") !== -1,
+  "netdev counter radar is bound to /proc/net/dev",
+);
+assert(
+  sensorsPageSrc.indexOf('kind: "calendar"') !== -1 &&
+    sensorsPageSrc.indexOf("temp*_input") !== -1 &&
+    liveStatsPy.indexOf('name.endswith("_input")') !== -1,
+  "hwmon thermal calendar is bound to temp*_input",
+);
+assert(
+  sensorsPageSrc.indexOf('kind: "waterfall"') !== -1 &&
+    sensorsPageSrc.indexOf("energy_uj") !== -1 &&
+    liveStatsPy.indexOf("energy_uj") !== -1,
+  "RAPL energy waterfall is bound to energy_uj",
+);
+assert(
+  processesPageSrc.indexOf('kind: "parallel"') !== -1 &&
+    processesPageSrc.indexOf("/proc/*/stat") !== -1,
+  "process parallel coordinates are bound to /proc/*/stat",
+);
+assert(
+  chartsSrc.indexOf("function nightingaleWedges") !== -1 &&
+    chartsSrc.indexOf("function waterfallBars") !== -1,
+  "Charts.js ships Nightingale and waterfall geometry",
+);
 const meterSrc = fs.readFileSync(
   path.join(__dirname, "..", "components", "PrefsMeter.qml"),
   "utf8",

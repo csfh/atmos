@@ -1,6 +1,7 @@
 import QtQuick
 import "../../components"
 import "../../services"
+import "../../services/Charts.js" as ChartsJs
 import "../../services/LiveStats.js" as LiveStatsJs
 import "../../services/Monitor.js" as MonitorJs
 import "../../services/Processes.js" as ProcessesJs
@@ -54,6 +55,28 @@ PrefsPage {
     var w = LiveStatsJs.formatBps(row && row.writeBps)
     if (!r && !w) return root.waiting()
     return "↓ " + (r || "—") + "  ↑ " + (w || "—")
+  }
+
+  readonly property var diskStream: ChartsJs.diskStream(root.history)
+
+  PrefsGroup {
+    title: "I/O streamgraph"
+    query: root.query
+    wide: true
+    detail: "Stacked bandwidth about a centerline, one layer per whole disk from /proc/diskstats."
+    hint: "/proc/diskstats"
+
+    Column {
+      width: parent.width - Theme.copyInset * 2
+      x: Theme.copyInset
+
+      PrefsChart {
+        width: parent.width
+        kind: "streamgraph"
+        model: root.diskStream
+        valueText: "Blockdev I/O streamgraph"
+      }
+    }
   }
 
   PrefsGroup {

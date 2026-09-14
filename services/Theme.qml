@@ -66,6 +66,7 @@ QtObject {
   readonly property int coreBarHeight: Math.max(52, Math.round(fontSize * 3.8))
   readonly property int stackedBarHeight: Math.max(10, Math.round(fontSize * 0.75))
   readonly property int histogramHeight: Math.max(64, Math.round(fontSize * 4.6))
+  readonly property int chartHeight: Math.max(96, Math.round(fontSize * 7))
   // Sidebar status badges. A step above caption so the glyph reads at a
   // glance. Status ink is Theme.urgent / Theme.muted, not a private green.
   readonly property int badgeSize: Math.max(12, fontSize + 1)

@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell.Io
 import "../components"
 import "../services"
+import "../services/Hardware.js" as HardwareJs
 import "../services/LiveStats.js" as LiveStatsJs
 import "../services/Processes.js" as ProcessesJs
 import "../services/RichUi.js" as RichUi
@@ -24,9 +25,12 @@ PrefsPage {
     root.procQuery,
     root.procSort
   )
+  readonly property var hw: HardwareJs.normalize(Omarchy.hardware)
   readonly property var cpuValues: LiveStatsJs.series(root.history, "cpu")
   readonly property var memValues: LiveStatsJs.series(root.history, "mem")
   readonly property var netValues: LiveStatsJs.series(root.history, "rxBps")
+  readonly property var cpuTempValues: LiveStatsJs.series(root.history, "cpuTemp")
+  readonly property var gpuList: LiveStatsJs.gpuRows(root.hw.gpus, root.latest)
 
   function cpuCaption() {
     var pct = root.latest ? LiveStatsJs.formatPercent(root.latest.cpu) : ""
@@ -45,6 +49,36 @@ PrefsPage {
   function netCaption() {
     var text = LiveStatsJs.formatNet(root.latest)
     return text || "waiting for samples"
+  }
+
+  function cpuTempCaption() {
+    if (root.history.length === 0) return "waiting for samples"
+    return LiveStatsJs.formatTemp(root.latest && root.latest.cpuTemp) || "unknown"
+  }
+
+  function gpuName(gpu) {
+    return (gpu && gpu.name) || "GPU"
+  }
+
+  function gpuDescription(gpu) {
+    var summary = HardwareJs.gpuSummary(gpu)
+    if (summary) return summary
+    var parts = []
+    if (gpu && gpu.vendor) parts.push(gpu.vendor)
+    if (gpu && gpu.driver) parts.push(gpu.driver)
+    return parts.join(" · ")
+  }
+
+  function gpuCaption(gpu) {
+    if (root.history.length === 0) return "waiting for samples"
+    var t = LiveStatsJs.gpuTempAt(root.latest, gpu)
+    if (t == null) return "unknown"
+    var text = LiveStatsJs.formatTemp(t)
+    return LiveStatsJs.gpuOwnTemp(root.latest, gpu) == null ? text + " (package)" : text
+  }
+
+  function gpuValues(gpu) {
+    return LiveStatsJs.gpuSeries(root.history, gpu)
   }
 
   function pollStats() {
@@ -181,6 +215,49 @@ PrefsPage {
         width: parent.width
         values: root.netValues
         valueText: root.netCaption()
+      }
+    }
+  }
+
+  PrefsGroup {
+    title: "Thermal"
+    query: root.query
+    detail: "Package and GPU sensors. GPU names come from Hardware. A missing reading stays unknown."
+
+    SettingRow {
+      label: "Processor"
+      description: "CPU package temperature."
+      hint: "/sys/class/hwmon · /sys/class/thermal"
+      query: root.query
+      keywords: ["temperature", "cpu", "heat", "thermal", "package"]
+      valueText: root.cpuTempCaption()
+      stretchControl: true
+
+      PrefsSparkline {
+        width: parent.width
+        values: root.cpuTempValues
+        valueText: root.cpuTempCaption()
+      }
+    }
+
+    Repeater {
+      model: root.gpuList
+
+      SettingRow {
+        required property var modelData
+        label: root.gpuName(modelData)
+        description: root.gpuDescription(modelData)
+        hint: "/sys/class/drm"
+        query: root.query
+        keywords: ["temperature", "gpu", "heat", "thermal", "graphics"]
+        valueText: root.gpuCaption(modelData)
+        stretchControl: true
+
+        PrefsSparkline {
+          width: parent.width
+          values: root.gpuValues(modelData)
+          valueText: root.gpuCaption(modelData)
+        }
       }
     }
   }

@@ -92,6 +92,104 @@ assert(
   "sparklinePoints puts a larger value higher",
 );
 
+const hot = live.parse(
+  JSON.stringify({
+    cpuIdle: 50,
+    cpuTotal: 100,
+    cpuTemp: 87,
+    gpus: [
+      {
+        card: "card0",
+        pciId: "1002:73ff",
+        name: "AMD",
+        vendor: "AMD",
+        driver: "amdgpu",
+        integrated: false,
+        temp: 61,
+      },
+      {
+        card: "card1",
+        pciId: "8086:a7a0",
+        name: "Intel",
+        vendor: "Intel",
+        driver: "i915",
+        integrated: true,
+        temp: null,
+      },
+    ],
+  }),
+);
+assertEqual(hot.cpuTemp, 87, "parse reads cpuTemp");
+assertEqual(hot.gpus.length, 2, "parse keeps GPU rows");
+assertEqual(hot.gpus[0].temp, 61, "parse passes a GPU temperature");
+assertEqual(hot.gpus[0].pciId, "1002:73ff", "parse keeps a GPU pciId");
+assertEqual(hot.gpus[1].temp, null, "parse keeps an unknown GPU temperature as null");
+assertEqual(hot.gpus[1].integrated, true, "parse keeps the integrated flag");
+assertEqual(live.parseTemp(0), null, "parseTemp treats 0 as unknown");
+assertEqual(live.parseTemp(-4), null, "parseTemp treats a non-positive as unknown");
+assertEqual(live.parse('{"cpuTemp":0}').cpuTemp, null, "parse does not invent 0 °C");
+assertEqual(live.gpuTempAt(hot, "card0"), 61, "gpuTempAt prefers the GPU sensor");
+assertEqual(live.gpuTempAt(hot, { pciId: "1002:73ff" }), 61, "gpuTempAt matches hardware pciId");
+assertEqual(live.gpuTempAt(hot, "card1"), 87, "gpuTempAt falls back to package on integrated");
+assertEqual(
+  live.gpuTempAt(
+    live.parse(
+      JSON.stringify({
+        cpuTemp: 70,
+        gpus: [{ card: "card9", name: "NVIDIA", driver: "nvidia", pciId: "10de:25a2" }],
+      }),
+    ),
+    "card9",
+  ),
+  null,
+  "gpuTempAt never borrows the CPU on discrete",
+);
+assertEqual(
+  live.gpuTempAt({ cpuTemp: 70, gpus: [] }, { driver: "i915", pciId: "8086:a7a0" }),
+  70,
+  "gpuTempAt uses package when inventory i915 has no live row",
+);
+assertEqual(live.gpuTempAt(hot, "nope"), null, "gpuTempAt misses unknown cards");
+assertEqual(live.gpuOwnTemp(hot, "card1"), null, "gpuOwnTemp is empty without a sensor");
+assertEqual(live.formatTemp(87), "87 °C", "formatTemp formats celsius");
+assertEqual(live.formatTemp(null), "", "formatTemp unknown is empty");
+assertEqual(live.formatTemp(0), "", "formatTemp does not invent 0 °C");
+assertEqual(
+  live.gpuRows([{ name: "Radeon", pciId: "1002:73ff" }], hot).length,
+  1,
+  "gpuRows prefers hardware inventory",
+);
+assertEqual(live.gpuRows([], hot)[0].card, "card0", "gpuRows falls back to live DRM cards");
+
+let th = live.pushSample(
+  [],
+  live.parse(JSON.stringify({ gpus: [{ card: "card0", name: "AMD", temp: 60 }] })),
+  1,
+);
+th = live.pushSample(
+  th,
+  live.parse(JSON.stringify({ gpus: [{ card: "card0", name: "AMD", temp: 62 }] })),
+  2,
+);
+assertEqual(live.gpuSeries(th, "card0").join(","), "60,62", "gpuSeries collects temps by card");
+assertEqual(live.gpuSeries(th, "card9").length, 0, "gpuSeries misses unknown cards");
+
+let ig = live.pushSample(
+  [],
+  live.parse(
+    JSON.stringify({
+      cpuTemp: 70,
+      gpus: [{ card: "card2", name: "Intel", driver: "i915", integrated: true, temp: null }],
+    }),
+  ),
+  1,
+);
+assertEqual(
+  live.gpuSeries(ig, "card2").join(","),
+  "70",
+  "gpuSeries graphs the package on integrated",
+);
+
 function write(file, text) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, text);
@@ -148,5 +246,47 @@ assertEqual(emitted.netRx, 500, "live-stats.py skips loopback rx");
 assertEqual(emitted.processes.length, 1, "live-stats.py keeps this user's processes");
 assertEqual(emitted.processes[0].pid, 200, "live-stats.py emits firefox");
 assertEqual(emitted.processes[0].ticks, 40, "live-stats.py ticks are utime+stime");
+assertEqual(emitted.cpuTemp, null, "live-stats.py has no thermal on a bare fixture");
+assertEqual(Array.isArray(emitted.gpus), true, "live-stats.py emits a GPU list");
+assertEqual(emitted.gpus.length, 0, "live-stats.py has no DRM cards on a bare fixture");
+
+write(path.join(fixture, "sys/class/hwmon/hwmon0/name"), "coretemp\n");
+write(path.join(fixture, "sys/class/hwmon/hwmon0/temp1_input"), "0\n");
+write(path.join(fixture, "sys/class/thermal/thermal_zone0/type"), "acpitz\n");
+write(path.join(fixture, "sys/class/thermal/thermal_zone0/temp"), "41000\n");
+const zeroPy = spawnSync("python3", [path.join(__dirname, "..", "scripts", "live-stats.py")], {
+  encoding: "utf8",
+  env: { ...process.env, ATMOS_SYS_ROOT: fixture, ATMOS_UID: "1000" },
+});
+assertEqual(zeroPy.status, 0, "live-stats.py exits 0 when hwmon is zero");
+assertEqual(live.parse(zeroPy.stdout).cpuTemp, null, "live-stats.py does not invent 0 °C");
+
+write(path.join(fixture, "sys/class/hwmon/hwmon0/temp1_input"), "83400\n");
+write(path.join(fixture, "sys/class/drm/card0/device/vendor"), "0x1002\n");
+write(path.join(fixture, "sys/class/drm/card0/device/device"), "0x73ff\n");
+write(path.join(fixture, "sys/class/drm/card0/device/uevent"), "PCI_SLOT_NAME=0000:03:00.0\n");
+write(path.join(fixture, "sys/class/drm/card0/device/hwmon/hwmon1/temp1_input"), "61200\n");
+fs.symlinkSync("amdgpu", path.join(fixture, "sys/class/drm/card0/device/driver"));
+write(path.join(fixture, "sys/class/drm/card1/device/vendor"), "0x8086\n");
+write(path.join(fixture, "sys/class/drm/card1/device/device"), "0xa7a0\n");
+write(path.join(fixture, "sys/class/drm/card1/device/uevent"), "PCI_SLOT_NAME=0000:00:02.0\n");
+fs.symlinkSync("i915", path.join(fixture, "sys/class/drm/card1/device/driver"));
+write(path.join(fixture, "sys/class/drm/card0-DP-1/device/vendor"), "0x1002\n");
+
+const hotPy = spawnSync("python3", [path.join(__dirname, "..", "scripts", "live-stats.py")], {
+  encoding: "utf8",
+  env: { ...process.env, ATMOS_SYS_ROOT: fixture, ATMOS_UID: "1000" },
+});
+assertEqual(hotPy.status, 0, "live-stats.py exits 0 with thermal fixtures");
+const hotEmit = live.parse(hotPy.stdout);
+assertEqual(hotEmit.cpuTemp, 83, "live-stats.py reads coretemp");
+assertEqual(hotEmit.gpus.length, 2, "live-stats.py skips DRM connectors");
+assertEqual(hotEmit.gpus[0].pciId, "1002:73ff", "live-stats.py emits a GPU pciId");
+assertEqual(hotEmit.gpus[0].driver, "amdgpu", "live-stats.py reads the DRM driver");
+assertEqual(hotEmit.gpus[0].temp, 61, "live-stats.py reads amdgpu hwmon");
+assertEqual(hotEmit.gpus[0].integrated, false, "live-stats.py marks amdgpu discrete");
+assertEqual(hotEmit.gpus[1].driver, "i915", "live-stats.py reads i915");
+assertEqual(hotEmit.gpus[1].temp, null, "live-stats.py leaves i915 without a sensor unknown");
+assertEqual(hotEmit.gpus[1].integrated, true, "live-stats.py marks i915 integrated");
 
 fs.rmSync(fixture, { recursive: true, force: true });

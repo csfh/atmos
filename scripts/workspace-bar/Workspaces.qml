@@ -30,9 +30,9 @@ BarWidget {
 
   readonly property bool showNames: !(settings && settings.showNames === false)
 
-  // Stock omarchy.workspaces paints [1..5] plus any live Hypr id 1–10.
-  // Atmos persists 1–10, so empty extras always exist. Keep those off the
-  // strip unless they have windows or are focused — same bar as stock Hypr.
+  // extras-rule: always 1..count; append count+1..10 if occupied or focused.
+  // Occupied is toplevels.values.length, same as stock omarchy.workspaces.
+  // HyprlandWorkspace.toplevels is a constant ObjectModel; windows show up there.
   readonly property var shownIds: {
     var ids = []
     var i
@@ -45,7 +45,7 @@ BarWidget {
       var id = workspace.id
       if (!(id > n && id > 0 && id <= 10)) continue
       if (ids.indexOf(id) !== -1) continue
-      var occupied = workspace.toplevels && workspace.toplevels.values && workspace.toplevels.values.length > 0
+      var occupied = workspace.toplevels.values.length > 0
       if (occupied || id === focusedId) ids.push(id)
     }
     ids.sort(function(left, right) { return left - right })

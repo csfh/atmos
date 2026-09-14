@@ -95,8 +95,9 @@ write_shell() {
   _SHELL_CONFIG_TMP=""
 }
 
-# Refresh the Atmos-managed clone so a count write picks up widget fixes
-# (occupied extras past the count) without a shell reload.
+# Refresh the Atmos-managed clone so a count write picks up widget fixes.
+# install_file cmp-skips identical QML/manifest. The jq patch only sets
+# count and showNames on the bar entry. No shell reload.
 install_clone
 
 program='

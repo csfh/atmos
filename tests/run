@@ -606,12 +606,19 @@ JSON
   jq -e '.bar.layout.left[1].id == "tester.workspaces" and .bar.layout.left[1].showNames == false' \
     "$bar_home/.config/omarchy/shell.json" >/dev/null
   printf '%s\n' "// stale clone" >"$bar_home/.config/omarchy/plugins/tester.workspaces/Workspaces.qml"
+  jq '.bar.layout.left[1].note = "keep"' \
+    "$bar_home/.config/omarchy/shell.json" >"$bar_home/.config/omarchy/shell.json.next"
+  mv "$bar_home/.config/omarchy/shell.json.next" "$bar_home/.config/omarchy/shell.json"
   USER=tester HOME="$bar_home" OMARCHY_PATH="${OMARCHY_PATH:-/usr/share/omarchy}" \
     bash scripts/set-workspace-bar.sh count 7
-  jq -e '.bar.layout.left[1].count == 7 and .bar.layout.left[1].showNames == false' \
+  jq -e '.bar.layout.left[1].count == 7 and .bar.layout.left[1].showNames == false and .bar.layout.left[1].note == "keep"' \
     "$bar_home/.config/omarchy/shell.json" >/dev/null
-  grep -q 'occupied || id === focusedId' \
+  grep -q 'extras-rule: always 1..count; append count+1..10 if occupied or focused.' \
     "$bar_home/.config/omarchy/plugins/tester.workspaces/Workspaces.qml"
+  USER=tester HOME="$bar_home" OMARCHY_PATH="${OMARCHY_PATH:-/usr/share/omarchy}" \
+    bash scripts/set-workspace-bar.sh count 7
+  jq -e '.bar.layout.left[1].count == 7 and .bar.layout.left[1].showNames == false and .bar.layout.left[1].note == "keep"' \
+    "$bar_home/.config/omarchy/shell.json" >/dev/null
   USER=tester HOME="$bar_home" OMARCHY_PATH="${OMARCHY_PATH:-/usr/share/omarchy}" \
     bash scripts/set-workspace-bar.sh on
   jq -e '.bar.layout.left[1].count == 7 and .bar.layout.left[1].showNames == true' \

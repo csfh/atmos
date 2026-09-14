@@ -124,13 +124,19 @@ function liveWorkspaceOccupied(row) {
   if (!row || typeof row !== "object") return false;
   if (row.occupied === true) return true;
   if (Number(row.windows) > 0) return true;
-  if (Number(row.toplevels) > 0) return true;
+  var tops = row.toplevels;
+  if (tops && typeof tops === "object") {
+    if (Array.isArray(tops.values) && tops.values.length > 0) return true;
+    if (Array.isArray(tops) && tops.length > 0) return true;
+  }
+  if (Number(tops) > 0) return true;
   return false;
 }
 
-// Stock Omarchy paints [1..count] plus any Hypr workspace 1–10 that exists.
-// Atmos keeps 1–10 persistent, so empty extras would always exist. Match the
-// stock bar the user sees: extras past the count only when occupied or focused.
+// extras-rule: always 1..count; append count+1..10 if occupied or focused.
+// Stock Omarchy appends any live Hypr id 1–10. Atmos persists 1–10, so empty
+// extras would always exist. Node fixtures use occupied / windows / toplevels;
+// the bar widget uses HyprlandWorkspace.toplevels.values.length.
 function shownIds(count, live, focusedId) {
   var n = clampShown(count);
   var ids = [];

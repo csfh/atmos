@@ -239,6 +239,7 @@ PrefsPage {
   PrefsGroup {
     title: "Processes"
     query: root.query
+    wide: true
     detail: "This user's processes. End sends SIGTERM. Force quit sends SIGKILL. Pid 1 and Atmos itself are refused."
     hint: "/proc"
 

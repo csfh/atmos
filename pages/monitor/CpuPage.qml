@@ -80,6 +80,7 @@ PrefsPage {
   PrefsGroup {
     title: "Cores"
     query: root.query
+    wide: true
     detail: "Each bar is one logical CPU. Frequency is scaling_cur_freq when cpufreq is present."
 
     Column {
@@ -126,6 +127,7 @@ PrefsPage {
   PrefsGroup {
     title: "Histogram"
     query: root.query
+    wide: true
     detail: "How process CPU is distributed across the current sample, including other users."
 
     Column {
@@ -143,6 +145,7 @@ PrefsPage {
   PrefsGroup {
     title: "Hottest"
     query: root.query
+    wide: true
     detail: "Tasks using at least 1% of a core in the last interval."
 
     Repeater {

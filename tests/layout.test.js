@@ -223,3 +223,111 @@ assertEqual(layout.stepNavIndex([], "a", 1), -1, "stepNavIndex no-ops on an empt
 assertEqual(layout.jumpNavIndex(["a", "b", "c"], false), 0, "jumpNavIndex g is the first hub");
 assertEqual(layout.jumpNavIndex(["a", "b", "c"], true), 2, "jumpNavIndex G is the last hub");
 assertEqual(layout.jumpNavIndex([], true), -1, "jumpNavIndex no-ops on an empty list");
+
+assertEqual(layout.countGridSections(null), 0, "countGridSections ignores a non-array");
+assertEqual(layout.countGridSections([]), 0, "countGridSections empty list");
+assertEqual(
+  layout.countGridSections([
+    { prefsGroup: true, visible: true },
+    { prefsGroup: true, visible: true },
+  ]),
+  2,
+  "countGridSections counts visible groups",
+);
+assertEqual(
+  layout.countGridSections([
+    { prefsGroup: true, visible: false },
+    { prefsGroup: true, visible: true, wide: true },
+    { prefsGroup: true, visible: true },
+    { visible: true },
+    null,
+  ]),
+  1,
+  "countGridSections skips hidden, wide, and non-groups",
+);
+
+assertEqual(
+  layout.sectionColumnCount(700, 520, 40, 2, 4),
+  1,
+  "sectionColumnCount stays 1 when two columns do not fit",
+);
+assertEqual(
+  layout.sectionColumnCount(1080, 520, 40, 2, 4),
+  2,
+  "sectionColumnCount opens a second column at 2*min + gap",
+);
+assertEqual(
+  layout.sectionColumnCount(1800, 520, 40, 2, 4),
+  2,
+  "sectionColumnCount honors maxColumns",
+);
+assertEqual(
+  layout.sectionColumnCount(1800, 520, 40, 2, 1),
+  1,
+  "sectionColumnCount keeps a lone group full width",
+);
+assertEqual(
+  layout.sectionColumnCount(1800, 520, 40, 2, 0),
+  1,
+  "sectionColumnCount is 1 when every group is wide",
+);
+assertEqual(
+  layout.sectionColumnCount(-10, 520, 40, 2, 4),
+  1,
+  "sectionColumnCount ignores a bad width",
+);
+assertEqual(
+  layout.sectionColumnWidth(1000, 1, 40),
+  1000,
+  "sectionColumnWidth is the full column when there is one",
+);
+assertEqual(
+  layout.sectionColumnWidth(1080, 2, 40),
+  520,
+  "sectionColumnWidth splits the gap out of two columns",
+);
+assertEqual(layout.sectionColumnWidth(1400, 2, 40), 680, "sectionColumnWidth floors equal columns");
+
+const pageOpts = {
+  margin: 20,
+  cap: 1000,
+  wideCap: 1400,
+  minColumn: 520,
+  gap: 40,
+  maxColumns: 2,
+};
+assertEqual(
+  layout.pageContentWidth(740, Object.assign({ itemCount: 6 }, pageOpts)),
+  700,
+  "pageContentWidth uses the inner width when it is under the single-column cap",
+);
+assertEqual(
+  layout.pageContentWidth(2000, Object.assign({ itemCount: 1 }, pageOpts)),
+  1000,
+  "pageContentWidth keeps a single group at the single-column cap",
+);
+assertEqual(
+  layout.pageContentWidth(960, Object.assign({ itemCount: 6 }, pageOpts)),
+  920,
+  "pageContentWidth stays one column at the default window content width",
+);
+assertEqual(
+  layout.pageContentWidth(1340, Object.assign({ itemCount: 6 }, pageOpts)),
+  1300,
+  "pageContentWidth grows past the single-column cap once two columns fit",
+);
+assertEqual(
+  layout.pageContentWidth(2000, Object.assign({ itemCount: 6 }, pageOpts)),
+  1400,
+  "pageContentWidth caps the two-column grid",
+);
+assertEqual(
+  layout.pageContentWidth(2000, Object.assign({ itemCount: 0 }, pageOpts)),
+  1000,
+  "pageContentWidth keeps a page of wide groups at the single-column cap",
+);
+assertEqual(
+  layout.pageContentWidth(0, Object.assign({ itemCount: 1, minWidth: 240 }, pageOpts)),
+  240,
+  "pageContentWidth floors a tiny pane",
+);

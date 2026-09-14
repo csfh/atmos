@@ -74,6 +74,7 @@ PrefsPage {
   PrefsGroup {
     title: "Devices"
     query: root.query
+    wide: true
     detail: "Whole disks only. Dual sparkline is read over write."
     hint: "/proc/diskstats"
 
@@ -146,6 +147,7 @@ PrefsPage {
   PrefsGroup {
     title: "Busiest tasks"
     query: root.query
+    wide: true
     detail: "Process read and write bytes from /proc/pid/io when that file is readable."
 
     Repeater {

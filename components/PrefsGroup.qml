@@ -7,6 +7,8 @@ import "../services/WritesFile.js" as WritesFile
 Column {
   id: root
 
+  readonly property bool prefsGroup: true
+
   property string title: ""
   property string query: ""
   property string detail: ""
@@ -16,6 +18,9 @@ Column {
   // Boxes are for collections, objects, and special operations.
   // Ordinary settings are a heading plus rows.
   property bool framed: false
+  // Full content width even when the page is in two columns.
+  // Meters, core bars, and process tables opt in.
+  property bool wide: false
   // Same fold as SettingRow.advanced. Existing Advanced sections opt in
   // so Simple talks to the heading already on the page, not a second model.
   property bool advanced: false
@@ -29,7 +34,19 @@ Column {
     note: root.writesNote
   })
 
-  width: parent ? parent.width : 640
+  readonly property var pageRoot: {
+    var p = parent
+    while (p) {
+      if (p.sectionColumnWidth !== undefined && p.sectionFullWidth !== undefined)
+        return p
+      p = p.parent
+    }
+    return null
+  }
+
+  width: root.pageRoot
+    ? (root.wide ? root.pageRoot.sectionFullWidth : root.pageRoot.sectionColumnWidth)
+    : (parent ? parent.width : 640)
   spacing: Theme.headingGap
 
   readonly property string resolvedHubId: {

@@ -38,7 +38,7 @@ PrefsPage {
   )
   readonly property var pages: MonitorJs.pageCards()
   readonly property var intervals: MonitorJs.intervalChips()
-  readonly property int tileWidth: Math.max(240, Math.floor((width - Theme.copyInset * 2 - Theme.spaceMd) / 2))
+  readonly property int tileWidth: Math.max(240, Math.floor((nowFlow.width - Theme.spaceMd) / 2))
 
   function openSubpage(id) {
     if (stack) {
@@ -191,9 +191,11 @@ PrefsPage {
     query: root.query
     framed: false
     catalog: false
+    wide: true
     detail: "Meters share the live sample. Hot ink is 90% and up."
 
     Flow {
+      id: nowFlow
       width: parent.width - Theme.copyInset * 2
       x: Theme.copyInset
       spacing: Theme.spaceMd
@@ -262,6 +264,7 @@ PrefsPage {
   PrefsGroup {
     title: "Cores"
     query: root.query
+    wide: true
     detail: "One bar per logical CPU from /proc/stat. Height is busy percent since the last sample."
 
     Column {
@@ -309,6 +312,7 @@ PrefsPage {
   PrefsGroup {
     title: "Hottest tasks"
     query: root.query
+    wide: true
     detail: "This user's processes, sorted by CPU. The full table is on Processes."
     hint: "/proc"
 

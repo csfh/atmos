@@ -217,3 +217,76 @@ function jumpNavIndex(list, toEnd) {
   if (ids.length === 0) return -1;
   return toEnd ? ids.length - 1 : 0;
 }
+
+// Visible PrefsGroups that may sit in a column. Hidden groups, wide
+// groups, and non-group children (dialogs, repeaters) stay out.
+function countGridSections(items) {
+  var list = Array.isArray(items) ? items : [];
+  var n = 0;
+  var i;
+  for (i = 0; i < list.length; i++) {
+    var kid = list[i];
+    if (!kid) continue;
+    if (kid.prefsGroup !== true) continue;
+    if (kid.visible === false) continue;
+    if (kid.wide === true) continue;
+    n++;
+  }
+  return n;
+}
+
+// How many equal columns fit. Never more than the number of grid
+// sections, so a lone group stays full width.
+function sectionColumnCount(avail, minColumn, gap, maxColumns, itemCount) {
+  var items = Number(itemCount);
+  if (!isFinite(items) || items < 1) items = 1;
+  var max = Number(maxColumns);
+  if (!isFinite(max) || max < 1) max = 1;
+  max = Math.min(Math.floor(max), Math.floor(items));
+  if (max < 1) max = 1;
+  var w = Number(avail);
+  var min = Number(minColumn);
+  var g = Number(gap);
+  if (!isFinite(w) || w <= 0) return 1;
+  if (!isFinite(min) || min <= 0) min = 1;
+  if (!isFinite(g) || g < 0) g = 0;
+  var n = 1;
+  while (n < max) {
+    var next = n + 1;
+    if (w < next * min + (next - 1) * g) break;
+    n = next;
+  }
+  return n;
+}
+
+function sectionColumnWidth(avail, columns, gap) {
+  var w = Number(avail);
+  var n = Math.max(1, Math.floor(Number(columns) || 1));
+  var g = Number(gap);
+  if (!isFinite(w) || w < 0) w = 0;
+  if (!isFinite(g) || g < 0) g = 0;
+  if (n <= 1) return Math.max(0, Math.floor(w));
+  return Math.max(0, Math.floor((w - g * (n - 1)) / n));
+}
+
+// Content column width. One column stays at `cap`. Two columns may
+// grow up to `wideCap` when the window and the page both have room.
+function pageContentWidth(avail, opts) {
+  var o = opts || {};
+  var margin = Number(o.margin);
+  var cap = Number(o.cap);
+  var wideCap = Number(o.wideCap);
+  var minCol = Number(o.minColumn);
+  var gap = Number(o.gap);
+  var floor = Number(o.minWidth);
+  var outer = Number(avail);
+  if (!isFinite(margin) || margin < 0) margin = 0;
+  if (!isFinite(cap) || cap <= 0) cap = 1;
+  if (!isFinite(wideCap) || wideCap < cap) wideCap = cap;
+  if (!isFinite(floor) || floor < 1) floor = 1;
+  if (!isFinite(outer)) outer = 0;
+  var inner = Math.max(0, outer - margin * 2);
+  var cols = sectionColumnCount(Math.min(inner, wideCap), minCol, gap, o.maxColumns, o.itemCount);
+  if (cols <= 1) return Math.max(floor, Math.min(cap, inner));
+  return Math.max(floor, Math.min(wideCap, inner));
+}

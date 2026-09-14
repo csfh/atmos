@@ -1,6 +1,7 @@
 import QtQuick
 import "../services"
 import "../services/Disclosure.js" as DisclosureJs
+import "../services/Layout.js" as LayoutJs
 
 Item {
   id: root
@@ -44,6 +45,44 @@ Item {
   height: root.embed ? implicitHeight : (parent ? parent.height : 400)
   visible: !root.embed || root.hasSections
 
+  readonly property int visibleGridCount: {
+    var _n = sections.children.length
+    var _q = root.query
+    var _simple = Disclosure.simple
+    var kids = []
+    var i
+    for (i = 0; i < sections.children.length; i++)
+      kids.push(sections.children[i])
+    return LayoutJs.countGridSections(kids)
+  }
+
+  readonly property int pageColumnWidth: LayoutJs.pageContentWidth(flick.width, {
+    margin: Theme.pageMargin,
+    cap: Theme.contentMaxWidth,
+    wideCap: Theme.contentWideMaxWidth,
+    minColumn: Theme.sectionMinColumn,
+    gap: Theme.sectionSpacing,
+    maxColumns: Theme.sectionMaxColumns,
+    minWidth: 240,
+    itemCount: root.visibleGridCount
+  })
+
+  readonly property int sectionColumns: LayoutJs.sectionColumnCount(
+    root.pageColumnWidth,
+    Theme.sectionMinColumn,
+    Theme.sectionSpacing,
+    Theme.sectionMaxColumns,
+    root.visibleGridCount
+  )
+
+  readonly property int sectionColumnWidth: LayoutJs.sectionColumnWidth(
+    root.pageColumnWidth,
+    root.sectionColumns,
+    Theme.sectionSpacing
+  )
+
+  readonly property int sectionFullWidth: root.pageColumnWidth
+
   PrefsFlickable {
     id: flick
     anchors.fill: parent
@@ -53,7 +92,7 @@ Item {
 
     Column {
       id: pageColumn
-      width: Theme.contentColumnWidth(flick.width)
+      width: root.pageColumnWidth
       x: Theme.contentColumnX(flick.width, width)
       y: root.embed ? 0 : Theme.pageMargin
       spacing: Theme.spaceLg
@@ -106,7 +145,7 @@ Item {
         }
       }
 
-      Column {
+      Flow {
         id: sections
         width: parent.width
         spacing: Theme.sectionSpacing

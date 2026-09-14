@@ -313,8 +313,11 @@ assert(
     themeQml.indexOf("readonly property int chamfer:") !== -1 &&
     themeQml.indexOf("readonly property int chamferSm:") !== -1 &&
     themeQml.indexOf("readonly property int contentMaxWidth: 1000") !== -1 &&
+    themeQml.indexOf("readonly property int contentWideMaxWidth: 1400") !== -1 &&
+    themeQml.indexOf("readonly property int sectionMinColumn: 520") !== -1 &&
+    themeQml.indexOf("readonly property int sectionMaxColumns: 2") !== -1 &&
     themeQml.indexOf("readonly property int railWidth:") !== -1,
-  "Theme keeps square chrome, a capped content column, and a sidebar rail",
+  "Theme keeps square chrome, a capped single column, and a two-column wide cap",
 );
 assert(
   themeQml.indexOf("function controlOpacity(on)") !== -1,
@@ -471,6 +474,17 @@ assert(
     prefsPageSrc.indexOf("Theme.pageMargin") !== -1 &&
     prefsPageSrc.indexOf("Theme.copyInset") !== -1,
   "PrefsPage uses Theme page title, description, margin, section spacing, and copy inset",
+);
+assert(
+  prefsPageSrc.indexOf("LayoutJs.pageContentWidth") !== -1 &&
+    prefsPageSrc.indexOf("LayoutJs.sectionColumnCount") !== -1 &&
+    prefsPageSrc.indexOf("LayoutJs.sectionColumnWidth") !== -1 &&
+    /Flow \{\s*id: sections/.test(prefsPageSrc),
+  "PrefsPage lays sections out in a Flow grid from Layout.js",
+);
+assert(
+  searchPageSrc.indexOf("Theme.contentColumnWidth(flick.width)") !== -1,
+  "SearchPage keeps a single capped column",
 );
 assert(
   prefsPageSrc.indexOf("readonly property bool showDisclosure:") !== -1 &&
@@ -1078,6 +1092,12 @@ assert(
 assert(
   prefsGroupSrc.indexOf("property bool framed: false") !== -1,
   "ordinary PrefsGroups are a heading and rows, not a card",
+);
+assert(
+  prefsGroupSrc.indexOf("readonly property bool prefsGroup: true") !== -1 &&
+    prefsGroupSrc.indexOf("property bool wide: false") !== -1 &&
+    prefsGroupSrc.indexOf("sectionColumnWidth") !== -1,
+  "PrefsGroup takes a page column width and can span the full row",
 );
 assert(
   /\n  spacing: Theme.headingGap\n/.test(prefsGroupSrc),
@@ -1791,6 +1811,10 @@ assert(
   "Home reads LiveStatsStore and signals through Omarchy",
 );
 assert(homePageSrc.indexOf("enqueueRead") === -1, "Home does not enqueue a snapshot");
+assert(
+  /title: "Processes"[\s\S]{0,80}wide: true/.test(homePageSrc),
+  "Home process table spans the full row in a two-column page",
+);
 const liveStoreSrc = fs.readFileSync(
   path.join(__dirname, "..", "services", "LiveStatsStore.qml"),
   "utf8",
@@ -1811,6 +1835,10 @@ assert(
     monitorPageSrc.indexOf("PrefsCoreBars") !== -1 &&
     monitorPageSrc.indexOf("openSubpage") !== -1,
   "Monitor is a live dashboard with child pages",
+);
+assert(
+  monitorPageSrc.indexOf("nowFlow.width") !== -1 && monitorPageSrc.indexOf("wide: true") !== -1,
+  "Monitor meters size from the Now flow and span the full row",
 );
 assert(
   homePageSrc.indexOf('title: "Thermal"') !== -1 &&

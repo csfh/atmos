@@ -207,6 +207,7 @@ PrefsPage {
   PrefsGroup {
     title: "Additional themes"
     query: root.query
+    wide: true
     detail: "Extra themes are git clones in ~/.config/omarchy/themes. Add clones a repository and switches to it. Update all pulls the latest commit on each one. Remove deletes a theme you installed."
     hint: "omarchy theme install"
 

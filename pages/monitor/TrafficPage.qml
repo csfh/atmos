@@ -132,6 +132,7 @@ PrefsPage {
   PrefsGroup {
     title: "Interfaces"
     query: root.query
+    wide: true
     detail: "One dual sparkline per interface. Receive is the accent stroke. Transmit is muted."
 
     Column {

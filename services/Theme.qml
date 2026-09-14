@@ -31,8 +31,9 @@ QtObject {
 
   // Visual language. Monospace, grayscale chrome, 1px hairlines, radius 0,
   // dense native controls, a capped content column, a persistent sidebar.
-  // Tokens record the live look. Do not round cards, add shadows, or grow
-  // the column because the window is wide.
+  // Tokens record the live look. Do not round cards or add shadows. A
+  // single column stays capped; a second column may open when the window
+  // and the page both have room.
 
   readonly property string fontFamily: "monospace"
   readonly property int fontSize: Math.max(9, Math.round(ThemeJs.numberToken(root.shellValues, "font.base-size", 12)))
@@ -121,6 +122,9 @@ QtObject {
 
   readonly property int sidebarWidth: 220
   readonly property int contentMaxWidth: 1000
+  readonly property int contentWideMaxWidth: 1400
+  readonly property int sectionMinColumn: 520
+  readonly property int sectionMaxColumns: 2
   readonly property int controlColumnWidth: 280
   readonly property int dialogWidth: 520
   readonly property int confirmWidth: 420

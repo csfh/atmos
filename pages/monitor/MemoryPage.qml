@@ -172,6 +172,7 @@ PrefsPage {
   PrefsGroup {
     title: "Largest"
     query: root.query
+    wide: true
     detail: "Resident set of at least 10 MB in the current sample."
 
     Repeater {

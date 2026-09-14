@@ -89,6 +89,7 @@ PrefsPage {
     query: root.query
     framed: false
     catalog: false
+    wide: true
     detail: "Filters stay in this window. They are not written to disk."
 
     Column {

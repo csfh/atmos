@@ -539,6 +539,9 @@ fill_atmos_control() {
     if [[ -f $env_file ]] && grep -q '^ELECTRON_OZONE_PLATFORM_HINT=auto' "$env_file"; then
       electron=false
     fi
+    if [[ -f $env_file ]] && grep -q '^ATMOS_XWAYLAND_ZERO_SCALING=0' "$env_file"; then
+      zero=false
+    fi
     if [[ -f $sysctl_file ]]; then
       swap=true
     fi

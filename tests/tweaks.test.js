@@ -1,4 +1,6 @@
+const { spawnSync } = require("child_process");
 const fs = require("fs");
+const os = require("os");
 const path = require("path");
 const { load, assert, assertEqual } = require("./harness");
 
@@ -26,6 +28,16 @@ assertEqual(
   tweaks.environmentLines({ electronWayland: false })[0],
   "ELECTRON_OZONE_PLATFORM_HINT=auto",
   "electron off writes an overlay",
+);
+assertEqual(
+  tweaks.environmentLines({ forceZeroScaling: false })[0],
+  "ATMOS_XWAYLAND_ZERO_SCALING=0",
+  "zero scaling off writes an overlay",
+);
+assertEqual(
+  tweaks.environmentLines({ forceZeroScaling: true }).length,
+  0,
+  "zero scaling on writes nothing",
 );
 assert(
   tweaks.sysctlConf({ swappiness: true }).indexOf("vm.swappiness") !== -1,
@@ -83,3 +95,76 @@ const bootPage = fs.readFileSync(
   "utf8",
 );
 assert(bootPage.indexOf("Direct EFI boot") === -1, "Boot screen no longer hosts Direct EFI boot");
+
+const script = path.join(__dirname, "..", "scripts", "set-tweaks.sh");
+assert(fs.existsSync(script), "set-tweaks.sh exists");
+
+function runTweaks(action, mode, env) {
+  return spawnSync("bash", [script, action, mode], {
+    encoding: "utf8",
+    env: Object.assign({}, process.env, env),
+  });
+}
+
+const fixture = fs.mkdtempSync(path.join(os.tmpdir(), "atmos-tweaks-"));
+const gtkFile = path.join(fixture, "settings.ini");
+const envFile = path.join(fixture, "10-atmos.conf");
+const sysctlFile = path.join(fixture, "99-atmos-swappiness.conf");
+
+let result = runTweaks("gtk-middle-paste", "on", { ATMOS_GTK4_FILE: gtkFile });
+assertEqual(result.status, 0, "gtk-middle-paste on exits 0");
+assert(
+  fs.readFileSync(gtkFile, "utf8").indexOf("gtk-enable-primary-paste=false") !== -1,
+  "gtk-middle-paste on writes the paste flag",
+);
+result = runTweaks("gtk-middle-paste", "off", { ATMOS_GTK4_FILE: gtkFile });
+assertEqual(result.status, 0, "gtk-middle-paste off exits 0");
+assertEqual(fs.existsSync(gtkFile), false, "gtk-middle-paste off removes the overlay");
+
+result = runTweaks("electron-wayland", "off", { ATMOS_ENV_FILE: envFile });
+assertEqual(result.status, 0, "electron-wayland off seeds a missing env file");
+assert(
+  fs.readFileSync(envFile, "utf8").indexOf("ELECTRON_OZONE_PLATFORM_HINT=auto") !== -1,
+  "electron-wayland off writes the opt-out",
+);
+result = runTweaks("electron-wayland", "on", { ATMOS_ENV_FILE: envFile });
+assertEqual(result.status, 0, "electron-wayland on exits 0");
+assertEqual(
+  fs.readFileSync(envFile, "utf8").indexOf("ELECTRON_OZONE_PLATFORM_HINT=") === -1,
+  true,
+  "electron-wayland on strips the overlay",
+);
+
+fs.unlinkSync(envFile);
+result = runTweaks("force-zero-scaling", "off", { ATMOS_ENV_FILE: envFile });
+assertEqual(result.status, 0, "force-zero-scaling off seeds a missing env file");
+assert(
+  fs.readFileSync(envFile, "utf8").indexOf("ATMOS_XWAYLAND_ZERO_SCALING=0") !== -1,
+  "force-zero-scaling off writes the opt-out",
+);
+result = runTweaks("force-zero-scaling", "on", { ATMOS_ENV_FILE: envFile });
+assertEqual(result.status, 0, "force-zero-scaling on exits 0");
+assertEqual(
+  fs.readFileSync(envFile, "utf8").indexOf("ATMOS_XWAYLAND_ZERO_SCALING=") === -1,
+  true,
+  "force-zero-scaling on strips the overlay",
+);
+
+result = runTweaks("swappiness", "on", { ATMOS_SYSCTL_FILE: sysctlFile });
+assertEqual(result.status, 0, "swappiness on exits 0 without as-root when dest is writable");
+assert(
+  fs.readFileSync(sysctlFile, "utf8").indexOf("vm.swappiness = 10") !== -1,
+  "swappiness on writes the drop-in",
+);
+result = runTweaks("swappiness", "off", { ATMOS_SYSCTL_FILE: sysctlFile });
+assertEqual(result.status, 0, "swappiness off exits 0");
+assertEqual(fs.existsSync(sysctlFile), false, "swappiness off removes the drop-in");
+
+const threeArg = spawnSync("bash", [script, "gtk-middle-paste", "unused", "off"], {
+  encoding: "utf8",
+  env: Object.assign({}, process.env, { ATMOS_GTK4_FILE: gtkFile }),
+});
+assertEqual(threeArg.status, 0, "a leftover $3 off does not abort");
+assertEqual(fs.existsSync(gtkFile), true, "mode is $2, so a $3 off does not take the reset path");
+
+fs.rmSync(fixture, { recursive: true, force: true });

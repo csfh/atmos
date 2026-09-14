@@ -403,8 +403,7 @@ const extraGroupStart = appearanceSrc.indexOf('title: "Additional themes"');
 const extraGroupEnd = appearanceSrc.indexOf('label: "Add a theme"', extraGroupStart);
 const extraBlock = appearanceSrc.slice(extraGroupStart, extraGroupEnd);
 assert(
-  extraBlock.indexOf("onPreviewed:") !== -1 &&
-    extraBlock.indexOf("Theme.previewNamedTheme") !== -1,
+  extraBlock.indexOf("onPreviewed:") !== -1 && extraBlock.indexOf("Theme.previewNamedTheme") !== -1,
   "Installed themes hover calls previewNamedTheme",
 );
 assert(

@@ -2,6 +2,16 @@
 
 Notable changes to Atmos. Each section is a git tag on `main` and `alpha`. Install and in-app Update follow the `alpha` branch.
 
+## [v0.0.1-alpha.21] - 2026-09-14
+
+### Added
+
+- Wide windows lay settings sections in two columns. The default window stays a single capped column. Process tables, meters, core bars, and similar full-bleed groups keep the full row.
+
+### Fixed
+
+- Occupied workspaces past the bar count stay on the strip, matching stock Hypr/Omarchy. ([#71](https://github.com/csfh/atmos/pull/71))
+
 ## [v0.0.1-alpha.20] - 2026-09-13
 
 ### Added
@@ -326,6 +336,7 @@ First public alpha. Standalone [Quickshell](https://quickshell.org) preferences 
 - Keyboard use on controls (tab focus and activation). File watching of Omarchy/Hyprland paths so outside changes can refresh the snapshot. Shared page routing and content-column layout.
 - MIT license. Contributions assign copyright to Christoffer Hallas ([CLA](CLA.md)).
 
+[v0.0.1-alpha.21]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.20...v0.0.1-alpha.21
 [v0.0.1-alpha.20]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.19...v0.0.1-alpha.20
 [v0.0.1-alpha.19]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.18...v0.0.1-alpha.19
 [v0.0.1-alpha.18]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.17...v0.0.1-alpha.18

@@ -2,6 +2,21 @@
 
 Notable changes to Atmos. Each section is a git tag on `main` and `alpha`. Install and in-app Update follow the `alpha` branch.
 
+## [v0.0.1-alpha.20] - 2026-09-13
+
+### Added
+
+- **Monitor** hub next to Home. Overview meters cover CPU, memory, traffic, disk I/O, package temperature, and load, plus per-core bars and a stacked memory composition. Child pages: Processes (search, mine/all/kernel, state, sort, tree, CPU/RSS floors, row cap; End/Force quit after a confirm), CPU, Memory, Disk I/O, Traffic, and Sensors. Samples come from `scripts/live-stats.py` through a shared in-window poller (interval and pause on the hub). Nothing is written to disk. Home keeps the short glance and reads the same poller.
+- Home lists GPUs from hardware inventory and charts package and GPU temperatures. Missing readings stay unknown; a sysfs 0 is not shown as 0 °C. ([#70](https://github.com/csfh/atmos/pull/70), from [#63](https://github.com/csfh/atmos/pull/63)) by Taha Sadough ([@tahadx](https://github.com/tahadx)).
+- Hover **Installed themes** paints this window from that palette without committing it, matching Current theme. ([#65](https://github.com/csfh/atmos/pull/65), from [#58](https://github.com/csfh/atmos/pull/58)) by Taha Sadough ([@tahadx](https://github.com/tahadx)).
+
+### Fixed
+
+- Tweaks off/reset actually run. `set-tweaks.sh` reads the mode from `$2`. Swappiness elevates through `as-root.sh` when `/etc/sysctl.d` is not writable. Snapshot reads the XWayland zero-scaling opt-out. ([#69](https://github.com/csfh/atmos/pull/69), from [#59](https://github.com/csfh/atmos/pull/59)) by Taha Sadough ([@tahadx](https://github.com/tahadx)).
+- Optimistic apply matches the writers: night-light warmth no longer fabricates on/off, agents refresh below 30s clamps to 30, imported Kelvin stays in 3000–6500. ([#68](https://github.com/csfh/atmos/pull/68), from [#62](https://github.com/csfh/atmos/pull/62)) by Taha Sadough ([@tahadx](https://github.com/tahadx)).
+- Look and full snapshots query the live swallow options instead of leaving clamp defaults. ([#67](https://github.com/csfh/atmos/pull/67), from [#60](https://github.com/csfh/atmos/pull/60)) by Taha Sadough ([@tahadx](https://github.com/tahadx)).
+- Copy-Tip hints match the commands Atmos dispatches. Idle search no longer matches a leftover `tte` token. ([#66](https://github.com/csfh/atmos/pull/66), from [#61](https://github.com/csfh/atmos/pull/61)) by Taha Sadough ([@tahadx](https://github.com/tahadx)).
+
 ## [v0.0.1-alpha.19] - 2026-09-12
 
 ### Added
@@ -311,6 +326,7 @@ First public alpha. Standalone [Quickshell](https://quickshell.org) preferences 
 - Keyboard use on controls (tab focus and activation). File watching of Omarchy/Hyprland paths so outside changes can refresh the snapshot. Shared page routing and content-column layout.
 - MIT license. Contributions assign copyright to Christoffer Hallas ([CLA](CLA.md)).
 
+[v0.0.1-alpha.20]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.19...v0.0.1-alpha.20
 [v0.0.1-alpha.19]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.18...v0.0.1-alpha.19
 [v0.0.1-alpha.18]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.17...v0.0.1-alpha.18
 [v0.0.1-alpha.17]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.16...v0.0.1-alpha.17

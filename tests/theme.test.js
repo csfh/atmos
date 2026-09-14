@@ -21,7 +21,9 @@ assert(
     ) &&
     /readonly property int sparklineHeight:\s*Math\.max\(28, Math\.round\(fontSize \* 2\.2\)\)/.test(
       themeQml,
-    ),
+    ) &&
+    themeQml.indexOf("readonly property int meterMinHeight:") !== -1 &&
+    themeQml.indexOf("readonly property int coreBarHeight:") !== -1,
   "Theme sizes chamfer and sparkline tokens off fontSize and keeps radius 0",
 );
 

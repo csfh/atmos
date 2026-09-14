@@ -41,6 +41,9 @@ function parseGpus(raw) {
       driver: String(g.driver || ""),
       integrated: g.integrated === true,
       temp: parseTemp(g.temp),
+      busy: nonNeg(g.busy),
+      vramUsed: nonNeg(g.vramUsed),
+      vramTotal: nonNeg(g.vramTotal),
     });
   }
   return out;
@@ -54,15 +57,119 @@ function parseProcess(row) {
   if (!comm) return null;
   var rssKb = nonNeg(row.rssKb);
   var ticks = nonNeg(row.ticks);
+  var state = String(row.state || "")
+    .replace(/^\s+|\s+$/g, "")
+    .charAt(0);
+  var ppid = Number(row.ppid);
+  if (!isFinite(ppid) || ppid < 0) ppid = 0;
   return {
     pid: pid,
+    ppid: ppid,
     comm: comm,
     cmdline: String(row.cmdline || ""),
     uid: finiteNumber(row.uid),
     rssKb: rssKb,
     ticks: ticks,
     cpu: nonNeg(row.cpu),
+    state: state,
+    threads: nonNeg(row.threads),
+    nice: finiteNumber(row.nice),
+    kthread: row.kthread === true,
+    mine: row.mine === true ? true : row.mine === false ? false : null,
+    readBytes: nonNeg(row.readBytes),
+    writeBytes: nonNeg(row.writeBytes),
+    readBps: nonNeg(row.readBps),
+    writeBps: nonNeg(row.writeBps),
+    depth: nonNeg(row.depth) || 0,
   };
+}
+
+function parseCpuCore(row, index) {
+  if (!row || typeof row !== "object") return null;
+  var id = finiteNumber(row.id);
+  if (id === null) id = index;
+  return {
+    id: id,
+    idle: nonNeg(row.idle),
+    total: nonNeg(row.total),
+    freqMhz: nonNeg(row.freqMhz),
+    governor: String(row.governor || ""),
+    cpu: nonNeg(row.cpu),
+  };
+}
+
+function parseIface(row) {
+  if (!row || typeof row !== "object") return null;
+  var name = String(row.name || "").replace(/^\s+|\s+$/g, "");
+  if (!name) return null;
+  return {
+    name: name,
+    rx: nonNeg(row.rx),
+    tx: nonNeg(row.tx),
+    rxBps: nonNeg(row.rxBps),
+    txBps: nonNeg(row.txBps),
+  };
+}
+
+function parseDisk(row) {
+  if (!row || typeof row !== "object") return null;
+  var name = String(row.name || "").replace(/^\s+|\s+$/g, "");
+  if (!name) return null;
+  return {
+    name: name,
+    readSectors: nonNeg(row.readSectors),
+    writeSectors: nonNeg(row.writeSectors),
+    readBps: nonNeg(row.readBps),
+    writeBps: nonNeg(row.writeBps),
+  };
+}
+
+function parseSensor(row) {
+  if (!row || typeof row !== "object") return null;
+  var id = String(row.id || "").replace(/^\s+|\s+$/g, "");
+  var kind = String(row.kind || "");
+  if (kind !== "temp" && kind !== "fan") return null;
+  var value = kind === "temp" ? parseTemp(row.value) : nonNeg(row.value);
+  if (value === null) return null;
+  return {
+    id: id || String(row.chip || "") + ":" + String(row.label || ""),
+    chip: String(row.chip || ""),
+    label: String(row.label || ""),
+    kind: kind,
+    value: value,
+  };
+}
+
+function parsePsi(raw) {
+  var src = raw && typeof raw === "object" ? raw : {};
+  return {
+    cpu: nonNeg(src.cpu),
+    memory: nonNeg(src.memory),
+    io: nonNeg(src.io),
+  };
+}
+
+function parseTcp(raw) {
+  var src = raw && typeof raw === "object" ? raw : {};
+  return {
+    established: nonNeg(src.established) || 0,
+    listen: nonNeg(src.listen) || 0,
+    timeWait: nonNeg(src.timeWait) || 0,
+    closeWait: nonNeg(src.closeWait) || 0,
+    total: nonNeg(src.total) || 0,
+  };
+}
+
+function mapList(raw, fn) {
+  var src = Array.isArray(raw) ? raw : [];
+  var out = [];
+  var i;
+  var row;
+  for (i = 0; i < src.length; i++) {
+    row = fn(src[i], i);
+    if (row) out.push(row);
+  }
+  return out;
 }
 
 function parse(raw) {
@@ -86,36 +193,72 @@ function parse(raw) {
     if (row) processes.push(row);
   }
   return {
+    uid: finiteNumber(data.uid),
     cpuIdle: nonNeg(data.cpuIdle),
     cpuTotal: nonNeg(data.cpuTotal),
+    cpus: mapList(data.cpus, parseCpuCore),
+    load1: nonNeg(data.load1),
+    load5: nonNeg(data.load5),
+    load15: nonNeg(data.load15),
     memUsed: nonNeg(data.memUsed),
     memTotal: nonNeg(data.memTotal),
     memAvail: nonNeg(data.memAvail),
+    memFree: nonNeg(data.memFree),
+    memBuffers: nonNeg(data.memBuffers),
+    memCached: nonNeg(data.memCached),
+    memShared: nonNeg(data.memShared),
+    memSReclaimable: nonNeg(data.memSReclaimable),
+    memAnon: nonNeg(data.memAnon),
+    memDirty: nonNeg(data.memDirty),
+    swapUsed: nonNeg(data.swapUsed),
+    swapTotal: nonNeg(data.swapTotal),
     netRx: nonNeg(data.netRx),
     netTx: nonNeg(data.netTx),
+    ifaces: mapList(data.ifaces, parseIface),
+    disks: mapList(data.disks, parseDisk),
+    psi: parsePsi(data.psi),
+    tcp: parseTcp(data.tcp),
     clkTck: nonNeg(data.clkTck) || 100,
     cpuTemp: parseTemp(data.cpuTemp),
     gpus: parseGpus(data.gpus),
+    sensors: mapList(data.sensors, parseSensor),
     processes: processes,
   };
 }
 
-function cpuPercent(prev, next) {
-  if (!prev || !next) return null;
-  if (prev.cpuIdle === null || prev.cpuTotal === null) return null;
-  if (next.cpuIdle === null || next.cpuTotal === null) return null;
-  var dIdle = next.cpuIdle - prev.cpuIdle;
-  var dTotal = next.cpuTotal - prev.cpuTotal;
+function countersPercent(prevIdle, prevTotal, nextIdle, nextTotal) {
+  if (prevIdle === null || prevTotal === null) return null;
+  if (nextIdle === null || nextTotal === null) return null;
+  var dIdle = nextIdle - prevIdle;
+  var dTotal = nextTotal - prevTotal;
   if (!(dTotal > 0) || dIdle < 0) return null;
   var used = dTotal - dIdle;
   if (used < 0) used = 0;
   return (used / dTotal) * 100;
 }
 
+function cpuPercent(prev, next) {
+  if (!prev || !next) return null;
+  return countersPercent(prev.cpuIdle, prev.cpuTotal, next.cpuIdle, next.cpuTotal);
+}
+
+function corePercent(prev, next) {
+  if (!prev || !next) return null;
+  return countersPercent(prev.idle, prev.total, next.idle, next.total);
+}
+
 function memPercent(sample) {
   if (!sample || sample.memUsed === null || sample.memTotal === null) return null;
   if (!(sample.memTotal > 0)) return null;
   var pct = (sample.memUsed / sample.memTotal) * 100;
+  if (pct < 0) return 0;
+  return pct;
+}
+
+function swapPercent(sample) {
+  if (!sample || sample.swapUsed === null || sample.swapTotal === null) return null;
+  if (!(sample.swapTotal > 0)) return null;
+  var pct = (sample.swapUsed / sample.swapTotal) * 100;
   if (pct < 0) return 0;
   return pct;
 }
@@ -140,35 +283,139 @@ function processCpu(prevTicks, nextTicks, dtMs, clkTck) {
   return (100 * d) / (clkTck * (dtMs / 1000));
 }
 
+function byteRate(prev, next, dtMs) {
+  if (prev === null || next === null || !(dtMs > 0)) return null;
+  var d = next - prev;
+  if (d < 0) return null;
+  return d / (dtMs / 1000);
+}
+
 function decorateProcesses(prev, sample, dtMs) {
   var list = sample && Array.isArray(sample.processes) ? sample.processes : [];
   var prevList = prev && Array.isArray(prev.processes) ? prev.processes : [];
   var prevMap = {};
   var i;
   for (i = 0; i < prevList.length; i++) {
-    if (prevList[i] && prevList[i].pid) prevMap[prevList[i].pid] = prevList[i].ticks;
+    if (prevList[i] && prevList[i].pid) prevMap[prevList[i].pid] = prevList[i];
   }
   var clk = sample && sample.clkTck > 0 ? sample.clkTck : 100;
   var out = [];
   var row;
+  var last;
   var cpu;
   for (i = 0; i < list.length; i++) {
     row = list[i];
     if (!row) continue;
-    cpu = processCpu(
-      Object.prototype.hasOwnProperty.call(prevMap, row.pid) ? prevMap[row.pid] : null,
-      row.ticks,
-      dtMs,
-      clk,
-    );
+    last = Object.prototype.hasOwnProperty.call(prevMap, row.pid) ? prevMap[row.pid] : null;
+    cpu = processCpu(last ? last.ticks : null, row.ticks, dtMs, clk);
     out.push({
       pid: row.pid,
+      ppid: row.ppid,
       comm: row.comm,
       cmdline: row.cmdline,
       uid: row.uid,
       rssKb: row.rssKb,
       ticks: row.ticks,
       cpu: cpu,
+      state: row.state,
+      threads: row.threads,
+      nice: row.nice,
+      kthread: row.kthread === true,
+      mine: row.mine === true ? true : row.mine === false ? false : null,
+      readBytes: row.readBytes,
+      writeBytes: row.writeBytes,
+      readBps: last ? byteRate(last.readBytes, row.readBytes, dtMs) : null,
+      writeBps: last ? byteRate(last.writeBytes, row.writeBytes, dtMs) : null,
+      depth: 0,
+    });
+  }
+  return out;
+}
+
+function decorateCpus(prev, sample) {
+  var list = sample && Array.isArray(sample.cpus) ? sample.cpus : [];
+  var prevList = prev && Array.isArray(prev.cpus) ? prev.cpus : [];
+  var prevMap = {};
+  var i;
+  for (i = 0; i < prevList.length; i++) {
+    if (prevList[i]) prevMap[prevList[i].id] = prevList[i];
+  }
+  var out = [];
+  var row;
+  var last;
+  for (i = 0; i < list.length; i++) {
+    row = list[i];
+    if (!row) continue;
+    last = Object.prototype.hasOwnProperty.call(prevMap, row.id) ? prevMap[row.id] : null;
+    out.push({
+      id: row.id,
+      idle: row.idle,
+      total: row.total,
+      freqMhz: row.freqMhz,
+      governor: row.governor,
+      cpu: last ? corePercent(last, row) : null,
+    });
+  }
+  return out;
+}
+
+function decorateIfaces(prev, sample, dtMs) {
+  var list = sample && Array.isArray(sample.ifaces) ? sample.ifaces : [];
+  var prevList = prev && Array.isArray(prev.ifaces) ? prev.ifaces : [];
+  var prevMap = {};
+  var i;
+  for (i = 0; i < prevList.length; i++) {
+    if (prevList[i] && prevList[i].name) prevMap[prevList[i].name] = prevList[i];
+  }
+  var out = [];
+  var row;
+  var last;
+  var rates;
+  for (i = 0; i < list.length; i++) {
+    row = list[i];
+    if (!row) continue;
+    last = Object.prototype.hasOwnProperty.call(prevMap, row.name) ? prevMap[row.name] : null;
+    rates = last
+      ? netRate({ netRx: last.rx, netTx: last.tx }, { netRx: row.rx, netTx: row.tx }, dtMs)
+      : { rxBps: null, txBps: null };
+    out.push({
+      name: row.name,
+      rx: row.rx,
+      tx: row.tx,
+      rxBps: rates.rxBps,
+      txBps: rates.txBps,
+    });
+  }
+  return out;
+}
+
+function sectorRate(prev, next, dtMs) {
+  var n = byteRate(prev, next, dtMs);
+  if (n === null) return null;
+  return n * 512;
+}
+
+function decorateDisks(prev, sample, dtMs) {
+  var list = sample && Array.isArray(sample.disks) ? sample.disks : [];
+  var prevList = prev && Array.isArray(prev.disks) ? prev.disks : [];
+  var prevMap = {};
+  var i;
+  for (i = 0; i < prevList.length; i++) {
+    if (prevList[i] && prevList[i].name) prevMap[prevList[i].name] = prevList[i];
+  }
+  var out = [];
+  var row;
+  var last;
+  for (i = 0; i < list.length; i++) {
+    row = list[i];
+    if (!row) continue;
+    last = Object.prototype.hasOwnProperty.call(prevMap, row.name) ? prevMap[row.name] : null;
+    out.push({
+      name: row.name,
+      readSectors: row.readSectors,
+      writeSectors: row.writeSectors,
+      readBps: last ? sectorRate(last.readSectors, row.readSectors, dtMs) : null,
+      writeBps: last ? sectorRate(last.writeSectors, row.writeSectors, dtMs) : null,
     });
   }
   return out;
@@ -185,18 +432,38 @@ function pushSample(history, sample, now) {
   var rates = netRate(prev, parsed, dt);
   var row = {
     at: at,
+    uid: parsed.uid,
     cpuIdle: parsed.cpuIdle,
     cpuTotal: parsed.cpuTotal,
+    cpus: decorateCpus(prev, parsed),
+    load1: parsed.load1,
+    load5: parsed.load5,
+    load15: parsed.load15,
     memUsed: parsed.memUsed,
     memTotal: parsed.memTotal,
     memAvail: parsed.memAvail,
+    memFree: parsed.memFree,
+    memBuffers: parsed.memBuffers,
+    memCached: parsed.memCached,
+    memShared: parsed.memShared,
+    memSReclaimable: parsed.memSReclaimable,
+    memAnon: parsed.memAnon,
+    memDirty: parsed.memDirty,
+    swapUsed: parsed.swapUsed,
+    swapTotal: parsed.swapTotal,
     netRx: parsed.netRx,
     netTx: parsed.netTx,
+    ifaces: decorateIfaces(prev, parsed, dt),
+    disks: decorateDisks(prev, parsed, dt),
+    psi: parsed.psi,
+    tcp: parsed.tcp,
     clkTck: parsed.clkTck,
     cpuTemp: parsed.cpuTemp,
     gpus: parsed.gpus,
+    sensors: parsed.sensors,
     cpu: cpuPercent(prev, parsed),
     mem: memPercent(parsed),
+    swap: swapPercent(parsed),
     rxBps: rates.rxBps,
     txBps: rates.txBps,
     processes: decorateProcesses(prev, parsed, dt),
@@ -331,6 +598,126 @@ function memBytes(kb) {
   return n * 1024;
 }
 
+function formatLoad(n) {
+  var v = finiteNumber(n);
+  if (v === null) return "";
+  return v.toFixed(2);
+}
+
+function formatLoadLine(sample) {
+  if (!sample) return "";
+  var a = formatLoad(sample.load1);
+  var b = formatLoad(sample.load5);
+  var c = formatLoad(sample.load15);
+  if (!a || !b || !c) return "";
+  return a + "  " + b + "  " + c;
+}
+
+function formatMhz(n) {
+  var v = finiteNumber(n);
+  if (v === null) return "";
+  if (v >= 1000) return (Math.round((v / 1000) * 100) / 100).toFixed(2) + " GHz";
+  return Math.round(v) + " MHz";
+}
+
+function formatRpm(n) {
+  var v = finiteNumber(n);
+  if (v === null) return "";
+  return Math.round(v) + " RPM";
+}
+
+function formatPsi(n) {
+  var v = finiteNumber(n);
+  if (v === null) return "";
+  if (v < 0.05) return "0%";
+  if (v < 10) return (Math.round(v * 10) / 10).toFixed(1) + "%";
+  return Math.round(v) + "%";
+}
+
+function memParts(sample) {
+  if (!sample || sample.memTotal === null || !(sample.memTotal > 0)) return [];
+  var total = sample.memTotal;
+  var free = sample.memFree != null ? sample.memFree : 0;
+  var buffers = sample.memBuffers != null ? sample.memBuffers : 0;
+  var cached = sample.memCached != null ? sample.memCached : 0;
+  var used = total - free - buffers - cached;
+  if (used < 0) used = sample.memUsed != null ? sample.memUsed : 0;
+  if (used < 0) used = 0;
+  return [
+    { id: "used", label: "Used", kb: used },
+    { id: "buffers", label: "Buffers", kb: buffers },
+    { id: "cached", label: "Cached", kb: cached },
+    { id: "free", label: "Free", kb: free },
+  ];
+}
+
+function namedSeries(history, listKey, matchKey, match, valueKey) {
+  var list = Array.isArray(history) ? history : [];
+  var out = [];
+  var i;
+  var j;
+  var rows;
+  var n;
+  var needle = String(match);
+  for (i = 0; i < list.length; i++) {
+    rows = list[i] && Array.isArray(list[i][listKey]) ? list[i][listKey] : [];
+    n = null;
+    for (j = 0; j < rows.length; j++) {
+      if (!rows[j]) continue;
+      if (String(rows[j][matchKey]) !== needle) continue;
+      n = finiteNumber(rows[j][valueKey]);
+      break;
+    }
+    if (n !== null) out.push(n);
+  }
+  return out;
+}
+
+function coreSeries(history, id) {
+  return namedSeries(history, "cpus", "id", id, "cpu");
+}
+
+function freqSeries(history, id) {
+  return namedSeries(history, "cpus", "id", id, "freqMhz");
+}
+
+function ifaceSeries(history, name, key) {
+  return namedSeries(history, "ifaces", "name", name, key);
+}
+
+function diskSeries(history, name, key) {
+  return namedSeries(history, "disks", "name", name, key);
+}
+
+function sensorSeries(history, id) {
+  return namedSeries(history, "sensors", "id", id, "value");
+}
+
+function gpuBusyAt(sample, key) {
+  var g = findGpu(sample, key);
+  return g ? nonNeg(g.busy) : null;
+}
+
+function gpuBusySeries(history, key) {
+  var list = Array.isArray(history) ? history : [];
+  var out = [];
+  var i;
+  var n;
+  for (i = 0; i < list.length; i++) {
+    n = gpuBusyAt(list[i], key);
+    if (n !== null) out.push(n);
+  }
+  return out;
+}
+
+function corePercents(sample) {
+  var list = sample && Array.isArray(sample.cpus) ? sample.cpus : [];
+  var out = [];
+  var i;
+  for (i = 0; i < list.length; i++) out.push(list[i] && list[i].cpu != null ? list[i].cpu : 0);
+  return out;
+}
+
 function sparklinePoints(values, width, height, pad) {
   var src = Array.isArray(values) ? values : [];
   var nums = [];
@@ -374,22 +761,41 @@ if (typeof module !== "undefined" && module.exports) {
     parse: parse,
     cpuPercent: cpuPercent,
     memPercent: memPercent,
+    swapPercent: swapPercent,
     netRate: netRate,
     processCpu: processCpu,
     decorateProcesses: decorateProcesses,
+    decorateCpus: decorateCpus,
+    decorateIfaces: decorateIfaces,
+    decorateDisks: decorateDisks,
     pushSample: pushSample,
     latest: latest,
     series: series,
     parseTemp: parseTemp,
     gpuRows: gpuRows,
+    findGpu: findGpu,
     gpuOwnTemp: gpuOwnTemp,
     gpuTempAt: gpuTempAt,
     gpuSeries: gpuSeries,
+    gpuBusyAt: gpuBusyAt,
+    gpuBusySeries: gpuBusySeries,
     formatPercent: formatPercent,
     formatTemp: formatTemp,
     formatBps: formatBps,
     formatNet: formatNet,
+    formatLoad: formatLoad,
+    formatLoadLine: formatLoadLine,
+    formatMhz: formatMhz,
+    formatRpm: formatRpm,
+    formatPsi: formatPsi,
     memBytes: memBytes,
+    memParts: memParts,
+    coreSeries: coreSeries,
+    freqSeries: freqSeries,
+    ifaceSeries: ifaceSeries,
+    diskSeries: diskSeries,
+    sensorSeries: sensorSeries,
+    corePercents: corePercents,
     sparklinePoints: sparklinePoints,
   };
 }

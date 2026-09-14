@@ -45,6 +45,27 @@ function hubs() {
       children: [],
     },
     {
+      id: "monitor",
+      title: "Monitor",
+      description: "Live cores, memory, disk I/O, traffic, sensors, and a full process table.",
+      navGroup: "home",
+      snapshotGroup: "look",
+      icon: "pulse-line",
+      file: "MonitorPage.qml",
+      keywords: keywordList(
+        "monitor htop btop top activity process pid kill cpu core load memory ram swap disk io traffic bandwidth sensor thermal temperature gpu psi stall sparkline histogram",
+        ["monitor", "process", "htop"],
+      ),
+      children: [
+        child("monitor/processes", "Processes", "monitor/ProcessesPage.qml"),
+        child("monitor/cpu", "CPU", "monitor/CpuPage.qml"),
+        child("monitor/memory", "Memory", "monitor/MemoryPage.qml"),
+        child("monitor/disk", "Disk I/O", "monitor/DiskPage.qml"),
+        child("monitor/traffic", "Traffic", "monitor/TrafficPage.qml"),
+        child("monitor/sensors", "Sensors", "monitor/SensorsPage.qml"),
+      ],
+    },
+    {
       id: "favorites",
       title: "Favorites",
       description: "Settings you starred, in one place.",
@@ -529,6 +550,7 @@ function fileHub(rel) {
   if (base.indexOf("windows/") === 0) return "windows";
   if (base.indexOf("applications/") === 0) return "applications";
   if (base.indexOf("system/") === 0) return "system";
+  if (base.indexOf("monitor/") === 0) return "monitor";
   return "";
 }
 

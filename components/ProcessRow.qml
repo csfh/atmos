@@ -25,11 +25,23 @@ Item {
   readonly property string pidText: row ? String(row.pid) : ""
   readonly property string cpuText: row ? LiveStatsJs.formatPercent(row.cpu) : ""
   readonly property string rssText: row && row.rssKb != null ? RichUi.formatBytes(row.rssKb * 1024) : ""
+  readonly property string stateText: row ? ProcessesJs.stateLabel(row.state) : ""
+  readonly property string threadText: row && row.threads != null ? String(row.threads) + " thr" : ""
+  readonly property string ioText: {
+    var r = row ? LiveStatsJs.formatBps(row.readBps) : ""
+    var w = row ? LiveStatsJs.formatBps(row.writeBps) : ""
+    if (!r && !w) return ""
+    return "↓ " + (r || "—") + "  ↑ " + (w || "—")
+  }
+  readonly property int treePad: row && row.depth ? row.depth * Theme.spaceMd : 0
   readonly property string statusText: {
     var bits = []
     if (root.pidText) bits.push(root.pidText)
+    if (root.stateText) bits.push(root.stateText)
     if (root.cpuText) bits.push(root.cpuText)
     if (root.rssText) bits.push(root.rssText)
+    if (root.threadText) bits.push(root.threadText)
+    if (root.ioText) bits.push(root.ioText)
     return bits.join("   ")
   }
 
@@ -64,9 +76,9 @@ Item {
 
   Column {
     id: copyCol
-    x: Theme.copyInset
+    x: Theme.copyInset + root.treePad
     y: Theme.rowPad
-    width: Math.max(80, parent.width - Theme.copyInset * 2 - actions.width - Theme.spaceMd)
+    width: Math.max(80, parent.width - Theme.copyInset * 2 - root.treePad - actions.width - Theme.spaceMd)
     spacing: Theme.labelGap
 
     Text {
@@ -103,12 +115,13 @@ Item {
     anchors.verticalCenter: parent.verticalCenter
 
     PrefsButton {
+      visible: ProcessesJs.canSignal(root.row)
       text: ProcessesJs.primaryAction().label
       onClicked: root.acted(ProcessesJs.primaryAction().id)
     }
 
     PrefsMenu {
-      items: ProcessesJs.overflowActions()
+      items: ProcessesJs.overflowActions(root.row)
       onPicked: function(id) { root.acted(id) }
     }
   }

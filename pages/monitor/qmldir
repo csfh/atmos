@@ -1,0 +1,6 @@
+ProcessesPage 1.0 ProcessesPage.qml
+CpuPage 1.0 CpuPage.qml
+MemoryPage 1.0 MemoryPage.qml
+DiskPage 1.0 DiskPage.qml
+TrafficPage 1.0 TrafficPage.qml
+SensorsPage 1.0 SensorsPage.qml

@@ -28,6 +28,7 @@ ShellRoot {
   readonly property string profileHost: AccountsJs.profileHost(Omarchy.currentUser, Omarchy.hostname)
 
   readonly property var pages: HubsJs.navPages()
+  readonly property int liveSampleCount: LiveStatsStore.sampleCount
 
   // Fields the sidebar badges read, boxed so the binding list lives in
   // one place. A change still re-runs forHub on every row; that is cheap
@@ -236,7 +237,8 @@ ShellRoot {
       root.loadHub(root.currentPage)
   }
 
-  Component { id: homePage; HomePage { query: root.query } }
+  Component { id: homePage; HomePage { query: root.query; navigator: prefsNavigator } }
+  Component { id: monitorPage; MonitorPage { query: root.query; stack: pageStack; navigator: prefsNavigator } }
   Component { id: favoritesPage; FavoritesPage { query: root.query; navigator: prefsNavigator } }
   Component { id: appearancePage; AppearancePage { query: root.query; stack: pageStack } }
   Component { id: displayPage; DisplaysPage { query: root.query } }
@@ -271,6 +273,7 @@ ShellRoot {
 
   readonly property var pageById: ({
     home: homePage,
+    monitor: monitorPage,
     favorites: favoritesPage,
     appearance: appearancePage,
     display: displayPage,

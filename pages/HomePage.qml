@@ -1,5 +1,4 @@
 import QtQuick
-import Quickshell.Io
 import "../components"
 import "../services"
 import "../services/Hardware.js" as HardwareJs
@@ -11,19 +10,21 @@ PrefsPage {
   id: root
   hubId: "home"
   title: "Home"
-  description: "How this machine is doing right now. Machine under System is the identity page."
+  description: "How this machine is doing right now. Monitor is the full process-manager. Machine under System is the identity page."
 
-  property var history: []
+  property var navigator: null
   property string procQuery: ""
   property string procSort: "cpu"
   property var pendingProc: null
   property string pendingSignal: ""
 
-  readonly property var latest: LiveStatsJs.latest(root.history)
+  readonly property var history: LiveStatsStore.history
+  readonly property var latest: LiveStatsStore.latest
   readonly property var processes: ProcessesJs.list(
     root.latest && root.latest.processes ? root.latest.processes : [],
     root.procQuery,
-    root.procSort
+    root.procSort,
+    { scope: "mine", uid: root.latest ? root.latest.uid : null }
   )
   readonly property var hw: HardwareJs.normalize(Omarchy.hardware)
   readonly property var cpuValues: LiveStatsJs.series(root.history, "cpu")
@@ -81,21 +82,14 @@ PrefsPage {
     return LiveStatsJs.gpuSeries(root.history, gpu)
   }
 
-  function pollStats() {
-    if (statsProc.running) return
-    statsProc.running = true
-  }
-
-  function adoptSample(text) {
-    var parsed = LiveStatsJs.parse(text)
-    if (!parsed) return
-    root.history = LiveStatsJs.pushSample(root.history, parsed, Date.now())
-  }
-
   function actOn(row, action) {
     if (!row || !action) return
     if (action === "copy") {
       Omarchy.copyText(String(row.pid))
+      return
+    }
+    if (action === "copyCmd") {
+      Omarchy.copyText(String(row.cmdline || row.comm))
       return
     }
     if (action !== "term" && action !== "kill") return
@@ -121,26 +115,6 @@ PrefsPage {
 
   Component.onCompleted: {
     signalConfirm.parent = root.prefsOverlay
-    root.pollStats()
-  }
-
-  Timer {
-    interval: 2000
-    running: true
-    repeat: true
-    onTriggered: root.pollStats()
-  }
-
-  Process {
-    id: statsProc
-    command: ["python3", Omarchy.liveStatsScript]
-    stdout: StdioCollector {
-      id: statsOut
-      waitForEnd: true
-    }
-    onExited: function(code) {
-      if (code === 0) root.adoptSample(statsOut.text)
-    }
   }
 
   PrefsConfirm {
@@ -155,7 +129,7 @@ PrefsPage {
   PrefsGroup {
     title: "Activity"
     query: root.query
-    detail: "Samples stay in this window. Leaving Home stops the poll. Nothing is written to disk."
+    detail: "Samples stay in this window. Monitor keeps the same poller and adds per-core, disk, traffic, and sensors. Nothing is written to disk."
 
     SettingRow {
       label: "Processor"
@@ -314,6 +288,20 @@ PrefsPage {
       description: root.latest ? "Nothing matches that search." : "Waiting for the first sample."
       query: root.query
       keywords: ["empty", "process"]
+    }
+
+    SettingRow {
+      available: !!(root.navigator && root.navigator.go)
+      label: "Monitor"
+      description: "Per-core load, memory composition, disk I/O, traffic, sensors, and a full process table."
+      query: root.query
+      keywords: ["monitor", "htop", "btop", "process"]
+
+      PrefsButton {
+        text: "Configure…"
+        primary: true
+        onClicked: root.navigator.go("monitor")
+      }
     }
   }
 }

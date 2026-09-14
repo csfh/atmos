@@ -198,7 +198,20 @@ function write(file, text) {
 const fixture = fs.mkdtempSync(path.join(os.tmpdir(), "atmos-live-"));
 write(
   path.join(fixture, "proc/stat"),
-  "cpu  10 0 10 70 10 0 0 0 0 0\ncpu0 10 0 10 70 10 0 0 0 0 0\n",
+  "cpu  10 0 10 70 10 0 0 0 0 0\ncpu0 10 0 10 70 10 0 0 0 0 0\ncpu1 5 0 5 35 5 0 0 0 0 0\n",
+);
+write(path.join(fixture, "proc/loadavg"), "0.50 0.40 0.30 1/200 99\n");
+write(
+  path.join(fixture, "proc/diskstats"),
+  "   8       0 sda 100 0 2000 0 50 0 800 0 0 0 0 0 0 0\n" +
+    "   8       1 sda1 10 0 20 0 5 0 8 0 0 0 0 0 0 0\n",
+);
+write(path.join(fixture, "proc/pressure/cpu"), "some avg10=1.25 avg60=0.20 avg300=0.10 total=9\n");
+write(
+  path.join(fixture, "proc/net/tcp"),
+  "  sl  local_address rem_address   st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode\n" +
+    "   0: 0100007F:0016 00000000:0000 0A 00000000:00000000 00:00000000 00000000     0        0 1\n" +
+    "   1: 0100007F:01BB 0100007F:C001 01 00000000:00000000 00:00000000 00000000  1000        0 2\n",
 );
 write(
   path.join(fixture, "proc/meminfo"),
@@ -243,12 +256,34 @@ assertEqual(emitted.cpuIdle, 80, "live-stats.py idle is idle+iowait");
 assertEqual(emitted.cpuTotal, 100, "live-stats.py total is the first eight fields");
 assertEqual(emitted.memUsed, 600, "live-stats.py used is total-available");
 assertEqual(emitted.netRx, 500, "live-stats.py skips loopback rx");
-assertEqual(emitted.processes.length, 1, "live-stats.py keeps this user's processes");
-assertEqual(emitted.processes[0].pid, 200, "live-stats.py emits firefox");
-assertEqual(emitted.processes[0].ticks, 40, "live-stats.py ticks are utime+stime");
+assert(emitted.processes.length >= 1, "live-stats.py emits readable processes");
+const firefox = emitted.processes.find(function (row) {
+  return row.pid === 200;
+});
+assert(!!firefox, "live-stats.py emits firefox");
+assertEqual(firefox.ticks, 40, "live-stats.py ticks are utime+stime");
+assertEqual(firefox.state, "S", "live-stats.py reads process state");
+assertEqual(firefox.mine, true, "live-stats.py marks this user's process mine");
+assertEqual(firefox.threads, 1, "live-stats.py reads thread count");
+const kworker = emitted.processes.find(function (row) {
+  return row.pid === 201;
+});
+assert(!!kworker && kworker.kthread === true, "live-stats.py keeps a kthread flagged");
 assertEqual(emitted.cpuTemp, null, "live-stats.py has no thermal on a bare fixture");
 assertEqual(Array.isArray(emitted.gpus), true, "live-stats.py emits a GPU list");
 assertEqual(emitted.gpus.length, 0, "live-stats.py has no DRM cards on a bare fixture");
+assertEqual(Array.isArray(emitted.cpus), true, "live-stats.py emits per-core counters");
+assertEqual(emitted.cpus.length, 2, "live-stats.py reads cpu0 and cpu1");
+assertEqual(emitted.load1, 0.5, "live-stats.py reads loadavg");
+assertEqual(emitted.ifaces.length, 1, "live-stats.py keeps non-loopback interfaces");
+assertEqual(emitted.ifaces[0].name, "eth0", "live-stats.py names eth0");
+assertEqual(emitted.disks.length, 1, "live-stats.py skips partition sda1");
+assertEqual(emitted.disks[0].name, "sda", "live-stats.py keeps the whole disk");
+assertEqual(emitted.disks[0].readSectors, 2000, "live-stats.py reads sectors");
+assertEqual(emitted.psi.cpu, 1.25, "live-stats.py reads PSI avg10");
+assertEqual(emitted.tcp.listen, 1, "live-stats.py counts LISTEN");
+assertEqual(emitted.tcp.established, 1, "live-stats.py counts ESTABLISHED");
+assertEqual(Array.isArray(emitted.sensors), true, "live-stats.py emits sensors");
 
 write(path.join(fixture, "sys/class/hwmon/hwmon0/name"), "coretemp\n");
 write(path.join(fixture, "sys/class/hwmon/hwmon0/temp1_input"), "0\n");

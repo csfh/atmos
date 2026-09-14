@@ -61,6 +61,10 @@ QtObject {
   readonly property int chamfer: Math.max(5, Math.round(fontSize * 0.62))
   readonly property int chamferSm: Math.max(3, Math.round(fontSize * 0.36))
   readonly property int sparklineHeight: Math.max(28, Math.round(fontSize * 2.2))
+  readonly property int meterMinHeight: Math.max(92, Math.round(fontSize * 6.6))
+  readonly property int coreBarHeight: Math.max(52, Math.round(fontSize * 3.8))
+  readonly property int stackedBarHeight: Math.max(10, Math.round(fontSize * 0.75))
+  readonly property int histogramHeight: Math.max(64, Math.round(fontSize * 4.6))
   // Sidebar status badges. A step above caption so the glyph reads at a
   // glance. Status ink is Theme.urgent / Theme.muted, not a private green.
   readonly property int badgeSize: Math.max(12, fontSize + 1)

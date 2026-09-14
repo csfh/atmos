@@ -20,7 +20,7 @@ want a window to land somewhere specific:
 ./bin/atmos network/wifi
 ```
 
-Hubs include favorites, appearance, displays, windows, bar, notifications, input, accessibility, sound, capture, hardware, drivers, disks, network, power, idle, defaults, applications, software, hooks, security, accounts, and system.
+Hubs include home, monitor, favorites, appearance, displays, windows, bar, notifications, input, accessibility, sound, capture, hardware, drivers, disks, network, power, idle, defaults, applications, software, hooks, security, accounts, and system.
 
 ## Install
 

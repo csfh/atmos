@@ -101,6 +101,7 @@ catalog.forEach(function (hub) {
 
 const pageFiles = [
   "HomePage.qml",
+  "MonitorPage.qml",
   "FavoritesPage.qml",
   "AppearancePage.qml",
   "DisplaysPage.qml",
@@ -141,6 +142,12 @@ const pageFiles = [
   "TweaksPage.qml",
   "ServicesPage.qml",
   "ProfilesPage.qml",
+  "monitor/ProcessesPage.qml",
+  "monitor/CpuPage.qml",
+  "monitor/MemoryPage.qml",
+  "monitor/DiskPage.qml",
+  "monitor/TrafficPage.qml",
+  "monitor/SensorsPage.qml",
 ];
 pageFiles.forEach(function (file) {
   const id = hubs.fileHub(file);
@@ -178,6 +185,15 @@ assertEqual(nav[0].id, "home", "navPages starts at home");
 assertEqual(nav[0].group, "home", "navPages uses navGroup as group");
 assert(nav[0].keywords.indexOf("dashboard") !== -1, "navPages keywords include the union");
 assertEqual(hubs.hubById("home").navGroup, "home", "home nav cluster is home");
+assertEqual(hubs.hubTitle("monitor"), "Monitor", "monitor hub title is Monitor");
+assertEqual(hubs.hubById("monitor").navGroup, "home", "monitor nav cluster is home");
+assertEqual(hubs.hubTitle("monitor/processes"), "Processes", "processes is a Monitor child");
+assertEqual(hubs.snapshotGroupForHub("monitor"), "look", "monitor snapshot group is look");
+assert(
+  hubs.hubById("monitor").keywords.indexOf("htop") !== -1 &&
+    hubs.hubById("monitor").keywords.indexOf("process") !== -1,
+  "Monitor search matches htop and process",
+);
 assert(
   hubs.hubById("home").keywords.indexOf("thermal") !== -1 &&
     hubs.hubById("home").keywords.indexOf("gpu") !== -1,

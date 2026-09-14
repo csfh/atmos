@@ -44,6 +44,29 @@ assert(
   }),
   "overflow includes Force quit",
 );
+assert(
+  proc.overflowActions().some(function (item) {
+    return item.id === "copyCmd";
+  }),
+  "overflow includes Copy command",
+);
+assertEqual(
+  proc.canSignal({ mine: true, kthread: false }),
+  true,
+  "canSignal allows this user's task",
+);
+assertEqual(
+  proc.canSignal({ mine: false, kthread: false }),
+  false,
+  "canSignal refuses another uid",
+);
+assertEqual(proc.canSignal({ mine: true, kthread: true }), false, "canSignal refuses a kthread");
+assert(
+  !proc.overflowActions({ mine: false }).some(function (item) {
+    return item.id === "kill";
+  }),
+  "overflow drops Force quit for another uid",
+);
 
 const script = path.join(__dirname, "..", "scripts", "signal-process.sh");
 assert(fs.existsSync(script), "signal-process.sh exists");

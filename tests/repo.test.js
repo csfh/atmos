@@ -1778,20 +1778,39 @@ assert(shellSrc.indexOf("HubsJs.navPages()") !== -1, "shell pages come from Hubs
 assert(
   shellSrc.indexOf('currentPage: "home"') !== -1 &&
     shellSrc.indexOf('ATMOS_PAGE") || "home"') !== -1 &&
-    shellSrc.indexOf("home: homePage") !== -1,
-  "shell lands on Home",
+    shellSrc.indexOf("home: homePage") !== -1 &&
+    shellSrc.indexOf("monitor: monitorPage") !== -1,
+  "shell lands on Home and registers Monitor",
 );
 const homePageSrc = fs.readFileSync(path.join(__dirname, "..", "pages", "HomePage.qml"), "utf8");
 assert(
   homePageSrc.indexOf('hubId: "home"') !== -1 &&
-    homePageSrc.indexOf("Omarchy.liveStatsScript") !== -1 &&
+    homePageSrc.indexOf("LiveStatsStore") !== -1 &&
     homePageSrc.indexOf("snapshot.sh") === -1 &&
     homePageSrc.indexOf("Omarchy.signalProcess") !== -1,
-  "Home polls live-stats.py and signals through Omarchy",
+  "Home reads LiveStatsStore and signals through Omarchy",
+);
+assert(homePageSrc.indexOf("enqueueRead") === -1, "Home does not enqueue a snapshot");
+const liveStoreSrc = fs.readFileSync(
+  path.join(__dirname, "..", "services", "LiveStatsStore.qml"),
+  "utf8",
 );
 assert(
-  homePageSrc.indexOf("interval: 2000") !== -1 && homePageSrc.indexOf("enqueueRead") === -1,
-  "Home polls locally every 2s and does not enqueue a snapshot",
+  liveStoreSrc.indexOf("Omarchy.liveStatsScript") !== -1 &&
+    liveStoreSrc.indexOf("interval: root.intervalMs") !== -1 &&
+    liveStoreSrc.indexOf("pragma Singleton") !== -1,
+  "LiveStatsStore polls live-stats.py on an interval",
+);
+const monitorPageSrc = fs.readFileSync(
+  path.join(__dirname, "..", "pages", "MonitorPage.qml"),
+  "utf8",
+);
+assert(
+  monitorPageSrc.indexOf('hubId: "monitor"') !== -1 &&
+    monitorPageSrc.indexOf("PrefsMeter") !== -1 &&
+    monitorPageSrc.indexOf("PrefsCoreBars") !== -1 &&
+    monitorPageSrc.indexOf("openSubpage") !== -1,
+  "Monitor is a live dashboard with child pages",
 );
 assert(
   homePageSrc.indexOf('title: "Thermal"') !== -1 &&
@@ -1809,6 +1828,17 @@ assert(sparkSrc.indexOf("Canvas") !== -1, "PrefsSparkline paints on a Canvas");
 assert(
   sparkSrc.indexOf("radius:") === -1 && sparkSrc.indexOf("shadow") === -1,
   "PrefsSparkline does not round cards or add shadows",
+);
+assert(sparkSrc.indexOf("valuesB") !== -1, "PrefsSparkline can stroke a second series");
+const meterSrc = fs.readFileSync(
+  path.join(__dirname, "..", "components", "PrefsMeter.qml"),
+  "utf8",
+);
+assert(
+  meterSrc.indexOf("Chamfer") === -1 &&
+    meterSrc.indexOf("radius: Theme.radius") !== -1 &&
+    meterSrc.indexOf("shadow") === -1,
+  "PrefsMeter is a hairline tile without chamfer or shadows",
 );
 assert(
   omarchySrc.indexOf("function signalProcess(") !== -1 &&

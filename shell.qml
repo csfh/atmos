@@ -238,6 +238,7 @@ ShellRoot {
   }
 
   Component { id: homePage; HomePage { query: root.query; navigator: prefsNavigator } }
+  Component { id: dashboardPage; DashboardPage { query: root.query } }
   Component { id: monitorPage; MonitorPage { query: root.query; stack: pageStack; navigator: prefsNavigator } }
   Component { id: favoritesPage; FavoritesPage { query: root.query; navigator: prefsNavigator } }
   Component { id: appearancePage; AppearancePage { query: root.query; stack: pageStack } }
@@ -273,6 +274,7 @@ ShellRoot {
 
   readonly property var pageById: ({
     home: homePage,
+    dashboard: dashboardPage,
     monitor: monitorPage,
     favorites: favoritesPage,
     appearance: appearancePage,

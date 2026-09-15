@@ -11,6 +11,8 @@ Item {
   property string query: ""
   property string hubId: ""
   property bool embed: false
+  // Grow to the two-column cap even when this page has one full-width block.
+  property bool expandContent: false
   default property alias extra: sections.data
   readonly property alias prefsOverlay: overlayLayer
   readonly property bool hasSections: sections.implicitHeight > 0
@@ -64,7 +66,7 @@ Item {
     gap: Theme.sectionSpacing,
     maxColumns: Theme.sectionMaxColumns,
     minWidth: 240,
-    itemCount: root.visibleGridCount
+    itemCount: root.expandContent ? 8 : root.visibleGridCount
   })
 
   readonly property int sectionColumns: LayoutJs.sectionColumnCount(

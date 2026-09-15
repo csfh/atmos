@@ -8,12 +8,27 @@ import "../services/Monitor.js" as MonitorJs
 PrefsPage {
   id: root
   hubId: "dashboard"
+  expandContent: true
   title: "Dashboard"
-  description: "Every live chart on one page. While this hub is open, samples run at 100ms and marks tween between them."
+  description: "Every live chart on one grid. While this hub is open, samples run at 100ms and marks tween between them."
 
   readonly property var latest: LiveStatsStore.latest
   readonly property var history: LiveStatsStore.history
   readonly property var intervals: MonitorJs.intervalChips()
+  readonly property int tileMin: 260
+  readonly property int tileGap: Theme.spaceMd
+  readonly property int gridInnerWidth: Math.max(240, root.pageColumnWidth - Theme.copyInset * 2)
+  readonly property int chartColumns: {
+    var n = Math.floor((root.gridInnerWidth + root.tileGap) / (root.tileMin + root.tileGap))
+    if (n < 2) n = 2
+    if (n > 4) n = 4
+    return n
+  }
+  readonly property int tileWidth: Math.max(
+    160,
+    Math.floor((root.gridInnerWidth - root.tileGap * (root.chartColumns - 1)) / root.chartColumns)
+  )
+  readonly property int tileChartHeight: Math.max(Theme.chartHeight, Math.round(root.tileWidth * 0.62))
   readonly property var irqRates: {
     var h = root.history
     if (!h || h.length < 2) return []
@@ -43,9 +58,51 @@ PrefsPage {
   }
   readonly property var parallelRows: ChartsJs.processParallel(root.latest && root.latest.processes)
   readonly property var parallelAxes: ChartsJs.parallelAxes()
+  readonly property var tiles: [
+    { kind: "heatmap", title: "IRQ land", hint: "/proc/interrupts", model: "irqRates" },
+    { kind: "ridgeline", title: "PSI ridgeline", hint: "/proc/pressure", model: "psiRidges" },
+    { kind: "violin", title: "Core frequency", hint: "scaling_cur_freq", model: "freqViolins" },
+    { kind: "rose", title: "Softirq rose", hint: "/proc/softirqs", model: "softirqWedges" },
+    { kind: "horizon", title: "Buddy horizon", hint: "/proc/buddyinfo", model: "buddyValues" },
+    { kind: "treemap", title: "RSS treemap", hint: "/proc/*/status", model: "rssTree" },
+    { kind: "sankey", title: "Meminfo Sankey", hint: "/proc/meminfo", model: "memSankey" },
+    { kind: "sunburst", title: "Cgroup sunburst", hint: "memory.current", model: "cgroupTree" },
+    { kind: "icicle", title: "Slab icicle", hint: "/proc/slabinfo", model: "slabTree" },
+    { kind: "streamgraph", title: "Disk streamgraph", hint: "/proc/diskstats", model: "diskStream" },
+    { kind: "beeswarm", title: "TCP beeswarm", hint: "/proc/net/tcp", model: "tcpBees" },
+    { kind: "radar", title: "Netdev radar", hint: "/proc/net/dev", model: "netRadar" },
+    { kind: "calendar", title: "Thermal calendar", hint: "temp*_input", model: "thermalDays" },
+    { kind: "waterfall", title: "RAPL waterfall", hint: "energy_uj", model: "raplSteps" },
+    { kind: "parallel", title: "Process coordinates", hint: "/proc/*/stat", model: "parallelRows" }
+  ]
 
   function waiting() {
     return LiveStatsStore.waiting ? "waiting for samples" : "unknown"
+  }
+
+  function chartModel(id) {
+    if (id === "irqRates") return root.irqRates
+    if (id === "psiRidges") return root.psiRidges
+    if (id === "freqViolins") return root.freqViolins
+    if (id === "softirqWedges") return root.softirqWedges
+    if (id === "buddyValues") return root.buddyValues
+    if (id === "rssTree") return root.rssTree
+    if (id === "memSankey") return root.memSankey
+    if (id === "cgroupTree") return root.cgroupTree
+    if (id === "slabTree") return root.slabTree
+    if (id === "diskStream") return root.diskStream
+    if (id === "tcpBees") return root.tcpBees
+    if (id === "netRadar") return root.netRadar
+    if (id === "thermalDays") return root.thermalDays
+    if (id === "raplSteps") return root.raplSteps
+    if (id === "parallelRows") return root.parallelRows
+    return null
+  }
+
+  function chartModelB(kind) {
+    if (kind === "radar") return root.radarAxes
+    if (kind === "parallel") return root.parallelAxes
+    return null
   }
 
   Component.onCompleted: {
@@ -58,6 +115,7 @@ PrefsPage {
   PrefsGroup {
     title: "Sampling"
     query: root.query
+    wide: true
     detail: "Dashboard holds the poll at 100ms. A slower chip is a floor only after you leave this hub."
 
     Column {
@@ -75,7 +133,7 @@ PrefsPage {
           PrefsButton {
             required property var modelData
             text: modelData && modelData.label ? modelData.label : ""
-            primary: LiveStatsStore.userIntervalMs === (modelData && modelData.ms ? modelData.ms : 0)
+            primary: LiveStatsStore.intervalMs === (modelData && modelData.ms ? modelData.ms : 0)
             onClicked: LiveStatsStore.setIntervalId(modelData.id)
           }
         }
@@ -90,7 +148,7 @@ PrefsPage {
         width: parent.width
         text: LiveStatsStore.waiting
           ? root.waiting()
-          : ("live " + LiveStatsStore.intervalMs + "ms  ·  " + LiveStatsStore.sampleCount + " samples")
+          : ("live " + LiveStatsStore.intervalMs + "ms  ·  " + LiveStatsStore.sampleCount + " samples  ·  " + root.chartColumns + " columns")
         color: Theme.muted
         font.family: Theme.fontFamily
         font.pixelSize: Theme.captionSize
@@ -99,214 +157,72 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "IRQ land"
+    title: "Charts"
     query: root.query
-    detail: "Interrupt rate by vector × core."
-    hint: "/proc/interrupts"
+    wide: true
+    catalog: true
+    detail: "IRQ heatmap, PSI ridgeline, core-freq violin, softirq rose, buddy horizon, RSS treemap, meminfo Sankey, cgroup sunburst, slab icicle, disk streamgraph, TCP beeswarm, netdev radar, thermal calendar, RAPL waterfall, and process parallel coordinates."
+    hint: "/proc"
 
-    PrefsChart {
-      width: parent.width
-      kind: "heatmap"
-      model: root.irqRates
-      valueText: "IRQ land heatmap"
-    }
-  }
+    Grid {
+      id: chartGrid
+      width: parent.width - Theme.copyInset * 2
+      x: Theme.copyInset
+      columns: root.chartColumns
+      columnSpacing: root.tileGap
+      rowSpacing: root.tileGap
 
-  PrefsGroup {
-    title: "PSI ridgeline"
-    query: root.query
-    detail: "cpu / memory / io stall overlapping on one time scale."
-    hint: "/proc/pressure"
+      Repeater {
+        model: root.tiles
 
-    PrefsChart {
-      width: parent.width
-      kind: "ridgeline"
-      model: root.psiRidges
-      valueText: "PSI stall ridgeline"
-    }
-  }
+        Rectangle {
+          required property var modelData
+          width: root.tileWidth
+          height: inner.implicitHeight + Theme.pad * 2
+          color: Theme.fill(Theme.normalFill)
+          border.width: Theme.borderWidth
+          border.color: Theme.borderColor()
+          radius: Theme.radius
 
-  PrefsGroup {
-    title: "Core frequency"
-    query: root.query
-    detail: "Violin of scaling_cur_freq per core."
-    hint: "scaling_cur_freq"
+          Column {
+            id: inner
+            x: Theme.pad
+            y: Theme.pad
+            width: parent.width - Theme.pad * 2
+            spacing: Theme.labelGap
 
-    PrefsChart {
-      width: parent.width
-      kind: "violin"
-      model: root.freqViolins
-      valueText: "Core-freq violin"
-    }
-  }
+            Text {
+              width: parent.width
+              text: modelData && modelData.title ? modelData.title : ""
+              color: Theme.muted
+              font.family: Theme.fontFamily
+              font.pixelSize: Theme.metaSize
+              font.letterSpacing: Theme.sectionTracking
+              elide: Text.ElideRight
+            }
 
-  PrefsGroup {
-    title: "Softirq rose"
-    query: root.query
-    detail: "Nightingale rose of software IRQ rates."
-    hint: "/proc/softirqs"
+            Text {
+              width: parent.width
+              visible: !!(modelData && modelData.hint)
+              text: modelData && modelData.hint ? modelData.hint : ""
+              color: Theme.muted
+              opacity: Theme.metaOpacity
+              font.family: Theme.fontFamily
+              font.pixelSize: Theme.captionSize
+              elide: Text.ElideRight
+            }
 
-    PrefsChart {
-      width: parent.width
-      kind: "rose"
-      model: root.softirqWedges
-      valueText: "Softirq Nightingale rose"
-    }
-  }
-
-  PrefsGroup {
-    title: "Buddy horizon"
-    query: root.query
-    detail: "Free pages from buddyinfo, folded into bands."
-    hint: "/proc/buddyinfo"
-
-    PrefsChart {
-      width: parent.width
-      kind: "horizon"
-      model: root.buddyValues
-      valueText: "Buddy-order horizon"
-    }
-  }
-
-  PrefsGroup {
-    title: "RSS treemap"
-    query: root.query
-    detail: "Resident set nested by user then comm."
-    hint: "/proc/*/status"
-
-    PrefsChart {
-      width: parent.width
-      kind: "treemap"
-      model: root.rssTree
-      valueText: "Process RSS treemap"
-    }
-  }
-
-  PrefsGroup {
-    title: "Meminfo Sankey"
-    query: root.query
-    detail: "MemTotal flowing into kernel buckets."
-    hint: "/proc/meminfo"
-
-    PrefsChart {
-      width: parent.width
-      kind: "sankey"
-      model: root.memSankey
-      valueText: "Meminfo composition Sankey"
-    }
-  }
-
-  PrefsGroup {
-    title: "Cgroup sunburst"
-    query: root.query
-    detail: "memory.current by cgroup path."
-    hint: "/sys/fs/cgroup/**/memory.current"
-
-    PrefsChart {
-      width: parent.width
-      kind: "sunburst"
-      model: root.cgroupTree
-      valueText: "Cgroup memory sunburst"
-    }
-  }
-
-  PrefsGroup {
-    title: "Slab icicle"
-    query: root.query
-    detail: "Kernel slab occupancy."
-    hint: "/proc/slabinfo"
-
-    PrefsChart {
-      width: parent.width
-      kind: "icicle"
-      model: root.slabTree
-      valueText: "Slab cache icicle"
-    }
-  }
-
-  PrefsGroup {
-    title: "Disk streamgraph"
-    query: root.query
-    detail: "Read+write bandwidth stacked about the centerline."
-    hint: "/proc/diskstats"
-
-    PrefsChart {
-      width: parent.width
-      kind: "streamgraph"
-      model: root.diskStream
-      valueText: "Blockdev I/O streamgraph"
-    }
-  }
-
-  PrefsGroup {
-    title: "TCP beeswarm"
-    query: root.query
-    detail: "One point per socket, grouped by state."
-    hint: "/proc/net/tcp"
-
-    PrefsChart {
-      width: parent.width
-      kind: "beeswarm"
-      model: root.tcpBees
-      valueText: "TCP state beeswarm"
-    }
-  }
-
-  PrefsGroup {
-    title: "Netdev radar"
-    query: root.query
-    detail: "Per-NIC rx/tx, packets, drops, errs."
-    hint: "/proc/net/dev"
-
-    PrefsChart {
-      width: parent.width
-      kind: "radar"
-      model: root.netRadar
-      modelB: root.radarAxes
-      valueText: "Netdev counter radar"
-    }
-  }
-
-  PrefsGroup {
-    title: "Thermal calendar"
-    query: root.query
-    detail: "Daily-max °C in this window's sample ring."
-    hint: "/sys/class/hwmon/*/temp*_input"
-
-    PrefsChart {
-      width: parent.width
-      kind: "calendar"
-      model: root.thermalDays
-      valueText: "Hwmon thermal calendar"
-    }
-  }
-
-  PrefsGroup {
-    title: "RAPL waterfall"
-    query: root.query
-    detail: "Joules since the last sample. Empty when RAPL is missing."
-    hint: "/sys/class/powercap/intel-rapl*/energy_uj"
-
-    PrefsChart {
-      width: parent.width
-      kind: "waterfall"
-      model: root.raplSteps
-      valueText: "RAPL energy waterfall"
-    }
-  }
-
-  PrefsGroup {
-    title: "Process coordinates"
-    query: root.query
-    detail: "CPU%, RSS, FDs, threads, and nice."
-    hint: "/proc/*/stat"
-
-    PrefsChart {
-      width: parent.width
-      kind: "parallel"
-      model: root.parallelRows
-      modelB: root.parallelAxes
-      valueText: "Process parallel coordinates"
+            PrefsChart {
+              width: parent.width
+              height: root.tileChartHeight
+              kind: modelData && modelData.kind ? modelData.kind : ""
+              model: root.chartModel(modelData && modelData.model)
+              modelB: root.chartModelB(modelData && modelData.kind)
+              valueText: modelData && modelData.title ? modelData.title : ""
+            }
+          }
+        }
+      }
     }
   }
 }

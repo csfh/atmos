@@ -1799,6 +1799,7 @@ assert(
   shellSrc.indexOf('currentPage: "home"') !== -1 &&
     shellSrc.indexOf('ATMOS_PAGE") || "home"') !== -1 &&
     shellSrc.indexOf("home: homePage") !== -1 &&
+    shellSrc.indexOf("dashboard: dashboardPage") !== -1 &&
     shellSrc.indexOf("monitor: monitorPage") !== -1,
   "shell lands on Home and registers Monitor",
 );
@@ -1865,9 +1866,16 @@ dashboardKinds.forEach(function (kind) {
 });
 assert(
   dashboardPageSrc.indexOf('hubId: "dashboard"') !== -1 &&
+    dashboardPageSrc.indexOf("expandContent: true") !== -1 &&
     dashboardPageSrc.indexOf('requestInterval("dashboard", 100)') !== -1 &&
     dashboardPageSrc.indexOf("releaseInterval") !== -1,
   "Dashboard holds the live sample at 100ms while open",
+);
+assert(
+  dashboardPageSrc.indexOf("chartColumns") !== -1 &&
+    dashboardPageSrc.indexOf("id: chartGrid") !== -1 &&
+    /Grid \{\s*id: chartGrid/.test(dashboardPageSrc),
+  "Dashboard lays charts out in a Grid of tiles",
 );
 assert(
   monitorPageSrc.indexOf("nowFlow.width") !== -1 && monitorPageSrc.indexOf("wide: true") !== -1,

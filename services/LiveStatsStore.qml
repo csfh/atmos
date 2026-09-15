@@ -9,6 +9,8 @@ QtObject {
 
   property var history: []
   property int intervalMs: 2000
+  property int userIntervalMs: 2000
+  property var intervalHolds: ({})
   property bool paused: false
   property string lastError: ""
 
@@ -32,8 +34,51 @@ QtObject {
     root.history = LiveStatsJs.pushSample(root.history, parsed, Date.now())
   }
 
+  function applyInterval() {
+    var ms = root.userIntervalMs
+    var holds = root.intervalHolds || {}
+    var key
+    var n
+    for (key in holds) {
+      if (!Object.prototype.hasOwnProperty.call(holds, key)) continue
+      n = Number(holds[key])
+      if (isFinite(n) && n > 0 && n < ms) ms = n
+    }
+    root.intervalMs = Math.max(50, Math.floor(ms))
+  }
+
   function setIntervalId(id) {
-    root.intervalMs = MonitorJs.intervalMs(id)
+    root.userIntervalMs = MonitorJs.intervalMs(id)
+    root.applyInterval()
+  }
+
+  function requestInterval(id, ms) {
+    var key = String(id || "")
+    var n = Number(ms)
+    if (!key || !isFinite(n) || n <= 0) return
+    var next = {}
+    var k
+    var holds = root.intervalHolds || {}
+    for (k in holds) {
+      if (Object.prototype.hasOwnProperty.call(holds, k)) next[k] = holds[k]
+    }
+    next[key] = n
+    root.intervalHolds = next
+    root.applyInterval()
+  }
+
+  function releaseInterval(id) {
+    var key = String(id || "")
+    var next = {}
+    var k
+    var holds = root.intervalHolds || {}
+    for (k in holds) {
+      if (!Object.prototype.hasOwnProperty.call(holds, k)) continue
+      if (k === key) continue
+      next[k] = holds[k]
+    }
+    root.intervalHolds = next
+    root.applyInterval()
   }
 
   function setPaused(on) {

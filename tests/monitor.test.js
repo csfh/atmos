@@ -5,6 +5,8 @@ const live = load("services/LiveStats.js");
 const proc = load("services/Processes.js");
 
 assertEqual(monitor.intervalMs("500"), 500, "intervalMs maps 0.5s");
+assertEqual(monitor.intervalMs("100"), 100, "intervalMs maps 100ms");
+assertEqual(monitor.intervalMs("250"), 250, "intervalMs maps 250ms");
 assertEqual(monitor.intervalMs("nope"), 2000, "intervalMs defaults to 2s");
 assertEqual(monitor.pageCards().length, 6, "pageCards lists the Monitor children");
 assertEqual(monitor.alertLevel(null), "unknown", "alertLevel unknown stays unknown");

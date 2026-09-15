@@ -1836,6 +1836,39 @@ assert(
     monitorPageSrc.indexOf("openSubpage") !== -1,
   "Monitor is a live dashboard with child pages",
 );
+const dashboardPageSrc = fs.readFileSync(
+  path.join(__dirname, "..", "pages", "DashboardPage.qml"),
+  "utf8",
+);
+const dashboardKinds = [
+  "heatmap",
+  "ridgeline",
+  "violin",
+  "rose",
+  "horizon",
+  "treemap",
+  "sankey",
+  "sunburst",
+  "icicle",
+  "streamgraph",
+  "beeswarm",
+  "radar",
+  "calendar",
+  "waterfall",
+  "parallel",
+];
+dashboardKinds.forEach(function (kind) {
+  assert(
+    dashboardPageSrc.indexOf('kind: "' + kind + '"') !== -1,
+    "Dashboard paints a " + kind + " chart",
+  );
+});
+assert(
+  dashboardPageSrc.indexOf('hubId: "dashboard"') !== -1 &&
+    dashboardPageSrc.indexOf('requestInterval("dashboard", 100)') !== -1 &&
+    dashboardPageSrc.indexOf("releaseInterval") !== -1,
+  "Dashboard holds the live sample at 100ms while open",
+);
 assert(
   monitorPageSrc.indexOf("nowFlow.width") !== -1 && monitorPageSrc.indexOf("wide: true") !== -1,
   "Monitor meters size from the Now flow and span the full row",
@@ -1889,6 +1922,10 @@ const processesPageSrc = fs.readFileSync(
 );
 const liveStatsPy = fs.readFileSync(path.join(__dirname, "..", "scripts", "live-stats.py"), "utf8");
 assert(prefsChartSrc.indexOf("qs.Ui") === -1, "PrefsChart does not import qs.Ui");
+assert(
+  prefsChartSrc.indexOf("ChartsJs.lerpScene") !== -1 && prefsChartSrc.indexOf("tweenT") !== -1,
+  "PrefsChart tweens marks between samples",
+);
 assert(prefsChartSrc.indexOf("ChartsJs.heatmapCells") !== -1, "PrefsChart paints heatmap cells");
 assert(
   cpuPageSrc.indexOf('kind: "heatmap"') !== -1 &&

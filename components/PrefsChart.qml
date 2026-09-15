@@ -10,6 +10,11 @@ Item {
   property var modelB: null
   property string valueText: ""
   property int bandCount: 3
+  property bool tween: true
+  property int tweenMs: LiveStatsStore.intervalMs
+  property real tweenT: 1
+  property var fromScene: null
+  property var toScene: null
 
   implicitWidth: 260
   implicitHeight: Theme.chartHeight
@@ -92,6 +97,37 @@ Item {
     if (close) ctx.closePath()
   }
 
+  function paintedScene() {
+    return ChartsJs.lerpScene(root.fromScene, root.toScene, root.tweenT)
+  }
+
+  function retarget() {
+    var next = root.layout()
+    if (root.tween && root.hasMarks(root.toScene) && root.hasMarks(next)) {
+      root.fromScene = ChartsJs.lerpScene(root.fromScene, root.toScene, root.tweenT)
+      root.toScene = next
+      root.tweenT = 0
+      tweenAnim.restart()
+    } else {
+      root.fromScene = next
+      root.toScene = next
+      root.tweenT = 1
+    }
+    canvas.requestPaint()
+  }
+
+  NumberAnimation {
+    id: tweenAnim
+    target: root
+    property: "tweenT"
+    from: 0
+    to: 1
+    duration: Math.max(80, root.tweenMs)
+    easing.type: Easing.InOutCubic
+  }
+
+  onTweenTChanged: canvas.requestPaint()
+
   Canvas {
     id: canvas
     anchors.fill: parent
@@ -105,7 +141,7 @@ Item {
       ctx.reset()
       ctx.fillStyle = root.cssColor(Theme.fill(Theme.normalFill))
       ctx.fillRect(0, 0, width, height)
-      var scene = root.layout()
+      var scene = root.paintedScene()
       if (!root.hasMarks(scene)) return
       var i
       var j
@@ -272,7 +308,10 @@ Item {
     }
   }
 
-  onKindChanged: canvas.requestPaint()
-  onModelChanged: canvas.requestPaint()
-  onModelBChanged: canvas.requestPaint()
+  onKindChanged: root.retarget()
+  onModelChanged: root.retarget()
+  onModelBChanged: root.retarget()
+  onWidthChanged: root.retarget()
+  onHeightChanged: root.retarget()
+  Component.onCompleted: root.retarget()
 }

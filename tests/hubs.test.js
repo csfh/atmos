@@ -101,6 +101,7 @@ catalog.forEach(function (hub) {
 
 const pageFiles = [
   "HomePage.qml",
+  "DashboardPage.qml",
   "MonitorPage.qml",
   "FavoritesPage.qml",
   "AppearancePage.qml",
@@ -185,6 +186,13 @@ assertEqual(nav[0].id, "home", "navPages starts at home");
 assertEqual(nav[0].group, "home", "navPages uses navGroup as group");
 assert(nav[0].keywords.indexOf("dashboard") !== -1, "navPages keywords include the union");
 assertEqual(hubs.hubById("home").navGroup, "home", "home nav cluster is home");
+assertEqual(hubs.hubTitle("dashboard"), "Dashboard", "dashboard hub title is Dashboard");
+assertEqual(hubs.hubById("dashboard").navGroup, "home", "dashboard nav cluster is home");
+assertEqual(
+  hubs.hubById("dashboard").file,
+  "DashboardPage.qml",
+  "dashboard page file is DashboardPage.qml",
+);
 assertEqual(hubs.hubTitle("monitor"), "Monitor", "monitor hub title is Monitor");
 assertEqual(hubs.hubById("monitor").navGroup, "home", "monitor nav cluster is home");
 assertEqual(hubs.hubTitle("monitor/processes"), "Processes", "processes is a Monitor child");

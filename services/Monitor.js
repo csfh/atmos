@@ -9,6 +9,8 @@ function finiteNumber(v) {
 
 function intervalChips() {
   return [
+    { id: "100", label: "100ms", ms: 100 },
+    { id: "250", label: "250ms", ms: 250 },
     { id: "500", label: "0.5s", ms: 500 },
     { id: "1000", label: "1s", ms: 1000 },
     { id: "2000", label: "2s", ms: 2000 },

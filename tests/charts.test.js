@@ -396,3 +396,50 @@ const rapl = charts.raplSteps(
 assertEqual(rapl[0].value, 2, "raplSteps converts microjoules to joules");
 assertEqual(charts.slabTree([]), null, "slabTree empty is null");
 assert(!!charts.slabTree([{ name: "kmalloc-8", active: 10 }]), "slabTree keeps a cache");
+
+assertEqual(charts.lerpNum(0, 10, 0.5), 5, "lerpNum is linear");
+assertEqual(charts.lerpNum(null, 8, 1), 8, "lerpNum missing from uses to");
+const heatA = charts.heatmapCells([{ id: "NMI", values: [0, 10] }], 100, 20);
+const heatB = charts.heatmapCells([{ id: "NMI", values: [10, 0] }], 100, 20);
+const heatMid = charts.lerpScene({ cells: heatA }, { cells: heatB }, 0.5);
+assertEqual(heatMid.cells.length, 2, "lerpScene keeps heatmap cells");
+assertEqual(heatMid.cells[0].fill, 0.5, "lerpScene tweens heatmap fill");
+assertEqual(heatMid.cells[0].x, heatA[0].x, "lerpScene keeps heatmap x");
+const fallA = charts.waterfallBars([{ id: "package", value: 0 }], 90, 40);
+const fallB = charts.waterfallBars([{ id: "package", value: 10 }], 90, 40);
+const fallMid = charts.lerpScene({ bars: fallA }, { bars: fallB }, 0.5);
+assert(
+  Math.abs(fallMid.bars[0].h - (fallA[0].h + fallB[0].h) / 2) < 0.6,
+  "lerpScene tweens waterfall bar height",
+);
+const roseA = charts.nightingaleWedges(
+  [
+    { id: "NET_RX", value: 1 },
+    { id: "TIMER", value: 4 },
+  ],
+  100,
+  100,
+);
+const roseB = charts.nightingaleWedges(
+  [
+    { id: "NET_RX", value: 4 },
+    { id: "TIMER", value: 1 },
+  ],
+  100,
+  100,
+);
+const roseMid = charts.lerpScene({ wedges: roseA }, { wedges: roseB }, 0.5);
+assert(
+  roseMid.wedges[0].r > roseA[0].r && roseMid.wedges[0].r < roseB[0].r,
+  "lerpScene tweens rose radius",
+);
+assertEqual(
+  charts.lerpScene({ cells: heatA }, { cells: heatB }, 0).cells[0].fill,
+  heatA[0].fill,
+  "lerpScene t=0 is from",
+);
+assertEqual(
+  charts.lerpScene({ cells: heatA }, { cells: heatB }, 1).cells[0].fill,
+  heatB[0].fill,
+  "lerpScene t=1 is to",
+);

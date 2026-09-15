@@ -111,6 +111,7 @@ function ridgelinePaths(series, width, height) {
   var maxLen = 0;
   var maxV = 0;
   var rows = [];
+  var vals;
   for (i = 0; i < src.length; i++) {
     nums = [];
     vals = Array.isArray(src[i] && src[i].values) ? src[i].values : [];
@@ -124,7 +125,6 @@ function ridgelinePaths(series, width, height) {
     if (nums.length > maxLen) maxLen = nums.length;
     rows.push({ id: src[i] && src[i].id != null ? String(src[i].id) : String(i), values: nums });
   }
-  var vals;
   if (maxLen < 2 || !(maxV > 0)) return [];
   var ridgeH = h / (src.length + 0.35);
   var out = [];
@@ -352,6 +352,7 @@ function violinPaths(series, width, height) {
   var rows = [];
   var min = null;
   var max = null;
+  var vals;
   for (i = 0; i < src.length; i++) {
     nums = [];
     vals = Array.isArray(src[i] && src[i].values) ? src[i].values : [];
@@ -366,7 +367,6 @@ function violinPaths(series, width, height) {
       rows.push({ id: src[i] && src[i].id != null ? String(src[i].id) : String(i), values: nums });
     }
   }
-  var vals;
   if (!rows.length || min === null || max === min) return [];
   var slot = w / rows.length;
   var span = max - min;
@@ -1337,6 +1337,163 @@ function slabTree(slabs) {
   return { id: "slab", children: kids };
 }
 
+function clampT(t) {
+  var n = Number(t);
+  if (!isFinite(n) || n <= 0) return 0;
+  if (n >= 1) return 1;
+  return n;
+}
+
+function lerpNum(a, b, t) {
+  var x = Number(a);
+  var y = Number(b);
+  if (!isFinite(x)) x = y;
+  if (!isFinite(y)) y = x;
+  if (!isFinite(x)) return 0;
+  return x + (y - x) * t;
+}
+
+function lerpPair(a, b, t) {
+  var p = Array.isArray(a) && a.length >= 2 ? a : null;
+  var q = Array.isArray(b) && b.length >= 2 ? b : p;
+  if (!q) return [0, 0];
+  if (!p) p = q;
+  return [lerpNum(p[0], q[0], t), lerpNum(p[1], q[1], t)];
+}
+
+function lerpPoints(a, b, t) {
+  var p = Array.isArray(a) ? a : [];
+  var q = Array.isArray(b) ? b : [];
+  var n = q.length > p.length ? q.length : p.length;
+  if (!n) return [];
+  var out = [];
+  var i;
+  var from;
+  var to;
+  for (i = 0; i < n; i++) {
+    from = i < p.length ? p[i] : p.length ? p[p.length - 1] : q[i];
+    to = i < q.length ? q[i] : q.length ? q[q.length - 1] : from;
+    out.push(lerpPair(from, to, t));
+  }
+  return out;
+}
+
+function itemKey(item, i) {
+  if (!item || typeof item !== "object") return String(i);
+  if (item.id != null && String(item.id) !== "") return "id:" + item.id;
+  if (item.row != null) return "cell:" + item.row + ":" + item.col;
+  if (item.source != null && item.target != null) return "link:" + item.source + ":" + item.target;
+  if (item.date != null) return "day:" + item.date;
+  if (item.key != null) return "key:" + item.key;
+  return "i:" + i;
+}
+
+function lerpScalarFields(from, to, t, fields) {
+  var out = {};
+  var i;
+  var k;
+  var src = to && typeof to === "object" ? to : from;
+  if (!src) return out;
+  for (k in src) {
+    if (!Object.prototype.hasOwnProperty.call(src, k)) continue;
+    out[k] = src[k];
+  }
+  if (!from) return out;
+  for (i = 0; i < fields.length; i++) {
+    k = fields[i];
+    if (k === "points") out[k] = lerpPoints(from[k], to && to[k], t);
+    else if (k === "top") out[k] = lerpPoints(from[k], to && to[k], t);
+    else if (k === "bottom") out[k] = lerpPoints(from[k], to && to[k], t);
+    else out[k] = lerpNum(from[k], to && to[k], t);
+  }
+  return out;
+}
+
+function lerpList(from, to, t, fields) {
+  var a = Array.isArray(from) ? from : [];
+  var b = Array.isArray(to) ? to : [];
+  if (!b.length && !a.length) return [];
+  var map = {};
+  var i;
+  for (i = 0; i < a.length; i++) map[itemKey(a[i], i)] = a[i];
+  var out = [];
+  var key;
+  var prev;
+  for (i = 0; i < b.length; i++) {
+    key = itemKey(b[i], i);
+    prev = Object.prototype.hasOwnProperty.call(map, key) ? map[key] : a[i];
+    out.push(lerpScalarFields(prev, b[i], t, fields));
+  }
+  return out;
+}
+
+function lerpScene(from, to, t) {
+  var k = clampT(t);
+  var dest = to && typeof to === "object" ? to : {};
+  var src = from && typeof from === "object" ? from : dest;
+  if (k <= 0) return src;
+  if (k >= 1) return dest;
+  var out = {};
+  if (dest.cells || src.cells)
+    out.cells = lerpList(src.cells, dest.cells, k, ["x", "y", "w", "h", "fill", "value"]);
+  if (dest.ridges || src.ridges)
+    out.ridges = lerpList(src.ridges, dest.ridges, k, ["points", "baseline"]);
+  if (dest.bands || src.bands) out.bands = lerpList(src.bands, dest.bands, k, ["points", "fill"]);
+  if (dest.rects || src.rects)
+    out.rects = lerpList(src.rects, dest.rects, k, ["x", "y", "w", "h", "value"]);
+  if (dest.violins || src.violins)
+    out.violins = lerpList(src.violins, dest.violins, k, ["points", "x"]);
+  if (dest.points || src.points) out.points = lerpList(src.points, dest.points, k, ["x", "y"]);
+  if (dest.wedges || src.wedges)
+    out.wedges = lerpList(src.wedges, dest.wedges, k, [
+      "cx",
+      "cy",
+      "r",
+      "start",
+      "end",
+      "area",
+      "value",
+    ]);
+  if (dest.nodes || src.nodes)
+    out.nodes = lerpList(src.nodes, dest.nodes, k, ["x", "y", "w", "h", "value"]);
+  if (dest.links || src.links)
+    out.links = lerpList(src.links, dest.links, k, ["x0", "y0", "x1", "y1", "width", "value"]);
+  if (dest.polylines || src.polylines)
+    out.polylines = lerpList(src.polylines, dest.polylines, k, ["points"]);
+  if (dest.layers || src.layers)
+    out.layers = lerpList(src.layers, dest.layers, k, ["top", "bottom"]);
+  if (dest.arcs || src.arcs)
+    out.arcs = lerpList(src.arcs, dest.arcs, k, [
+      "cx",
+      "cy",
+      "innerR",
+      "outerR",
+      "start",
+      "end",
+      "value",
+    ]);
+  if (dest.axes || src.axes) out.axes = lerpList(src.axes, dest.axes, k, ["x", "y", "angle"]);
+  if (dest.polygons || src.polygons)
+    out.polygons = lerpList(src.polygons, dest.polygons, k, ["points"]);
+  if (dest.bars || src.bars)
+    out.bars = lerpList(src.bars, dest.bars, k, ["x", "y", "w", "h", "value", "origin"]);
+  return out;
+}
+
+function radarAxes() {
+  return [
+    { key: "rx", label: "rx" },
+    { key: "tx", label: "tx" },
+    { key: "packets", label: "packets" },
+    { key: "drops", label: "drops" },
+    { key: "errs", label: "errs" },
+  ];
+}
+
+function parallelAxes() {
+  return ["cpu", "rss", "fds", "threads", "nice"];
+}
+
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     heatmapCells: heatmapCells,
@@ -1370,5 +1527,9 @@ if (typeof module !== "undefined" && module.exports) {
     raplSteps: raplSteps,
     slabTree: slabTree,
     treemapNodeValue: treemapNodeValue,
+    lerpNum: lerpNum,
+    lerpScene: lerpScene,
+    radarAxes: radarAxes,
+    parallelAxes: parallelAxes,
   };
 }

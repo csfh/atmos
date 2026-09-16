@@ -240,7 +240,7 @@ ShellRoot {
   Component { id: homePage; HomePage { query: root.query; navigator: prefsNavigator } }
   Component { id: monitorPage; MonitorPage { query: root.query; stack: pageStack; navigator: prefsNavigator } }
   Component { id: favoritesPage; FavoritesPage { query: root.query; navigator: prefsNavigator } }
-  Component { id: appearancePage; AppearancePage { query: root.query; stack: pageStack } }
+  Component { id: appearancePage; AppearancePage { query: root.query; stack: pageStack; navigator: prefsNavigator } }
   Component { id: displayPage; DisplaysPage { query: root.query } }
   Component { id: hardwarePage; HardwarePage { query: root.query; navigator: prefsNavigator } }
   Component { id: driversPage; DriversPage { query: root.query } }

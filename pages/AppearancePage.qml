@@ -38,13 +38,13 @@ PrefsPage {
 
   function openSubpage(id) {
     if (id === "theme") return
-    if (root.navigator && root.navigator.go) {
-      root.navigator.go("appearance/" + id)
+    if (stack) {
+      if (id === "background") stack.push(backgroundPage)
+      else if (id === "boot") stack.push(bootPage)
       return
     }
-    if (!stack) return
-    if (id === "background") stack.push(backgroundPage)
-    else if (id === "boot") stack.push(bootPage)
+    if (root.navigator && root.navigator.go)
+      root.navigator.go("appearance/" + id)
   }
 
   function extraCountText() {

@@ -773,21 +773,39 @@ assert(
     networkPageSrc.indexOf('root.navigator.go("bluetooth")') !== -1,
   "Network links to the Bluetooth hub instead of nesting it",
 );
-for (const [file, hub] of [
-  ["NetworkPage.qml", "network"],
-  ["WindowsPage.qml", "windows"],
-  ["ApplicationsPage.qml", "applications"],
-]) {
-  const src = fs.readFileSync(path.join(__dirname, "..", "pages", file), "utf8");
-  const body = src.slice(src.indexOf("function openSubpage(id)"));
-  const stackAt = body.indexOf("if (stack) {");
-  const goAt = body.indexOf('root.navigator.go("' + hub + '/" + id)');
+const hubsForSubpages = load("services/Hubs.js");
+hubsForSubpages.hubs().forEach(function (hub) {
+  const kids = hub.children || [];
+  if (!kids.length) return;
+  const src = fs.readFileSync(path.join(__dirname, "..", "pages", hub.file), "utf8");
+  const start = src.indexOf("function openSubpage(id)");
+  assert(start !== -1, hub.file + " implements openSubpage for catalog children");
+  const body = src.slice(start);
+  const stackAt = body.indexOf("if (stack)");
+  const goAt = body.indexOf('root.navigator.go("' + hub.id + '/" + id)');
   assert(
     stackAt !== -1 && goAt !== -1 && stackAt < goAt,
-    file +
+    hub.file +
       " opens its own subpages on the stack before navigator.go, so a deep link does not reload the hub forever",
   );
-}
+});
+const pagesDirForSubpages = path.join(__dirname, "..", "pages");
+fs.readdirSync(pagesDirForSubpages).forEach(function (name) {
+  if (!name.endsWith(".qml")) return;
+  const src = fs.readFileSync(path.join(pagesDirForSubpages, name), "utf8");
+  const start = src.indexOf("function openSubpage(id)");
+  if (start === -1) return;
+  const body = src.slice(start);
+  const sameHub = body.match(/root\.navigator\.go\("([a-z]+)\/" \+ id\)/);
+  if (!sameHub) return;
+  const stackAt = body.indexOf("if (stack)");
+  const goAt = body.indexOf('root.navigator.go("' + sameHub[1] + '/" + id)');
+  assert(
+    stackAt !== -1 && goAt !== -1 && stackAt < goAt,
+    name +
+      " opens its own subpages on the stack before navigator.go, so a deep link does not reload the hub forever",
+  );
+});
 const a11ySrc = fs.readFileSync(
   path.join(__dirname, "..", "pages", "AccessibilityPage.qml"),
   "utf8",
@@ -1424,6 +1442,21 @@ assert(
     appearanceSrc.indexOf('label: "Boot screen"') !== -1 &&
     appearanceSrc.indexOf('text: "Configure…"') !== -1,
   "background uses Choose… and boot screen uses Configure…",
+);
+assert(
+  appearanceSrc.indexOf('if (id === "theme") return') !== -1 &&
+    appearanceSrc.indexOf("stack.push(backgroundPage)") !== -1 &&
+    appearanceSrc.indexOf("stack.push(bootPage)") !== -1,
+  "Appearance ignores the theme alias and pushes background/boot on the stack",
+);
+const appearanceComp = chromeSrc.slice(
+  chromeSrc.indexOf("id: appearancePage"),
+  chromeSrc.indexOf("id: displayPage"),
+);
+assert(
+  appearanceComp.indexOf("stack: pageStack") !== -1 &&
+    appearanceComp.indexOf("navigator: prefsNavigator") !== -1,
+  "Appearance wires stack and navigator like other child-hubs",
 );
 assert(
   omarchyQml.indexOf("url = RichUi.parseGitUrl(url)") !== -1,

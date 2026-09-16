@@ -773,6 +773,21 @@ assert(
     networkPageSrc.indexOf('root.navigator.go("bluetooth")') !== -1,
   "Network links to the Bluetooth hub instead of nesting it",
 );
+for (const [file, hub] of [
+  ["NetworkPage.qml", "network"],
+  ["WindowsPage.qml", "windows"],
+  ["ApplicationsPage.qml", "applications"],
+]) {
+  const src = fs.readFileSync(path.join(__dirname, "..", "pages", file), "utf8");
+  const body = src.slice(src.indexOf("function openSubpage(id)"));
+  const stackAt = body.indexOf("if (stack) {");
+  const goAt = body.indexOf('root.navigator.go("' + hub + '/" + id)');
+  assert(
+    stackAt !== -1 && goAt !== -1 && stackAt < goAt,
+    file +
+      " opens its own subpages on the stack before navigator.go, so a deep link does not reload the hub forever",
+  );
+}
 const a11ySrc = fs.readFileSync(
   path.join(__dirname, "..", "pages", "AccessibilityPage.qml"),
   "utf8",

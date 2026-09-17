@@ -3,6 +3,9 @@
 // when a sample is missing instead of painting as 0 or 0°.
 
 var SAMPLE_CAP = 60;
+// Rows that still carry their process list: the newest, plus the one before
+// it that tick deltas are measured against.
+var PROCESS_HISTORY = 2;
 var PROCESS_CAP = 80;
 
 function finiteNumber(v) {
@@ -470,6 +473,20 @@ function pushSample(history, sample, now) {
   };
   list.push(row);
   while (list.length > SAMPLE_CAP) list.shift();
+  // Only the newest two rows ever need a process list: the pages all read
+  // latest.processes, and decorateProcesses needs the row before it to turn
+  // tick counters into a percentage. Charts read scalar keys through
+  // series(). Keeping the array on all 60 rows retains a copy of every
+  // process, with its cmdline, for two minutes of samples -- about 10 MB on a
+  // 560-process desktop -- that nothing can read. Drop it as a row ages out
+  // of that window.
+  for (var older = 0; older < list.length - PROCESS_HISTORY; older++) {
+    // Length guard, so a row is emptied once rather than reassigned every
+    // tick, and each row keeps its own array rather than sharing one.
+    if (list[older] && list[older].processes && list[older].processes.length) {
+      list[older].processes = [];
+    }
+  }
   return list;
 }
 

@@ -79,6 +79,48 @@ for (let i = 0; i < 65; i++) {
   );
 }
 assertEqual(filled.length, 60, "pushSample caps at 60");
+
+// Every page reads latest.processes and the charts read scalar keys, so only
+// the newest row and the one tick deltas are measured against need a process
+// list. Holding it on all 60 rows retained a copy of every process, cmdline
+// included, that nothing could reach -- about 10 MB on a 560-process desktop.
+let aged = [];
+for (let i = 0; i < 65; i++) {
+  aged = live.pushSample(
+    aged,
+    {
+      cpuIdle: i,
+      cpuTotal: i + 10,
+      memUsed: 1,
+      memTotal: 10,
+      netRx: i,
+      netTx: 0,
+      clkTck: 100,
+      processes: [{ pid: 7, comm: "x", ticks: i * 10, rssKb: 100, uid: 1000 }],
+    },
+    i * 1000,
+  );
+}
+assertEqual(
+  aged.filter(function (row) {
+    return row.processes && row.processes.length;
+  }).length,
+  2,
+  "pushSample keeps a process list on only the newest two rows",
+);
+assert(
+  live.latest(aged).processes.length === 1,
+  "pushSample leaves the newest row's process list intact",
+);
+assert(
+  live.latest(aged).processes[0].cpu !== null && live.latest(aged).processes[0].cpu !== undefined,
+  "trimming older rows still leaves tick deltas computable",
+);
+assertEqual(
+  live.series(aged, "cpu").length,
+  aged.length,
+  "trimming process lists does not touch the scalar series the charts read",
+);
 assertEqual(live.formatPercent(null), "", "formatPercent unknown is empty");
 assertEqual(live.formatPercent(12.4), "12%", "formatPercent rounds");
 assertEqual(live.formatBps(null), "", "formatBps unknown is empty");

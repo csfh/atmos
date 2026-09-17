@@ -42,6 +42,19 @@ export QS_APP_ID=dev.csfh.atmos
 # for the desktop file name. It does not stop the window from opening.
 export QT_LOGGING_RULES="${QT_LOGGING_RULES:-qt.qpa.services=false}"
 
+# Every picker in Atmos is a native dialog, and Omarchy sets
+# QT_QPA_PLATFORMTHEME=gtk3 for the whole session
+# (/usr/share/omarchy/default/hypr/envs.lua). That combination dlopens
+# libgtk-3 into a quickshell linked against jemalloc, and the first picker
+# aborts the process in g_malloc -- "failed to allocate 8 bytes" with
+# gigabytes free -- so Omafile, Hooks, Background, Boot, Network, Bar,
+# Accounts and Diagnostics all take the window down with them.
+# The portal dialog runs out of process, so the allocators never meet.
+# Upstream: quickshell-mirror/quickshell#1010.
+if [[ ${QT_QPA_PLATFORMTHEME:-} == gtk3 ]]; then
+  export QT_QPA_PLATFORMTHEME=xdgdesktopportal
+fi
+
 # No -n duplicate refusal and no focus-stealing: each launch owns its
 # window. The shared QS_APP_ID keeps the Hyprland window rule matching;
 # concurrent engines with the same id open fine (the portal log is noise).

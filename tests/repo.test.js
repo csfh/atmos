@@ -1873,6 +1873,23 @@ assert(
     liveStoreSrc.indexOf("pragma Singleton") !== -1,
   "LiveStatsStore polls live-stats.py on an interval",
 );
+// poll() returns early while a sample is in flight, which is correct
+// backpressure and becomes a permanent freeze if that sample never finishes:
+// every later tick returns early and lastError is only written from onExited.
+assert(
+  liveStoreSrc.indexOf("stallTimer") !== -1 &&
+    liveStoreSrc.indexOf("root.startedAt") !== -1 &&
+    liveStoreSrc.indexOf("stallAfterMs") !== -1,
+  "LiveStatsStore times out a sample that never finishes",
+);
+assert(
+  /onExited:\s*function\s*\([^)]*\)\s*\{\s*root\.startedAt = 0/.test(liveStoreSrc),
+  "LiveStatsStore clears the in-flight stamp when a sample lands",
+);
+assert(
+  liveStoreSrc.indexOf("Math.max(15000") !== -1,
+  "LiveStatsStore floors the stall timeout so a slow sample is not killed early",
+);
 const monitorPageSrc = fs.readFileSync(
   path.join(__dirname, "..", "pages", "MonitorPage.qml"),
   "utf8",

@@ -39,9 +39,13 @@ if [[ ! -r $status ]]; then
   exit 1
 fi
 
-uid=$(awk '/^Uid:/{print $3; exit}' "$status")
+# Uid: is real, effective, saved, fs. Ownership for signalling is the real
+# and saved pair, not the effective one -- a setuid helper the user launched
+# themselves (fusermount3, passwd, sudo) runs with real=them, effective=0, and
+# reading the effective uid refuses a process the kernel would let them signal.
+read -r real_uid saved_uid < <(awk '/^Uid:/{print $2, $4; exit}' "$status")
 me=${ATMOS_UID:-$(id -u)}
-if [[ -z $uid || $uid != "$me" ]]; then
+if [[ -z $real_uid || ($real_uid != "$me" && $saved_uid != "$me") ]]; then
   echo "signal-process.sh: pid $pid is not owned by this user" >&2
   exit 1
 fi

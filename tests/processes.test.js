@@ -79,6 +79,12 @@ function write(file, text) {
 const fixture = fs.mkdtempSync(path.join(os.tmpdir(), "atmos-signal-"));
 write(path.join(fixture, "proc/2201/status"), "Name:\tfirefox\nUid:\t1000\t1000\t1000\t1000\n");
 write(path.join(fixture, "proc/9/status"), "Name:\troot\nUid:\t0\t0\t0\t0\n");
+// A setuid helper this user launched: real is them, effective is root while it
+// runs (fusermount3, passwd, sudo). The kernel allows the signal because the
+// real uid matches, so Atmos must not refuse it by reading the effective uid.
+write(path.join(fixture, "proc/2202/status"), "Name:\tfusermount3\nUid:\t1000\t0\t0\t0\n");
+// A root daemon that only dropped its effective uid is still not theirs.
+write(path.join(fixture, "proc/2203/status"), "Name:\tdaemon\nUid:\t0\t1000\t0\t0\n");
 
 function run(args, extraEnv) {
   const env = {
@@ -98,6 +104,17 @@ function run(args, extraEnv) {
 const ok = run(["2201", "TERM"]);
 assertEqual(ok.status, 0, "signal-process.sh dry-runs a user pid");
 assertEqual(ok.stdout.trim(), "kill -s TERM 2201", "signal-process.sh prints the kill line");
+
+const setuid = run(["2202", "TERM"]);
+assertEqual(setuid.status, 0, "signal-process.sh signals a setuid helper this user started");
+assertEqual(
+  setuid.stdout.trim(),
+  "kill -s TERM 2202",
+  "signal-process.sh reads the real uid, not the effective one",
+);
+
+const dropped = run(["2203", "TERM"]);
+assert(dropped.status !== 0, "signal-process.sh refuses a root process with a dropped euid");
 
 const init = run(["1", "TERM"]);
 assert(init.status !== 0, "signal-process.sh refuses pid 1");

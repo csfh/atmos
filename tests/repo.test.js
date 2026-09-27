@@ -792,6 +792,39 @@ assert(
     networkPageSrc.indexOf('root.navigator.go("bluetooth")') !== -1,
   "Network links to the Bluetooth hub instead of nesting it",
 );
+const hubsForSubpages = load("services/Hubs.js");
+hubsForSubpages.hubs().forEach(function (hub) {
+  const kids = hub.children || [];
+  if (!kids.length) return;
+  const src = fs.readFileSync(path.join(__dirname, "..", "pages", hub.file), "utf8");
+  const start = src.indexOf("function openSubpage(id)");
+  assert(start !== -1, hub.file + " implements openSubpage for catalog children");
+  const body = src.slice(start);
+  const stackAt = body.indexOf("if (stack)");
+  const goAt = body.indexOf('root.navigator.go("' + hub.id + '/" + id)');
+  assert(
+    stackAt !== -1 && goAt !== -1 && stackAt < goAt,
+    hub.file +
+      " opens its own subpages on the stack before navigator.go, so a deep link does not reload the hub forever",
+  );
+});
+const pagesDirForSubpages = path.join(__dirname, "..", "pages");
+fs.readdirSync(pagesDirForSubpages).forEach(function (name) {
+  if (!name.endsWith(".qml")) return;
+  const src = fs.readFileSync(path.join(pagesDirForSubpages, name), "utf8");
+  const start = src.indexOf("function openSubpage(id)");
+  if (start === -1) return;
+  const body = src.slice(start);
+  const sameHub = body.match(/root\.navigator\.go\("([a-z]+)\/" \+ id\)/);
+  if (!sameHub) return;
+  const stackAt = body.indexOf("if (stack)");
+  const goAt = body.indexOf('root.navigator.go("' + sameHub[1] + '/" + id)');
+  assert(
+    stackAt !== -1 && goAt !== -1 && stackAt < goAt,
+    name +
+      " opens its own subpages on the stack before navigator.go, so a deep link does not reload the hub forever",
+  );
+});
 const a11ySrc = fs.readFileSync(
   path.join(__dirname, "..", "pages", "AccessibilityPage.qml"),
   "utf8",
@@ -1440,6 +1473,21 @@ assert(
   "background uses Choose… and boot screen uses Configure…",
 );
 assert(
+  appearanceSrc.indexOf('if (id === "theme") return') !== -1 &&
+    appearanceSrc.indexOf("stack.push(backgroundPage)") !== -1 &&
+    appearanceSrc.indexOf("stack.push(bootPage)") !== -1,
+  "Appearance ignores the theme alias and pushes background/boot on the stack",
+);
+const appearanceComp = chromeSrc.slice(
+  chromeSrc.indexOf("id: appearancePage"),
+  chromeSrc.indexOf("id: displayPage"),
+);
+assert(
+  appearanceComp.indexOf("stack: pageStack") !== -1 &&
+    appearanceComp.indexOf("navigator: prefsNavigator") !== -1,
+  "Appearance wires stack and navigator like other child-hubs",
+);
+assert(
   omarchyQml.indexOf("url = RichUi.parseGitUrl(url)") !== -1,
   "Omarchy validates theme URLs with RichUi.parseGitUrl",
 );
@@ -1894,6 +1942,29 @@ assert(
     progressSrc.indexOf("Behavior on value") !== -1 &&
     progressSrc.indexOf("enabled: !root.indeterminate && root.inView") !== -1,
   "PrefsProgress skips value animation while hidden or off screen",
+);
+// poll() returns early while a sample is in flight, which is correct
+// backpressure and becomes a permanent freeze if that sample never finishes:
+// every later tick returns early and lastError is only written from onExited.
+assert(
+  liveStoreSrc.indexOf("stallTimer") !== -1 &&
+    liveStoreSrc.indexOf("root.startedAt") !== -1 &&
+    liveStoreSrc.indexOf("stallAfterMs") !== -1,
+  "LiveStatsStore times out a sample that never finishes",
+);
+assert(
+  /onExited:\s*function\s*\([^)]*\)\s*\{\s*root\.startedAt = 0/.test(liveStoreSrc),
+  "LiveStatsStore clears the in-flight stamp when a sample lands",
+);
+assert(
+  liveStoreSrc.indexOf("Math.max(15000") !== -1,
+  "LiveStatsStore floors the stall timeout so a slow sample is not killed early",
+);
+assert(
+  liveStoreSrc.indexOf("statsExpectedStop") !== -1 &&
+    liveStoreSrc.indexOf("root.statsExpectedStop = true") !== -1 &&
+    /if \(root\.statsExpectedStop\)/.test(liveStoreSrc),
+  "LiveStatsStore keeps the stall message when the kill exit fires",
 );
 const monitorPageSrc = fs.readFileSync(
   path.join(__dirname, "..", "pages", "MonitorPage.qml"),

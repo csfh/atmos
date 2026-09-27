@@ -10,6 +10,15 @@ Notable changes to Atmos. Each section is a git tag on `main` and `alpha`. Insta
 - A chart opens over the page. The treemap focuses, pans, and zooms. Marks tween between samples and stay idle while off screen. Colors come from the theme palette. Each section says what the marks mean.
 - Display mode, scale, rotation, refresh, and the other monitor-rule writes, plus keyboard layout and turning the touchpad off, apply immediately and then revert after 12 seconds unless you press Keep. Escape reverts too. The timer stays in the window. Quitting Atmos during those 12 seconds leaves the new setting in place.
 
+### Fixed
+
+- File pickers no longer abort the window on an Omarchy session. The launcher uses the desktop-portal theme instead of GTK 3. ([#74](https://github.com/csfh/atmos/pull/74))
+- Network, Windows, Applications, and Appearance open their own subpages on the stack, so Wi-Fi, rules, startup, background, and boot do not reload the hub. ([#72](https://github.com/csfh/atmos/pull/72), [#73](https://github.com/csfh/atmos/pull/73))
+- Monitor can end a setuid helper this user started. Ownership follows the real and saved uid. ([#75](https://github.com/csfh/atmos/pull/75))
+- Older samples drop their process lists. Charts still read the scalar history. ([#76](https://github.com/csfh/atmos/pull/76))
+- A live sample that never finishes times out, and stopping it keeps the stall message. ([#78](https://github.com/csfh/atmos/pull/78))
+- A Dell charge limit stored in Adaptive mode shows as unset, and applying one switches to Custom in a single elevation. ([#80](https://github.com/csfh/atmos/pull/80))
+
 ### Removed
 
 - System → Machine. Identity stays on Hardware, live load on Home and Monitor, and filesystems on Disks. `atmos system/machine` opens Hardware. Hardware shows fitted memory as a size. Drivers no longer repeats the BIOS row.

@@ -25,13 +25,13 @@ PrefsPage {
         root.navigator.go("bluetooth")
       return
     }
-    if (root.navigator && root.navigator.go) {
-      root.navigator.go("network/" + id)
+    if (stack) {
+      if (id === "speedtest") stack.push(speedtestPage)
+      else if (id === "wifi") stack.push(wifiPage)
       return
     }
-    if (!stack) return
-    if (id === "speedtest") stack.push(speedtestPage)
-    else if (id === "wifi") stack.push(wifiPage)
+    if (root.navigator && root.navigator.go)
+      root.navigator.go("network/" + id)
   }
 
   Component { id: speedtestPage; Net.SpeedtestPage {} }

@@ -12,6 +12,37 @@ present() {
   command -v "$1" >/dev/null 2>&1
 }
 
+# Sysfs charge end-threshold. Dell exposes the stored value in Adaptive, where
+# firmware ignores it. Kernel marks the active type in [brackets], so
+# " Custom " means Custom is offered but not selected; "[Custom]" is left alone.
+fill_sysfs_charge_limit() {
+  local power_supply_dir=${ATMOS_POWER_SUPPLY_DIR:-/sys/class/power_supply}
+  local bat types charge_modes=""
+  charge_limit=0
+  charge_limit_available=false
+  for bat in "$power_supply_dir"/BAT*/charge_control_end_threshold; do
+    [[ -r $bat ]] || continue
+    charge_limit_available=true
+    charge_limit=$(< "$bat")
+    charge_limit=${charge_limit%$'\n'}
+    [[ $charge_limit =~ ^[0-9]+$ ]] || charge_limit=0
+    types=${bat%/*}/charge_types
+    [[ ! -r $types ]] || charge_modes=" $(< "$types" || true) "
+    if [[ $charge_modes == *" Custom "* ]]; then
+      charge_limit=0
+    fi
+    break
+  done
+}
+
+# Tests point ATMOS_POWER_SUPPLY_DIR at a fake tree and stop here so the
+# Custom-guard can run without omarchy or a full snapshot.
+if [[ ${ATMOS_CHARGE_LIMIT_PROBE:-0} == 1 ]]; then
+  fill_sysfs_charge_limit
+  printf '%s %s\n' "$charge_limit" "$charge_limit_available"
+  exit 0
+fi
+
 lines_json() {
   jq -R -s 'split("\n") | map(select(length > 0))'
 }
@@ -560,23 +591,7 @@ fill_atmos_control() {
       amd_pstate=$(< /sys/devices/system/cpu/cpu0/cpufreq/energy_performance_preference)
       amd_pstate=${amd_pstate%$'\n'}
     fi
-    local bat
-    for bat in /sys/class/power_supply/BAT*/charge_control_end_threshold; do
-      [[ -r $bat ]] || continue
-      charge_limit_available=true
-      charge_limit=$(< "$bat")
-      charge_limit=${charge_limit%$'\n'}
-      [[ $charge_limit =~ ^[0-9]+$ ]] || charge_limit=0
-      # Dell keeps the threshold in Adaptive and other modes, where it does not
-      # apply. Report no limit so the UI does not claim one, and picking any
-      # value, even the stored one, writes it and selects Custom.
-      local charge_modes=""
-      [[ ! -r ${bat%/*}/charge_types ]] || charge_modes=" $(< "${bat%/*}/charge_types") "
-      if [[ $charge_modes == *" Custom "* ]]; then
-        charge_limit=0
-      fi
-      break
-    done
+    fill_sysfs_charge_limit
     if present nmcli; then
       net_gateway=$(nmcli -g IP4.GATEWAY device show 2>/dev/null | awk 'NF{print; exit}' || true)
       net_dns_servers_json=$(nmcli -g IP4.DNS device show 2>/dev/null | awk 'NF' | jq -R -s -c 'split("\n") | map(select(length>0))' 2>/dev/null || echo '[]')

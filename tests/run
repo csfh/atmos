@@ -169,12 +169,6 @@ if [[ -f scripts/snapshot.sh ]]; then
   fi
   echo "ok - snapshot.sh best-effort probes are guarded with || true"
 
-  if ! grep -q 'charge_modes == \*" Custom "\*' scripts/snapshot.sh; then
-    echo "not ok - snapshot.sh reports a charge limit Dell Adaptive mode ignores"
-    exit 1
-  fi
-  echo "ok - snapshot.sh reports no charge limit unless Custom is active"
-
   set -euo pipefail
   guarded=$(false | awk 'NR==1 { print $1; exit }' || true)
   [[ -z $guarded ]]

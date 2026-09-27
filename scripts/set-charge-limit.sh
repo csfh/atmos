@@ -26,7 +26,8 @@ if [[ -z $found ]]; then
 fi
 
 # Dell exposes thresholds even in Adaptive mode, where they do not apply.
-# Select Custom when the battery advertises it; other hardware keeps its mode.
+# Kernel marks the active type in [brackets], so " Custom " means offered
+# but not selected. [Custom] and hardware without Custom stay untouched.
 charge_types=${found%/*}/charge_types
 mode_file=""
 if [[ -r $charge_types ]]; then
@@ -42,9 +43,12 @@ if [[ -w $found && ( -z $mode_file || -w $mode_file ) ]]; then
   exit 0
 fi
 # One elevation for both writes, so polkit asks once. Custom goes first and a
-# rejected mode write leaves the threshold alone.
-# shellcheck disable=SC2016
-bash "$ROOT/as-root.sh" sh -c '
-  if [ -n "$1" ]; then printf "Custom\n" >"$1" || exit 1; fi
+# rejected mode write leaves the threshold alone. /bin/bash is an absolute
+# path so the pkexec fallback can run it.
+bash "$ROOT/as-root.sh" /bin/bash -c '
+  set -euo pipefail
+  if [[ -n $1 ]]; then
+    printf "Custom\n" >"$1"
+  fi
   printf "%s\n" "$2" >"$3"
-' atmos-charge-limit "$mode_file" "$limit" "$found"
+' bash "$mode_file" "$limit" "$found"

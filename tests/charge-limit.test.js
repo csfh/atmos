@@ -69,6 +69,22 @@ function reset(modeText) {
   }
 }
 
+function snapshotCharge() {
+  return spawnSync("bash", [path.join(__dirname, "..", "scripts", "snapshot.sh")], {
+    encoding: "utf8",
+    env: Object.assign({}, process.env, {
+      ATMOS_POWER_SUPPLY_DIR: path.dirname(battery),
+      ATMOS_CHARGE_LIMIT_PROBE: "1",
+    }),
+  });
+}
+
+function assertSnapshot(limit, available, description) {
+  const snap = snapshotCharge();
+  assertEqual(snap.status, 0, `${description} (exit)`);
+  assertEqual(snap.stdout.trim(), `${limit} ${available}`, description);
+}
+
 try {
   reset(adaptive);
   let result = run("80");
@@ -135,9 +151,34 @@ try {
     assertEqual(fs.readFileSync(end, "utf8"), "100\n", "mode failure aborts the threshold write");
   }
 
+  reset(adaptive);
+  fs.writeFileSync(end, "80\n");
+  assertSnapshot("0", "true", "snapshot hides an Adaptive stored threshold");
+
+  reset("Standard Adaptive [Custom]\n");
+  fs.writeFileSync(end, "80\n");
+  assertSnapshot("80", "true", "snapshot reports the limit when Custom is active");
+
+  reset("[Custom] Adaptive\n");
+  fs.writeFileSync(end, "80\n");
+  assertSnapshot("80", "true", "snapshot reports the limit when [Custom] is first");
+
+  reset("[Standard] Fast\n");
+  fs.writeFileSync(end, "80\n");
+  assertSnapshot("80", "true", "snapshot reports the limit without Custom");
+
+  reset(null);
+  fs.writeFileSync(end, "80\n");
+  assertSnapshot("80", "true", "snapshot reports the limit on threshold-only batteries");
+
+  reset(null);
+  fs.writeFileSync(end, "not-a-number\n");
+  assertSnapshot("0", "true", "snapshot treats a non-numeric threshold as no limit");
+
   fs.unlinkSync(end);
   result = run("80");
   assertEqual(result.status, 1, "reports a battery without threshold support");
+  assertSnapshot("0", "false", "snapshot reports no charge limit without a threshold");
 } finally {
   fs.rmSync(fixture, { recursive: true, force: true });
 }

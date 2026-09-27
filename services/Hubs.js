@@ -45,20 +45,6 @@ function hubs() {
       children: [],
     },
     {
-      id: "dashboard",
-      title: "Dashboard",
-      description: "Every live chart on one page, sampled fast, with marks that tween.",
-      navGroup: "home",
-      snapshotGroup: "look",
-      icon: "line-chart-line",
-      file: "DashboardPage.qml",
-      keywords: keywordList(
-        "dashboard chart graph heatmap violin ridgeline horizon treemap sankey beeswarm rose radar waterfall icicle sunburst streamgraph calendar parallel coordinates monitor live",
-        ["dashboard", "chart", "graph"],
-      ),
-      children: [],
-    },
-    {
       id: "monitor",
       title: "Monitor",
       description: "Live cores, memory, disk I/O, traffic, sensors, and a full process table.",

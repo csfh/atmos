@@ -119,7 +119,14 @@ ShellRoot {
   }
 
   function pageComponent(id) {
-    return pageById[id] || homePage
+    return pageById[root.hubId(root.canonicalHub(id))] || homePage
+  }
+
+  // The chart grid used to be its own hub. Old launchers still say dashboard.
+  function canonicalHub(id) {
+    var raw = String(id || "")
+    if (raw === "dashboard" || raw.indexOf("dashboard/") === 0) return "monitor"
+    return raw
   }
 
   function hubId(id) {
@@ -135,6 +142,7 @@ ShellRoot {
   }
 
   function loadHub(id) {
+    id = root.canonicalHub(id)
     Disclosure.leaveHub(hubId(id))
     currentPage = id
     if (pageStack.depth > 0)
@@ -238,7 +246,6 @@ ShellRoot {
   }
 
   Component { id: homePage; HomePage { query: root.query; navigator: prefsNavigator } }
-  Component { id: dashboardPage; DashboardPage { query: root.query } }
   Component { id: monitorPage; MonitorPage { query: root.query; stack: pageStack; navigator: prefsNavigator } }
   Component { id: favoritesPage; FavoritesPage { query: root.query; navigator: prefsNavigator } }
   Component { id: appearancePage; AppearancePage { query: root.query; stack: pageStack } }
@@ -274,7 +281,6 @@ ShellRoot {
 
   readonly property var pageById: ({
     home: homePage,
-    dashboard: dashboardPage,
     monitor: monitorPage,
     favorites: favoritesPage,
     appearance: appearancePage,
@@ -827,11 +833,11 @@ ShellRoot {
         }
 
         Component.onCompleted: {
-          var hub = root.hubId(root.launchPath)
+          var hub = root.hubId(root.canonicalHub(root.launchPath))
           if (!hub) hub = "appearance"
           root.currentPage = hub
           pageStack.push(root.pageComponent(hub), {}, StackView.Immediate)
-          var sub = root.subId(root.launchPath)
+          var sub = root.hubId(root.launchPath) === "dashboard" ? "" : root.subId(root.launchPath)
           if (sub.length > 0) {
             Qt.callLater(function() {
               if (pageStack.currentItem && pageStack.currentItem.openSubpage)

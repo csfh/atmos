@@ -1799,9 +1799,10 @@ assert(
   shellSrc.indexOf('currentPage: "home"') !== -1 &&
     shellSrc.indexOf('ATMOS_PAGE") || "home"') !== -1 &&
     shellSrc.indexOf("home: homePage") !== -1 &&
-    shellSrc.indexOf("dashboard: dashboardPage") !== -1 &&
+    shellSrc.indexOf("dashboard: dashboardPage") === -1 &&
+    shellSrc.indexOf('raw === "dashboard"') !== -1 &&
     shellSrc.indexOf("monitor: monitorPage") !== -1,
-  "shell lands on Home and registers Monitor",
+  "shell lands on Home, registers Monitor, and sends dashboard to it",
 );
 const homePageSrc = fs.readFileSync(path.join(__dirname, "..", "pages", "HomePage.qml"), "utf8");
 assert(
@@ -1837,45 +1838,43 @@ assert(
     monitorPageSrc.indexOf("openSubpage") !== -1,
   "Monitor is a live dashboard with child pages",
 );
-const dashboardPageSrc = fs.readFileSync(
-  path.join(__dirname, "..", "pages", "DashboardPage.qml"),
-  "utf8",
-);
-const dashboardKinds = [
-  "heatmap",
-  "ridgeline",
-  "violin",
-  "rose",
-  "horizon",
-  "treemap",
-  "sankey",
-  "sunburst",
-  "icicle",
-  "streamgraph",
-  "beeswarm",
-  "radar",
-  "calendar",
-  "waterfall",
-  "parallel",
-];
-dashboardKinds.forEach(function (kind) {
+const chartHomes = {
+  heatmap: "monitor/CpuPage.qml",
+  ridgeline: "monitor/CpuPage.qml",
+  violin: "monitor/CpuPage.qml",
+  rose: "monitor/CpuPage.qml",
+  horizon: "monitor/MemoryPage.qml",
+  treemap: "monitor/MemoryPage.qml",
+  sankey: "monitor/MemoryPage.qml",
+  sunburst: "monitor/MemoryPage.qml",
+  icicle: "monitor/MemoryPage.qml",
+  streamgraph: "monitor/DiskPage.qml",
+  beeswarm: "monitor/TrafficPage.qml",
+  radar: "monitor/TrafficPage.qml",
+  calendar: "monitor/SensorsPage.qml",
+  waterfall: "monitor/SensorsPage.qml",
+  parallel: "monitor/ProcessesPage.qml",
+};
+const chartHomeSrc = {};
+Object.keys(chartHomes).forEach(function (kind) {
+  const rel = chartHomes[kind];
+  if (!chartHomeSrc[rel])
+    chartHomeSrc[rel] = fs.readFileSync(path.join(__dirname, "..", "pages", rel), "utf8");
   assert(
-    dashboardPageSrc.indexOf('kind: "' + kind + '"') !== -1,
-    "Dashboard paints a " + kind + " chart",
+    chartHomeSrc[rel].indexOf('kind: "' + kind + '"') !== -1,
+    rel + " paints a " + kind + " chart",
   );
 });
+Object.keys(chartHomes).forEach(function (kind) {
+  let homes = 0;
+  Object.keys(chartHomeSrc).forEach(function (rel) {
+    if (chartHomeSrc[rel].indexOf('kind: "' + kind + '"') !== -1) homes += 1;
+  });
+  assertEqual(homes, 1, kind + " has one Monitor page");
+});
 assert(
-  dashboardPageSrc.indexOf('hubId: "dashboard"') !== -1 &&
-    dashboardPageSrc.indexOf("expandContent: true") !== -1 &&
-    dashboardPageSrc.indexOf('requestInterval("dashboard", 100)') !== -1 &&
-    dashboardPageSrc.indexOf("releaseInterval") !== -1,
-  "Dashboard holds the live sample at 100ms while open",
-);
-assert(
-  dashboardPageSrc.indexOf("chartColumns") !== -1 &&
-    dashboardPageSrc.indexOf("id: chartGrid") !== -1 &&
-    /Grid \{\s*id: chartGrid/.test(dashboardPageSrc),
-  "Dashboard lays charts out in a Grid of tiles",
+  !fs.existsSync(path.join(__dirname, "..", "pages", "DashboardPage.qml")),
+  "Dashboard is not a second copy of the Monitor charts",
 );
 assert(
   monitorPageSrc.indexOf("nowFlow.width") !== -1 && monitorPageSrc.indexOf("wide: true") !== -1,

@@ -2,16 +2,17 @@
 
 Notable changes to Atmos. Each section is a git tag on `main` and `alpha`. Install and in-app Update follow the `alpha` branch.
 
-## [Unreleased]
+## [v0.0.1-alpha.22] - 2026-09-27
 
 ### Added
 
-- Display mode, scale, rotation, refresh, and the other monitor-rule writes, plus keyboard layout and turning the touchpad off, apply immediately and then revert after 12 seconds unless you press Keep. Escape reverts too. The timer stays in the window; quitting Atmos during those 12 seconds leaves the new setting in place.
+- Monitor child pages chart the live sample: interrupt heatmap, stall ridgelines, core-frequency violins, softirq rose, free-page horizon, process treemap, memory sankey, cgroup sunburst, slab icicle, disk streamgraph, TCP beeswarm, interface radar, temperature calendar, RAPL waterfall, and process parallel coordinates. Missing RAPL, slab, and cgroup data stays empty.
+- A chart opens over the page. The treemap focuses, pans, and zooms. Marks tween between samples and stay idle while off screen. Colors come from the theme palette. Each section says what the marks mean.
+- Display mode, scale, rotation, refresh, and the other monitor-rule writes, plus keyboard layout and turning the touchpad off, apply immediately and then revert after 12 seconds unless you press Keep. Escape reverts too. The timer stays in the window. Quitting Atmos during those 12 seconds leaves the new setting in place.
 
 ### Removed
 
-- The Dashboard hub. Each live chart stays on the Monitor page it belongs to. `atmos dashboard` opens Monitor.
-- The System → Machine page. Identity stays on Hardware, live load on Home and Monitor, and filesystems on Disks. `atmos system/machine` opens Hardware. Hardware shows fitted memory as a size. Drivers no longer repeats the BIOS row.
+- System → Machine. Identity stays on Hardware, live load on Home and Monitor, and filesystems on Disks. `atmos system/machine` opens Hardware. Hardware shows fitted memory as a size. Drivers no longer repeats the BIOS row.
 
 ## [v0.0.1-alpha.21] - 2026-09-14
 
@@ -347,6 +348,7 @@ First public alpha. Standalone [Quickshell](https://quickshell.org) preferences 
 - Keyboard use on controls (tab focus and activation). File watching of Omarchy/Hyprland paths so outside changes can refresh the snapshot. Shared page routing and content-column layout.
 - MIT license. Contributions assign copyright to Christoffer Hallas ([CLA](CLA.md)).
 
+[v0.0.1-alpha.22]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.21...v0.0.1-alpha.22
 [v0.0.1-alpha.21]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.20...v0.0.1-alpha.21
 [v0.0.1-alpha.20]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.19...v0.0.1-alpha.20
 [v0.0.1-alpha.19]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.18...v0.0.1-alpha.19

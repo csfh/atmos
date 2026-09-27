@@ -126,6 +126,7 @@ ShellRoot {
   function canonicalHub(id) {
     var raw = String(id || "")
     if (raw === "dashboard" || raw.indexOf("dashboard/") === 0) return "monitor"
+    if (raw === "machine" || raw === "system/machine") return "hardware"
     return raw
   }
 
@@ -186,6 +187,7 @@ ShellRoot {
   function openPage(id) {
     if (searchField.text.length > 0)
       searchField.text = ""
+    id = root.canonicalHub(id)
     var hub = hubId(id)
     var sub = subId(id)
     for (var i = 0; i < pages.length; i++) {
@@ -833,11 +835,12 @@ ShellRoot {
         }
 
         Component.onCompleted: {
-          var hub = root.hubId(root.canonicalHub(root.launchPath))
+          var launched = root.canonicalHub(root.launchPath)
+          var hub = root.hubId(launched)
           if (!hub) hub = "appearance"
           root.currentPage = hub
           pageStack.push(root.pageComponent(hub), {}, StackView.Immediate)
-          var sub = root.hubId(root.launchPath) === "dashboard" ? "" : root.subId(root.launchPath)
+          var sub = launched === root.launchPath ? root.subId(root.launchPath) : ""
           if (sub.length > 0) {
             Qt.callLater(function() {
               if (pageStack.currentItem && pageStack.currentItem.openSubpage)

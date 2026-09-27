@@ -1425,11 +1425,11 @@ assert(
   "System opens the Diagnostics child page",
 );
 assert(
-  systemSrc.indexOf('label: "Machine"') !== -1 &&
-    systemSrc.indexOf('openSubpage("machine")') !== -1 &&
+  systemSrc.indexOf('label: "Machine"') === -1 &&
     systemSrc.indexOf('id === "machine"') !== -1 &&
-    systemSrc.indexOf("stack.push(machinePage)") !== -1,
-  "System opens the Machine child page",
+    systemSrc.indexOf('navigator.go("hardware")') !== -1 &&
+    systemSrc.indexOf("stack.push(machinePage)") === -1,
+  "System sends the old Machine page to Hardware",
 );
 assert(
   systemSrc.indexOf('label: "History"') !== -1 &&
@@ -1448,23 +1448,20 @@ assert(
     historyPageSrc.indexOf("Omarchy.discardHeld()") !== -1,
   "History page applies and discards held writes",
 );
-const machinePageSrc = fs.readFileSync(
-  path.join(__dirname, "..", "pages", "system", "MachinePage.qml"),
-  "utf8",
+assert(
+  !fs.existsSync(path.join(__dirname, "..", "pages", "system", "MachinePage.qml")),
+  "Machine is not a second copy of Hardware, Home, and Disks",
 );
 assert(
-  machinePageSrc.indexOf("HardwareJs.batterySummary") !== -1 &&
-    machinePageSrc.indexOf('hubId: "system/machine"') !== -1,
-  "Machine uses Hardware batterySummary for live charge",
+  hardwarePageSrc.indexOf("PrefsUsageBar") === -1 &&
+    hardwarePageSrc.indexOf('label: "Installed"') !== -1 &&
+    hardwarePageSrc.indexOf("RichUi.formatBytes") !== -1,
+  "Hardware states fitted memory without a live usage meter",
 );
 assert(
-  machinePageSrc.indexOf('valueText: "present"') === -1 &&
-    machinePageSrc.indexOf('"charge limited to "') === -1,
-  "Machine does not treat present/limit as the primary battery readout",
-);
-assert(
-  machinePageSrc.indexOf("batteryValue") !== -1 && machinePageSrc.indexOf('|| "unknown"') !== -1,
-  "Machine keeps unknown charge as unknown",
+  driversPageSrc.indexOf('label: "BIOS"') === -1 &&
+    driversPageSrc.indexOf("updateFirmware") !== -1,
+  "Drivers updates firmware and leaves BIOS identity on Hardware",
 );
 assert(
   systemSrc.indexOf('label: "Crash capture"') === -1,

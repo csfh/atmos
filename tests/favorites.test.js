@@ -61,6 +61,18 @@ assertEqual(grouped.length, 2, "groups keeps star order of hubs");
 assertEqual(grouped[0].hub, "sound", "groups first hub is the first star");
 assertEqual(grouped[0].items.length, 2, "groups collects rows for one hub");
 assertEqual(grouped[1].title, "Appearance", "groups uses hubTitle");
+const visible = fav.groups(
+  [
+    { hub: "sound", label: "Volume", hubTitle: "Sound" },
+    { hub: "dashboard", label: "IRQ land", hubTitle: "Dashboard" },
+    { hub: "system/machine", label: "Model", hubTitle: "Machine" },
+  ],
+  function (hub) {
+    return hub === "sound";
+  },
+);
+assertEqual(visible.length, 1, "groups hides a star whose hub is gone");
+assertEqual(visible[0].hub, "sound", "groups keeps a star on a live hub");
 
 const json = fav.serialize(added);
 assert(json.indexOf('"items"') !== -1, "serialize wraps items");

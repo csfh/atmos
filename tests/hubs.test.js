@@ -28,7 +28,7 @@ assert(catalog.length > 0, "hubs() returns the catalog");
 assertEqual(hubs.hubTitle("idle"), "Idle", "idle hub title is Idle");
 assertEqual(hubs.hubTitle("export"), "Omafile", "export hub title is Omafile");
 assertEqual(hubs.hubTitle("system/kernel"), "Kernel", "kernel is a System child");
-assertEqual(hubs.hubTitle("system/machine"), "Machine", "machine is a System child");
+assertEqual(hubs.hubById("system/machine"), null, "machine is not a System child");
 assertEqual(hubs.hubTitle("system/history"), "History", "history is a System child");
 assert(
   hubs.hubById("export").keywords.indexOf("omafile") !== -1 &&
@@ -136,7 +136,6 @@ const pageFiles = [
   "system/DiagnosticsPage.qml",
   "system/EnvironmentPage.qml",
   "system/KernelPage.qml",
-  "system/MachinePage.qml",
   "applications/StartupPage.qml",
   "WorkspacesPage.qml",
   "TweaksPage.qml",
@@ -176,7 +175,7 @@ const fakeChildren = hubs.childIds();
 assert(fakeChildren.indexOf("appearance/theme") === -1, "theme is not an appearance child");
 assert(fakeChildren.indexOf("hardware/gpu") === -1, "gpu is not a hardware child");
 const aliases = hubs.launcherSuffixes();
-["theme", "gpu", "cpu", "npu", "machine"].forEach(function (alias) {
+["theme", "gpu", "cpu", "npu"].forEach(function (alias) {
   assert(aliases.indexOf(alias) !== -1, "launcherSuffixes includes alias " + alias);
 });
 

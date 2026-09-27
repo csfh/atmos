@@ -2,6 +2,7 @@ import QtQuick
 import "../components"
 import "../services"
 import "../services/Favorites.js" as FavJs
+import "../services/Hubs.js" as HubsJs
 
 PrefsPage {
   id: root
@@ -11,7 +12,9 @@ PrefsPage {
 
   property var navigator: null
 
-  readonly property var groups: FavJs.groups(Omarchy.favoriteItems)
+  readonly property var groups: FavJs.groups(Omarchy.favoriteItems, function (hub) {
+    return !!HubsJs.hubById(hub)
+  })
   readonly property bool hasFavorites: root.groups.length > 0
 
   Repeater {

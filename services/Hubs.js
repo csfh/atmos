@@ -1,7 +1,7 @@
 // Hub identity for nav, search, launcher, and snapshot groups.
 // QML and Node both eval this file.
 
-var LAUNCHER_ALIASES = ["theme", "gpu", "cpu", "npu", "machine"];
+var LAUNCHER_ALIASES = ["theme", "gpu", "cpu", "npu"];
 
 function uniqueWords(list) {
   var out = [];
@@ -417,7 +417,6 @@ function hubs() {
         ["hostname", "locale", "update", "diagnostics", "kernel", "uki", "machine", "history"],
       ),
       children: [
-        child("system/machine", "Machine", "system/MachinePage.qml"),
         child("system/environment", "Environment", "system/EnvironmentPage.qml"),
         child("system/kernel", "Kernel", "system/KernelPage.qml"),
         child("system/history", "History", "system/HistoryPage.qml"),

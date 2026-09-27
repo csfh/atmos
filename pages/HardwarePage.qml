@@ -2,6 +2,7 @@ import QtQuick
 import "../components"
 import "../services"
 import "../services/Hardware.js" as HardwareJs
+import "../services/RichUi.js" as RichUi
 
 PrefsPage {
   id: root
@@ -219,40 +220,16 @@ PrefsPage {
     framed: true
     title: "Memory"
     query: root.hw.memory.total > 0 || root.hw.memory.modules.length > 0 ? root.query : "."
-    detail: "Use comes from /proc/meminfo. Modules are SMBIOS type 17 when the firmware table is readable without root."
+    detail: "Fitted memory from the inventory. Live use is on Monitor. Swap is on Disks. Modules are SMBIOS type 17 when the firmware table is readable without root."
 
     SettingRow {
       available: root.hw.memory.total > 0
-      stretchControl: true
       label: "Installed"
-      description: ""
+      description: "How much memory is fitted."
       hint: "/proc/meminfo"
       query: root.query
-      keywords: ["ram", "memory", "dimm", "ddr", "swap"]
-
-      PrefsUsageBar {
-        width: parent.width
-        used: root.hw.memory.used
-        size: root.hw.memory.total
-        avail: root.hw.memory.available
-      }
-    }
-
-    SettingRow {
-      available: root.hw.memory.swapTotal > 0
-      stretchControl: true
-      label: "Swap"
-      description: ""
-      hint: "/proc/meminfo"
-      query: root.query
-      keywords: ["swap", "zram"]
-
-      PrefsUsageBar {
-        width: parent.width
-        used: root.hw.memory.swapUsed
-        size: root.hw.memory.swapTotal
-        avail: Math.max(0, root.hw.memory.swapTotal - root.hw.memory.swapUsed)
-      }
+      keywords: ["ram", "memory", "dimm", "ddr"]
+      valueText: RichUi.formatBytes(root.hw.memory.total)
     }
 
     Repeater {

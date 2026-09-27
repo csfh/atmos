@@ -11,6 +11,7 @@ Notable changes to Atmos. Each section is a git tag on `main` and `alpha`. Insta
 ### Removed
 
 - The Dashboard hub. Each live chart stays on the Monitor page it belongs to. `atmos dashboard` opens Monitor.
+- The System → Machine page. Identity stays on Hardware, live load on Home and Monitor, and filesystems on Disks. `atmos system/machine` opens Hardware. Hardware shows fitted memory as a size. Drivers no longer repeats the BIOS row.
 
 ## [v0.0.1-alpha.21] - 2026-09-14
 

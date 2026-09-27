@@ -227,9 +227,9 @@ assert(
 );
 assert(
   qmlCatalog.some(function (row) {
-    return row.label === "Processor load" && row.hub === "system/machine";
+    return row.label === "Installed" && row.hub === "hardware";
   }),
-  "qml catalog sends Machine dashboard rows to the machine subpage",
+  "qml catalog sends fitted memory to Hardware",
 );
 assert(
   qmlCatalog.some(function (row) {

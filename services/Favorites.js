@@ -104,13 +104,14 @@ function toggleItem(items, row, want) {
   return list;
 }
 
-function groups(items) {
+function groups(items, knownHub) {
   var list = normalizeItems(items);
   var out = [];
   var index = {};
   var i, row, bucket;
   for (i = 0; i < list.length; i++) {
     row = list[i];
+    if (typeof knownHub === "function" && !knownHub(row.hub)) continue;
     bucket = index[row.hub];
     if (!bucket) {
       bucket = { hub: row.hub, title: row.hubTitle || row.hub, items: [] };

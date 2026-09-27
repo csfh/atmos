@@ -27,7 +27,9 @@ fill_sysfs_charge_limit() {
     charge_limit=${charge_limit%$'\n'}
     [[ $charge_limit =~ ^[0-9]+$ ]] || charge_limit=0
     types=${bat%/*}/charge_types
-    [[ ! -r $types ]] || charge_modes=" $(< "$types" || true) "
+    if [[ -r $types ]]; then
+      charge_modes=" $(< "$types") "
+    fi
     if [[ $charge_modes == *" Custom "* ]]; then
       charge_limit=0
     fi

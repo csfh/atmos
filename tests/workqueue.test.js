@@ -95,6 +95,14 @@ queue.enqueueWrite(brightIo, {
 });
 assertEqual(brightIo.writes.length, 4, "same-kind jobs coalesce");
 assertEqual(brightIo.writes[3].argv[1], "home", "coalesced job keeps the last argv");
+queue.dropWriteKey(brightIo, "brightness:DP-1");
+assertEqual(brightIo.writes.length, 3, "dropWriteKey removes one key and leaves the rest");
+assert(
+  !brightIo.writes.some(function (job) {
+    return job.key === "brightness:DP-1";
+  }),
+  "dropWriteKey removes the named brightness write",
+);
 
 const staleIo = queue.createWorkQueue();
 queue.enqueueRead(staleIo, "all");

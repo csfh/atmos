@@ -734,9 +734,13 @@ ShellRoot {
       anchors.top: parent.top
       anchors.bottom: parent.bottom
 
+      PrefsGuardBar {
+        id: guardBar
+      }
+
       Item {
         id: header
-        anchors.top: parent.top
+        anchors.top: guardBar.bottom
         anchors.left: parent.left
         anchors.right: parent.right
         height: pageStack.depth > 1 ? 48 : 0
@@ -907,7 +911,7 @@ ShellRoot {
           { keys: "/  /  Ctrl+F", what: "Search settings" },
           { keys: "Enter", what: "Open or toggle what is focused" },
           { keys: "Tab", what: "Move through controls on the page" },
-          { keys: "Escape", what: "Go back, leave search, or clear the filter" },
+          { keys: "Escape", what: "Revert a pending change, go back, or leave search" },
           { keys: "?", what: "This sheet" }
         ]
         delegate: Item {
@@ -1065,6 +1069,10 @@ ShellRoot {
     Shortcut {
       sequences: ["Escape"]
       onActivated: {
+        if (Omarchy.guardOpen) {
+          Omarchy.revertGuard()
+          return
+        }
         if (pageStack.depth > 1) pageStack.pop()
         else if (searchField.text.length > 0) searchField.text = ""
       }

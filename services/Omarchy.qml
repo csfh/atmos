@@ -6,6 +6,7 @@ import "Accounts.js" as AccountsJs
 import "AtmosUpdate.js" as AtmosUpdate
 import "Diagnostics.js" as DiagnosticsJs
 import "Favorites.js" as FavoritesJs
+import "Guard.js" as GuardJs
 import "Hardware.js" as HardwareJs
 import "History.js" as HistoryJs
 import "Hooks.js" as HooksJs
@@ -523,6 +524,14 @@ QtObject {
   property var changeHistory: []
   property var heldChanges: []
 
+  // In-memory only. If this window exits during the 12s, the new setting stays.
+  property var guardState: ({ open: false, deadline: 0, reverts: [] })
+  property double guardClock: 0
+  property bool reverting: false
+  readonly property bool guardOpen: !!(guardState && guardState.open === true)
+  readonly property int guardSeconds: GuardJs.secondsLeft(guardState, guardClock)
+  signal guardArmed()
+
   function recordChange(argv, opts) {
     var o = opts || {}
     changeHistory = HistoryJs.push(
@@ -566,15 +575,31 @@ QtObject {
     HistoryJs.applyHeld(held, runCommand)
   }
 
+  function stripGuard(opts) {
+    if (!opts || !opts.guard) return opts || {}
+    var next = {}
+    var k
+    for (k in opts) {
+      if (k === "guard") continue
+      next[k] = opts[k]
+    }
+    return next
+  }
+
   function runCommand(argv, opts) {
     if (!(argv instanceof Array) || argv.length === 0) return
     opts = opts || {}
+    if (root.reverting) {
+      opts.bypassPreview = true
+      opts.guard = null
+    }
     // Preview stops the write and shows it instead. Held, not queued.
+    // A held write never reaches the machine, so it does not arm the bar.
     if (Preview.active === true && opts.bypassPreview !== true) {
-      holdChange(argv, opts)
+      holdChange(argv, root.stripGuard(opts))
       return
     }
-    recordChange(argv, opts)
+    recordChange(argv, root.stripGuard(opts))
     enqueueIo({
       kind: "mut",
       argv: argv,
@@ -582,7 +607,8 @@ QtObject {
       key: opts.key ? String(opts.key) : "",
       apply: opts.apply && typeof opts.apply === "object" ? opts.apply : null,
       refresh: snapshotRefreshGroup(opts.refresh),
-      sudo: opts.sudo === true
+      sudo: opts.sudo === true,
+      guard: opts.guard && opts.guard.id ? opts.guard : null
     })
   }
 
@@ -621,18 +647,112 @@ QtObject {
     }
   }
 
-  function runSettingCommand(cmd, key) {
+  function runSettingCommand(cmd, key, guard) {
     if (!cmd || cmd.skip) return
-    runCommand(cmd.argv, {
+    var opts = {
       key: cmd.coalesceKey || key,
       apply: cmd.apply,
       refresh: "none",
       sudo: cmd.sudo === true
-    })
+    }
+    if (guard && guard.id) opts.guard = guard
+    runCommand(cmd.argv, opts)
   }
 
-  function dispatchSetting(key, value) {
-    runSettingCommand(SettingsJs.commandFor(key, value, snapshotData, scriptOpts()), key)
+  function dispatchSetting(key, value, guard) {
+    runSettingCommand(
+      SettingsJs.commandFor(key, value, snapshotData, scriptOpts()),
+      key,
+      root.reverting ? null : guard
+    )
+  }
+
+  function copyJson(value) {
+    try {
+      return JSON.parse(JSON.stringify(value))
+    } catch (e) {
+      return value
+    }
+  }
+
+  // Arm only once the job is on the queue. A sudo prompt that the user
+  // cancels never reaches here, so the bar does not open for a write that
+  // did not happen.
+  function rememberGuard(job) {
+    if (!job || !job.guard || !job.guard.id || root.reverting) return
+    var now = Date.now()
+    var step = GuardJs.open(root.guardState, job.guard, now)
+    job.guard = null
+    if (!step.armed) return
+    root.guardState = step.state
+    root.guardClock = now
+    root.guardArmed()
+  }
+
+  function tickGuard() {
+    var now = Date.now()
+    var step = GuardJs.tick(root.guardState, now)
+    root.guardClock = now
+    if (!step.fire || !step.fire.length) {
+      root.guardState = step.state
+      return
+    }
+    root.guardState = step.state
+    root.applyReverts(step.fire)
+  }
+
+  function keepGuard() {
+    root.guardState = GuardJs.keep(root.guardState)
+    root.guardClock = Date.now()
+  }
+
+  function revertGuard() {
+    var step = GuardJs.revert(root.guardState)
+    root.guardState = step.state
+    root.guardClock = Date.now()
+    root.applyReverts(step.fire)
+  }
+
+  function applyReverts(list) {
+    if (!list || !list.length) return
+    root.reverting = true
+    var i
+    for (i = 0; i < list.length; i++) root.dispatchRevert(list[i])
+    root.reverting = false
+  }
+
+  function dispatchRevert(desc) {
+    if (!desc || !desc.kind) return
+    if (desc.kind === "monitorRules") {
+      root.writeMonitorRules(desc.rules)
+      return
+    }
+    if (desc.kind === "monitorScale") {
+      var scale = String(desc.scale || "")
+      var n = Number(scale)
+      if (!scale || !isFinite(n) || n <= 0) return
+      root.runCommand(["omarchy", "hyprland", "monitor", "scaling", scale], {
+        key: "monitorScale",
+        apply: { monitors: SnapshotJs.patchFocusedMonitorScale(root.monitors, n) },
+        refresh: "none"
+      })
+      return
+    }
+    if (desc.kind === "keyboardLayout") {
+      root.dispatchSetting("keyboardLayout", desc.name, null)
+      return
+    }
+    if (desc.kind === "kbOverride") {
+      root.writeHyprKbOverride(desc.layouts, desc.variants, desc.groupToggle === true)
+      return
+    }
+    if (desc.kind === "touchpad") {
+      if (WorkQueue.hasQueuedKey(root.ioQueue, "touchpadEnabled")) {
+        WorkQueue.dropWriteKey(root.ioQueue, "touchpadEnabled")
+        return
+      }
+      root.dispatchSetting("touchpadEnabled", true, null)
+    }
   }
 
   function inputLuaText() {
@@ -710,6 +830,7 @@ QtObject {
       sudoPromptOpen = true
       return
     }
+    root.rememberGuard(job)
     WorkQueue.enqueueWrite(ioQueue, job)
     kickIo()
   }
@@ -926,17 +1047,22 @@ QtObject {
     if (!isFinite(n) || n <= 0) return
     var list = monitors instanceof Array ? monitors : []
     var i
+    var previous = ""
     for (i = 0; i < list.length; i++) {
       if (list[i] && list[i].focused === true) {
-        if (Number(list[i].scale) === n) return
+        if (!root.reverting && Number(list[i].scale) === n) return
+        previous = String(list[i].scale)
         break
       }
     }
-    runCommand(["omarchy", "hyprland", "monitor", "scaling", scale], {
+    var opts = {
       key: "monitorScale",
       apply: { monitors: SnapshotJs.patchFocusedMonitorScale(monitors, n) },
       refresh: "none"
-    })
+    }
+    if (!root.reverting && previous)
+      opts.guard = { id: "monitorScale", revert: { kind: "monitorScale", scale: previous } }
+    runCommand(["omarchy", "hyprland", "monitor", "scaling", scale], opts)
   }
   function setDisplayBrightness(name, percent) {
     name = String(name || "")
@@ -970,7 +1096,10 @@ QtObject {
   }
   function setTouchpad(on) {
     if (on === touchpadEnabled) return
-    dispatchSetting("touchpadEnabled", on)
+    var guard = null
+    if (on !== true)
+      guard = { id: "touchpad", revert: { kind: "touchpad" } }
+    dispatchSetting("touchpadEnabled", on === true, guard)
   }
   function setTouchscreen(on) {
     if (on === touchscreenEnabled) return
@@ -1399,7 +1528,10 @@ QtObject {
     if (name.indexOf(",") !== -1) name = name.split(",")[0]
     if (!name || name === keyboardLayout) return
     if (!/^[a-z0-9]{1,8}$/.test(name)) return
-    dispatchSetting("keyboardLayout", name)
+    dispatchSetting("keyboardLayout", name, {
+      id: "keyboardLayout",
+      revert: { kind: "keyboardLayout", name: keyboardLayout }
+    })
   }
 
   function setLocale(name) {
@@ -1446,6 +1578,45 @@ QtObject {
     runCommand(["omarchy", "hyprland", "window", "tiled", "fullscreen", "toggle"])
   }
 
+  function writeHyprKbOverride(layouts, variants, groupToggle) {
+    var patch = {
+      kbLayoutOverride: String(layouts || ""),
+      kbVariantOverride: String(variants || ""),
+      kbGroupToggle: groupToggle === true
+    }
+    var input = HyprPrefs.clampInput(SnapshotJs.mergeSnapshot(hyprInput, patch))
+    input.kbLayout = input.kbLayoutOverride
+    var snap = SnapshotJs.mergeSnapshot(snapshotData, { hyprInput: input })
+    var cmds = SettingsJs.planCommands([
+      { key: "hyprInput.kbLayoutOverride", value: input.kbLayoutOverride },
+      { key: "hyprInput.kbVariantOverride", value: input.kbVariantOverride },
+      { key: "hyprInput.kbGroupToggle", value: input.kbGroupToggle }
+    ], snap, scriptOpts())
+    if (!cmds || !cmds.length || cmds[0].skip) return
+    var cmd = cmds[0]
+    var guard = null
+    if (!root.reverting) {
+      var prev = hyprInput && typeof hyprInput === "object" ? hyprInput : {}
+      guard = {
+        id: "kbOverride",
+        revert: {
+          kind: "kbOverride",
+          layouts: prev.kbLayoutOverride || "",
+          variants: prev.kbVariantOverride || "",
+          groupToggle: prev.kbGroupToggle === true
+        }
+      }
+    }
+    runCommand(cmd.argv, {
+      key: cmd.coalesceKey || "hyprInput",
+      apply: cmd.apply,
+      stdin: cmd.stdin,
+      refresh: "none",
+      sudo: cmd.sudo === true,
+      guard: guard
+    })
+  }
+
   function setHyprKbOverride(layouts, variants, groupToggle) {
     var rawLayouts = String(layouts || "").replace(/^\s+|\s+$/g, "")
     layouts = HyprPrefs.sanitizeLayoutList(layouts)
@@ -1455,12 +1626,8 @@ QtObject {
     if (rawVariants && layouts && !variants) return
     groupToggle = groupToggle === true
     var input = hyprInput && typeof hyprInput === "object" ? hyprInput : {}
-    if (layouts === input.kbLayoutOverride && variants === input.kbVariantOverride && groupToggle === input.kbGroupToggle) return
-    writeHyprInput({
-      kbLayoutOverride: layouts,
-      kbVariantOverride: variants,
-      kbGroupToggle: groupToggle
-    })
+    if (layouts === (input.kbLayoutOverride || "") && variants === (input.kbVariantOverride || "") && groupToggle === (input.kbGroupToggle === true)) return
+    writeHyprKbOverride(layouts, variants, groupToggle)
   }
   function setHyprWorkspaceGesture(on) {
     if (hyprWorkspaceGestureUnmanaged) return
@@ -1712,7 +1879,17 @@ QtObject {
     dispatchSetting("workspaces", list)
   }
   function writeMonitorRules(items) {
-    dispatchSetting("monitorRules", items)
+    var guard = null
+    if (!root.reverting) {
+      guard = {
+        id: "monitorRules",
+        revert: {
+          kind: "monitorRules",
+          rules: root.copyJson(Array.isArray(monitorRules) ? monitorRules : [])
+        }
+      }
+    }
+    dispatchSetting("monitorRules", items, guard)
   }
 
   function patchMonitorRule(output, patch) {
@@ -3065,6 +3242,7 @@ QtObject {
           root.sudoPendingJob = null
           if (pending) {
             pending.sudo = false
+            root.rememberGuard(pending)
             WorkQueue.enqueueWrite(root.ioQueue, pending)
           }
         } else {

@@ -119,6 +119,20 @@ function hasQueuedKey(queue, key) {
   return false;
 }
 
+function dropWriteKey(queue, key) {
+  if (!queue) return;
+  var want = String(key || "");
+  if (!want) return;
+  var writes = queue.writes || [];
+  var next = [];
+  var i;
+  for (i = 0; i < writes.length; i++) {
+    if (writes[i] && String(writes[i].key || "") === want) continue;
+    next.push(writes[i]);
+  }
+  queue.writes = next;
+}
+
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     createWorkQueue: createWorkQueue,
@@ -128,6 +142,7 @@ if (typeof module !== "undefined" && module.exports) {
     takeNext: takeNext,
     shouldApplyRead: shouldApplyRead,
     hasQueuedKey: hasQueuedKey,
+    dropWriteKey: dropWriteKey,
     release: release,
     isIdle: isIdle,
   };

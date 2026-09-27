@@ -2,6 +2,12 @@
 
 Notable changes to Atmos. Each section is a git tag on `main` and `alpha`. Install and in-app Update follow the `alpha` branch.
 
+## [Unreleased]
+
+### Added
+
+- Display mode, scale, rotation, refresh, and the other monitor-rule writes, plus keyboard layout and turning the touchpad off, apply immediately and then revert after 12 seconds unless you press Keep. Escape reverts too. The timer stays in the window; quitting Atmos during those 12 seconds leaves the new setting in place.
+
 ## [v0.0.1-alpha.21] - 2026-09-14
 
 ### Added

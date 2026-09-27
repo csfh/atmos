@@ -14,7 +14,8 @@ if ((limit < 50 || limit > 100)); then
 fi
 
 found=""
-for bat in /sys/class/power_supply/BAT*/charge_control_end_threshold; do
+power_supply_dir=${ATMOS_POWER_SUPPLY_DIR:-/sys/class/power_supply}
+for bat in "$power_supply_dir"/BAT*/charge_control_end_threshold; do
   [[ -e $bat ]] || continue
   found=$bat
   break
@@ -24,8 +25,23 @@ if [[ -z $found ]]; then
   exit 1
 fi
 
-if [[ -w $found ]]; then
-  printf '%s\n' "$limit" >"$found"
-  exit 0
+write_attribute() {
+  local file=$1 value=$2
+  if [[ -w $file ]]; then
+    printf '%s\n' "$value" >"$file"
+  else
+    bash "$ROOT/as-root.sh" tee "$file" <<<"$value" >/dev/null
+  fi
+}
+
+# Dell exposes thresholds even in Adaptive mode, where they do not apply.
+# Select Custom when the battery advertises it; other hardware keeps its mode.
+charge_types=${found%/*}/charge_types
+if [[ -r $charge_types ]]; then
+  modes=" $(<"$charge_types") "
+  if [[ $modes == *" Custom "* ]]; then
+    write_attribute "$charge_types" Custom
+  fi
 fi
-bash "$ROOT/as-root.sh" tee "$found" <<<"$limit" >/dev/null
+
+write_attribute "$found" "$limit"

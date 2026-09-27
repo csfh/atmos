@@ -567,6 +567,14 @@ fill_atmos_control() {
       charge_limit=$(< "$bat")
       charge_limit=${charge_limit%$'\n'}
       [[ $charge_limit =~ ^[0-9]+$ ]] || charge_limit=0
+      # Dell keeps the threshold in Adaptive and other modes, where it does not
+      # apply. Report no limit so the UI does not claim one, and picking any
+      # value, even the stored one, writes it and selects Custom.
+      local charge_modes=""
+      [[ ! -r ${bat%/*}/charge_types ]] || charge_modes=" $(< "${bat%/*}/charge_types") "
+      if [[ $charge_modes == *" Custom "* ]]; then
+        charge_limit=0
+      fi
       break
     done
     if present nmcli; then

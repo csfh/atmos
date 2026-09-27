@@ -25,23 +25,26 @@ if [[ -z $found ]]; then
   exit 1
 fi
 
-write_attribute() {
-  local file=$1 value=$2
-  if [[ -w $file ]]; then
-    printf '%s\n' "$value" >"$file"
-  else
-    bash "$ROOT/as-root.sh" tee "$file" <<<"$value" >/dev/null
-  fi
-}
-
 # Dell exposes thresholds even in Adaptive mode, where they do not apply.
 # Select Custom when the battery advertises it; other hardware keeps its mode.
 charge_types=${found%/*}/charge_types
+mode_file=""
 if [[ -r $charge_types ]]; then
   modes=" $(<"$charge_types") "
   if [[ $modes == *" Custom "* ]]; then
-    write_attribute "$charge_types" Custom
+    mode_file=$charge_types
   fi
 fi
 
-write_attribute "$found" "$limit"
+if [[ -w $found && ( -z $mode_file || -w $mode_file ) ]]; then
+  [[ -z $mode_file ]] || printf 'Custom\n' >"$mode_file"
+  printf '%s\n' "$limit" >"$found"
+  exit 0
+fi
+# One elevation for both writes, so polkit asks once. Custom goes first and a
+# rejected mode write leaves the threshold alone.
+# shellcheck disable=SC2016
+bash "$ROOT/as-root.sh" sh -c '
+  if [ -n "$1" ]; then printf "Custom\n" >"$1" || exit 1; fi
+  printf "%s\n" "$2" >"$3"
+' atmos-charge-limit "$mode_file" "$limit" "$found"

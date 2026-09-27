@@ -203,12 +203,6 @@ function layoutNames() {
   return ["desk", "laptop", "docked"];
 }
 
-function pickLayout(layouts, name) {
-  var key = String(name || "");
-  var src = layouts && typeof layouts === "object" ? layouts : {};
-  return Array.isArray(src[key]) ? src[key] : [];
-}
-
 function liveMode(row) {
   var src = row && typeof row === "object" ? row : {};
   if (src.mode) return sanitizeMode(src.mode) || "preferred";
@@ -262,7 +256,6 @@ if (typeof module !== "undefined" && module.exports) {
     parseFile: parseFile,
     applyFile: applyFile,
     layoutNames: layoutNames,
-    pickLayout: pickLayout,
     layoutFromLive: layoutFromLive,
     modeFromHyprctl: modeFromHyprctl,
     sanitizeMode: sanitizeMode,

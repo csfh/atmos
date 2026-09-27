@@ -759,7 +759,6 @@ function exportMarkdown(snapshot, keys, meta) {
   var info = meta || {};
   var selected = keyLookup(keys);
   var catalog = settingsCatalog();
-  var byKey = catalogByKey(catalog);
   var sections = settingsSections();
   var lines = [];
 
@@ -1535,17 +1534,6 @@ function canonicalizeList(item, value) {
     out = next.length === all.length ? [] : next;
   }
   return { value: out };
-}
-
-function workspaceCountFromItems(list) {
-  var rows = Array.isArray(list) ? list : [];
-  var max = 0;
-  var i, n;
-  for (i = 0; i < rows.length; i++) {
-    n = Number(rows[i] && (rows[i].id || rows[i].workspace));
-    if (isFinite(n) && n >= 1 && n <= 10 && n > max) max = n;
-  }
-  return max < 1 ? 10 : max;
 }
 
 function canonicalizeListRow(item, row, index) {

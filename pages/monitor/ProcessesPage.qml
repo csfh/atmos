@@ -1,8 +1,8 @@
 import QtQuick
 import "../../components"
 import "../../services"
+import "../../services/ChartCopy.js" as ChartCopy
 import "../../services/Charts.js" as ChartsJs
-import "../../services/LiveStats.js" as LiveStatsJs
 import "../../services/Processes.js" as ProcessesJs
 
 PrefsPage {
@@ -40,7 +40,6 @@ PrefsPage {
     }
   )
   readonly property int rawCount: root.latest && root.latest.processes ? root.latest.processes.length : 0
-  readonly property var parallelRows: ChartsJs.processParallel(root.processes)
   readonly property var parallelAxes: ["cpu", "rss", "fds", "threads", "nice"]
 
   function actOn(row, action) {
@@ -91,6 +90,7 @@ PrefsPage {
     title: "Parallel coordinates"
     query: root.query
     wide: true
+    lede: ChartCopy.blurb("parallel")
     detail: "One polyline per listed process across CPU%, RSS, FDs, threads, and nice. Rows without those fields stay off the chart."
     hint: "/proc/*/stat"
 
@@ -99,9 +99,14 @@ PrefsPage {
       x: Theme.copyInset
 
       PrefsChart {
+        id: parallelChart
         width: parent.width
         kind: "parallel"
-        model: root.parallelRows
+        model: {
+          var _n = LiveStatsStore.sampleCount
+          if (!parallelChart.inView) return null
+          return ChartsJs.processParallel(root.processes)
+        }
         modelB: root.parallelAxes
         valueText: "Process parallel coordinates"
       }

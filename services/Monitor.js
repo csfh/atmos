@@ -28,6 +28,35 @@ function intervalMs(id) {
   return 2000;
 }
 
+function applySampleInterval(userMs, holds) {
+  var ms = Number(userMs);
+  if (!(ms > 0) || !isFinite(ms)) ms = 2000;
+  var src = holds && typeof holds === "object" ? holds : {};
+  var key;
+  var n;
+  for (key in src) {
+    if (!Object.prototype.hasOwnProperty.call(src, key)) continue;
+    n = Number(src[key]);
+    if (isFinite(n) && n > 0 && n < ms) ms = n;
+  }
+  return Math.max(50, Math.floor(ms));
+}
+
+function syncIntervalHolds(holds, ms) {
+  var src = holds && typeof holds === "object" ? holds : {};
+  var n = Number(ms);
+  if (!(n > 0) || !isFinite(n)) return src;
+  var next = {};
+  var key;
+  var found = false;
+  for (key in src) {
+    if (!Object.prototype.hasOwnProperty.call(src, key)) continue;
+    next[key] = n;
+    found = true;
+  }
+  return found ? next : src;
+}
+
 function pageCards() {
   return [
     {
@@ -198,6 +227,8 @@ if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     intervalChips: intervalChips,
     intervalMs: intervalMs,
+    applySampleInterval: applySampleInterval,
+    syncIntervalHolds: syncIntervalHolds,
     pageCards: pageCards,
     alertLevel: alertLevel,
     barRects: barRects,

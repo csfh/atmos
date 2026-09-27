@@ -1,6 +1,7 @@
 import QtQuick
 import "../../components"
 import "../../services"
+import "../../services/ChartCopy.js" as ChartCopy
 import "../../services/Charts.js" as ChartsJs
 import "../../services/LiveStats.js" as LiveStatsJs
 import "../../services/Monitor.js" as MonitorJs
@@ -15,22 +16,6 @@ PrefsPage {
   readonly property var latest: LiveStatsStore.latest
   readonly property var history: LiveStatsStore.history
   readonly property var cores: root.latest && root.latest.cpus ? root.latest.cpus : []
-  readonly property var coreValues: LiveStatsJs.corePercents(root.latest)
-  readonly property var cpuValues: LiveStatsJs.series(root.history, "cpu")
-  readonly property var loadValues: LiveStatsJs.series(root.history, "load1")
-  readonly property var hist: MonitorJs.cpuHistogram(root.latest && root.latest.processes ? root.latest.processes : [])
-  readonly property var irqRates: {
-    var h = root.history
-    if (!h || h.length < 2) return []
-    return ChartsJs.irqRateMatrix(h[h.length - 2].interrupts, h[h.length - 1].interrupts)
-  }
-  readonly property var psiRidges: ChartsJs.psiRidges(root.history)
-  readonly property var freqViolins: ChartsJs.freqViolins(root.history)
-  readonly property var softirqWedges: {
-    var h = root.history
-    if (!h || h.length < 2) return []
-    return ChartsJs.softirqWedges(h[h.length - 2].softirqs, h[h.length - 1].softirqs)
-  }
   readonly property var hotProcs: ProcessesJs.list(
     root.latest && root.latest.processes ? root.latest.processes : [],
     "",
@@ -57,8 +42,12 @@ PrefsPage {
       stretchControl: true
 
       PrefsSparkline {
+        id: cpuSpark
         width: parent.width
-        values: root.cpuValues
+        values: {
+          if (!cpuSpark.inView) return []
+          return LiveStatsJs.series(root.history, "cpu")
+        }
         valueText: LiveStatsJs.formatPercent(root.latest && root.latest.cpu)
         alert: MonitorJs.alertLevel(root.latest && root.latest.cpu) === "hot"
       }
@@ -74,8 +63,12 @@ PrefsPage {
       stretchControl: true
 
       PrefsSparkline {
+        id: loadSpark
         width: parent.width
-        values: root.loadValues
+        values: {
+          if (!loadSpark.inView) return []
+          return LiveStatsJs.series(root.history, "load1")
+        }
         valueText: LiveStatsJs.formatLoadLine(root.latest)
       }
     }
@@ -94,6 +87,7 @@ PrefsPage {
     title: "IRQ land"
     query: root.query
     wide: true
+    lede: ChartCopy.blurb("heatmap")
     detail: "Per-CPU interrupt rate since the last sample. Fill is relative to the hottest cell. Missing /proc/interrupts stays empty."
     hint: "/proc/interrupts"
 
@@ -102,9 +96,16 @@ PrefsPage {
       x: Theme.copyInset
 
       PrefsChart {
+        id: irqChart
         width: parent.width
         kind: "heatmap"
-        model: root.irqRates
+        model: {
+          var _n = LiveStatsStore.sampleCount
+          if (!irqChart.inView) return null
+          var h = root.history
+          if (!h || h.length < 2) return []
+          return ChartsJs.irqRateMatrix(h[h.length - 2].interrupts, h[h.length - 1].interrupts)
+        }
         valueText: "IRQ land heatmap"
       }
     }
@@ -114,6 +115,7 @@ PrefsPage {
     title: "PSI ridgeline"
     query: root.query
     wide: true
+    lede: ChartCopy.blurb("ridgeline")
     detail: "cpu, memory, and io some avg10 overlapping on one time scale."
     hint: "/proc/pressure"
 
@@ -122,9 +124,14 @@ PrefsPage {
       x: Theme.copyInset
 
       PrefsChart {
+        id: psiChart
         width: parent.width
         kind: "ridgeline"
-        model: root.psiRidges
+        model: {
+          var _n = LiveStatsStore.sampleCount
+          if (!psiChart.inView) return null
+          return ChartsJs.psiRidges(root.history)
+        }
         valueText: "PSI stall ridgeline"
       }
     }
@@ -134,6 +141,7 @@ PrefsPage {
     title: "Cores"
     query: root.query
     wide: true
+    lede: ChartCopy.blurb("corebars")
     detail: "Each bar is one logical CPU. Frequency is scaling_cur_freq when cpufreq is present."
 
     Column {
@@ -142,8 +150,12 @@ PrefsPage {
       spacing: Theme.headingGap
 
       PrefsCoreBars {
+        id: coreBars
         width: parent.width
-        values: root.coreValues
+        values: {
+          if (!coreBars.inView) return []
+          return LiveStatsJs.corePercents(root.latest)
+        }
         valueText: root.cores.length + " cores"
       }
     }
@@ -168,8 +180,12 @@ PrefsPage {
         stretchControl: true
 
         PrefsSparkline {
+          id: coreSpark
           width: parent.width
-          values: LiveStatsJs.coreSeries(root.history, modelData.id)
+          values: {
+            if (!coreSpark.inView) return []
+            return LiveStatsJs.coreSeries(root.history, modelData.id)
+          }
           valueText: LiveStatsJs.formatPercent(modelData && modelData.cpu)
           alert: MonitorJs.alertLevel(modelData && modelData.cpu) === "hot"
         }
@@ -181,6 +197,7 @@ PrefsPage {
     title: "Core frequency"
     query: root.query
     wide: true
+    lede: ChartCopy.blurb("violin")
     detail: "Violin of scaling_cur_freq P-state spread per core over the sample window."
     hint: "scaling_cur_freq"
 
@@ -189,9 +206,14 @@ PrefsPage {
       x: Theme.copyInset
 
       PrefsChart {
+        id: violinChart
         width: parent.width
         kind: "violin"
-        model: root.freqViolins
+        model: {
+          var _n = LiveStatsStore.sampleCount
+          if (!violinChart.inView) return null
+          return ChartsJs.freqViolins(root.history)
+        }
         valueText: "Core-freq violin"
       }
     }
@@ -201,6 +223,7 @@ PrefsPage {
     title: "Softirq rose"
     query: root.query
     wide: true
+    lede: ChartCopy.blurb("rose")
     detail: "Nightingale rose of /proc/softirqs rates. Wedge area encodes the rate."
     hint: "/proc/softirqs"
 
@@ -209,9 +232,16 @@ PrefsPage {
       x: Theme.copyInset
 
       PrefsChart {
+        id: roseChart
         width: parent.width
         kind: "rose"
-        model: root.softirqWedges
+        model: {
+          var _n = LiveStatsStore.sampleCount
+          if (!roseChart.inView) return null
+          var h = root.history
+          if (!h || h.length < 2) return []
+          return ChartsJs.softirqWedges(h[h.length - 2].softirqs, h[h.length - 1].softirqs)
+        }
         valueText: "Softirq Nightingale rose"
       }
     }
@@ -221,6 +251,7 @@ PrefsPage {
     title: "Histogram"
     query: root.query
     wide: true
+    lede: ChartCopy.blurb("histogram")
     detail: "How process CPU is distributed across the current sample, including other users."
 
     Column {
@@ -228,8 +259,13 @@ PrefsPage {
       x: Theme.copyInset
 
       PrefsHistogram {
+        id: cpuHist
         width: parent.width
-        bins: root.hist
+        bins: {
+          var _n = LiveStatsStore.sampleCount
+          if (!cpuHist.inView) return []
+          return MonitorJs.cpuHistogram(root.latest && root.latest.processes ? root.latest.processes : [])
+        }
         valueText: "CPU histogram"
       }
     }

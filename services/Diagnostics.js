@@ -67,36 +67,6 @@ function asBool(value) {
   return value === true;
 }
 
-function emptyDiagnostics() {
-  return {
-    generatedAt: "",
-    hostname: "",
-    kernel: { sysname: "", release: "", machine: "" },
-    omarchy: { version: "", channel: "", path: "" },
-    atmos: {
-      revision: "",
-      installed: false,
-      hyprAtmos: false,
-      hyprAtmosLayout: false,
-      sentinels: { look: false, input: false, autostart: false, bindings: false, windows: false },
-    },
-    hyprland: { version: "", configErrors: [] },
-    failedUnits: [],
-    disk: { path: "/", total: 0, used: 0, available: 0, percent: 0 },
-    memory: { total: 0, used: 0, available: 0, swapTotal: 0, swapUsed: 0 },
-    gpu: { driver: "", identity: "" },
-    portals: {
-      "xdg-desktop-portal": "",
-      "xdg-desktop-portal-hyprland": "",
-      "xdg-desktop-portal-gtk": "",
-    },
-    pipewire: { pipewire: "", "pipewire-pulse": "", wireplumber: "" },
-    network: { online: false, kind: "" },
-    pacman: { syncOk: false, lastSync: "", dbCount: 0 },
-    recentErrors: [],
-  };
-}
-
 function normalizeKernel(raw) {
   var src = asObject(raw);
   return {
@@ -346,13 +316,6 @@ function hyprSummary(diag) {
   return ver + ". " + n + " config errors.";
 }
 
-function failedSummary(diag) {
-  var n = failedCount(diag);
-  if (n === 0) return "No failed units.";
-  if (n === 1) return "One failed unit.";
-  return n + " failed units.";
-}
-
 function gpuSummary(diag) {
   var g = asObject(asObject(diag).gpu);
   if (g.driver && g.identity) return g.identity + " (" + g.driver + ")";
@@ -499,7 +462,6 @@ function reportText(raw) {
 
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
-    emptyDiagnostics: emptyDiagnostics,
     normalize: normalize,
     failedCount: failedCount,
     hyprOk: hyprOk,
@@ -512,7 +474,6 @@ if (typeof module !== "undefined" && module.exports) {
     omarchySummary: omarchySummary,
     atmosSummary: atmosSummary,
     hyprSummary: hyprSummary,
-    failedSummary: failedSummary,
     gpuSummary: gpuSummary,
     networkSummary: networkSummary,
     pacmanSummary: pacmanSummary,

@@ -3,12 +3,16 @@
 // when a sample is missing instead of painting as 0 or 0°.
 
 var SAMPLE_CAP = 60;
-var PROCESS_CAP = 80;
 
 function finiteNumber(v) {
   if (v === null || v === undefined || v === "") return null;
   var n = Number(v);
   return isFinite(n) ? n : null;
+}
+
+function asFinite(v) {
+  if (typeof v === "number") return isFinite(v) ? v : null;
+  return finiteNumber(v);
 }
 
 function nonNeg(v) {
@@ -560,7 +564,9 @@ function decorateDisks(prev, sample, dtMs) {
 function pushSample(history, sample, now) {
   var parsed = sample && sample.cpuIdle !== undefined ? sample : parse(sample);
   if (!parsed) return Array.isArray(history) ? history.slice() : [];
-  var list = Array.isArray(history) ? history.slice() : [];
+  var src = Array.isArray(history) ? history : [];
+  var start = src.length >= SAMPLE_CAP ? src.length - SAMPLE_CAP + 1 : 0;
+  var list = start > 0 ? src.slice(start) : src.slice();
   var prev = list.length ? list[list.length - 1] : null;
   var at = Number(now);
   if (!isFinite(at)) at = 0;
@@ -616,7 +622,6 @@ function pushSample(history, sample, now) {
     processes: decorateProcesses(prev, parsed, dt),
   };
   list.push(row);
-  while (list.length > SAMPLE_CAP) list.shift();
   return list;
 }
 
@@ -630,8 +635,11 @@ function series(history, key) {
   var out = [];
   var i;
   var n;
+  var row;
   for (i = 0; i < list.length; i++) {
-    n = list[i] ? finiteNumber(list[i][key]) : null;
+    row = list[i];
+    if (!row) continue;
+    n = asFinite(row[key]);
     if (n !== null) out.push(n);
   }
   return out;
@@ -805,16 +813,24 @@ function namedSeries(history, listKey, matchKey, match, valueKey) {
   var j;
   var rows;
   var n;
+  var row;
   var needle = String(match);
+  var hint = -1;
   for (i = 0; i < list.length; i++) {
     rows = list[i] && Array.isArray(list[i][listKey]) ? list[i][listKey] : [];
-    n = null;
-    for (j = 0; j < rows.length; j++) {
-      if (!rows[j]) continue;
-      if (String(rows[j][matchKey]) !== needle) continue;
-      n = finiteNumber(rows[j][valueKey]);
-      break;
+    row = hint >= 0 && hint < rows.length ? rows[hint] : null;
+    if (!row || String(row[matchKey]) !== needle) {
+      row = null;
+      for (j = 0; j < rows.length; j++) {
+        if (!rows[j]) continue;
+        if (String(rows[j][matchKey]) !== needle) continue;
+        hint = j;
+        row = rows[j];
+        break;
+      }
     }
+    if (!row) continue;
+    n = asFinite(row[valueKey]);
     if (n !== null) out.push(n);
   }
   return out;
@@ -822,10 +838,6 @@ function namedSeries(history, listKey, matchKey, match, valueKey) {
 
 function coreSeries(history, id) {
   return namedSeries(history, "cpus", "id", id, "cpu");
-}
-
-function freqSeries(history, id) {
-  return namedSeries(history, "cpus", "id", id, "freqMhz");
 }
 
 function ifaceSeries(history, name, key) {
@@ -867,36 +879,44 @@ function corePercents(sample) {
 
 function sparklinePoints(values, width, height, pad) {
   var src = Array.isArray(values) ? values : [];
-  var nums = [];
-  var i;
-  var n;
-  for (i = 0; i < src.length; i++) {
-    n = finiteNumber(src[i]);
-    if (n !== null) nums.push(n);
-  }
   var w = Number(width);
   var h = Number(height);
   var p = Number(pad);
   if (!(w > 0) || !(h > 0)) return [];
   if (!isFinite(p) || p < 0) p = 0;
-  if (nums.length < 2) return [];
-  var min = nums[0];
-  var max = nums[0];
-  for (i = 1; i < nums.length; i++) {
-    if (nums[i] < min) min = nums[i];
-    if (nums[i] > max) max = nums[i];
-  }
-  var span = max - min;
   var innerW = w - p * 2;
   var innerH = h - p * 2;
   if (!(innerW > 0) || !(innerH > 0)) return [];
+  var i;
+  var n;
+  var count = 0;
+  var min = 0;
+  var max = 0;
+  for (i = 0; i < src.length; i++) {
+    n = asFinite(src[i]);
+    if (n === null) continue;
+    if (!count) {
+      min = n;
+      max = n;
+    } else {
+      if (n < min) min = n;
+      if (n > max) max = n;
+    }
+    count++;
+  }
+  if (count < 2) return [];
+  var span = max - min;
   var out = [];
+  var idx = 0;
   var x;
   var y;
-  for (i = 0; i < nums.length; i++) {
-    x = p + (innerW * i) / (nums.length - 1);
-    y = span === 0 ? p + innerH / 2 : p + innerH - ((nums[i] - min) / span) * innerH;
+  for (i = 0; i < src.length; i++) {
+    n = asFinite(src[i]);
+    if (n === null) continue;
+    x = p + (innerW * idx) / (count - 1);
+    y = span === 0 ? p + innerH / 2 : p + innerH - ((n - min) / span) * innerH;
     out.push([x, y]);
+    idx++;
   }
   return out;
 }
@@ -904,7 +924,6 @@ function sparklinePoints(values, width, height, pad) {
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     SAMPLE_CAP: SAMPLE_CAP,
-    PROCESS_CAP: PROCESS_CAP,
     parse: parse,
     cpuPercent: cpuPercent,
     memPercent: memPercent,
@@ -938,7 +957,6 @@ if (typeof module !== "undefined" && module.exports) {
     memBytes: memBytes,
     memParts: memParts,
     coreSeries: coreSeries,
-    freqSeries: freqSeries,
     ifaceSeries: ifaceSeries,
     diskSeries: diskSeries,
     sensorSeries: sensorSeries,

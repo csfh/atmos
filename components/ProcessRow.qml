@@ -1,5 +1,4 @@
 import QtQuick
-import QtQuick.Controls
 import "../services"
 import "../services/LiveStats.js" as LiveStatsJs
 import "../services/Processes.js" as ProcessesJs
@@ -16,7 +15,6 @@ Item {
   property bool split: true
   property bool available: true
   property bool sectionHelp: false
-  property bool catalog: true
 
   signal acted(string action)
 
@@ -48,7 +46,6 @@ Item {
   readonly property string label: root.comm
   readonly property string description: root.statusText
   readonly property string hint: row && row.cmdline ? row.cmdline : ""
-  readonly property var keywords: ["process", "pid", "cpu", "memory"]
 
   readonly property string searchHaystack: {
     var parts = [root.label, root.description, root.hint]

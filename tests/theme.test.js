@@ -151,6 +151,45 @@ assertEqual(fg.background, "#010203", "parseColors reads bg alias");
 assertEqual(fg.urgent, "#ff00aa", "parseColors reads urgent key");
 assertEqual(fg.muted, "#abcdef", "parseColors muted falls back to foreground");
 
+const tokyo = theme.parseColors(`
+accent = "#7aa2f7"
+muted = "#414868"
+background = "#1a1b26"
+foreground = "#a9b1d6"
+red = "#f7768e"
+yellow = "#e0af68"
+green = "#9ece6a"
+cyan = "#449dab"
+blue = "#7aa2f7"
+magenta = "#ad8ee6"
+selection = "#292e42"
+`);
+assertEqual(tokyo.palette.green, "#9ece6a", "parseColors keeps named palette hues");
+assertEqual(tokyo.palette.cyan, "#449dab", "parseColors keeps cyan");
+const swatches = theme.chartSwatches(tokyo);
+assert(swatches.indexOf("#9ece6a") !== -1, "chartSwatches includes green");
+assert(swatches.indexOf("#449dab") !== -1, "chartSwatches includes cyan");
+assert(swatches.indexOf("#f7768e") !== -1, "chartSwatches includes red");
+assert(swatches.indexOf("#1a1b26") === -1, "chartSwatches drops the background");
+assert(swatches.indexOf("#292e42") === -1, "chartSwatches drops a near-background selection");
+assert(swatches.length >= 5, "chartSwatches keeps several distinct hues");
+const stops = theme.chartStops(tokyo);
+assert(stops.length >= 3, "chartStops is a sequential ramp");
+assertEqual(stops[0], "#449dab", "chartStops starts at cyan");
+assertEqual(theme.heatHex(["#000000", "#ffffff"], 0), "#000000", "heatHex at 0 is the first stop");
+assertEqual(theme.heatHex(["#000000", "#ffffff"], 1), "#ffffff", "heatHex at 1 is the last stop");
+assertEqual(theme.lerpHex("#000000", "#ffffff", 0.5), "#808080", "lerpHex mid gray");
+const chromeOnly = theme.chartSwatches({
+  foreground: "#eeeeee",
+  background: "#111111",
+  accent: "#0000ff",
+  muted: "#888888",
+  urgent: "#ff0000",
+  palette: {},
+});
+assert(chromeOnly.indexOf("#0000ff") !== -1, "chartSwatches falls back to accent");
+assert(chromeOnly.indexOf("#ff0000") !== -1, "chartSwatches falls back to urgent");
+
 const parsed = shell.parseShellJson(
   '{"idle":{"screensaver":90,"lock":120},"bar":{"position":"left","transparent":true}}',
   "{}",
@@ -257,6 +296,11 @@ const liveShell = { "font.base-size": "16", "controls.normal-fill-alpha": "0.2" 
 const snap = theme.snapshotLiveTheme(liveColors, liveShell);
 assertEqual(snap.source, "live", "snapshotLiveTheme tags the restore source as live");
 assertEqual(snap.colors.foreground, "#aaa111", "snapshotLiveTheme copies live foreground");
+assertEqual(
+  Array.isArray(snap.colors.swatches) && snap.colors.swatches.length === 0,
+  true,
+  "snapshotLiveTheme copies swatches as a list",
+);
 assertEqual(
   snap.themeShellValues["font.base-size"],
   "16",

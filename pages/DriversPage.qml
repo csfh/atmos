@@ -35,13 +35,6 @@ PrefsPage {
     firmwareConfirm.parent = root.prefsOverlay
   }
 
-  function hasText() {
-    for (var i = 0; i < arguments.length; i++) {
-      if (String(arguments[i] || "").length) return true
-    }
-    return false
-  }
-
   function copyField(text) {
     Omarchy.copyText(String(text || ""))
   }

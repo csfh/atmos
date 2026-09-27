@@ -13,6 +13,7 @@ Item {
   property bool showBar: false
   property bool alert: false
   property bool fill: true
+  readonly property bool inView: spark.inView
 
   implicitWidth: 260
   implicitHeight: Math.max(Theme.meterMinHeight, inner.implicitHeight + Theme.pad * 2)
@@ -59,6 +60,7 @@ Item {
     }
 
     PrefsSparkline {
+      id: spark
       width: parent.width
       height: Theme.sparklineHeight
       values: root.values

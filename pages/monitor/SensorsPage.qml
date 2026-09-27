@@ -2,9 +2,9 @@ import QtQuick
 import "../../components"
 import "../../services"
 import "../../services/Hardware.js" as HardwareJs
+import "../../services/ChartCopy.js" as ChartCopy
 import "../../services/Charts.js" as ChartsJs
 import "../../services/LiveStats.js" as LiveStatsJs
-import "../../services/Monitor.js" as MonitorJs
 import "../../services/RichUi.js" as RichUi
 
 PrefsPage {
@@ -20,12 +20,6 @@ PrefsPage {
   readonly property var history: LiveStatsStore.history
   readonly property var hw: HardwareJs.normalize(Omarchy.hardware)
   readonly property var gpuList: LiveStatsJs.gpuRows(root.hw.gpus, root.latest)
-  readonly property var thermalDays: ChartsJs.thermalDays(root.history)
-  readonly property var raplSteps: {
-    var h = root.history
-    if (!h || h.length < 2) return []
-    return ChartsJs.raplSteps(h[h.length - 2], h[h.length - 1])
-  }
   readonly property var sensors: {
     var src = root.latest && root.latest.sensors ? root.latest.sensors : []
     var q = String(root.sensorFilter || "").toLowerCase()
@@ -59,12 +53,6 @@ PrefsPage {
     return LiveStatsJs.formatTemp(row.value) || "unknown"
   }
 
-  function gpuBusyText(gpu) {
-    var live = LiveStatsJs.findGpu(root.latest, gpu) || LiveStatsJs.findGpu(root.latest, gpu && gpu.card)
-    if (live && live.busy != null) return LiveStatsJs.formatPercent(live.busy)
-    return root.waiting()
-  }
-
   function gpuVramText(gpu) {
     var live = LiveStatsJs.findGpu(root.latest, gpu) || LiveStatsJs.findGpu(root.latest, gpu && gpu.card)
     if (!live || live.vramUsed == null || live.vramTotal == null) return ""
@@ -86,8 +74,12 @@ PrefsPage {
       stretchControl: true
 
       PrefsSparkline {
+        id: cpuTempSpark
         width: parent.width
-        values: LiveStatsJs.series(root.history, "cpuTemp")
+        values: {
+          if (!cpuTempSpark.inView) return []
+          return LiveStatsJs.series(root.history, "cpuTemp")
+        }
         valueText: LiveStatsJs.formatTemp(root.latest && root.latest.cpuTemp)
         alert: root.latest && root.latest.cpuTemp != null && root.latest.cpuTemp >= 90
       }
@@ -98,6 +90,7 @@ PrefsPage {
     title: "Thermal calendar"
     query: root.query
     wide: true
+    lede: ChartCopy.blurb("calendar")
     detail: "Week × weekday cells of daily-max °C from hwmon temp*_input in this window's sample ring. No private history store."
     hint: "/sys/class/hwmon/*/temp*_input"
 
@@ -106,9 +99,14 @@ PrefsPage {
       x: Theme.copyInset
 
       PrefsChart {
+        id: calendarChart
         width: parent.width
         kind: "calendar"
-        model: root.thermalDays
+        model: {
+          var _n = LiveStatsStore.sampleCount
+          if (!calendarChart.inView) return null
+          return ChartsJs.thermalDays(root.history)
+        }
         valueText: "Hwmon thermal calendar"
       }
     }
@@ -118,6 +116,7 @@ PrefsPage {
     title: "RAPL waterfall"
     query: root.query
     wide: true
+    lede: ChartCopy.blurb("waterfall")
     detail: "Sequential joules since the last sample from powercap energy_uj. This AMD host may have no RAPL nodes; the chart stays empty instead of inventing zeros."
     hint: "/sys/class/powercap/intel-rapl*/energy_uj"
 
@@ -126,9 +125,16 @@ PrefsPage {
       x: Theme.copyInset
 
       PrefsChart {
+        id: waterfallChart
         width: parent.width
         kind: "waterfall"
-        model: root.raplSteps
+        model: {
+          var _n = LiveStatsStore.sampleCount
+          if (!waterfallChart.inView) return null
+          var h = root.history
+          if (!h || h.length < 2) return []
+          return ChartsJs.raplSteps(h[h.length - 2], h[h.length - 1])
+        }
         valueText: "RAPL energy waterfall"
       }
     }
@@ -164,9 +170,16 @@ PrefsPage {
         stretchControl: true
 
         PrefsSparkline {
+          id: gpuSpark
           width: parent.width
-          values: LiveStatsJs.gpuBusySeries(root.history, modelData)
-          valuesB: LiveStatsJs.gpuSeries(root.history, modelData)
+          values: {
+            if (!gpuSpark.inView) return []
+            return LiveStatsJs.gpuBusySeries(root.history, modelData)
+          }
+          valuesB: {
+            if (!gpuSpark.inView) return []
+            return LiveStatsJs.gpuSeries(root.history, modelData)
+          }
           valueText: LiveStatsJs.formatPercent(LiveStatsJs.gpuBusyAt(root.latest, modelData))
           fill: false
         }
@@ -234,8 +247,12 @@ PrefsPage {
         stretchControl: true
 
         PrefsSparkline {
+          id: sensorSpark
           width: parent.width
-          values: LiveStatsJs.sensorSeries(root.history, modelData.id)
+          values: {
+            if (!sensorSpark.inView) return []
+            return LiveStatsJs.sensorSeries(root.history, modelData.id)
+          }
           valueText: root.sensorText(modelData)
           alert: modelData && modelData.kind === "temp" && modelData.value >= 90
         }

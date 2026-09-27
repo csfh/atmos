@@ -14,7 +14,6 @@ Item {
   property bool split: true
   property bool available: true
   property bool sectionHelp: false
-  property bool catalog: true
 
   signal acted(string action)
 
@@ -30,8 +29,6 @@ Item {
   readonly property string hint: row && row.allowed
     ? (row.scope === "user" ? "systemctl --user" : "systemctl")
     : "status and logs only"
-  readonly property string detail: ""
-  readonly property var keywords: ["systemd", "service", "unit"]
 
   readonly property string searchHaystack: {
     var parts = [root.label, root.description, root.hint]

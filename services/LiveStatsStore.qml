@@ -35,49 +35,13 @@ QtObject {
   }
 
   function applyInterval() {
-    var ms = root.userIntervalMs
-    var holds = root.intervalHolds || {}
-    var key
-    var n
-    for (key in holds) {
-      if (!Object.prototype.hasOwnProperty.call(holds, key)) continue
-      n = Number(holds[key])
-      if (isFinite(n) && n > 0 && n < ms) ms = n
-    }
-    root.intervalMs = Math.max(50, Math.floor(ms))
+    root.intervalMs = MonitorJs.applySampleInterval(root.userIntervalMs, root.intervalHolds)
   }
 
   function setIntervalId(id) {
-    root.userIntervalMs = MonitorJs.intervalMs(id)
-    root.applyInterval()
-  }
-
-  function requestInterval(id, ms) {
-    var key = String(id || "")
-    var n = Number(ms)
-    if (!key || !isFinite(n) || n <= 0) return
-    var next = {}
-    var k
-    var holds = root.intervalHolds || {}
-    for (k in holds) {
-      if (Object.prototype.hasOwnProperty.call(holds, k)) next[k] = holds[k]
-    }
-    next[key] = n
-    root.intervalHolds = next
-    root.applyInterval()
-  }
-
-  function releaseInterval(id) {
-    var key = String(id || "")
-    var next = {}
-    var k
-    var holds = root.intervalHolds || {}
-    for (k in holds) {
-      if (!Object.prototype.hasOwnProperty.call(holds, k)) continue
-      if (k === key) continue
-      next[k] = holds[k]
-    }
-    root.intervalHolds = next
+    var ms = MonitorJs.intervalMs(id)
+    root.userIntervalMs = ms
+    root.intervalHolds = MonitorJs.syncIntervalHolds(root.intervalHolds, ms)
     root.applyInterval()
   }
 
@@ -94,7 +58,7 @@ QtObject {
 
   property Timer pollTimer: Timer {
     interval: root.intervalMs
-    running: !root.paused
+    running: !root.paused && FrameClock.holds > 0
     repeat: true
     onTriggered: root.poll()
   }

@@ -395,20 +395,6 @@ function catalogConflict(catalog, keys) {
   return "";
 }
 
-function overrideConflict(overrides, keys, skipKeys) {
-  var list = Array.isArray(overrides) ? overrides : [];
-  var chord = sanitizeKeys(keys);
-  var skip = sanitizeKeys(skipKeys);
-  if (!chord) return "";
-  for (var i = 0; i < list.length; i++) {
-    if (!list[i] || !list[i].keys) continue;
-    var other = sanitizeKeys(list[i].keys);
-    if (!other || other === skip) continue;
-    if (other === chord) return other;
-  }
-  return "";
-}
-
 function generatedBindText(row) {
   var n = normalize(typeof row === "object" ? row : null);
   if (!n) return "";

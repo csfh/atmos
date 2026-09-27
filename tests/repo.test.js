@@ -497,6 +497,25 @@ assert(
   ) === -1,
   "PrefsPage does not paint the mode toggle on every titled hub",
 );
+assert(
+  prefsPageSrc.indexOf("function expandChart(") !== -1 &&
+    prefsPageSrc.indexOf("function collapseChart(") !== -1 &&
+    prefsPageSrc.indexOf("readonly property bool chartOpen:") !== -1 &&
+    prefsPageSrc.indexOf("id: chartExpandLayer") !== -1 &&
+    prefsPageSrc.indexOf("anchors.fill: parent") !== -1 &&
+    prefsPageSrc.indexOf("expandable: false") !== -1,
+  "PrefsPage expands a chart over the full right-hand page",
+);
+assert(
+  prefsPageSrc.indexOf("p.atmosRightPane === true") !== -1 &&
+    prefsPageSrc.indexOf("chartExpandLayer.parent = host") !== -1,
+  "expanded chart reparents onto the Atmos right pane",
+);
+assert(
+  prefsPageSrc.indexOf("interactive: !root.embed && contentHeight > height && !root.chartOpen") !==
+    -1,
+  "PrefsPage stops scrolling while a chart is expanded",
+);
 
 const disclosureQml = fs.readFileSync(
   path.join(__dirname, "..", "services", "Disclosure.qml"),
@@ -1213,6 +1232,16 @@ assert(
     searchFieldSrc.indexOf('text = ""') === -1,
   "Escape on search blurs first so j/k can walk the filter",
 );
+assert(
+  shellSrc.indexOf("page.chartOpen") !== -1 &&
+    shellSrc.indexOf("page.collapseChart()") !== -1 &&
+    /if \(pageStack\.depth > 1\) pageStack\.pop\(\)/.test(shellSrc),
+  "Escape collapses an expanded chart before popping the stack",
+);
+assert(
+  shellSrc.indexOf("readonly property bool atmosRightPane: true") !== -1,
+  "right pane is the expand host for a full-size chart",
+);
 const keysDialogSrc = shellSrc.slice(
   shellSrc.indexOf("id: keysDialog"),
   shellSrc.indexOf("id: sudoModeDialog"),
@@ -1459,8 +1488,7 @@ assert(
   "Hardware states fitted memory without a live usage meter",
 );
 assert(
-  driversPageSrc.indexOf('label: "BIOS"') === -1 &&
-    driversPageSrc.indexOf("updateFirmware") !== -1,
+  driversPageSrc.indexOf('label: "BIOS"') === -1 && driversPageSrc.indexOf("updateFirmware") !== -1,
   "Drivers updates firmware and leaves BIOS identity on Hardware",
 );
 assert(
@@ -1821,8 +1849,51 @@ const liveStoreSrc = fs.readFileSync(
 assert(
   liveStoreSrc.indexOf("Omarchy.liveStatsScript") !== -1 &&
     liveStoreSrc.indexOf("interval: root.intervalMs") !== -1 &&
-    liveStoreSrc.indexOf("pragma Singleton") !== -1,
+    liveStoreSrc.indexOf("pragma Singleton") !== -1 &&
+    liveStoreSrc.indexOf("syncIntervalHolds") !== -1,
   "LiveStatsStore polls live-stats.py on an interval",
+);
+const frameClockSrc = fs.readFileSync(
+  path.join(__dirname, "..", "services", "FrameClock.qml"),
+  "utf8",
+);
+const qmldirSrc = fs.readFileSync(path.join(__dirname, "..", "services", "qmldir"), "utf8");
+assert(
+  frameClockSrc.indexOf("pragma Singleton") !== -1 &&
+    frameClockSrc.indexOf("FrameAnimation") !== -1 &&
+    frameClockSrc.indexOf("function retain(") !== -1 &&
+    frameClockSrc.indexOf("running: root.active") !== -1 &&
+    qmldirSrc.indexOf("singleton FrameClock") !== -1,
+  "FrameClock ticks once per vsync while a live chart is on screen",
+);
+assert(
+  liveStoreSrc.indexOf("FrameClock.holds > 0") !== -1,
+  "LiveStatsStore only polls while a chart in view is holding the frame clock",
+);
+const chartViewportSrc = fs.readFileSync(
+  path.join(__dirname, "..", "components", "ChartViewport.qml"),
+  "utf8",
+);
+assert(
+  chartViewportSrc.indexOf("instanceof Flickable") !== -1 &&
+    chartViewportSrc.indexOf("ChartsJs.inViewport") !== -1 &&
+    chartViewportSrc.indexOf("FrameClock.retain()") !== -1 &&
+    chartViewportSrc.indexOf("property bool retainClock:") !== -1 &&
+    chartViewportSrc.indexOf("if (root.retainClock && root.inView)") !== -1 &&
+    chartViewportSrc.indexOf("function refresh(") !== -1 &&
+    chartViewportSrc.indexOf("property Connections targetConn:") !== -1 &&
+    chartViewportSrc.indexOf("readonly property bool inView:") === -1,
+  "ChartViewport retains the frame clock only while the chart is in the pane",
+);
+const progressSrc = fs.readFileSync(
+  path.join(__dirname, "..", "components", "PrefsProgress.qml"),
+  "utf8",
+);
+assert(
+  progressSrc.indexOf("retainClock: false") !== -1 &&
+    progressSrc.indexOf("Behavior on value") !== -1 &&
+    progressSrc.indexOf("enabled: !root.indeterminate && root.inView") !== -1,
+  "PrefsProgress skips value animation while hidden or off screen",
 );
 const monitorPageSrc = fs.readFileSync(
   path.join(__dirname, "..", "pages", "MonitorPage.qml"),
@@ -1872,6 +1943,12 @@ Object.keys(chartHomes).forEach(function (kind) {
 assert(
   !fs.existsSync(path.join(__dirname, "..", "pages", "DashboardPage.qml")),
   "Dashboard is not a second copy of the Monitor charts",
+);
+assert(
+  prefsPageSrc.indexOf("id: expandBlurb") !== -1 &&
+    prefsPageSrc.indexOf("id: expandLegend") !== -1 &&
+    prefsGroupSrc.indexOf("property string lede:") !== -1,
+  "an expanded chart shows a human explainer",
 );
 assert(
   monitorPageSrc.indexOf("nowFlow.width") !== -1 && monitorPageSrc.indexOf("wide: true") !== -1,
@@ -1924,13 +2001,212 @@ const processesPageSrc = fs.readFileSync(
   path.join(__dirname, "..", "pages", "monitor", "ProcessesPage.qml"),
   "utf8",
 );
+function gatesOffscreenModel(src, id) {
+  return src.indexOf("id: " + id) !== -1 && src.indexOf("if (!" + id + ".inView) return") !== -1;
+}
+assert(
+  gatesOffscreenModel(cpuPageSrc, "irqChart") &&
+    gatesOffscreenModel(cpuPageSrc, "psiChart") &&
+    gatesOffscreenModel(cpuPageSrc, "violinChart") &&
+    gatesOffscreenModel(cpuPageSrc, "roseChart") &&
+    gatesOffscreenModel(cpuPageSrc, "cpuHist") &&
+    gatesOffscreenModel(memPageSrc, "horizonChart") &&
+    gatesOffscreenModel(memPageSrc, "rssChart") &&
+    gatesOffscreenModel(memPageSrc, "sankeyChart") &&
+    gatesOffscreenModel(memPageSrc, "sunburstChart") &&
+    gatesOffscreenModel(memPageSrc, "icicleChart") &&
+    gatesOffscreenModel(diskPageSrc, "streamChart") &&
+    gatesOffscreenModel(trafficPageSrc, "beesChart") &&
+    gatesOffscreenModel(trafficPageSrc, "radarChart") &&
+    gatesOffscreenModel(sensorsPageSrc, "calendarChart") &&
+    gatesOffscreenModel(sensorsPageSrc, "waterfallChart") &&
+    gatesOffscreenModel(processesPageSrc, "parallelChart"),
+  "Monitor pages skip chart models while those charts are off screen",
+);
 const liveStatsPy = fs.readFileSync(path.join(__dirname, "..", "scripts", "live-stats.py"), "utf8");
 assert(prefsChartSrc.indexOf("qs.Ui") === -1, "PrefsChart does not import qs.Ui");
 assert(
-  prefsChartSrc.indexOf("ChartsJs.lerpScene") !== -1 && prefsChartSrc.indexOf("tweenT") !== -1,
+  prefsChartSrc.indexOf("resolvedExplainer") !== -1 &&
+    prefsChartSrc.indexOf("resolvedLegend") !== -1 &&
+    cpuPageSrc.indexOf('ChartCopy.blurb("heatmap")') !== -1,
+  "Monitor chart sections show a human explainer under the heading",
+);
+assert(
+  prefsChartSrc.indexOf("function tone(") !== -1 &&
+    prefsChartSrc.indexOf("Theme.chartSwatches") !== -1 &&
+    prefsChartSrc.indexOf("function heatTone(") !== -1 &&
+    prefsChartSrc.indexOf("Theme.heatHex") !== -1,
+  "PrefsChart paints marks from the active theme palette",
+);
+assert(
+  prefsChartSrc.indexOf("ctx.strokeText(label, tx, ty)") !== -1 &&
+    prefsChartSrc.indexOf("fillText(label, tx, ty, maxW)") === -1 &&
+    prefsChartSrc.indexOf("Theme.foreground") !== -1 &&
+    prefsChartSrc.indexOf("Theme.labelSize") !== -1,
+  "PrefsChart legends are full-size foreground glyphs with a background halo",
+);
+assert(
+  sparkSrc.indexOf("Theme.chartSwatches") !== -1,
+  "PrefsSparkline strokes the second series from the theme palette",
+);
+assert(
+  themeQml.indexOf("property var chartSwatches:") !== -1 &&
+    themeQml.indexOf("function heatHex(") !== -1 &&
+    themeQml.indexOf("ThemeJs.chartSwatches(parsed)") !== -1,
+  "Theme exposes chart swatches and a sequential heat ramp",
+);
+assert(
+  prefsChartSrc.indexOf("function expandIntoPage(") !== -1 &&
+    prefsChartSrc.indexOf("page.expandChart(root)") !== -1 &&
+    prefsChartSrc.indexOf("property bool expandable:") !== -1 &&
+    prefsChartSrc.indexOf("root.expandIntoPage()") !== -1,
+  "PrefsChart click expands into the PrefsPage overlay",
+);
+assert(
+  prefsChartSrc.indexOf("ChartsJs.lerpScene") !== -1 &&
+    prefsChartSrc.indexOf("tweenT") !== -1 &&
+    prefsChartSrc.indexOf("ChartsJs.tweenProgress") !== -1 &&
+    prefsChartSrc.indexOf("if (!root.inView) return") !== -1 &&
+    prefsChartSrc.indexOf("NumberAnimation") === -1,
   "PrefsChart tweens marks between samples",
 );
-assert(prefsChartSrc.indexOf("ChartsJs.heatmapCells") !== -1, "PrefsChart paints heatmap cells");
+assert(
+  sparkSrc.indexOf("ChartsJs.lerpSeries") !== -1 &&
+    sparkSrc.indexOf("if (!root.inView) return") !== -1 &&
+    sparkSrc.indexOf("ChartsJs.tweenProgress") !== -1,
+  "PrefsSparkline tweens series on the vsync clock",
+);
+function skipsIdleClock(src) {
+  return (
+    src.indexOf("clockFrame") === -1 &&
+    src.indexOf("enabled: root.inView && root.tween && root.tweenT < 1") !== -1 &&
+    src.indexOf("function onFrameChanged()") !== -1
+  );
+}
+const histSrc = fs.readFileSync(
+  path.join(__dirname, "..", "components", "PrefsHistogram.qml"),
+  "utf8",
+);
+const coreBarsSrc = fs.readFileSync(
+  path.join(__dirname, "..", "components", "PrefsCoreBars.qml"),
+  "utf8",
+);
+const stackedBarSrc = fs.readFileSync(
+  path.join(__dirname, "..", "components", "PrefsStackedBar.qml"),
+  "utf8",
+);
+function skipsOffscreenPaint(src) {
+  const paint = src.slice(src.indexOf("onPaint:"));
+  return (
+    src.indexOf("function paintCanvas(") !== -1 && paint.indexOf("if (!root.inView) return") !== -1
+  );
+}
+assert(
+  skipsOffscreenPaint(prefsChartSrc) &&
+    skipsOffscreenPaint(sparkSrc) &&
+    skipsOffscreenPaint(histSrc) &&
+    skipsOffscreenPaint(coreBarsSrc) &&
+    skipsOffscreenPaint(stackedBarSrc),
+  "Live chart canvases skip paint while off screen",
+);
+assert(
+  skipsIdleClock(prefsChartSrc) &&
+    skipsIdleClock(sparkSrc) &&
+    skipsIdleClock(histSrc) &&
+    skipsIdleClock(coreBarsSrc) &&
+    skipsIdleClock(stackedBarSrc),
+  "Idle charts do not bind FrameClock.frame after the tween ends",
+);
+assert(prefsChartSrc.indexOf("ChartsJs.heatmapLayout") !== -1, "PrefsChart paints heatmap cells");
+assert(
+  prefsChartSrc.indexOf("ChartsJs.treemapLayout") !== -1 &&
+    prefsChartSrc.indexOf("function handleTreemapClick(") !== -1 &&
+    prefsChartSrc.indexOf("function zoomOut(") !== -1 &&
+    prefsChartSrc.indexOf("function zoomAt(") !== -1 &&
+    prefsChartSrc.indexOf("viewPanning") !== -1 &&
+    prefsPageSrc.indexOf("function zoomOutChart(") !== -1,
+  "RSS treemap click zooms into a box and Escape zooms out",
+);
+assert(
+  prefsChartSrc.indexOf("ChartsJs.horizonLayout") !== -1,
+  "PrefsChart paints horizon fold labels",
+);
+assert(
+  prefsChartSrc.indexOf("ChartsJs.sunburstLayout") !== -1,
+  "PrefsChart paints sunburst slice labels",
+);
+assert(
+  prefsChartSrc.indexOf("item.cx") !== -1 &&
+    prefsChartSrc.indexOf("ctx.lineTo(item.x, item.y)") !== -1,
+  "PrefsChart paints radar spokes from the origin",
+);
+assert(
+  prefsChartSrc.indexOf("markR * 2") !== -1 && prefsChartSrc.indexOf("item.r > 0") !== -1,
+  "PrefsChart sizes beeswarm marks from layout radius",
+);
+assert(
+  prefsChartSrc.indexOf("ChartsJs.beeswarmLayout") !== -1 &&
+    prefsChartSrc.indexOf("scene.labels") !== -1 &&
+    chartsSrc.indexOf("function beeswarmGroupLabels") !== -1,
+  "PrefsChart paints beeswarm TCP state labels",
+);
+assert(
+  prefsChartSrc.indexOf("fillText") !== -1 &&
+    prefsChartSrc.indexOf("strokeText") !== -1 &&
+    prefsChartSrc.indexOf("item.label") !== -1 &&
+    prefsChartSrc.indexOf("Theme.labelSize") !== -1 &&
+    prefsChartSrc.indexOf("Theme.foreground") !== -1,
+  "PrefsChart paints radar and parallel axis labels",
+);
+assert(
+  prefsChartSrc.indexOf("scene.rails") !== -1 &&
+    prefsChartSrc.indexOf("ChartsJs.parallelLayout") !== -1 &&
+    chartsSrc.indexOf("function parallelRails") !== -1,
+  "PrefsChart paints parallel coordinate rails",
+);
+assert(
+  prefsChartSrc.indexOf("paintLabelGroup(ctx, scene.nodes") !== -1,
+  "PrefsChart paints sankey node labels",
+);
+assert(
+  prefsChartSrc.indexOf("paintLabelGroup(ctx, scene.wedges") !== -1,
+  "PrefsChart paints rose wedge labels",
+);
+assert(
+  prefsChartSrc.indexOf("paintLabelGroup(ctx, scene.bars") !== -1,
+  "PrefsChart paints waterfall bar labels",
+);
+assert(
+  prefsChartSrc.indexOf("paintLabelGroup(ctx, scene.violins") !== -1,
+  "PrefsChart paints violin core labels",
+);
+assert(
+  prefsChartSrc.indexOf("paintLabelGroup(ctx, scene.rects") !== -1,
+  "PrefsChart paints treemap leaf labels",
+);
+assert(
+  prefsChartSrc.indexOf("paintLabelGroup(ctx, scene.rects") !== -1 &&
+    chartsSrc.indexOf("function icicleRects") !== -1 &&
+    chartsSrc.indexOf("rect.ly = y + rowH / 2") !== -1,
+  "PrefsChart paints icicle cache labels",
+);
+assert(
+  prefsChartSrc.indexOf("ChartsJs.ridgelineLayout") !== -1 &&
+    prefsChartSrc.indexOf("scene.labels") !== -1 &&
+    chartsSrc.indexOf("function ridgelineLayout") !== -1,
+  "PrefsChart paints ridgeline series labels",
+);
+assert(
+  prefsChartSrc.indexOf("paintLabelGroup(ctx, scene.layers") !== -1 &&
+    chartsSrc.indexOf("function streamgraphLayers") !== -1,
+  "PrefsChart paints streamgraph disk labels",
+);
+assert(
+  prefsChartSrc.indexOf("ChartsJs.calendarLayout") !== -1 &&
+    prefsChartSrc.indexOf("scene.labels") !== -1 &&
+    chartsSrc.indexOf("function calendarLayout") !== -1,
+  "PrefsChart paints calendar weekday labels",
+);
 assert(
   cpuPageSrc.indexOf('kind: "heatmap"') !== -1 &&
     cpuPageSrc.indexOf("/proc/interrupts") !== -1 &&
@@ -2023,6 +2299,45 @@ assert(
     meterSrc.indexOf("radius: Theme.radius") !== -1 &&
     meterSrc.indexOf("shadow") === -1,
   "PrefsMeter is a hairline tile without chamfer or shadows",
+);
+assert(
+  meterSrc.indexOf("id: spark") !== -1 &&
+    meterSrc.indexOf("readonly property bool inView:") !== -1 &&
+    gatesOffscreenModel(monitorPageSrc, "cpuMeter") &&
+    gatesOffscreenModel(monitorPageSrc, "memMeter") &&
+    gatesOffscreenModel(monitorPageSrc, "netMeter") &&
+    gatesOffscreenModel(monitorPageSrc, "diskMeter") &&
+    gatesOffscreenModel(monitorPageSrc, "tempMeter") &&
+    gatesOffscreenModel(monitorPageSrc, "loadMeter"),
+  "Monitor meters skip sparkline series while those tiles are off screen",
+);
+assert(
+  gatesOffscreenModel(cpuPageSrc, "coreSpark") &&
+    cpuPageSrc.indexOf("LiveStatsJs.coreSeries") !== -1,
+  "CpuPage per-core sparklines skip series while those rows are off screen",
+);
+assert(
+  gatesOffscreenModel(homePageSrc, "cpuSpark") &&
+    gatesOffscreenModel(homePageSrc, "memSpark") &&
+    gatesOffscreenModel(homePageSrc, "netSpark") &&
+    gatesOffscreenModel(homePageSrc, "cpuTempSpark") &&
+    gatesOffscreenModel(homePageSrc, "gpuSpark") &&
+    gatesOffscreenModel(cpuPageSrc, "cpuSpark") &&
+    gatesOffscreenModel(cpuPageSrc, "loadSpark") &&
+    gatesOffscreenModel(cpuPageSrc, "coreBars") &&
+    gatesOffscreenModel(memPageSrc, "memStack") &&
+    gatesOffscreenModel(memPageSrc, "memSpark") &&
+    gatesOffscreenModel(memPageSrc, "swapSpark") &&
+    gatesOffscreenModel(trafficPageSrc, "netSpark") &&
+    gatesOffscreenModel(trafficPageSrc, "tcpStack") &&
+    gatesOffscreenModel(trafficPageSrc, "ifaceSpark") &&
+    gatesOffscreenModel(diskPageSrc, "diskSpark") &&
+    gatesOffscreenModel(sensorsPageSrc, "cpuTempSpark") &&
+    gatesOffscreenModel(sensorsPageSrc, "gpuSpark") &&
+    gatesOffscreenModel(sensorsPageSrc, "sensorSpark") &&
+    gatesOffscreenModel(monitorPageSrc, "coreBars") &&
+    gatesOffscreenModel(monitorPageSrc, "memStack"),
+  "Home, Monitor, and child-page series skip rebuilds while those charts are off screen",
 );
 assert(
   omarchySrc.indexOf("function signalProcess(") !== -1 &&

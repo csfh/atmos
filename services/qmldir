@@ -4,3 +4,4 @@ singleton Omarchy 1.0 Omarchy.qml
 singleton Disclosure 1.0 Disclosure.qml
 singleton Preview 1.0 Preview.qml
 singleton LiveStatsStore 1.0 LiveStatsStore.qml
+singleton FrameClock 1.0 FrameClock.qml

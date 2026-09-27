@@ -1,7 +1,7 @@
 import QtQuick
 import "../components"
 import "../services"
-import "../services/Hardware.js" as HardwareJs
+import "../services/ChartCopy.js" as ChartCopy
 import "../services/LiveStats.js" as LiveStatsJs
 import "../services/Monitor.js" as MonitorJs
 import "../services/Processes.js" as ProcessesJs
@@ -20,16 +20,7 @@ PrefsPage {
 
   readonly property var latest: LiveStatsStore.latest
   readonly property var history: LiveStatsStore.history
-  readonly property var hw: HardwareJs.normalize(Omarchy.hardware)
-  readonly property var cpuValues: LiveStatsJs.series(root.history, "cpu")
-  readonly property var memValues: LiveStatsJs.series(root.history, "mem")
-  readonly property var netRxValues: LiveStatsJs.series(root.history, "rxBps")
-  readonly property var netTxValues: LiveStatsJs.series(root.history, "txBps")
-  readonly property var cpuTempValues: LiveStatsJs.series(root.history, "cpuTemp")
-  readonly property var loadValues: LiveStatsJs.series(root.history, "load1")
-  readonly property var gpuList: LiveStatsJs.gpuRows(root.hw.gpus, root.latest)
   readonly property var coreValues: LiveStatsJs.corePercents(root.latest)
-  readonly property var memSegments: LiveStatsJs.memParts(root.latest)
   readonly property var topProcs: ProcessesJs.list(
     root.latest && root.latest.processes ? root.latest.processes : [],
     root.procQuery,
@@ -201,62 +192,92 @@ PrefsPage {
       spacing: Theme.spaceMd
 
       PrefsMeter {
+        id: cpuMeter
         width: root.tileWidth
         label: "Processor"
         valueText: root.cpuCaption()
         caption: root.coresCaption()
-        values: root.cpuValues
+        values: {
+          if (!cpuMeter.inView) return []
+          return LiveStatsJs.series(root.history, "cpu")
+        }
         showBar: root.latest && root.latest.cpu != null
         barValue: root.latest && root.latest.cpu != null ? root.latest.cpu : 0
         alert: root.alertOf(root.latest && root.latest.cpu)
       }
 
       PrefsMeter {
+        id: memMeter
         width: root.tileWidth
         label: "Memory"
         valueText: root.memCaption()
         caption: root.latest && root.latest.memAvail != null
           ? RichUi.formatBytes(LiveStatsJs.memBytes(root.latest.memAvail)) + " available"
           : ""
-        values: root.memValues
+        values: {
+          if (!memMeter.inView) return []
+          return LiveStatsJs.series(root.history, "mem")
+        }
         showBar: root.latest && root.latest.mem != null
         barValue: root.latest && root.latest.mem != null ? root.latest.mem : 0
         alert: root.alertOf(root.latest && root.latest.mem)
       }
 
       PrefsMeter {
+        id: netMeter
         width: root.tileWidth
         label: "Traffic"
         valueText: root.netCaption()
         caption: root.tcpCaption()
-        values: root.netRxValues
-        valuesB: root.netTxValues
+        values: {
+          if (!netMeter.inView) return []
+          return LiveStatsJs.series(root.history, "rxBps")
+        }
+        valuesB: {
+          if (!netMeter.inView) return []
+          return LiveStatsJs.series(root.history, "txBps")
+        }
         fill: false
       }
 
       PrefsMeter {
+        id: diskMeter
         width: root.tileWidth
         label: "Disk I/O"
         valueText: root.diskCaption()
-        values: root.diskReadValues()
-        valuesB: root.diskWriteValues()
+        values: {
+          if (!diskMeter.inView) return []
+          return root.diskReadValues()
+        }
+        valuesB: {
+          if (!diskMeter.inView) return []
+          return root.diskWriteValues()
+        }
         fill: false
       }
 
       PrefsMeter {
+        id: tempMeter
         width: root.tileWidth
         label: "Package"
         valueText: root.tempCaption()
-        values: root.cpuTempValues
+        values: {
+          if (!tempMeter.inView) return []
+          return LiveStatsJs.series(root.history, "cpuTemp")
+        }
         alert: root.latest && root.latest.cpuTemp != null && root.latest.cpuTemp >= 90
       }
 
       PrefsMeter {
+        id: loadMeter
         width: root.tileWidth
         label: "Load"
         valueText: root.loadCaption()
         caption: root.coreValues.length ? "1 / 5 / 15  ·  " + root.coreValues.length + " cores" : ""
-        values: root.loadValues
+        values: {
+          if (!loadMeter.inView) return []
+          return LiveStatsJs.series(root.history, "load1")
+        }
       }
     }
   }
@@ -265,6 +286,7 @@ PrefsPage {
     title: "Cores"
     query: root.query
     wide: true
+    lede: ChartCopy.blurb("corebars")
     detail: "One bar per logical CPU from /proc/stat. Height is busy percent since the last sample."
 
     Column {
@@ -273,14 +295,22 @@ PrefsPage {
       spacing: Theme.headingGap
 
       PrefsCoreBars {
+        id: coreBars
         width: parent.width
-        values: root.coreValues
+        values: {
+          if (!coreBars.inView) return []
+          return root.coreValues
+        }
         valueText: root.coresCaption()
       }
 
       PrefsStackedBar {
+        id: memStack
         width: parent.width
-        parts: root.memSegments
+        parts: {
+          if (!memStack.inView) return []
+          return LiveStatsJs.memParts(root.latest)
+        }
         valueText: root.memCaption()
       }
     }

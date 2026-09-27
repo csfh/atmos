@@ -1,6 +1,7 @@
 import QtQuick
 import "../../components"
 import "../../services"
+import "../../services/ChartCopy.js" as ChartCopy
 import "../../services/Charts.js" as ChartsJs
 import "../../services/LiveStats.js" as LiveStatsJs
 import "../../services/Monitor.js" as MonitorJs
@@ -38,11 +39,6 @@ PrefsPage {
     })
     return out
   }
-  readonly property var tcpParts: MonitorJs.tcpParts(root.latest && root.latest.tcp)
-  readonly property var netRxValues: LiveStatsJs.series(root.history, "rxBps")
-  readonly property var netTxValues: LiveStatsJs.series(root.history, "txBps")
-  readonly property var tcpBees: ChartsJs.tcpBees(root.latest)
-  readonly property var netRadar: ChartsJs.netdevRadar(root.latest && root.latest.ifaces)
   readonly property var radarAxes: [
     { key: "rx", label: "rx" },
     { key: "tx", label: "tx" },
@@ -77,9 +73,16 @@ PrefsPage {
       stretchControl: true
 
       PrefsSparkline {
+        id: netSpark
         width: parent.width
-        values: root.netRxValues
-        valuesB: root.netTxValues
+        values: {
+          if (!netSpark.inView) return []
+          return LiveStatsJs.series(root.history, "rxBps")
+        }
+        valuesB: {
+          if (!netSpark.inView) return []
+          return LiveStatsJs.series(root.history, "txBps")
+        }
         valueText: LiveStatsJs.formatNet(root.latest)
         fill: false
       }
@@ -90,6 +93,7 @@ PrefsPage {
     title: "TCP beeswarm"
     query: root.query
     wide: true
+    lede: ChartCopy.blurb("beeswarm")
     detail: "One point per socket from /proc/net/tcp and tcp6, jittered and grouped by TCP state."
     hint: "/proc/net/tcp"
 
@@ -98,9 +102,14 @@ PrefsPage {
       x: Theme.copyInset
 
       PrefsChart {
+        id: beesChart
         width: parent.width
         kind: "beeswarm"
-        model: root.tcpBees
+        model: {
+          var _n = LiveStatsStore.sampleCount
+          if (!beesChart.inView) return null
+          return ChartsJs.tcpBees(root.latest)
+        }
         valueText: "TCP state beeswarm"
       }
     }
@@ -110,6 +119,7 @@ PrefsPage {
     title: "Netdev radar"
     query: root.query
     wide: true
+    lede: ChartCopy.blurb("radar")
     detail: "One polygon per NIC on shared rx/tx bytes, packets, drops, and errs axes from /proc/net/dev."
     hint: "/proc/net/dev"
 
@@ -118,9 +128,14 @@ PrefsPage {
       x: Theme.copyInset
 
       PrefsChart {
+        id: radarChart
         width: parent.width
         kind: "radar"
-        model: root.netRadar
+        model: {
+          var _n = LiveStatsStore.sampleCount
+          if (!radarChart.inView) return null
+          return ChartsJs.netdevRadar(root.latest && root.latest.ifaces)
+        }
         modelB: root.radarAxes
         valueText: "Netdev counter radar"
       }
@@ -137,8 +152,12 @@ PrefsPage {
       x: Theme.copyInset
 
       PrefsStackedBar {
+        id: tcpStack
         width: parent.width
-        parts: root.tcpParts
+        parts: {
+          if (!tcpStack.inView) return []
+          return MonitorJs.tcpParts(root.latest && root.latest.tcp)
+        }
         valueText: root.latest && root.latest.tcp ? String(root.latest.tcp.total) + " sockets" : ""
       }
     }
@@ -233,9 +252,16 @@ PrefsPage {
         stretchControl: true
 
         PrefsSparkline {
+          id: ifaceSpark
           width: parent.width
-          values: LiveStatsJs.ifaceSeries(root.history, modelData.name, "rxBps")
-          valuesB: LiveStatsJs.ifaceSeries(root.history, modelData.name, "txBps")
+          values: {
+            if (!ifaceSpark.inView) return []
+            return LiveStatsJs.ifaceSeries(root.history, modelData.name, "rxBps")
+          }
+          valuesB: {
+            if (!ifaceSpark.inView) return []
+            return LiveStatsJs.ifaceSeries(root.history, modelData.name, "txBps")
+          }
           valueText: root.ifaceLine(modelData)
           fill: false
         }

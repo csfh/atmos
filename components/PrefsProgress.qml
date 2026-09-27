@@ -10,6 +10,13 @@ Item {
   property real to: 100
   property bool indeterminate: false
   property string valueText: ""
+  readonly property bool inView: view.inView
+
+  ChartViewport {
+    id: view
+    target: root
+    retainClock: false
+  }
 
   implicitWidth: 260
   implicitHeight: (valueText.length > 0 ? Theme.captionSize + 8 : 0) + 8
@@ -35,6 +42,14 @@ Item {
       to: root.to
       value: root.value
       indeterminate: root.indeterminate
+
+      Behavior on value {
+        enabled: !root.indeterminate && root.inView
+        NumberAnimation {
+          duration: Math.max(80, LiveStatsStore.intervalMs)
+          easing.type: Easing.Linear
+        }
+      }
 
       background: Rectangle {
         implicitHeight: 6

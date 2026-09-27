@@ -1,5 +1,6 @@
 import QtQuick
 import "../services"
+import "../services/Charts.js" as ChartsJs
 import "../services/Monitor.js" as MonitorJs
 
 Item {
@@ -7,6 +8,18 @@ Item {
 
   property var values: []
   property string valueText: ""
+  property bool tween: true
+  property int tweenMs: LiveStatsStore.intervalMs
+  property real tweenT: 1
+  property real tweenAt: 0
+  property var fromValues: []
+  property var toValues: []
+  readonly property bool inView: view.inView
+
+  ChartViewport {
+    id: view
+    target: root
+  }
 
   implicitWidth: 260
   implicitHeight: Theme.coreBarHeight
@@ -34,13 +47,17 @@ Item {
     anchors.fill: parent
     antialiasing: false
 
-    onWidthChanged: requestPaint()
-    onHeightChanged: requestPaint()
+    onWidthChanged: root.paintCanvas()
+    onHeightChanged: root.paintCanvas()
 
     onPaint: {
+      if (!root.inView) return
       var ctx = getContext("2d")
       ctx.reset()
-      var rects = MonitorJs.barRects(root.values, width, height, 1)
+      var shown = root.tween
+        ? ChartsJs.lerpSeries(root.fromValues, root.toValues, root.tweenT)
+        : root.values
+      var rects = MonitorJs.barRects(shown, width, height, 1)
       var i
       var r
       ctx.fillStyle = root.cssColor(Theme.fill(Theme.normalFill))
@@ -53,5 +70,40 @@ Item {
     }
   }
 
-  onValuesChanged: canvas.requestPaint()
+  function paintCanvas() {
+    if (!root.inView) return
+    canvas.requestPaint()
+  }
+
+  function retarget() {
+    if (!root.inView) return
+    if (root.tween && root.toValues && root.toValues.length) {
+      root.fromValues = ChartsJs.lerpSeries(root.fromValues, root.toValues, root.tweenT)
+      root.toValues = root.values
+      root.tweenT = 0
+      root.tweenAt = Date.now()
+    } else {
+      root.fromValues = root.values
+      root.toValues = root.values
+      root.tweenT = 1
+    }
+    root.paintCanvas()
+  }
+
+  function stepFrame() {
+    if (!root.inView || !root.tween || root.tweenT >= 1) return
+    var t = ChartsJs.tweenProgress(root.tweenAt, FrameClock.nowMs, Math.max(80, root.tweenMs))
+    if (t === root.tweenT) return
+    root.tweenT = t
+    root.paintCanvas()
+  }
+
+  Connections {
+    target: FrameClock
+    enabled: root.inView && root.tween && root.tweenT < 1
+    function onFrameChanged() { root.stepFrame() }
+  }
+  onValuesChanged: root.retarget()
+  onInViewChanged: if (root.inView) root.retarget()
+  Component.onCompleted: root.retarget()
 }

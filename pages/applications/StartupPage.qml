@@ -1,7 +1,6 @@
 import QtQuick
 import "../../components"
 import "../../services"
-import "../../services/Autostart.js" as AutoJs
 
 PrefsPage {
   id: root

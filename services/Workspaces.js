@@ -18,17 +18,6 @@ function clampCount(raw) {
   return n;
 }
 
-function countFromItems(list) {
-  var rows = Array.isArray(list) ? list : [];
-  var max = 0;
-  var i, n;
-  for (i = 0; i < rows.length; i++) {
-    n = Number(rows[i] && (rows[i].id || rows[i].workspace));
-    if (isFinite(n) && n >= 1 && n <= 10 && n > max) max = n;
-  }
-  return max < 1 ? 10 : max;
-}
-
 function sanitizeId(raw) {
   var text = String(raw || "").replace(/^\s+|\s+$/g, "");
   if (!text) return "";
@@ -420,7 +409,6 @@ if (typeof module !== "undefined" && module.exports) {
     clampCount: clampCount,
     clampShown: clampShown,
     shownIds: shownIds,
-    countFromItems: countFromItems,
     clampState: clampState,
     normalizeItem: normalizeItem,
     serialize: serialize,

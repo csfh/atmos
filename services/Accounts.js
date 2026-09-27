@@ -285,8 +285,8 @@ function profileHost(user, hostname) {
 
 function faceRowDescription(path) {
   var file = String(path || "");
-  if (file) return file + ". Omarchy's greeter does not draw this face.";
-  return "No face is set. Choose a PNG or JPEG. Omarchy's greeter does not draw it yet, but AccountsService and ~/.face.icon keep the file.";
+  if (file) return file + ". Portrait cards on the login screen draw this face.";
+  return "No face is set. Choose a PNG or JPEG. Portrait cards on the login screen draw it; AccountsService and ~/.face.icon keep the file.";
 }
 
 function validHostname(raw) {

@@ -12,6 +12,7 @@ Column {
   property string title: ""
   property string query: ""
   property string detail: ""
+  property string lede: ""
   property string hint: ""
   // Find a setting indexes PrefsGroup blocks unless this is false.
   property bool catalog: true
@@ -212,6 +213,17 @@ Column {
           command: root.helpPayload && root.helpPayload.command ? root.helpPayload.command : ""
           topics: root.showHelp && root.helpPayload ? root.helpPayload.topics : []
         }
+      }
+
+      PrefsText {
+        id: ledeLabel
+        visible: root.lede.length > 0
+        x: root.titleInset
+        width: parent.width - root.titleInset * 2
+        text: root.lede
+        color: Theme.muted
+        font.family: Theme.fontFamily
+        font.pixelSize: Theme.descriptionSize
       }
 
       PrefsText {

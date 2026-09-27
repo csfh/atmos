@@ -7,6 +7,7 @@ function parseColors(raw) {
     accent: "#cacccc",
     muted: "#707880",
     urgent: "#a55555",
+    palette: {},
   };
   var foundAccent = false;
   var foundMuted = false;
@@ -22,6 +23,7 @@ function parseColors(raw) {
     if (!match) continue;
     var key = match[1];
     var value = match[2];
+    result.palette[key] = value;
     if (key === "foreground" || key === "fg") {
       result.foreground = value;
       loadedForeground = true;
@@ -45,6 +47,144 @@ function parseColors(raw) {
   if (!foundAccent && color4Value.length > 0) result.accent = color4Value;
   if (!foundMuted) result.muted = color8Value.length > 0 ? color8Value : result.foreground;
   return result;
+}
+
+function hexRgb(hex) {
+  var s = String(hex || "").replace(/^#/, "");
+  if (s.length !== 6) return null;
+  var n = parseInt(s, 16);
+  if (!isFinite(n)) return null;
+  return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+}
+
+function hexDist(a, b) {
+  var A = hexRgb(a);
+  var B = hexRgb(b);
+  if (!A || !B) return 999;
+  var dr = A.r - B.r;
+  var dg = A.g - B.g;
+  var db = A.b - B.b;
+  return Math.sqrt(dr * dr + dg * dg + db * db);
+}
+
+function lerpHex(a, b, t) {
+  var A = hexRgb(a);
+  var B = hexRgb(b);
+  if (!A) return b || a || "#000000";
+  if (!B) return a;
+  var k = Number(t);
+  if (!isFinite(k)) k = 0;
+  if (k < 0) k = 0;
+  if (k > 1) k = 1;
+  function ch(x, y) {
+    var n = Math.round(x + (y - x) * k);
+    var s = n.toString(16);
+    return s.length === 1 ? "0" + s : s;
+  }
+  return "#" + ch(A.r, B.r) + ch(A.g, B.g) + ch(A.b, B.b);
+}
+
+function heatHex(stops, t) {
+  var list = Array.isArray(stops) ? stops : [];
+  if (!list.length) return "#cacccc";
+  if (list.length === 1) return list[0];
+  var k = Number(t);
+  if (!isFinite(k)) k = 0;
+  if (k < 0) k = 0;
+  if (k > 1) k = 1;
+  var scaled = k * (list.length - 1);
+  var i = Math.floor(scaled);
+  if (i >= list.length - 1) return list[list.length - 1];
+  return lerpHex(list[i], list[i + 1], scaled - i);
+}
+
+var SWATCH_KEYS = [
+  "accent",
+  "blue",
+  "cyan",
+  "green",
+  "yellow",
+  "orange",
+  "magenta",
+  "red",
+  "brown",
+  "bright_blue",
+  "bright_cyan",
+  "bright_green",
+  "bright_yellow",
+  "bright_magenta",
+  "bright_red",
+  "color4",
+  "color6",
+  "color2",
+  "color3",
+  "color5",
+  "color1",
+  "color12",
+  "color14",
+  "color10",
+  "color11",
+  "color13",
+  "color9",
+];
+
+var STOP_KEYS = ["cyan", "blue", "magenta", "red", "yellow", "orange"];
+
+function lookupHex(parsed, key) {
+  if (!parsed) return "";
+  if (parsed.palette && parsed.palette[key]) return parsed.palette[key];
+  if (parsed[key]) return parsed[key];
+  return "";
+}
+
+function chartSwatches(parsed) {
+  var bg = (parsed && parsed.background) || "#000000";
+  var seen = {};
+  var out = [];
+  function add(hex) {
+    if (!hex) return;
+    var key = String(hex).toLowerCase();
+    if (seen[key]) return;
+    if (hexDist(hex, bg) < 48) return;
+    seen[key] = true;
+    out.push(hex);
+  }
+  var i;
+  for (i = 0; i < SWATCH_KEYS.length; i++) add(lookupHex(parsed, SWATCH_KEYS[i]));
+  add(parsed && parsed.accent);
+  add(parsed && parsed.urgent);
+  add(parsed && parsed.foreground);
+  if (!out.length) add("#cacccc");
+  return out;
+}
+
+function chartStops(parsed) {
+  var out = [];
+  var seen = {};
+  var i;
+  var hex;
+  for (i = 0; i < STOP_KEYS.length; i++) {
+    hex = lookupHex(parsed, STOP_KEYS[i]);
+    if (!hex) continue;
+    if (seen[hex.toLowerCase()]) continue;
+    seen[hex.toLowerCase()] = true;
+    out.push(hex);
+  }
+  if (out.length < 2) {
+    if (parsed && parsed.muted) out.push(parsed.muted);
+    if (parsed && parsed.accent) out.push(parsed.accent);
+    if (parsed && parsed.urgent) out.push(parsed.urgent);
+  }
+  if (out.length < 2) return chartSwatches(parsed).slice(0, 4);
+  return out;
+}
+
+function copyHexList(list) {
+  var src = Array.isArray(list) ? list : [];
+  var out = [];
+  var i;
+  for (i = 0; i < src.length; i++) out.push(String(src[i]));
+  return out;
 }
 
 function parseShell(raw) {
@@ -141,6 +281,8 @@ function snapshotLiveTheme(colors, themeShellValues) {
       accent: c.accent,
       muted: c.muted,
       urgent: c.urgent,
+      swatches: copyHexList(c.swatches),
+      stops: copyHexList(c.stops),
     },
     themeShellValues: copyMap(themeShellValues),
   };
@@ -148,14 +290,17 @@ function snapshotLiveTheme(colors, themeShellValues) {
 
 function restoreLiveTheme(snapshot) {
   if (!snapshot || snapshot.source !== "live" || !snapshot.colors) return null;
+  var c = snapshot.colors;
   return {
     source: "live",
     colors: {
-      foreground: snapshot.colors.foreground,
-      background: snapshot.colors.background,
-      accent: snapshot.colors.accent,
-      muted: snapshot.colors.muted,
-      urgent: snapshot.colors.urgent,
+      foreground: c.foreground,
+      background: c.background,
+      accent: c.accent,
+      muted: c.muted,
+      urgent: c.urgent,
+      swatches: copyHexList(c.swatches),
+      stops: copyHexList(c.stops),
     },
     themeShellValues: copyMap(snapshot.themeShellValues),
   };

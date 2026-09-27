@@ -1,6 +1,7 @@
 import QtQuick
 import "../../components"
 import "../../services"
+import "../../services/ChartCopy.js" as ChartCopy
 import "../../services/Charts.js" as ChartsJs
 import "../../services/LiveStats.js" as LiveStatsJs
 import "../../services/Monitor.js" as MonitorJs
@@ -15,14 +16,6 @@ PrefsPage {
 
   readonly property var latest: LiveStatsStore.latest
   readonly property var history: LiveStatsStore.history
-  readonly property var memValues: LiveStatsJs.series(root.history, "mem")
-  readonly property var swapValues: LiveStatsJs.series(root.history, "swap")
-  readonly property var parts: LiveStatsJs.memParts(root.latest)
-  readonly property var buddyValues: ChartsJs.buddySeries(root.history)
-  readonly property var rssTree: ChartsJs.rssTree(root.latest && root.latest.processes)
-  readonly property var memSankey: ChartsJs.meminfoSankey(root.latest)
-  readonly property var cgroupTree: ChartsJs.cgroupTree(root.latest && root.latest.cgroups)
-  readonly property var slabTree: ChartsJs.slabTree(root.latest && root.latest.slabs)
   readonly property var fatProcs: ProcessesJs.list(
     root.latest && root.latest.processes ? root.latest.processes : [],
     "",
@@ -42,6 +35,7 @@ PrefsPage {
   PrefsGroup {
     title: "Composition"
     query: root.query
+    lede: ChartCopy.blurb("stackedbar")
     detail: "Used is total minus free, buffers, and cached. Available is what the kernel will still give to apps."
 
     Column {
@@ -50,14 +44,22 @@ PrefsPage {
       spacing: Theme.headingGap
 
       PrefsStackedBar {
+        id: memStack
         width: parent.width
-        parts: root.parts
+        parts: {
+          if (!memStack.inView) return []
+          return LiveStatsJs.memParts(root.latest)
+        }
         valueText: LiveStatsJs.formatPercent(root.latest && root.latest.mem)
       }
 
       PrefsSparkline {
+        id: memSpark
         width: parent.width
-        values: root.memValues
+        values: {
+          if (!memSpark.inView) return []
+          return LiveStatsJs.series(root.history, "mem")
+        }
         valueText: LiveStatsJs.formatPercent(root.latest && root.latest.mem)
         alert: MonitorJs.alertLevel(root.latest && root.latest.mem) === "hot"
       }
@@ -140,6 +142,7 @@ PrefsPage {
     title: "Buddy horizon"
     query: root.query
     wide: true
+    lede: ChartCopy.blurb("horizon")
     detail: "Free pages from /proc/buddyinfo, weighted by order, folded into horizon bands. Darker is a larger free pool."
     hint: "/proc/buddyinfo"
 
@@ -148,9 +151,14 @@ PrefsPage {
       x: Theme.copyInset
 
       PrefsChart {
+        id: horizonChart
         width: parent.width
         kind: "horizon"
-        model: root.buddyValues
+        model: {
+          var _n = LiveStatsStore.sampleCount
+          if (!horizonChart.inView) return null
+          return ChartsJs.buddySeries(root.history)
+        }
         valueText: "Buddy-order horizon"
       }
     }
@@ -160,6 +168,7 @@ PrefsPage {
     title: "RSS treemap"
     query: root.query
     wide: true
+    lede: ChartCopy.blurb("treemap")
     detail: "Squarified treemap of VmRSS nested by user then comm. Area is proportional to resident set."
     hint: "/proc/*/status"
 
@@ -168,9 +177,14 @@ PrefsPage {
       x: Theme.copyInset
 
       PrefsChart {
+        id: rssChart
         width: parent.width
         kind: "treemap"
-        model: root.rssTree
+        model: {
+          var _n = LiveStatsStore.sampleCount
+          if (!rssChart.inView) return null
+          return ChartsJs.rssTree(root.latest && root.latest.processes)
+        }
         valueText: "Process RSS treemap"
       }
     }
@@ -180,6 +194,7 @@ PrefsPage {
     title: "Meminfo Sankey"
     query: root.query
     wide: true
+    lede: ChartCopy.blurb("sankey")
     detail: "MemTotal flowing into Anon, File, Slab, PageTables, KernelStack, Shmem, and Swap. Link width is the kilobyte flow."
     hint: "/proc/meminfo"
 
@@ -188,9 +203,14 @@ PrefsPage {
       x: Theme.copyInset
 
       PrefsChart {
+        id: sankeyChart
         width: parent.width
         kind: "sankey"
-        model: root.memSankey
+        model: {
+          var _n = LiveStatsStore.sampleCount
+          if (!sankeyChart.inView) return null
+          return ChartsJs.meminfoSankey(root.latest)
+        }
         valueText: "Meminfo composition Sankey"
       }
     }
@@ -200,6 +220,7 @@ PrefsPage {
     title: "Cgroup sunburst"
     query: root.query
     wide: true
+    lede: ChartCopy.blurb("sunburst")
     detail: "Concentric rings of memory.current. Angle is proportional to bytes; radius is cgroup depth. Unreadable cgroup files stay empty."
     hint: "/sys/fs/cgroup/**/memory.current"
 
@@ -208,9 +229,14 @@ PrefsPage {
       x: Theme.copyInset
 
       PrefsChart {
+        id: sunburstChart
         width: parent.width
         kind: "sunburst"
-        model: root.cgroupTree
+        model: {
+          var _n = LiveStatsStore.sampleCount
+          if (!sunburstChart.inView) return null
+          return ChartsJs.cgroupTree(root.latest && root.latest.cgroups)
+        }
         valueText: "Cgroup memory sunburst"
       }
     }
@@ -220,6 +246,7 @@ PrefsPage {
     title: "Slab icicle"
     query: root.query
     wide: true
+    lede: ChartCopy.blurb("icicle")
     detail: "Cascading rectangles of /proc/slabinfo occupancy. Length is active objects; depth is the cache prefix. Unreadable slabinfo stays empty."
     hint: "/proc/slabinfo"
 
@@ -228,9 +255,14 @@ PrefsPage {
       x: Theme.copyInset
 
       PrefsChart {
+        id: icicleChart
         width: parent.width
         kind: "icicle"
-        model: root.slabTree
+        model: {
+          var _n = LiveStatsStore.sampleCount
+          if (!icicleChart.inView) return null
+          return ChartsJs.slabTree(root.latest && root.latest.slabs)
+        }
         valueText: "Slab cache icicle"
       }
     }
@@ -258,8 +290,12 @@ PrefsPage {
       stretchControl: true
 
       PrefsSparkline {
+        id: swapSpark
         width: parent.width
-        values: root.swapValues
+        values: {
+          if (!swapSpark.inView) return []
+          return LiveStatsJs.series(root.history, "swap")
+        }
         valueText: LiveStatsJs.formatPercent(root.latest && root.latest.swap)
         alert: MonitorJs.alertLevel(root.latest && root.latest.swap) === "hot"
       }

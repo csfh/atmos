@@ -8,6 +8,26 @@ assertEqual(monitor.intervalMs("500"), 500, "intervalMs maps 0.5s");
 assertEqual(monitor.intervalMs("100"), 100, "intervalMs maps 100ms");
 assertEqual(monitor.intervalMs("250"), 250, "intervalMs maps 250ms");
 assertEqual(monitor.intervalMs("nope"), 2000, "intervalMs defaults to 2s");
+assertEqual(
+  monitor.applySampleInterval(2000, { dashboard: 100 }),
+  100,
+  "applySampleInterval uses a faster page hold",
+);
+assertEqual(
+  monitor.applySampleInterval(2000, { dashboard: 2000 }),
+  2000,
+  "applySampleInterval keeps a matching hold",
+);
+assertEqual(
+  monitor.syncIntervalHolds({ dashboard: 100 }, 2000).dashboard,
+  2000,
+  "syncIntervalHolds moves a page hold onto the chosen chip",
+);
+assertEqual(
+  Object.keys(monitor.syncIntervalHolds({}, 500)).length,
+  0,
+  "syncIntervalHolds leaves an empty hold map alone",
+);
 assertEqual(monitor.pageCards().length, 6, "pageCards lists the Monitor children");
 assertEqual(monitor.alertLevel(null), "unknown", "alertLevel unknown stays unknown");
 assertEqual(monitor.alertLevel(50), "ok", "alertLevel 50 is ok");

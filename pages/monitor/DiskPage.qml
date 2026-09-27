@@ -1,9 +1,9 @@
 import QtQuick
 import "../../components"
 import "../../services"
+import "../../services/ChartCopy.js" as ChartCopy
 import "../../services/Charts.js" as ChartsJs
 import "../../services/LiveStats.js" as LiveStatsJs
-import "../../services/Monitor.js" as MonitorJs
 import "../../services/Processes.js" as ProcessesJs
 
 PrefsPage {
@@ -57,12 +57,11 @@ PrefsPage {
     return "↓ " + (r || "—") + "  ↑ " + (w || "—")
   }
 
-  readonly property var diskStream: ChartsJs.diskStream(root.history)
-
   PrefsGroup {
     title: "I/O streamgraph"
     query: root.query
     wide: true
+    lede: ChartCopy.blurb("streamgraph")
     detail: "Stacked bandwidth about a centerline, one layer per whole disk from /proc/diskstats."
     hint: "/proc/diskstats"
 
@@ -71,9 +70,14 @@ PrefsPage {
       x: Theme.copyInset
 
       PrefsChart {
+        id: streamChart
         width: parent.width
         kind: "streamgraph"
-        model: root.diskStream
+        model: {
+          var _n = LiveStatsStore.sampleCount
+          if (!streamChart.inView) return null
+          return ChartsJs.diskStream(root.history)
+        }
         valueText: "Blockdev I/O streamgraph"
       }
     }
@@ -148,9 +152,16 @@ PrefsPage {
         stretchControl: true
 
         PrefsSparkline {
+          id: diskSpark
           width: parent.width
-          values: LiveStatsJs.diskSeries(root.history, modelData.name, "readBps")
-          valuesB: LiveStatsJs.diskSeries(root.history, modelData.name, "writeBps")
+          values: {
+            if (!diskSpark.inView) return []
+            return LiveStatsJs.diskSeries(root.history, modelData.name, "readBps")
+          }
+          valuesB: {
+            if (!diskSpark.inView) return []
+            return LiveStatsJs.diskSeries(root.history, modelData.name, "writeBps")
+          }
           valueText: root.diskLine(modelData)
           fill: false
         }

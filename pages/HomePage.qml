@@ -27,10 +27,6 @@ PrefsPage {
     { scope: "mine", uid: root.latest ? root.latest.uid : null }
   )
   readonly property var hw: HardwareJs.normalize(Omarchy.hardware)
-  readonly property var cpuValues: LiveStatsJs.series(root.history, "cpu")
-  readonly property var memValues: LiveStatsJs.series(root.history, "mem")
-  readonly property var netValues: LiveStatsJs.series(root.history, "rxBps")
-  readonly property var cpuTempValues: LiveStatsJs.series(root.history, "cpuTemp")
   readonly property var gpuList: LiveStatsJs.gpuRows(root.hw.gpus, root.latest)
 
   function cpuCaption() {
@@ -76,10 +72,6 @@ PrefsPage {
     if (t == null) return "unknown"
     var text = LiveStatsJs.formatTemp(t)
     return LiveStatsJs.gpuOwnTemp(root.latest, gpu) == null ? text + " (package)" : text
-  }
-
-  function gpuValues(gpu) {
-    return LiveStatsJs.gpuSeries(root.history, gpu)
   }
 
   function actOn(row, action) {
@@ -141,8 +133,12 @@ PrefsPage {
       stretchControl: true
 
       PrefsSparkline {
+        id: cpuSpark
         width: parent.width
-        values: root.cpuValues
+        values: {
+          if (!cpuSpark.inView) return []
+          return LiveStatsJs.series(root.history, "cpu")
+        }
         valueText: root.cpuCaption()
       }
     }
@@ -161,8 +157,12 @@ PrefsPage {
         spacing: Theme.labelGap
 
         PrefsSparkline {
+          id: memSpark
           width: parent.width
-          values: root.memValues
+          values: {
+            if (!memSpark.inView) return []
+            return LiveStatsJs.series(root.history, "mem")
+          }
           valueText: root.memCaption()
         }
 
@@ -186,8 +186,12 @@ PrefsPage {
       stretchControl: true
 
       PrefsSparkline {
+        id: netSpark
         width: parent.width
-        values: root.netValues
+        values: {
+          if (!netSpark.inView) return []
+          return LiveStatsJs.series(root.history, "rxBps")
+        }
         valueText: root.netCaption()
       }
     }
@@ -208,8 +212,12 @@ PrefsPage {
       stretchControl: true
 
       PrefsSparkline {
+        id: cpuTempSpark
         width: parent.width
-        values: root.cpuTempValues
+        values: {
+          if (!cpuTempSpark.inView) return []
+          return LiveStatsJs.series(root.history, "cpuTemp")
+        }
         valueText: root.cpuTempCaption()
       }
     }
@@ -228,8 +236,12 @@ PrefsPage {
         stretchControl: true
 
         PrefsSparkline {
+          id: gpuSpark
           width: parent.width
-          values: root.gpuValues(modelData)
+          values: {
+            if (!gpuSpark.inView) return []
+            return LiveStatsJs.gpuSeries(root.history, modelData)
+          }
           valueText: root.gpuCaption(modelData)
         }
       }

@@ -18,6 +18,8 @@ QtObject {
   property color accent: "#cacccc"
   property color muted: "#707880"
   property color urgent: "#a55555"
+  property var chartSwatches: []
+  property var chartStops: []
 
   property var themeShellValues: ({})
   property var userShellValues: ({})
@@ -107,7 +109,6 @@ QtObject {
   readonly property int sliderBar: 4
   readonly property int sliderHandle: 14
   readonly property int sliderTickGap: 4
-  readonly property int sliderCompactWidth: 162
   readonly property int fieldInset: 10
   readonly property int fieldWidth: 200
   readonly property int spinWidth: 108
@@ -172,6 +173,12 @@ QtObject {
     accent = parsed.accent
     muted = parsed.muted
     urgent = parsed.urgent
+    chartSwatches = ThemeJs.chartSwatches(parsed)
+    chartStops = ThemeJs.chartStops(parsed)
+  }
+
+  function heatHex(t) {
+    return ThemeJs.heatHex(root.chartStops, t)
   }
 
   function mergeShell() {
@@ -227,7 +234,9 @@ QtObject {
       background: String(root.background),
       accent: String(root.accent),
       muted: String(root.muted),
-      urgent: String(root.urgent)
+      urgent: String(root.urgent),
+      swatches: root.chartSwatches,
+      stops: root.chartStops
     }, root.themeShellValues)
     root.livePreviewing = true
   }
@@ -242,6 +251,12 @@ QtObject {
     root.accent = restored.colors.accent
     root.muted = restored.colors.muted
     root.urgent = restored.colors.urgent
+    root.chartSwatches = restored.colors.swatches && restored.colors.swatches.length
+      ? restored.colors.swatches
+      : ThemeJs.chartSwatches(restored.colors)
+    root.chartStops = restored.colors.stops && restored.colors.stops.length
+      ? restored.colors.stops
+      : ThemeJs.chartStops(restored.colors)
     root.themeShellValues = restored.themeShellValues
     root.mergeShell()
   }

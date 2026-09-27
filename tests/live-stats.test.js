@@ -91,6 +91,51 @@ assert(
   live.sparklinePoints([1, 3], 100, 20, 0)[0][1] > live.sparklinePoints([1, 3], 100, 20, 0)[1][1],
   "sparklinePoints puts a larger value higher",
 );
+const holePts = live.sparklinePoints([1, null, 3], 100, 20, 0);
+assertEqual(holePts.length, 2, "sparklinePoints drops unknown samples");
+assertEqual(holePts[0][0], 0, "sparklinePoints still starts at x=0 after a hole");
+assertEqual(holePts[1][0], 100, "sparklinePoints still ends at width after a hole");
+const coreHist = [
+  {
+    cpus: [
+      { id: 0, cpu: 10 },
+      { id: 3, cpu: 40 },
+    ],
+  },
+  {
+    cpus: [
+      { id: 0, cpu: 20 },
+      { id: 3, cpu: 50 },
+    ],
+  },
+];
+assertEqual(live.coreSeries(coreHist, 3).join(","), "40,50", "coreSeries picks a later core");
+assertEqual(live.coreSeries(coreHist, 0).join(","), "10,20", "coreSeries keeps core 0");
+const movedCores = [
+  {
+    cpus: [
+      { id: 0, cpu: 1 },
+      { id: 2, cpu: 8 },
+    ],
+  },
+  {
+    cpus: [
+      { id: 2, cpu: 9 },
+      { id: 0, cpu: 2 },
+    ],
+  },
+];
+assertEqual(
+  live.coreSeries(movedCores, 2).join(","),
+  "8,9",
+  "coreSeries follows a core that changes slot",
+);
+assertEqual(live.series(coreHist, "cpu").join(","), "", "series skips a missing top-level key");
+assertEqual(
+  live.series([{ cpu: 1 }, { cpu: "2.5" }, { cpu: null }], "cpu").join(","),
+  "1,2.5",
+  "series keeps numeric strings and drops null",
+);
 
 const hot = live.parse(
   JSON.stringify({

@@ -1,5 +1,6 @@
 import QtQuick
 import "../services"
+import "../services/Charts.js" as ChartsJs
 import "../services/Monitor.js" as MonitorJs
 import "../services/RichUi.js" as RichUi
 
@@ -8,6 +9,18 @@ Column {
 
   property var parts: []
   property string valueText: ""
+  property bool tween: true
+  property int tweenMs: LiveStatsStore.intervalMs
+  property real tweenT: 1
+  property real tweenAt: 0
+  property var fromParts: []
+  property var toParts: []
+  readonly property bool inView: view.inView
+
+  ChartViewport {
+    id: view
+    target: root
+  }
 
   width: parent ? parent.width : 260
   spacing: Theme.labelGap
@@ -42,13 +55,17 @@ Column {
     height: Theme.stackedBarHeight
     antialiasing: false
 
-    onWidthChanged: requestPaint()
-    onHeightChanged: requestPaint()
+    onWidthChanged: root.paintCanvas()
+    onHeightChanged: root.paintCanvas()
 
     onPaint: {
+      if (!root.inView) return
       var ctx = getContext("2d")
       ctx.reset()
-      var rects = MonitorJs.stackedRects(root.parts, width, height)
+      var shown = root.tween
+        ? ChartsJs.lerpKeyed(root.fromParts, root.toParts, root.tweenT, ["kb"])
+        : root.parts
+      var rects = MonitorJs.stackedRects(shown, width, height)
       var i
       var r
       ctx.fillStyle = root.cssColor(Theme.fill(Theme.normalFill))
@@ -81,5 +98,40 @@ Column {
     }
   }
 
-  onPartsChanged: canvas.requestPaint()
+  function paintCanvas() {
+    if (!root.inView) return
+    canvas.requestPaint()
+  }
+
+  function retarget() {
+    if (!root.inView) return
+    if (root.tween && root.toParts && root.toParts.length) {
+      root.fromParts = ChartsJs.lerpKeyed(root.fromParts, root.toParts, root.tweenT, ["kb"])
+      root.toParts = root.parts
+      root.tweenT = 0
+      root.tweenAt = Date.now()
+    } else {
+      root.fromParts = root.parts
+      root.toParts = root.parts
+      root.tweenT = 1
+    }
+    root.paintCanvas()
+  }
+
+  function stepFrame() {
+    if (!root.inView || !root.tween || root.tweenT >= 1) return
+    var t = ChartsJs.tweenProgress(root.tweenAt, FrameClock.nowMs, Math.max(80, root.tweenMs))
+    if (t === root.tweenT) return
+    root.tweenT = t
+    root.paintCanvas()
+  }
+
+  Connections {
+    target: FrameClock
+    enabled: root.inView && root.tween && root.tweenT < 1
+    function onFrameChanged() { root.stepFrame() }
+  }
+  onPartsChanged: root.retarget()
+  onInViewChanged: if (root.inView) root.retarget()
+  Component.onCompleted: root.retarget()
 }

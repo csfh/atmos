@@ -145,16 +145,16 @@ assertEqual(
   "profileHost drops a hostname with a space",
 );
 assert(
-  accounts.faceRowDescription("").indexOf("greeter") !== -1,
-  "faceRowDescription mentions the greeter when empty",
+  accounts.faceRowDescription("").indexOf("Portrait cards") !== -1,
+  "faceRowDescription mentions portrait cards when empty",
 );
 assert(
   accounts.faceRowDescription("/home/hallas/.face.icon").indexOf("/home/hallas/.face.icon") === 0,
   "faceRowDescription starts with the path",
 );
 assert(
-  accounts.faceRowDescription("/home/hallas/.face.icon").indexOf("greeter") !== -1,
-  "faceRowDescription mentions the greeter when a face is set",
+  accounts.faceRowDescription("/home/hallas/.face.icon").indexOf("Portrait cards") !== -1,
+  "faceRowDescription mentions portrait cards when a face is set",
 );
 const accountsPageSrc = fs.readFileSync(
   path.join(__dirname, "..", "pages", "AccountsPage.qml"),

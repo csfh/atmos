@@ -36,7 +36,6 @@ QtObject {
   readonly property string luksChangeKeyScript: shellDir + "/scripts/luks-change-key.sh"
   readonly property string rollbackSnapshotScript: shellDir + "/scripts/rollback-snapshot.sh"
   readonly property string enterpriseWifiScript: shellDir + "/scripts/enterprise-wifi-connect.sh"
-  readonly property string listThemeImagesScript: shellDir + "/scripts/list-theme-images.sh"
   readonly property string setTimezoneScript: shellDir + "/scripts/set-timezone.sh"
   readonly property string setNtpScript: shellDir + "/scripts/set-ntp.sh"
   readonly property string setHostnameScript: shellDir + "/scripts/set-hostname.sh"
@@ -90,8 +89,6 @@ QtObject {
   readonly property string hostnameFile: "/etc/hostname"
   readonly property string passwdFile: "/etc/passwd"
   readonly property string groupFile: "/etc/group"
-  readonly property string faceIconFile: Quickshell.env("HOME") + "/.face.icon"
-  readonly property string faceFile: Quickshell.env("HOME") + "/.face"
   readonly property string vconsoleFile: "/etc/vconsole.conf"
   readonly property string localeConfFile: "/etc/locale.conf"
   readonly property string gtkSettingsFile: Quickshell.env("HOME") + "/.config/gtk-4.0/settings.ini"
@@ -503,10 +500,6 @@ QtObject {
     lastError = ""
     mutProc.command = job.argv
     mutProc.running = true
-  }
-
-  function startSnapshot() {
-    enqueueRead("all")
   }
 
   function snapshotRefreshGroup(value) {
@@ -931,10 +924,6 @@ QtObject {
       return true
     }
     return false
-  }
-
-  function pump() {
-    kickIo()
   }
 
   function setTheme(name) {
@@ -2760,23 +2749,6 @@ QtObject {
     for (var i = 0; i < cur.length; i++) {
       if (cur[i].command === command) {
         next.push({ command: cur[i].command, delay: cur[i].delay, enabled: on !== false })
-        found = true
-      } else next.push(cur[i])
-    }
-    if (!found) return
-    writeAutostart(next)
-  }
-  function setAutostartDelay(command, delay) {
-    command = String(command || "")
-    var n = Math.round(Number(delay || 0))
-    if (!isFinite(n) || n < 0) n = 0
-    if (n > 600) n = 600
-    var cur = managedAutostart()
-    var next = []
-    var found = false
-    for (var i = 0; i < cur.length; i++) {
-      if (cur[i].command === command) {
-        next.push({ command: cur[i].command, delay: n, enabled: cur[i].enabled })
         found = true
       } else next.push(cur[i])
     }

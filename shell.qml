@@ -28,7 +28,6 @@ ShellRoot {
   readonly property string profileHost: AccountsJs.profileHost(Omarchy.currentUser, Omarchy.hostname)
 
   readonly property var pages: HubsJs.navPages()
-  readonly property int liveSampleCount: LiveStatsStore.sampleCount
 
   // Fields the sidebar badges read, boxed so the binding list lives in
   // one place. A change still re-runs forHub on every row; that is cheap
@@ -737,6 +736,7 @@ ShellRoot {
 
     Item {
       id: rightPane
+      readonly property bool atmosRightPane: true
       anchors.left: divider.right
       anchors.right: parent.right
       anchors.top: parent.top
@@ -1080,6 +1080,12 @@ ShellRoot {
       onActivated: {
         if (Omarchy.guardOpen) {
           Omarchy.revertGuard()
+          return
+        }
+        var page = pageStack.currentItem
+        if (page && page.chartOpen) {
+          if (page.zoomOutChart && page.zoomOutChart()) return
+          page.collapseChart()
           return
         }
         if (pageStack.depth > 1) pageStack.pop()

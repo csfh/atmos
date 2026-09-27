@@ -1,5 +1,6 @@
 import QtQuick
 import "../services"
+import "../services/Charts.js" as ChartsJs
 import "../services/LiveStats.js" as LiveStatsJs
 
 Item {
@@ -10,6 +11,20 @@ Item {
   property string valueText: ""
   property bool alert: false
   property bool fill: true
+  property bool tween: true
+  property int tweenMs: LiveStatsStore.intervalMs
+  property real tweenT: 1
+  property real tweenAt: 0
+  property var fromValues: []
+  property var toValues: []
+  property var fromValuesB: []
+  property var toValuesB: []
+  readonly property bool inView: view.inView
+
+  ChartViewport {
+    id: view
+    target: root
+  }
 
   implicitWidth: 260
   implicitHeight: Theme.sparklineHeight
@@ -37,14 +52,21 @@ Item {
     anchors.fill: parent
     antialiasing: true
 
-    onWidthChanged: requestPaint()
-    onHeightChanged: requestPaint()
+    onWidthChanged: root.paintCanvas()
+    onHeightChanged: root.paintCanvas()
 
     onPaint: {
+      if (!root.inView) return
       var ctx = getContext("2d")
       ctx.reset()
-      var pts = LiveStatsJs.sparklinePoints(root.values, width, height, 1)
-      var ptsB = LiveStatsJs.sparklinePoints(root.valuesB, width, height, 1)
+      var shown = root.tween
+        ? ChartsJs.lerpSeries(root.fromValues, root.toValues, root.tweenT)
+        : root.values
+      var shownB = root.tween
+        ? ChartsJs.lerpSeries(root.fromValuesB, root.toValuesB, root.tweenT)
+        : root.valuesB
+      var pts = LiveStatsJs.sparklinePoints(shown, width, height, 1)
+      var ptsB = LiveStatsJs.sparklinePoints(shownB, width, height, 1)
       var i
       var stroke = root.alert ? Theme.urgent : Theme.accent
       if (root.fill && pts.length >= 2) {
@@ -68,13 +90,55 @@ Item {
         ctx.lineJoin = "miter"
         ctx.stroke()
       }
+      var seriesB = Theme.chartSwatches && Theme.chartSwatches.length > 1
+        ? Theme.chartSwatches[1]
+        : Theme.muted
       strokePts(pts, stroke)
-      strokePts(ptsB, Theme.muted)
+      strokePts(ptsB, seriesB)
     }
   }
 
-  onValuesChanged: canvas.requestPaint()
-  onValuesBChanged: canvas.requestPaint()
-  onAlertChanged: canvas.requestPaint()
-  onFillChanged: canvas.requestPaint()
+  function paintCanvas() {
+    if (!root.inView) return
+    canvas.requestPaint()
+  }
+
+  function retarget() {
+    if (!root.inView) return
+    if (root.tween && root.toValues && root.toValues.length) {
+      root.fromValues = ChartsJs.lerpSeries(root.fromValues, root.toValues, root.tweenT)
+      root.fromValuesB = ChartsJs.lerpSeries(root.fromValuesB, root.toValuesB, root.tweenT)
+      root.toValues = root.values
+      root.toValuesB = root.valuesB
+      root.tweenT = 0
+      root.tweenAt = Date.now()
+    } else {
+      root.fromValues = root.values
+      root.toValues = root.values
+      root.fromValuesB = root.valuesB
+      root.toValuesB = root.valuesB
+      root.tweenT = 1
+    }
+    root.paintCanvas()
+  }
+
+  function stepFrame() {
+    if (!root.inView || !root.tween || root.tweenT >= 1) return
+    var t = ChartsJs.tweenProgress(root.tweenAt, FrameClock.nowMs, Math.max(80, root.tweenMs))
+    if (t === root.tweenT) return
+    root.tweenT = t
+    root.paintCanvas()
+  }
+
+  Connections {
+    target: FrameClock
+    enabled: root.inView && root.tween && root.tweenT < 1
+    function onFrameChanged() { root.stepFrame() }
+  }
+  onValuesChanged: root.retarget()
+  onValuesBChanged: root.retarget()
+  onAlertChanged: root.paintCanvas()
+  onFillChanged: root.paintCanvas()
+  onInViewChanged: if (root.inView) root.retarget()
+  Component.onCompleted: root.retarget()
 }

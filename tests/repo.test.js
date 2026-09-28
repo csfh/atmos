@@ -2110,6 +2110,12 @@ assert(
   "PrefsChart paints marks from the active theme palette",
 );
 assert(
+  /readonly property color chartThemeAccent:\s*Theme\.accent/.test(prefsChartSrc) &&
+    /readonly property color chartThemeFg:\s*Theme\.foreground/.test(prefsChartSrc) &&
+    /readonly property var chartThemeSwatches:\s*Theme\.chartSwatches/.test(prefsChartSrc),
+  "PrefsChart declares theme aliases so onChartTheme*Changed handlers can load",
+);
+assert(
   prefsChartSrc.indexOf("ctx.strokeText(label, tx, ty)") !== -1 &&
     prefsChartSrc.indexOf("fillText(label, tx, ty, maxW)") === -1 &&
     prefsChartSrc.indexOf("Theme.foreground") !== -1 &&

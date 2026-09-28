@@ -15,6 +15,9 @@ Item {
     ? root.explainer
     : ChartCopy.explainer(root.kind)
   readonly property string resolvedLegend: ChartCopy.legend(root.kind)
+  readonly property color chartThemeAccent: Theme.accent
+  readonly property color chartThemeFg: Theme.foreground
+  readonly property var chartThemeSwatches: Theme.chartSwatches
   property bool expandable: true
   property int bandCount: 3
   property bool tween: true

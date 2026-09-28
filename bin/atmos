@@ -46,6 +46,32 @@ if [[ -n $PAGE ]]; then
   export ATMOS_PAGE=$PAGE
 fi
 
+resolve_backend() {
+  if [[ -n ${ATMOS_BACKEND:-} && -x ${ATMOS_BACKEND} ]]; then
+    printf '%s\n' "$ATMOS_BACKEND"
+    return 0
+  fi
+  local candidate
+  for candidate in \
+    "$ROOT/bin/atmos-backend" \
+    "$ROOT/backend/target/release/atmos-backend" \
+    "$ROOT/backend/target/debug/atmos-backend"
+  do
+    if [[ -x $candidate ]]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+  return 1
+}
+
+BACKEND=$(resolve_backend) || {
+  echo "atmos: missing atmos-backend. Build it with: cargo build --manifest-path \"$ROOT/backend/Cargo.toml\"" >&2
+  exit 1
+}
+export ATMOS_BACKEND=$BACKEND
+export ATMOS_BACKEND_ID=${ATMOS_BACKEND_ID:-omarchy}
+export ATMOS_ROOT=$ROOT
 export QS_APP_ID=dev.csfh.atmos
 # Qt logs this on every launch when xdg-desktop-portal already has a connection
 # for the desktop file name. It does not stop the window from opening.

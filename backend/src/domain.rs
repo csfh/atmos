@@ -1,0 +1,357 @@
+//! Settings domains the Quickshell GUI can change, and the platform file each one uses.
+
+use serde_json::Value;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Ty {
+    String,
+    Int,
+    Number,
+    Bool,
+    List,
+}
+
+impl Ty {
+    pub fn name(self) -> &'static str {
+        match self {
+            Ty::String => "string",
+            Ty::Int => "int",
+            Ty::Number => "number",
+            Ty::Bool => "bool",
+            Ty::List => "list",
+        }
+    }
+
+    pub fn accepts(self, value: &Value) -> bool {
+        match self {
+            Ty::String => value.is_string(),
+            Ty::Int => value.as_i64().is_some(),
+            Ty::Number => value.is_number(),
+            Ty::Bool => value.is_boolean(),
+            Ty::List => value.is_array(),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct Spec {
+    pub key: &'static str,
+    pub group: &'static str,
+    pub ty: Ty,
+}
+
+#[derive(Clone, Debug)]
+pub struct Place {
+    pub rel: String,
+    pub kind: PlaceKind,
+}
+
+#[derive(Clone, Debug)]
+pub enum PlaceKind {
+    Map,
+    Sentinel {
+        begin: &'static str,
+        end: &'static str,
+        mark: &'static str,
+    },
+    Line {
+        prefix: &'static str,
+    },
+    Items,
+    Whole,
+}
+
+impl Place {
+    pub fn encoding(&self) -> &'static str {
+        match self.kind {
+            PlaceKind::Map => "map",
+            PlaceKind::Sentinel { .. } => "sentinel",
+            PlaceKind::Line { .. } => "line",
+            PlaceKind::Items => "items",
+            PlaceKind::Whole => "whole",
+        }
+    }
+
+    pub fn prefix(&self) -> &str {
+        match &self.kind {
+            PlaceKind::Line { prefix } => prefix,
+            _ => "",
+        }
+    }
+}
+
+macro_rules! specs {
+    ($(($key:literal, $group:literal, $ty:ident)),* $(,)?) => {
+        [ $(Spec { key: $key, group: $group, ty: Ty::$ty }),* ]
+    };
+}
+
+const SPECS: &[Spec] = &specs![
+    ("theme", "theme", String),
+    ("background", "theme", String),
+    ("font", "theme", String),
+    ("textSize", "theme", Int),
+    ("plymouth", "theme", String),
+    ("hyprLook.cursorSize", "look", Int),
+    ("hyprLook.gapsIn", "look", Int),
+    ("hyprLook.gapsOut", "look", Int),
+    ("hyprLook.rounding", "look", Int),
+    ("hyprLook.borderSize", "look", Int),
+    ("hyprLook.activeOpacity", "look", Number),
+    ("hyprLook.inactiveOpacity", "look", Number),
+    ("hyprLook.blur", "look", Bool),
+    ("hyprLook.shadow", "look", Bool),
+    ("hyprLook.dimInactive", "look", Bool),
+    ("hyprLook.dimStrength", "look", Number),
+    ("hyprLook.animations", "look", Bool),
+    ("hyprLook.columnWidth", "look", Number),
+    ("hyprLook.cursorHideOnKey", "look", Bool),
+    ("hyprLook.cursorWarp", "look", Bool),
+    ("hyprLook.resizeOnBorder", "look", Bool),
+    ("hyprLook.allowTearing", "look", Bool),
+    ("hyprLook.layout", "look", String),
+    ("hyprLook.preserveSplit", "look", Bool),
+    ("hyprLook.enableSwallow", "look", Bool),
+    ("hyprLook.swallowRegex", "look", String),
+    ("hyprLook.onFocusUnderFullscreen", "look", Int),
+    ("hyprLook.focusOnActivate", "look", Bool),
+    ("hyprNoGaps", "look", Bool),
+    ("hyprSquareAspect", "look", Bool),
+    ("barPosition", "shell", String),
+    ("barTransparent", "shell", Bool),
+    ("barVisible", "shell", Bool),
+    ("clockFormat", "shell", String),
+    ("clockFormatAlt", "shell", String),
+    ("clockWeekStart", "shell", String),
+    ("clockBirthYear", "shell", Int),
+    ("clockLifeExpectancy", "shell", Int),
+    ("indicatorsAlwaysShow", "shell", Bool),
+    ("indicatorsItems", "shell", List),
+    ("powerShowPercentage", "shell", Bool),
+    ("spacerSize", "shell", Int),
+    ("weatherLocation", "shell", String),
+    ("weatherUnit", "shell", String),
+    ("weatherRefreshMinutes", "shell", Int),
+    ("agentsRefreshIntervalSec", "shell", Int),
+    ("agentsSync", "shell", Bool),
+    ("agentsSyncDir", "shell", String),
+    ("agentsSyncFileName", "shell", String),
+    ("agentsSyncDeviceId", "shell", String),
+    ("trayHidden", "shell", List),
+    ("trayPinned", "shell", List),
+    ("idleScreensaver", "shell", Int),
+    ("idleLock", "shell", Int),
+    ("stayAwake", "shell", Bool),
+    ("screensaverEnabled", "shell", Bool),
+    ("doNotDisturb", "shell", Bool),
+    ("workspaceBarNames", "shell", Bool),
+    ("workspaceBarCount", "shell", Int),
+    ("browser", "defaults", String),
+    ("terminal", "defaults", String),
+    ("editor", "defaults", String),
+    ("agent", "defaults", String),
+    ("mimePdf", "defaults", String),
+    ("mimeImage", "defaults", String),
+    ("mimeVideo", "defaults", String),
+    ("nightlight", "hyprsunset", Bool),
+    ("nightlightTemperature", "hyprsunset", Int),
+    ("nightlightDay", "hyprsunset", String),
+    ("nightlightNight", "hyprsunset", String),
+    ("nightlightNightOn", "hyprsunset", Bool),
+    ("hyprInput.sensitivity", "input", Number),
+    ("hyprInput.accelProfile", "input", String),
+    ("hyprInput.emulateDiscreteScroll", "input", Int),
+    ("hyprInput.naturalScroll", "input", Bool),
+    ("hyprInput.scrollFactor", "input", Number),
+    ("hyprInput.clickfinger", "input", Bool),
+    ("hyprInput.disableWhileTyping", "input", Bool),
+    ("hyprInput.drag3fg", "input", Int),
+    ("hyprInput.repeatRate", "input", Int),
+    ("hyprInput.repeatDelay", "input", Int),
+    ("hyprInput.numlock", "input", Bool),
+    ("hyprInput.followMouse", "input", Int),
+    ("hyprInput.keyPressDpms", "input", Bool),
+    ("hyprInput.mouseMoveDpms", "input", Bool),
+    ("hyprInput.kbLayoutOverride", "input", String),
+    ("hyprInput.kbVariantOverride", "input", String),
+    ("hyprInput.kbGroupToggle", "input", Bool),
+    ("hyprInput.workspaceGesture", "input", Bool),
+    ("touchpadEnabled", "input", Bool),
+    ("touchscreenEnabled", "input", Bool),
+    ("hostname", "hostname", String),
+    ("timezone", "timezone", String),
+    ("locale", "locale", String),
+    ("keyboardLayout", "keyboard", String),
+    ("ntp", "ntp", Bool),
+    ("fullName", "fullname", String),
+    ("parallelDownloads", "downloads", Int),
+    ("dns", "network", String),
+    ("customDns", "network", String),
+    ("bluetooth", "network", Bool),
+    ("wifiRadio", "network", Bool),
+    ("wifiBand", "wifiband", String),
+    ("audioOutputVolume", "audio", Int),
+    ("audioInputVolume", "audio", Int),
+    ("audioOutputMuted", "audio", Bool),
+    ("audioInputMuted", "audio", Bool),
+    ("audioTuningOn", "audio", Bool),
+    ("powerProfileAc", "power", String),
+    ("powerProfileBattery", "power", String),
+    ("powerProfile", "power", String),
+    ("suspendEnabled", "power", Bool),
+    ("crashCapture", "power", Bool),
+    ("presentationMode", "power", Bool),
+    ("chargeLimit", "power", Int),
+    ("bindings", "bindings", List),
+    ("windowRules", "windows", List),
+    ("workspaces", "workspaces", List),
+    ("workspaceWrapSwitch", "workspaces", Bool),
+    ("workspaceWheelSwitch", "workspaces", Bool),
+    ("monitorRules", "monitors", List),
+    ("monitorScale", "monitors", Number),
+    ("internalDisplay", "monitors", Bool),
+    ("internalMirror", "monitors", Bool),
+    ("displayBrightness", "backlight", Int),
+    ("autostart", "autostart", List),
+    ("envVars", "env", List),
+    ("envPathPrepend", "env", String),
+    ("tweaks.middlePaste", "tweaks", Bool),
+    ("tweaks.electronWayland", "tweaks", Bool),
+    ("tweaks.forceZeroScaling", "tweaks", Bool),
+    ("tweaks.swappiness", "tweaks", Bool),
+    ("sshdEnabled", "security", Bool),
+    ("passwordlessSudo", "security", Bool),
+    ("sudolessDocker", "security", Bool),
+    ("fingerprintConfigured", "security", Bool),
+    ("fido2Configured", "security", Bool),
+    ("snapperNumberLimit", "security", Int),
+    ("snapperTimeline", "security", Bool),
+    ("fstrimEnabled", "security", Bool),
+    ("directBoot", "security", Bool),
+    ("omarchyChannel", "omarchy-channel", String),
+    ("atmosChannel", "atmos-channel", String),
+    ("favorites", "favorites", List),
+    ("plugins", "plugins", List),
+    ("avatarPath", "avatar", String),
+];
+
+pub fn specs() -> &'static [Spec] {
+    SPECS
+}
+
+pub fn find(key: &str) -> Option<&'static Spec> {
+    SPECS.iter().find(|spec| spec.key == key)
+}
+
+pub fn locate(backend: &str, spec: &Spec) -> Result<Place, String> {
+    if backend == "plain" {
+        return Ok(Place {
+            rel: format!(".config/plain/{}.json", spec.group),
+            kind: PlaceKind::Map,
+        });
+    }
+    if backend != "omarchy" {
+        return Err(format!("unknown backend {backend}"));
+    }
+    Ok(match spec.group {
+        "shell" => map(".config/omarchy/shell.json"),
+        "theme" => map(".config/omarchy/theme.json"),
+        "defaults" => map(".config/omarchy/defaults.json"),
+        "network" => map(".config/omarchy/network.json"),
+        "audio" => map(".config/omarchy/audio.json"),
+        "power" => map(".config/omarchy/power.json"),
+        "env" => map(".config/omarchy/env.json"),
+        "tweaks" => map(".config/omarchy/tweaks.json"),
+        "security" => map(".config/omarchy/security.json"),
+        "look" => sentinel(
+            ".config/hypr/looknfeel.lua",
+            "-- atmos:look begin",
+            "-- atmos:look end",
+            "-- atmos-json ",
+        ),
+        "input" => sentinel(
+            ".config/hypr/input.lua",
+            "-- atmos:input begin",
+            "-- atmos:input end",
+            "-- atmos-json ",
+        ),
+        "bindings" => sentinel(
+            ".config/hypr/bindings.lua",
+            "-- atmos:bindings begin",
+            "-- atmos:bindings end",
+            "-- atmos-json ",
+        ),
+        "windows" => sentinel(
+            ".config/hypr/atmos.lua",
+            "-- atmos:windows begin",
+            "-- atmos:windows end",
+            "-- atmos-json ",
+        ),
+        "workspaces" => sentinel(
+            ".config/hypr/atmos.lua",
+            "-- atmos:workspaces begin",
+            "-- atmos:workspaces end",
+            "-- atmos-json ",
+        ),
+        "autostart" => sentinel(
+            ".config/hypr/autostart.lua",
+            "-- atmos:autostart begin",
+            "-- atmos:autostart end",
+            "-- atmos-json ",
+        ),
+        "monitors" => sentinel(
+            ".config/hypr/monitors.lua",
+            "-- atmos:monitors begin",
+            "-- atmos:monitors end",
+            "-- atmos-json ",
+        ),
+        "hyprsunset" => sentinel(
+            ".config/hypr/hyprsunset.conf",
+            "# atmos:hyprsunset begin",
+            "# atmos:hyprsunset end",
+            "# atmos-json ",
+        ),
+        "hostname" => line("etc/hostname", ""),
+        "timezone" => line("etc/timezone", ""),
+        "locale" => line("etc/locale.conf", "LANG="),
+        "keyboard" => line("etc/vconsole.conf", "XKBLAYOUT="),
+        "ntp" => line("etc/systemd/timesyncd.conf.d/atmos-ntp.conf", "NTP="),
+        "fullname" => line("var/lib/AccountsService/users/atmos", "FullName="),
+        "downloads" => line("etc/pacman.conf", "ParallelDownloads = "),
+        "wifiband" => line(".config/omarchy/wifi-band", ""),
+        "backlight" => line("sys/class/backlight/acpi_video0/brightness", ""),
+        "omarchy-channel" => line(".config/omarchy/channel", ""),
+        "atmos-channel" => line(".config/atmos/channel", ""),
+        "avatar" => line(".config/omarchy/avatar.path", ""),
+        "favorites" => Place {
+            rel: ".local/state/omarchy/atmos-favorites.json".into(),
+            kind: PlaceKind::Items,
+        },
+        "plugins" => Place {
+            rel: ".config/omarchy/plugins.json".into(),
+            kind: PlaceKind::Whole,
+        },
+        other => return Err(format!("no omarchy file for group {other}")),
+    })
+}
+
+fn map(rel: &str) -> Place {
+    Place {
+        rel: rel.into(),
+        kind: PlaceKind::Map,
+    }
+}
+
+fn line(rel: &str, prefix: &'static str) -> Place {
+    Place {
+        rel: rel.into(),
+        kind: PlaceKind::Line { prefix },
+    }
+}
+
+fn sentinel(rel: &str, begin: &'static str, end: &'static str, mark: &'static str) -> Place {
+    Place {
+        rel: rel.into(),
+        kind: PlaceKind::Sentinel { begin, end, mark },
+    }
+}

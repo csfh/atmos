@@ -49,6 +49,23 @@ atmos_write_channel() {
   printf '%s\n' "$name" >"$dir/channel"
 }
 
+atmos_build_backend() {
+  local src=$1
+  local dest=$2
+  [[ -f $src/backend/Cargo.toml ]] || {
+    echo "atmos: missing $src/backend/Cargo.toml" >&2
+    return 1
+  }
+  command -v cargo >/dev/null 2>&1 || {
+    echo "atmos: cargo is not installed" >&2
+    return 1
+  }
+  cargo build --release --manifest-path "$src/backend/Cargo.toml" || return 1
+  mkdir -p "$dest/bin"
+  cp -a "$src/backend/target/release/atmos-backend" "$dest/bin/atmos-backend"
+  chmod +x "$dest/bin/atmos-backend"
+}
+
 atmos_stage() {
   local src=$1
   local dest=$2
@@ -61,6 +78,7 @@ atmos_stage() {
   done
   chmod +x "$dest/bin/atmos"
   find "$dest/scripts" -maxdepth 1 -type f -name '*.sh' -exec chmod +x {} +
+  atmos_build_backend "$src" "$dest"
 }
 
 atmos_write_revision() {

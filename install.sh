@@ -13,6 +13,7 @@ need() {
 need git
 need python3
 need quickshell
+need cargo
 
 here=""
 src=${BASH_SOURCE[0]:-$0}

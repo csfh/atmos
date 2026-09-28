@@ -28,6 +28,23 @@ QtObject {
 
   readonly property string shellDir: Quickshell.shellDir
   readonly property string snapshotScript: shellDir + "/scripts/snapshot.sh"
+  readonly property string backendBin: {
+    var fromEnv = String(Quickshell.env("ATMOS_BACKEND") || "")
+    if (fromEnv.length > 0) return fromEnv
+    return shellDir + "/bin/atmos-backend"
+  }
+  readonly property string backendId: {
+    var fromEnv = String(Quickshell.env("ATMOS_BACKEND_ID") || "")
+    if (fromEnv.length > 0) return fromEnv
+    return "omarchy"
+  }
+
+  function backendCommand(args) {
+    var cmd = [root.backendBin, "--backend", root.backendId]
+    var i
+    for (i = 0; i < args.length; i++) cmd.push(String(args[i]))
+    return cmd
+  }
   readonly property string setIdleScript: shellDir + "/scripts/set-idle.sh"
   readonly property string setBarWidgetScript: shellDir + "/scripts/set-bar-widget.sh"
   readonly property string setWifiConnectionScript: shellDir + "/scripts/set-wifi-connection.sh"
@@ -455,6 +472,13 @@ QtObject {
     WorkQueue.enqueueRead(ioQueue, first)
     if (first !== "all") WorkQueue.enqueueRead(ioQueue, "rest")
     kickIo()
+    root.loadDisplays()
+  }
+
+  function loadDisplays() {
+    var kinds = ["live", "hardware", "disks", "services", "software", "diagnostics"]
+    displayProc.command = root.backendCommand(["display-snapshot"].concat(kinds))
+    displayProc.running = true
   }
 
   function kickIo() {
@@ -473,7 +497,7 @@ QtObject {
 
   function startIoJob(job) {
     if (job.kind === "read") {
-      snapshotProc.command = ["bash", root.snapshotScript, job.group || "all"]
+      snapshotProc.command = root.backendCommand(["gui-snapshot", job.group || "all"])
       snapshotProc.running = true
       return
     }
@@ -498,7 +522,11 @@ QtObject {
       return
     }
     lastError = ""
-    mutProc.command = job.argv
+    var argv = job.argv instanceof Array ? job.argv : []
+    var cmd = [root.backendBin, "apply", "--"]
+    var argIndex
+    for (argIndex = 0; argIndex < argv.length; argIndex++) cmd.push(String(argv[argIndex]))
+    mutProc.command = cmd
     mutProc.running = true
   }
 
@@ -3071,8 +3099,20 @@ QtObject {
     }
   }
 
+  property Process displayProc: Process {
+    command: ["true"]
+    stdout: StdioCollector {
+      id: displayOut
+      waitForEnd: true
+    }
+    stderr: StdioCollector {
+      id: displayErr
+      waitForEnd: true
+    }
+  }
+
   property Process snapshotProc: Process {
-    command: ["bash", root.snapshotScript]
+    command: [root.backendBin, "--backend", root.backendId, "gui-snapshot", "all"]
     stdout: StdioCollector {
       id: snapOut
       waitForEnd: true

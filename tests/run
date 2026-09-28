@@ -40,6 +40,13 @@ if [[ $remix_count -lt 24 ]]; then
 fi
 echo "ok - remix line icons are present"
 
+if ! command -v cargo >/dev/null 2>&1; then
+  echo "not ok - cargo is required to build atmos-backend"
+  exit 1
+fi
+cargo test --manifest-path backend/Cargo.toml
+echo "ok - atmos-backend tests"
+
 shopt -s nullglob
 for t in tests/*.test.js; do
   node "$t"

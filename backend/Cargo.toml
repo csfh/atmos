@@ -1,0 +1,12 @@
+[package]
+name = "atmos-backend"
+version = "0.1.0"
+edition = "2021"
+description = "Settings and display-data backend for the Atmos Quickshell UI"
+license = "MIT"
+
+[dependencies]
+serde_json = "1"
+
+[dev-dependencies]
+serde_json = "1"

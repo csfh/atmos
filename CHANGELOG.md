@@ -2,6 +2,16 @@
 
 Notable changes to Atmos. Each section is a git tag on `main` and `alpha`. Install and in-app Update follow the `alpha` branch.
 
+## [v0.0.1-alpha.23] - 2026-09-28
+
+### Fixed
+
+- Atmos opens again. PrefsChart declares the theme properties its change handlers attach to, so Home can load after install. ([#83](https://github.com/csfh/atmos/pull/83))
+
+### Added
+
+- The product site source lives in `site/` so Cloudflare Pages can build [atmos.csfh.dev](https://atmos.csfh.dev) from this repo. ([#84](https://github.com/csfh/atmos/pull/84))
+
 ## [v0.0.1-alpha.22] - 2026-09-27
 
 ### Added
@@ -357,6 +367,7 @@ First public alpha. Standalone [Quickshell](https://quickshell.org) preferences 
 - Keyboard use on controls (tab focus and activation). File watching of Omarchy/Hyprland paths so outside changes can refresh the snapshot. Shared page routing and content-column layout.
 - MIT license. Contributions assign copyright to Christoffer Hallas ([CLA](CLA.md)).
 
+[v0.0.1-alpha.23]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.22...v0.0.1-alpha.23
 [v0.0.1-alpha.22]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.21...v0.0.1-alpha.22
 [v0.0.1-alpha.21]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.20...v0.0.1-alpha.21
 [v0.0.1-alpha.20]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.19...v0.0.1-alpha.20

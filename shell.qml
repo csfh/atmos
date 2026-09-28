@@ -933,8 +933,8 @@ ShellRoot {
         clip: true
 
         pushEnter: Transition {
-          NumberAnimation { property: "x"; from: 36; to: 0; duration: 220; easing.type: Easing.OutCubic }
-          NumberAnimation { property: "opacity"; from: 0; to: 1; duration: 180 }
+          NumberAnimation { property: "x"; from: 36; to: 0; duration: Theme.motionEnter; easing.type: Easing.OutCubic }
+          NumberAnimation { property: "opacity"; from: 0; to: 1; duration: Theme.motionEnter }
         }
         pushExit: Transition {
           NumberAnimation { property: "opacity"; from: 1; to: 0; duration: 160 }
@@ -943,7 +943,7 @@ ShellRoot {
           NumberAnimation { property: "opacity"; from: 0; to: 1; duration: 180 }
         }
         popExit: Transition {
-          NumberAnimation { property: "x"; from: 0; to: 36; duration: 200; easing.type: Easing.InCubic }
+          NumberAnimation { property: "x"; from: 0; to: 36; duration: Theme.motionEnter; easing.type: Easing.InCubic }
           NumberAnimation { property: "opacity"; from: 1; to: 0; duration: 160 }
         }
 

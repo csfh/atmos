@@ -1011,6 +1011,12 @@ assert(
   "empty binding lists say so directly",
 );
 emptyStateHasNoCreate(bindingsPageSrc, "No personal bindings.", "Overrides");
+assert(
+  bindingsPageSrc.indexOf("property int catalogLimit:") !== -1 &&
+    bindingsPageSrc.indexOf("root.catalogRows.slice(0, root.catalogLimit)") !== -1 &&
+    bindingsPageSrc.indexOf('"Show all"') !== -1,
+  "bindings catalog renders a capped window with a show-all escape",
+);
 const rulesPageSrc = fs.readFileSync(
   path.join(__dirname, "..", "pages", "windows", "RulesPage.qml"),
   "utf8",

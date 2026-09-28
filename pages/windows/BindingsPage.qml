@@ -16,6 +16,10 @@ PrefsPage {
   property bool unbindOnly: false
   property string addError: ""
   property string catalogFilter: ""
+  // The catalog holds ~250 rows and every row is a full SettingRow. Render
+  // a capped window so switching to this hub does not instantiate them all
+  // at once; the count line still reports the full filtered total.
+  property int catalogLimit: 100
   property string pendingKeys: ""
   property string pendingLabel: ""
   property bool recordingKeys: false
@@ -200,7 +204,10 @@ PrefsPage {
       PrefsField {
         width: parent.width
         placeholder: "SUPER + Q or Close window"
-        onEdited: function(value) { root.catalogFilter = value }
+        onEdited: function(value) {
+          root.catalogFilter = value
+          root.catalogLimit = 100
+        }
       }
     }
 
@@ -214,7 +221,7 @@ PrefsPage {
     }
 
     Repeater {
-      model: root.catalogRows
+      model: root.catalogRows.slice(0, root.catalogLimit)
 
       SettingRow {
         required property var modelData
@@ -238,6 +245,21 @@ PrefsPage {
             onClicked: root.openAdd(modelData.keys)
           }
         }
+      }
+    }
+
+    SettingRow {
+      available: root.catalogRows.length > root.catalogLimit
+      sectionHelp: false
+      label: "More bindings"
+      description: "Showing " + Math.min(root.catalogLimit, root.catalogRows.length) + " of " + root.catalogRows.length + " bindings. Refine the filter, or show them all."
+      hint: "omarchy menu keybindings --print"
+      query: root.query
+      keywords: ["more", "show", "all", "list"]
+
+      PrefsButton {
+        text: "Show all"
+        onClicked: root.catalogLimit = root.catalogRows.length
       }
     }
   }

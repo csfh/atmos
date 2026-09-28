@@ -74,27 +74,6 @@ PrefsPage {
     return LiveStatsJs.gpuOwnTemp(root.latest, gpu) == null ? text + " (package)" : text
   }
 
-  function tileNumeral(key) {
-    if (key === "cpu")
-      return root.latest && root.latest.cpu != null ? (LiveStatsJs.formatPercent(root.latest.cpu) || "—") : "…"
-    if (key === "mem")
-      return root.latest && root.latest.mem != null ? (LiveStatsJs.formatPercent(root.latest.mem) || "—") : "…"
-    if (key === "temp") {
-      if (root.history.length === 0) return "…"
-      return LiveStatsJs.formatTemp(root.latest && root.latest.cpuTemp) || "unknown"
-    }
-    if (root.history.length === 0) return "…"
-    return LiveStatsJs.formatNet(root.latest) || "—"
-  }
-
-  function tileAlert(key) {
-    if (!root.latest) return false
-    if (key === "cpu") return root.latest.cpu != null && root.latest.cpu >= 90
-    if (key === "mem") return root.latest.mem != null && root.latest.mem >= 90
-    if (key === "temp") return root.latest.cpuTemp != null && root.latest.cpuTemp >= 90
-    return false
-  }
-
   function actOn(row, action) {
     if (!row || !action) return
     if (action === "copy") {
@@ -136,68 +115,6 @@ PrefsPage {
     onCanceled: {
       root.pendingProc = null
       root.pendingSignal = ""
-    }
-  }
-
-  PrefsGroup {
-    title: "Glance"
-    query: root.query
-    wide: true
-    catalog: false
-    detail: "Live numbers. The Activity rows below carry the sparklines and the process table."
-
-    Flow {
-      width: parent.width - Theme.copyInset * 2
-      x: Theme.copyInset
-      spacing: Theme.space
-
-      Repeater {
-        model: [
-          { label: "Processor", key: "cpu" },
-          { label: "Memory", key: "mem" },
-          { label: "Package", key: "temp" },
-          { label: "Network", key: "net" }
-        ]
-
-        delegate: Rectangle {
-          required property var modelData
-          width: Math.max(150, (parent.width - Theme.space * 3) / 4)
-          height: tileCol.implicitHeight + Theme.pad * 2
-          color: Theme.fill(Theme.tileFill)
-          border.width: Theme.borderWidth
-          border.color: root.tileAlert(modelData.key) ? Theme.urgent : Theme.borderColor()
-          radius: Theme.radius
-
-          Accessible.role: Accessible.StaticText
-          Accessible.name: modelData.label + " " + root.tileNumeral(modelData.key)
-
-          Column {
-            id: tileCol
-            anchors.fill: parent
-            anchors.margins: Theme.pad
-            spacing: 2
-
-            Text {
-              width: parent.width
-              text: root.tileNumeral(modelData.key)
-              color: root.tileAlert(modelData.key) ? Theme.urgent : Theme.foreground
-              font.family: Theme.fontFamily
-              font.pixelSize: Theme.heroNumeralSize
-              font.bold: true
-              elide: Text.ElideRight
-            }
-
-            Text {
-              width: parent.width
-              text: modelData.label
-              color: Theme.muted
-              font.family: Theme.fontFamily
-              font.pixelSize: Theme.captionSize
-              elide: Text.ElideRight
-            }
-          }
-        }
-      }
     }
   }
 

@@ -146,38 +146,6 @@ PrefsPage {
     hint: "omarchy theme set"
 
     SettingRow {
-      label: "Current theme"
-      description: "The palette in use right now. The shell and themed apps follow this. Hover a name to preview its colors on this window."
-      hint: "omarchy theme set"
-      query: root.query
-      keywords: ["appearance", "color", "style", "palette"]
-
-      PrefsSelect {
-        value: Omarchy.theme
-        options: Omarchy.themes
-        enabled: Omarchy.themes.length > 0
-        onChanged: function(value) {
-          if (value !== Omarchy.theme) Omarchy.setTheme(value)
-          else Theme.restorePreview()
-        }
-
-        // Hover paints this window from the named theme's colors.toml.
-        // Wallpaper, bar, terminals, and Hyprland stay put. Preview never
-        // runs omarchy theme set. Leave the list or close the popup to put
-        // the live chrome back (the in-memory snapshot from current/, not
-        // the named theme directory). Click commits through setTheme;
-        // pickValue clears hover without emitting previewed("") so that
-        // paint is not undone while Omarchy.theme is still the old name.
-        onPreviewed: function(value) {
-          if (value.length > 0 && value !== Omarchy.theme)
-            Theme.previewNamedTheme(value)
-          else
-            Theme.restorePreview()
-        }
-      }
-    }
-
-    SettingRow {
       label: "Theme files"
       description: "The files behind the current theme. Open the folder if you want to tweak colors or templates by hand."
       hint: "omarchy theme dir"
@@ -205,11 +173,11 @@ PrefsPage {
     }
 
     SettingRow {
-      label: "Gallery"
-      description: "Every theme as a swatch card. Hover paints this window; click paints the desktop."
+      label: "Themes"
+      description: "The palette in use right now, and every theme you can switch to. The shell and themed apps follow the current one. Hover a card to preview its colors on this window; click to paint the desktop."
       hint: "omarchy theme set"
       query: root.query
-      keywords: ["appearance", "gallery", "swatch", "preview", "color", "palette"]
+      keywords: ["appearance", "current", "theme", "gallery", "swatch", "preview", "color", "style", "palette"]
       available: Omarchy.themes.length > 0
       stretchControl: true
 
@@ -218,7 +186,7 @@ PrefsPage {
         spacing: Theme.space
 
         Repeater {
-          model: Omarchy.themes.slice(0, 8)
+          model: Omarchy.themes
 
           delegate: Rectangle {
             required property var modelData

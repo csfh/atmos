@@ -553,7 +553,7 @@ ShellRoot {
             Text {
               anchors.fill: parent
               visible: searchField.text.length === 0 && !searchField.activeFocus
-              text: "Find a setting"
+              text: "Find a setting — e.g. theme, wifi"
               color: Theme.muted
               font.family: Theme.fontFamily
               font.pixelSize: Theme.fontSize

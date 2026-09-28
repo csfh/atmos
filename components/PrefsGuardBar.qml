@@ -43,9 +43,9 @@ Item {
       PrefsText {
         id: copy
         width: Math.max(80, parent.width - actions.width - parent.spacing)
-        text: "These settings revert in " + Omarchy.guardSeconds + "s unless you keep them."
+        text: "These settings revert in " + Omarchy.guardSeconds + "s unless you keep them. Esc reverts."
         wrapMode: Text.WordWrap
-        color: Theme.foreground
+        color: Omarchy.guardSeconds <= 5 ? Theme.urgent : Theme.foreground
         font.family: Theme.fontFamily
         font.pixelSize: Theme.fontSize
         Accessible.role: Accessible.StaticText
@@ -66,6 +66,30 @@ Item {
         PrefsButton {
           text: "Revert"
           onClicked: Omarchy.revertGuard()
+        }
+      }
+    }
+
+    Rectangle {
+      id: progressTrack
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.bottom: parent.bottom
+      height: 3
+      color: Theme.fill(Theme.normalFill)
+
+      Rectangle {
+        anchors.left: parent.left
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        width: parent.width * Math.max(0, Math.min(1, Omarchy.guardSeconds / 12))
+        color: Omarchy.guardSeconds <= 5 ? Theme.urgent : Theme.accent
+
+        Behavior on width {
+          NumberAnimation { duration: 200; easing.type: Easing.Linear }
+        }
+        Behavior on color {
+          ColorAnimation { duration: Theme.motionFast }
         }
       }
     }

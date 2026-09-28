@@ -1222,6 +1222,22 @@ assert(
   "sidebar current hub is the accent rail token",
 );
 assert(
+  shellSrc.indexOf("function navItemFor(id)") !== -1 &&
+    shellSrc.indexOf("item.modelData && item.modelData.id === id") !== -1,
+  "sidebar can find the delegate for a hub id",
+);
+assert(
+  shellSrc.indexOf("function revealCurrentNav()") !== -1 &&
+    shellSrc.indexOf("navItemFor(root.currentPage)") !== -1 &&
+    shellSrc.indexOf("placeNavHighlight(item)") !== -1,
+  "sidebar re-asserts the rail on the current hub",
+);
+assert(
+  shellSrc.indexOf("onImplicitHeightChanged: root.revealCurrentNav()") !== -1 &&
+    shellSrc.indexOf("onVisibleChanged:") !== -1,
+  "sidebar rail re-places after layout settles and when the window shows",
+);
+assert(
   navItemSrc.indexOf("border.width") === -1 && navItemSrc.indexOf("border.color") === -1,
   "sidebar hubs have no focus outline",
 );

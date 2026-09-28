@@ -2129,7 +2129,10 @@ assert(
 assert(
   /readonly property color chartThemeAccent:\s*Theme\.accent/.test(prefsChartSrc) &&
     /readonly property color chartThemeFg:\s*Theme\.foreground/.test(prefsChartSrc) &&
-    /readonly property var chartThemeSwatches:\s*Theme\.chartSwatches/.test(prefsChartSrc),
+    /readonly property var chartThemeSwatches:\s*Theme\.chartSwatches/.test(prefsChartSrc) &&
+    prefsChartSrc.indexOf("onChartThemeAccentChanged:") !== -1 &&
+    prefsChartSrc.indexOf("onChartThemeFgChanged:") !== -1 &&
+    prefsChartSrc.indexOf("onChartThemeSwatchesChanged:") !== -1,
   "PrefsChart declares theme aliases so onChartTheme*Changed handlers can load",
 );
 assert(

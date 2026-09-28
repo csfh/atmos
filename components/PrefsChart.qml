@@ -591,10 +591,7 @@ Item {
   }
 
   // paintCanvas reads Theme inside a function, which does not subscribe.
-  // These properties exist so a theme change repaints the marks.
-  readonly property color chartThemeAccent: Theme.accent
-  readonly property color chartThemeFg: Theme.foreground
-  readonly property var chartThemeSwatches: Theme.chartSwatches
+  // chartThemeAccent, chartThemeFg, and chartThemeSwatches repaint the marks.
   onChartThemeAccentChanged: root.paintCanvas()
   onChartThemeFgChanged: root.paintCanvas()
   onChartThemeSwatchesChanged: root.paintCanvas()

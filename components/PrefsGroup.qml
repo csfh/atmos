@@ -181,16 +181,26 @@ Column {
       width: parent.width
       spacing: Theme.titleGap
 
-      Item {
-        id: titleRow
-        width: parent.width
-        implicitHeight: Math.max(titleLabel.implicitHeight, groupHelp.implicitHeight)
-        height: implicitHeight
+        Item {
+          id: titleRow
+          width: parent.width
+          implicitHeight: Math.max(titleLabel.implicitHeight, groupHelp.implicitHeight)
+          height: implicitHeight
 
-        PrefsText {
-          id: titleLabel
-          anchors.left: parent.left
-          anchors.leftMargin: root.titleInset
+          Rectangle {
+            id: titleTick
+            anchors.left: parent.left
+            anchors.leftMargin: root.titleInset
+            anchors.verticalCenter: parent.verticalCenter
+            width: Theme.railWidth
+            height: Theme.sectionSize
+            color: Theme.accent
+          }
+
+          PrefsText {
+            id: titleLabel
+            anchors.left: parent.left
+            anchors.leftMargin: root.titleInset + Theme.railWidth + Theme.space
           anchors.right: groupHelp.visible ? groupHelp.left : parent.right
           anchors.rightMargin: groupHelp.visible ? Theme.space : root.titleInset
           anchors.verticalCenter: parent.verticalCenter

@@ -423,8 +423,8 @@ ShellRoot {
               anchors.fill: parent
               radius: width / 2
               color: "transparent"
-              border.width: avatarMouse.containsMouse ? Theme.borderWidth : 0
-              border.color: Theme.accent
+              border.width: Theme.borderWidth
+              border.color: avatarMouse.containsMouse ? Theme.accent : Theme.accentFill(0.35)
             }
 
             MouseArea {
@@ -501,6 +501,20 @@ ShellRoot {
             Accessible.role: Accessible.Button
             Accessible.name: "Accounts"
             Accessible.onPressAction: root.openPage("accounts")
+          }
+        }
+
+        Rectangle {
+          id: searchGlow
+          anchors.fill: searchBox
+          anchors.margins: -1
+          radius: Theme.radius
+          color: Theme.accentFill(0.14)
+          visible: searchField.activeFocus
+          opacity: searchField.activeFocus ? 1 : 0
+
+          Behavior on opacity {
+            NumberAnimation { duration: Theme.motionFast }
           }
         }
 
@@ -668,9 +682,12 @@ ShellRoot {
                       anchors.verticalCenter: parent.verticalCenter
                       name: modelData && modelData.icon ? modelData.icon : ""
                       size: Theme.navIconSize
-                      color: navItem.selected || navItem.hovered || navItem.activeFocus
-                        ? Theme.foreground
-                        : Theme.muted
+                      // Accent marks the current hub; hover/focus stay
+                      // foreground. The sliding rail remains the selection
+                      // box, the icon is its echo.
+                      color: navItem.selected
+                        ? Theme.accent
+                        : (navItem.hovered || navItem.activeFocus ? Theme.foreground : Theme.muted)
                     }
 
                     Text {

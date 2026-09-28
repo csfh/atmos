@@ -148,6 +148,7 @@ ShellRoot {
     if (pageStack.depth > 0)
       pageStack.clear(StackView.Immediate)
     pageStack.push(pageComponent(id), {}, StackView.Immediate)
+    Qt.callLater(function() { root.revealCurrentNav() })
   }
 
   function placeNavHighlight(item) {
@@ -181,6 +182,35 @@ ShellRoot {
       navFlick.contentY = Math.max(0, Math.min(maxY, top))
     else if (bottom > y + viewH)
       navFlick.contentY = Math.max(0, Math.min(maxY, bottom - viewH))
+  }
+
+  // The delegate for a hub id, or null while the nav is still building.
+  // Group delegates are plain Columns, so walk one level down.
+  function navItemFor(id) {
+    if (!navColumn) return null
+    var gi
+    for (gi = 0; gi < navColumn.children.length; gi++) {
+      var group = navColumn.children[gi]
+      if (!group || !group.children) continue
+      var pi
+      for (pi = 0; pi < group.children.length; pi++) {
+        var item = group.children[pi]
+        if (item && item.modelData && item.modelData.id === id) return item
+      }
+    }
+    return null
+  }
+
+  // Re-assert the rail on the current hub. Placement reads live geometry,
+  // so a call that lands mid-layout (fresh launch, late badges) is a no-op
+  // until positions settle; the settle hooks below call this again.
+  function revealCurrentNav() {
+    if (root.query.length > 0) {
+      navHighlight.visible = false
+      return
+    }
+    var item = root.navItemFor(root.currentPage)
+    if (item) root.placeNavHighlight(item)
   }
 
   function openPage(id) {
@@ -337,6 +367,9 @@ ShellRoot {
     visible: true
 
     onClosed: Qt.quit()
+    onVisibleChanged: {
+      if (visible) Qt.callLater(function() { root.revealCurrentNav() })
+    }
 
     Rectangle {
       id: sidebar
@@ -599,6 +632,7 @@ ShellRoot {
             width: parent.width
             z: 1
             spacing: 0
+            onImplicitHeightChanged: root.revealCurrentNav()
 
             Repeater {
               model: root.groupedPages
@@ -840,6 +874,7 @@ ShellRoot {
           if (!hub) hub = "appearance"
           root.currentPage = hub
           pageStack.push(root.pageComponent(hub), {}, StackView.Immediate)
+          Qt.callLater(function() { root.revealCurrentNav() })
           var sub = launched === root.launchPath ? root.subId(root.launchPath) : ""
           if (sub.length > 0) {
             Qt.callLater(function() {

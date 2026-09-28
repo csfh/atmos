@@ -74,6 +74,22 @@ PrefsPage {
     return LiveStatsJs.gpuOwnTemp(root.latest, gpu) == null ? text + " (package)" : text
   }
 
+  function heroLine() {
+    if (root.history.length === 0) return "Sampling live stats…"
+    var parts = []
+    var cpu = root.latest ? LiveStatsJs.formatPercent(root.latest.cpu) : ""
+    if (cpu) parts.push("CPU " + cpu)
+    if (root.latest && root.latest.mem != null) {
+      var mem = LiveStatsJs.formatPercent(root.latest.mem)
+      if (mem) parts.push("MEM " + mem)
+    }
+    var net = LiveStatsJs.formatNet(root.latest)
+    if (net) parts.push(net)
+    var temp = LiveStatsJs.formatTemp(root.latest && root.latest.cpuTemp)
+    if (temp) parts.push(temp)
+    return parts.length > 0 ? parts.join(" · ") : "Sampling live stats…"
+  }
+
   function actOn(row, action) {
     if (!row || !action) return
     if (action === "copy") {
@@ -123,6 +139,27 @@ PrefsPage {
     query: root.query
     detail: "Samples stay in this window. Monitor keeps the same poller and adds per-core, disk, traffic, and sensors. Nothing is written to disk."
 
+    Column {
+      width: parent.width - Theme.copyInset * 2
+      x: Theme.copyInset
+      spacing: Theme.labelGap
+
+      PrefsText {
+        width: parent.width
+        text: root.heroLine()
+        color: Theme.foreground
+        font.family: Theme.fontFamily
+        font.pixelSize: Theme.embedTitleSize
+        font.bold: true
+      }
+
+      PrefsSkeleton {
+        width: parent.width
+        visible: root.history.length === 0
+        active: visible
+      }
+    }
+
     SettingRow {
       label: "Processor"
       description: "Share of time the CPUs were busy, from /proc/stat."
@@ -135,6 +172,7 @@ PrefsPage {
       PrefsSparkline {
         id: cpuSpark
         width: parent.width
+        height: Math.round(Theme.sparklineHeight * 1.6)
         values: {
           if (!cpuSpark.inView) return []
           return LiveStatsJs.series(root.history, "cpu")
@@ -159,6 +197,7 @@ PrefsPage {
         PrefsSparkline {
           id: memSpark
           width: parent.width
+          height: Math.round(Theme.sparklineHeight * 1.6)
           values: {
             if (!memSpark.inView) return []
             return LiveStatsJs.series(root.history, "mem")
@@ -188,6 +227,7 @@ PrefsPage {
       PrefsSparkline {
         id: netSpark
         width: parent.width
+        height: Math.round(Theme.sparklineHeight * 1.6)
         values: {
           if (!netSpark.inView) return []
           return LiveStatsJs.series(root.history, "rxBps")

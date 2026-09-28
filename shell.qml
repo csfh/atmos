@@ -55,17 +55,27 @@ ShellRoot {
     return LayoutJs.clusterByGroup(matched, q.length === 0)
   }
 
-  // The nav in the order it is drawn, so j/k walk what the eye sees rather
-  // than the unfiltered catalogue. Follows the live search filter.
+  // The nav in the order it is drawn. Follows the live search filter.
   readonly property var flatNavPages: LayoutJs.flattenNavPages(root.groupedPages)
 
   // True while a text field owns the keyboard, so a plain letter types
-  // instead of navigating. WindowShortcut still fires when a PrefsField,
-  // PrefsPassword, PrefsSelect filter, or the sudo box has focus — so this
-  // watches the real focus item, not only the sidebar search field.
+  // instead of starting a search. Window shortcuts still fire when a
+  // PrefsField, PrefsPassword, PrefsSelect filter, or the sudo box has
+  // focus, so this watches the real focus item.
   readonly property bool typing: {
     var item = window.activeFocusItem
     return !!(item && (item instanceof TextInput || item instanceof TextEdit))
+  }
+
+  // Up, Down, Home, End, and Enter move the sidebar or the search hits.
+  // They stay live while the search field itself is focused. A slider,
+  // button, or other text field keeps the key.
+  readonly property bool listKeys: {
+    if (modalOpen) return false
+    if (searchField.activeFocus) return true
+    if (typing) return false
+    var item = window.activeFocusItem
+    return !item || item === window.contentItem
   }
 
   // Page-level PrefsDialogs (add binding, LUKS, …) never appear as ids here.
@@ -86,6 +96,58 @@ ShellRoot {
     || focusIsUnderPopup(window.activeFocusItem)
 
   readonly property bool navBusy: typing || modalOpen
+
+  function searchPageItem() {
+    var page = pageStack.currentItem
+    return page && page.searchPane === true ? page : null
+  }
+
+  function moveList(delta) {
+    var page = root.searchPageItem()
+    if (root.query.length > 0 && page && page.moveHit) {
+      page.moveHit(delta)
+      return
+    }
+    root.moveNav(delta)
+  }
+
+  function jumpList(toEnd) {
+    var page = root.searchPageItem()
+    if (root.query.length > 0 && page && page.jumpHit) {
+      page.jumpHit(toEnd)
+      return
+    }
+    root.jumpNav(toEnd)
+  }
+
+  function activateList() {
+    var page = root.searchPageItem()
+    if (root.query.length > 0 && page && page.activateHit) {
+      page.activateHit()
+      return
+    }
+    if (root.query.length === 0)
+      root.loadHub(root.currentPage)
+  }
+
+  // A printable key focuses search and inserts itself. The field then
+  // owns the rest of the word. Space does not start an empty query.
+  function startSearch(event) {
+    if (!event) return
+    event.accepted = false
+    if (event.isAutoRepeat) return
+    if (root.navBusy || searchField.activeFocus) return
+    var mods = event.modifiers
+    if (mods & (Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier)) return
+    var text = event.text || ""
+    if (text.length !== 1) return
+    var code = text.charCodeAt(0)
+    if (code <= 31 || code === 127) return
+    if (text === " " && searchField.text.length === 0) return
+    searchField.forceActiveFocus()
+    searchField.insert(searchField.length, text)
+    event.accepted = true
+  }
 
   function moveNav(delta) {
     var list = root.flatNavPages
@@ -166,8 +228,8 @@ ShellRoot {
     root.revealNavItem(item)
   }
 
-  // G and a held j select rows below the fold. Keep the current hub in
-  // the nav viewport; the rail is useless if you cannot see it.
+  // Home, End, and a held Down select rows below the fold. Keep the
+  // current hub in the nav viewport.
   function revealNavItem(item) {
     if (!item || !navFlick) return
     var pos = item.mapToItem(navContent, 0, 0)
@@ -544,8 +606,8 @@ ShellRoot {
               root.syncSearchPane()
             }
             Keys.onEscapePressed: function(event) {
-              // Blur first so the filter stays and j/k can walk it. The
-              // window Escape shortcut clears on the next press.
+              // Blur first so the filter stays. The window Escape shortcut
+              // clears it on the next press.
               searchField.focus = false
               event.accepted = true
             }
@@ -915,13 +977,15 @@ ShellRoot {
 
       Repeater {
         model: [
-          { keys: "j  /  k", what: "Move down and up the sidebar" },
-          { keys: "g  /  G", what: "Jump to the first or last hub" },
-          { keys: "/  /  Ctrl+F", what: "Search settings" },
-          { keys: "Enter", what: "Open or toggle what is focused" },
+          { keys: "A letter", what: "Search settings" },
+          { keys: "Up  /  Down", what: "Move through hubs or search hits" },
+          { keys: "Ctrl+J  /  Ctrl+K", what: "Move through hubs or search hits" },
+          { keys: "Home  /  End", what: "Jump to the first or last" },
+          { keys: "/  /  Ctrl+F", what: "Focus search" },
+          { keys: "Enter", what: "Open the highlighted hub or setting" },
           { keys: "Tab", what: "Move through controls on the page" },
           { keys: "Escape", what: "Revert a pending change, go back, or leave search" },
-          { keys: "?", what: "This sheet" }
+          { keys: "Ctrl+/", what: "This sheet" }
         ]
         delegate: Item {
           required property var modelData
@@ -1040,39 +1104,53 @@ ShellRoot {
       }
     }
 
+    Item {
+      Component.onCompleted: {
+        var item = window.contentItem
+        if (!item) return
+        item.Keys.priority = Keys.BeforeItem
+        item.Keys.pressed.connect(function(event) { root.startSearch(event) })
+      }
+    }
+
     Shortcut {
       sequences: ["Ctrl+F", "/"]
       enabled: !root.modalOpen
       onActivated: searchField.forceActiveFocus()
     }
 
-    // Atmos's audience runs a tiling window manager and lives on the
-    // keyboard. Every binding is disabled while a text field or modal has
-    // focus, so typing a j into a field types a j.
     Shortcut {
-      sequences: ["J"]
-      enabled: !root.navBusy
-      onActivated: root.moveNav(1)
-    }
-    Shortcut {
-      sequences: ["K"]
-      enabled: !root.navBusy
-      onActivated: root.moveNav(-1)
-    }
-    Shortcut {
-      sequences: ["G"]
-      enabled: !root.navBusy
-      onActivated: root.jumpNav(false)
-    }
-    Shortcut {
-      sequences: ["Shift+G"]
-      enabled: !root.navBusy
-      onActivated: root.jumpNav(true)
-    }
-    Shortcut {
-      sequences: ["?"]
-      enabled: !root.navBusy
+      sequences: ["Ctrl+/"]
+      enabled: !root.modalOpen
       onActivated: keysDialog.open()
+    }
+
+    // Letters belong to search. These move the list, including while the
+    // search field is focused. Another text field keeps its own keys.
+    Shortcut {
+      sequences: ["Down", "Ctrl+J"]
+      enabled: root.listKeys
+      onActivated: root.moveList(1)
+    }
+    Shortcut {
+      sequences: ["Up", "Ctrl+K"]
+      enabled: root.listKeys
+      onActivated: root.moveList(-1)
+    }
+    Shortcut {
+      sequences: ["Home"]
+      enabled: root.listKeys
+      onActivated: root.jumpList(false)
+    }
+    Shortcut {
+      sequences: ["End"]
+      enabled: root.listKeys
+      onActivated: root.jumpList(true)
+    }
+    Shortcut {
+      sequences: ["Return", "Enter"]
+      enabled: root.listKeys && (searchField.activeFocus || !window.activeFocusItem || window.activeFocusItem === window.contentItem)
+      onActivated: root.activateList()
     }
 
     Shortcut {

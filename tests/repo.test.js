@@ -1246,9 +1246,10 @@ assert(
   "nav shortcuts stay off while a shell dialog or page-level popup is open",
 );
 assert(
-  shellSrc.indexOf("enabled: !root.navBusy") !== -1 &&
-    shellSrc.indexOf("readonly property bool navBusy:") !== -1,
-  "j/k/g/G/? are gated on navBusy, not search focus alone",
+  shellSrc.indexOf("readonly property bool listKeys:") !== -1 &&
+    shellSrc.indexOf("enabled: root.listKeys") !== -1 &&
+    shellSrc.indexOf("if (root.navBusy || searchField.activeFocus) return") !== -1,
+  "list keys and type-to-search stay off for another text field or a dialog",
 );
 assert(
   shellSrc.indexOf("function revealNavItem(") !== -1 &&
@@ -1263,7 +1264,7 @@ assert(
   searchFieldSrc.indexOf("Keys.onEscapePressed") !== -1 &&
     searchFieldSrc.indexOf("focus = false") !== -1 &&
     searchFieldSrc.indexOf('text = ""') === -1,
-  "Escape on search blurs first so j/k can walk the filter",
+  "Escape on search blurs first and leaves the query for the next press",
 );
 assert(
   shellSrc.indexOf("page.chartOpen") !== -1 &&
@@ -1281,8 +1282,24 @@ const keysDialogSrc = shellSrc.slice(
 );
 assert(keysDialogSrc.indexOf("id: keysDialog") !== -1, "shortcut sheet is a PrefsDialog");
 assert(
-  keysDialogSrc.indexOf("Ctrl+F") !== -1 && keysDialogSrc.indexOf("/") !== -1,
-  "shortcut sheet lists Ctrl+F alongside /",
+  keysDialogSrc.indexOf("Ctrl+F") !== -1 &&
+    keysDialogSrc.indexOf("Ctrl+/") !== -1 &&
+    keysDialogSrc.indexOf("A letter") !== -1 &&
+    keysDialogSrc.indexOf("Up  /  Down") !== -1,
+  "shortcut sheet lists type-to-search, movement, and Ctrl+/",
+);
+assert(
+  shellSrc.indexOf("function startSearch(") !== -1 &&
+    shellSrc.indexOf("searchField.insert(") !== -1 &&
+    shellSrc.indexOf("Keys.BeforeItem") !== -1,
+  "a printable key focuses search and inserts itself",
+);
+assert(
+  searchPageSrc.indexOf("property int hitIndex") !== -1 &&
+    searchPageSrc.indexOf("function activateHit(") !== -1 &&
+    searchPageSrc.indexOf("function moveHit(") !== -1 &&
+    searchPageSrc.indexOf("picked: index === root.hitIndex") !== -1,
+  "search hits move and open from the keyboard",
 );
 assert(
   keysDialogSrc.indexOf("PrefsText") !== -1,

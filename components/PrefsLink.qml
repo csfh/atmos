@@ -19,6 +19,8 @@ Item {
 
   signal clicked()
 
+  property bool picked: false
+
   readonly property string searchHaystack: {
     var parts = [label, description, hint, valueText, detail]
     var list = keywords || []
@@ -58,7 +60,7 @@ Item {
   Keys.onReturnPressed: root.clicked()
   Keys.onSpacePressed: root.clicked()
 
-  readonly property bool highlight: linkMouse.containsMouse || root.activeFocus
+  readonly property bool highlight: root.picked || linkMouse.containsMouse || root.activeFocus
 
   Rectangle {
     anchors.fill: parent

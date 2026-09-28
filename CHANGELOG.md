@@ -2,6 +2,12 @@
 
 Notable changes to Atmos. Each section is a git tag on `main` and `alpha`. Install and in-app Update follow the `alpha` branch.
 
+## [v0.0.1-alpha.24] - 2026-09-28
+
+### Changed
+
+- A letter, digit, or mark starts settings search and inserts itself, unless a text field or dialog already has the keyboard. Up and Down, and Ctrl+J and Ctrl+K, move through hubs or search hits. Home and End jump to the ends. Enter opens the highlighted hub or setting. Ctrl+/ opens the shortcut sheet.
+
 ## [v0.0.1-alpha.23] - 2026-09-28
 
 ### Fixed
@@ -367,6 +373,7 @@ First public alpha. Standalone [Quickshell](https://quickshell.org) preferences 
 - Keyboard use on controls (tab focus and activation). File watching of Omarchy/Hyprland paths so outside changes can refresh the snapshot. Shared page routing and content-column layout.
 - MIT license. Contributions assign copyright to Christoffer Hallas ([CLA](CLA.md)).
 
+[v0.0.1-alpha.24]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.23...v0.0.1-alpha.24
 [v0.0.1-alpha.23]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.22...v0.0.1-alpha.23
 [v0.0.1-alpha.22]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.21...v0.0.1-alpha.22
 [v0.0.1-alpha.21]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.20...v0.0.1-alpha.21

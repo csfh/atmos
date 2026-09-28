@@ -155,7 +155,7 @@ Item {
             ? root.searchError
             : (root.hasHits
               ? "Matching settings across every page for “" + root.query + "”."
-              : "Nothing on any page mentions “" + root.query + "”. Try another word.")
+              : "Nothing on any page mentions “" + root.query + "”. Try another word — ? shows keyboard shortcuts.")
           color: Theme.muted
           font.family: Theme.fontFamily
           font.pixelSize: Theme.fontSize

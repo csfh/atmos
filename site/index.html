@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Atmos — Quickshell preferences for Omarchy</title>
+    <meta
+      name="description"
+      content="Atmos is a Quickshell preferences window for Omarchy. It follows the active theme and writes through omarchy commands and Hyprland drop-ins."
+    />
+    <link rel="canonical" href="https://atmos.csfh.dev/" />
+    <meta property="og:title" content="Atmos — Quickshell preferences for Omarchy" />
+    <meta
+      property="og:description"
+      content="A preferences window for Omarchy. Follows the active theme. Writes through omarchy and Hyprland."
+    />
+    <meta property="og:url" content="https://atmos.csfh.dev/" />
+    <meta property="og:type" content="website" />
+    <meta name="theme-color" content="#0c0d11" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Instrument+Serif&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+    <div class="haze" aria-hidden="true"></div>
+
+    <header class="top">
+      <a class="brand" href="/">
+        <svg class="mark" viewBox="0 0 32 32" aria-hidden="true">
+          <path d="M6 21c4-6 7-9 10-9s6 3 10 9" />
+          <path d="M8 24c3.4-4.4 5.8-6.6 8-6.6s4.6 2.2 8 6.6" />
+          <circle cx="16" cy="10" r="1.6" />
+        </svg>
+        Atmos
+      </a>
+      <nav class="nav" aria-label="Primary">
+        <a href="#preview">Preview</a>
+        <a href="#install">Install</a>
+        <a href="https://github.com/csfh/atmos">GitHub</a>
+      </nav>
+    </header>
+
+    <main id="main">
+      <section class="hero">
+        <p class="eyebrow">Alpha · MIT · for Omarchy</p>
+        <h1>Atmos</h1>
+        <p class="lede">
+          A Quickshell preferences window for
+          <a href="https://omarchy.org">Omarchy</a>. It follows the active theme
+          and writes through <code>omarchy</code> commands and Hyprland drop-ins.
+        </p>
+        <div class="actions">
+          <a class="btn btn-primary" href="#install">Install</a>
+          <a class="btn" href="https://github.com/csfh/atmos">Source</a>
+        </div>
+      </section>
+
+      <section id="preview" class="preview" aria-labelledby="preview-heading">
+        <div class="preview-copy">
+          <h2 id="preview-heading">How it sits on the desktop</h2>
+          <p>
+            Sidebar hubs, a search field, and settings pages that match the
+            running theme. Settings live in <code>~/.config</code>.
+          </p>
+          <p class="note">
+            This is an illustrative placeholder, not a product screenshot.
+            Real shots are still pending
+            (<a href="https://github.com/csfh/atmos/issues/82">csfh/atmos#82</a>).
+          </p>
+        </div>
+
+        <figure class="stage">
+          <figcaption class="badge">Illustrative placeholder</figcaption>
+          <div class="window" role="img" aria-label="Stylized illustration of the Atmos preferences window, not a real screenshot.">
+            <div class="chrome">
+              <span class="dots" aria-hidden="true"></span>
+              <span class="chrome-title">Atmos</span>
+            </div>
+            <div class="prefs">
+              <aside class="rail">
+                <div class="face" aria-hidden="true"></div>
+                <div class="who">
+                  <strong>you</strong>
+                  <span>omarchy</span>
+                </div>
+                <div class="find">Find a setting</div>
+                <ul>
+                  <li>Home</li>
+                  <li>Monitor</li>
+                </ul>
+                <p class="group">Look</p>
+                <ul>
+                  <li>Favorites</li>
+                  <li class="on">Appearance</li>
+                  <li>Displays</li>
+                  <li>Windows</li>
+                  <li>Bar</li>
+                </ul>
+                <p class="group">Input</p>
+                <ul>
+                  <li>Input</li>
+                  <li>Keybindings</li>
+                </ul>
+              </aside>
+              <div class="pane">
+                <h3>Appearance</h3>
+                <p class="hint">Theme, wallpaper, fonts, and how the desktop looks.</p>
+                <div class="row">
+                  <span>Theme</span>
+                  <em>Follows Omarchy</em>
+                </div>
+                <div class="row">
+                  <span>Background</span>
+                  <em>Wallpaper</em>
+                </div>
+                <div class="row">
+                  <span>Font</span>
+                  <em>System</em>
+                </div>
+                <div class="row">
+                  <span>Night light</span>
+                  <em>Schedule</em>
+                </div>
+                <div class="row">
+                  <span>Boot screen</span>
+                  <em>Plymouth</em>
+                </div>
+              </div>
+            </div>
+          </div>
+        </figure>
+      </section>
+
+      <section id="install" class="install" aria-labelledby="install-heading">
+        <h2 id="install-heading">Install</h2>
+        <p>Alpha. Copies the launcher, QML app, desktop file, and Hypr drop-in.</p>
+        <div class="term">
+          <code id="install-cmd">curl -fsSL https://raw.githubusercontent.com/csfh/atmos/alpha/install.sh | bash</code>
+          <button type="button" id="copy-btn" class="copy" aria-live="polite">Copy</button>
+        </div>
+        <p class="fine">
+          Then run <code>atmos</code>. From a clone, <code>./install.sh</code> does the same thing.
+        </p>
+      </section>
+
+      <section class="links" aria-labelledby="links-heading">
+        <h2 id="links-heading">Links</h2>
+        <ul>
+          <li><a href="https://github.com/csfh/atmos">GitHub · csfh/atmos</a></li>
+          <li><a href="https://github.com/csfh/atmos/blob/main/CHANGELOG.md">Changelog</a></li>
+          <li><a href="https://omarchy.org">Omarchy</a></li>
+          <li><a href="https://quickshell.org">Quickshell</a></li>
+        </ul>
+      </section>
+    </main>
+
+    <footer class="foot">
+      <p>MIT License · © 2026 Christoffer Hallas</p>
+    </footer>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

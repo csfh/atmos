@@ -1,6 +1,6 @@
 # Atmos
 
-A [Quickshell](https://quickshell.org) preferences window for [Omarchy](https://omarchy.org). It follows the active theme and writes through `omarchy` commands and Hyprland drop-ins. Settings live in `~/.config`.
+A [Quickshell](https://quickshell.org) preferences window for [Omarchy](https://omarchy.org). It follows the active theme and writes through `omarchy` commands and Hyprland drop-ins. Settings live in `~/.config`. Product site: [atmos.csfh.dev](https://atmos.csfh.dev) (source in [`site/`](site/)).
 
 ## Run
 

@@ -54,7 +54,7 @@ Item {
       text: root.valueText.length ? root.valueText : "—"
       color: root.alert ? Theme.urgent : Theme.foreground
       font.family: Theme.fontFamily
-      font.pixelSize: Theme.embedTitleSize
+      font.pixelSize: Math.round((Theme.embedTitleSize + Theme.heroNumeralSize) / 2)
       font.bold: true
       elide: Text.ElideRight
     }

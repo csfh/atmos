@@ -102,7 +102,7 @@ fn dispatch(
             write_json(stdout, &display)?;
             Ok(0)
         }
-        "apply" => Ok(apply(&parsed.rest, stderr)),
+        "apply" => Ok(apply(parsed.root.as_deref(), &parsed.rest, stderr)),
         "" => {
             let _ = writeln!(stderr, "ratmos: missing command");
             usage(stderr);
@@ -582,11 +582,20 @@ fn write_json(stdout: &mut dyn Write, value: &Value) -> Result<(), String> {
     stdout.flush().map_err(|err| err.to_string())
 }
 
-fn apply(argv: &[String], stderr: &mut dyn Write) -> i32 {
+fn apply(root: Option<&Path>, argv: &[String], stderr: &mut dyn Write) -> i32 {
     let Some(program) = argv.first() else {
         let _ = writeln!(stderr, "ratmos: apply needs a command");
         return 2;
     };
+    if let Some(dir) = root {
+        return match log_apply(dir, argv) {
+            Ok(()) => 0,
+            Err(err) => {
+                let _ = writeln!(stderr, "ratmos: {err}");
+                1
+            }
+        };
+    }
     match Command::new(program).args(&argv[1..]).status() {
         Ok(status) => status.code().unwrap_or(1),
         Err(err) => {
@@ -594,6 +603,18 @@ fn apply(argv: &[String], stderr: &mut dyn Write) -> i32 {
             1
         }
     }
+}
+
+fn log_apply(dir: &Path, argv: &[String]) -> Result<(), String> {
+    use std::io::Write as _;
+    let path = dir.join("commands.log");
+    let mut file = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&path)
+        .map_err(|err| err.to_string())?;
+    let line = serde_json::json!({ "argv": argv });
+    writeln!(file, "{line}").map_err(|err| err.to_string())
 }
 
 fn usage(stderr: &mut dyn Write) {

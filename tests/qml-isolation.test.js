@@ -23,9 +23,7 @@ for (const file of files) {
   const rel = path.relative(path.join(__dirname, ".."), file);
   assert(text.indexOf("inotifywait") === -1, rel + " does not run inotifywait");
   assert(!/\bFileView\b/.test(text), rel + " does not open a FileView");
-  if (rel.startsWith("pages/")) {
-    assert(!forbiddenArgv.test(text), rel + " does not spawn a host command for page data");
-  }
+  assert(!forbiddenArgv.test(text), rel + " does not spawn a host command itself");
 }
 
 const theme = fs.readFileSync(path.join(__dirname, "..", "services", "Theme.qml"), "utf8");
@@ -74,5 +72,20 @@ assert(
   services.indexOf("unit.output") !== -1 && services.indexOf("backendCommand") !== -1,
   "unit status and logs use ratmos",
 );
+assert(
+  omarchy.indexOf("jobProc.command = job.argv") === -1,
+  "jobs are not started as a raw host argv",
+);
+assert(omarchy.indexOf("function backendApply") !== -1, "host actions go through ratmos apply");
+const interactive = omarchy.slice(
+  omarchy.indexOf("function runInteractive("),
+  omarchy.indexOf("function commandFailureText("),
+);
+assert(interactive.indexOf("backendApply") !== -1, "interactive tools start through ratmos");
+const systemd = omarchy.slice(
+  omarchy.indexOf("function systemdAction("),
+  omarchy.indexOf("function applyProfileValues("),
+);
+assert(systemd.indexOf("runCommand") !== -1, "systemctl start and stop go through runCommand");
 
 console.log("ok - quickshell host reads go through ratmos");

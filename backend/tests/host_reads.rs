@@ -219,5 +219,26 @@ fn host_reads_return_fixture_values_and_round_trip_a_file() {
     assert_ne!(plain_disk["result"]["stdout"], disk["result"]["stdout"]);
     println!("ok plain disk {}", plain_disk["result"]["stdout"]);
 
+    let logged = common::invoke(
+        &[
+            "--backend",
+            "omarchy",
+            "--root",
+            &root.display().to_string(),
+            "apply",
+            "--",
+            "omarchy",
+            "theme",
+            "install",
+            "fixture-theme-url",
+        ],
+        "",
+    );
+    assert!(logged.status.success(), "{}", String::from_utf8_lossy(&logged.stderr));
+    let commands = fs::read_to_string(root.join("commands.log")).unwrap();
+    assert!(commands.contains("theme"), "{commands}");
+    assert!(commands.contains("fixture-theme-url"), "{commands}");
+    println!("ok apply {commands}");
+
     cleanup(&root);
 }

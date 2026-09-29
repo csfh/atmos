@@ -580,7 +580,7 @@ QtObject {
         wifiQrSsid = ""
       }
       jobProc.stdinEnabled = jobStdin.length > 0
-      jobProc.command = job.argv
+      jobProc.command = root.backendApply(job.argv)
       jobProc.running = true
       return
     }
@@ -598,12 +598,16 @@ QtObject {
     }
     root.mutStdin = ""
     mutProc.stdinEnabled = false
-    var argv = job.argv instanceof Array ? job.argv : []
-    var cmd = root.backendCommand(["apply", "--"])
-    var argIndex
-    for (argIndex = 0; argIndex < argv.length; argIndex++) cmd.push(String(argv[argIndex]))
-    mutProc.command = cmd
+    mutProc.command = root.backendApply(job.argv)
     mutProc.running = true
+  }
+
+  function backendApply(argv) {
+    var cmd = root.backendCommand(["apply", "--"])
+    var list = argv instanceof Array ? argv : []
+    var i
+    for (i = 0; i < list.length; i++) cmd.push(String(list[i]))
+    return cmd
   }
 
   function snapshotRefreshGroup(value) {
@@ -1005,11 +1009,11 @@ QtObject {
     interactiveKind = String(opts.kind || "")
     interactiveApply = opts.apply && typeof opts.apply === "object" ? opts.apply : null
     interactiveRefresh = snapshotRefreshGroup(opts.refresh)
-    var cmd = ["bash", "-c", "trap 'trap - INT TERM; kill 0 2>/dev/null; exit 143' INT TERM; \"$@\"", "prefs-interactive"]
+    var wrapped = ["bash", "-c", "trap 'trap - INT TERM; kill 0 2>/dev/null; exit 143' INT TERM; \"$@\"", "prefs-interactive"]
     var i
-    for (i = 0; i < argv.length; i++) cmd.push(argv[i])
+    for (i = 0; i < argv.length; i++) wrapped.push(argv[i])
     interactiveProc.running = false
-    interactiveProc.command = cmd
+    interactiveProc.command = root.backendApply(wrapped)
     interactiveProc.running = true
   }
 

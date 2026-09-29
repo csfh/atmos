@@ -45,8 +45,13 @@ assert(
     displayProc.indexOf("disks") !== -1 &&
     displayProc.indexOf("systemdUnits") !== -1 &&
     displayProc.indexOf("desktopApps") !== -1 &&
-    displayProc.indexOf("diagnostics") !== -1,
+    displayProc.indexOf("diagnostics") !== -1 &&
+    displayProc.indexOf("displayDoc") !== -1,
   "display-snapshot is applied to the page properties",
+);
+assert(
+  omarchy.indexOf("function displayDoc") !== -1 && omarchy.indexOf("value.error") !== -1,
+  "a failed display kind does not replace the last good page",
 );
 assert(
   omarchy.indexOf("display-snapshot") !== -1 &&

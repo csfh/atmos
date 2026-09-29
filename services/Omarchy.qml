@@ -549,6 +549,14 @@ QtObject {
     return out
   }
 
+  // display-snapshot exits 0 even when one kind failed. That document is
+  // {platform, collector, error}. Applying it would wipe the last good page.
+  function displayDoc(value) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return null
+    if (typeof value.error === "string" && value.error.length > 0) return null
+    return root.unstamp(value)
+  }
+
   function startIoJob(job) {
     if (job.kind === "read") {
       root.snapStdin = JSON.stringify({ op: "settings.snapshot", group: String(job.group || "all") })
@@ -3180,31 +3188,25 @@ QtObject {
       var parsed = SnapshotJs.parseSnapshot(displayOut.text)
       if (!parsed) return
       var hw, disks, units, apps, diag
-      if (parsed.hardware) {
-        hw = root.unstamp(parsed.hardware)
-        root.hardware = HardwareJs.normalize(hw)
-      }
-      if (parsed.disks) {
-        disks = root.unstamp(parsed.disks)
+      hw = root.displayDoc(parsed.hardware)
+      if (hw) root.hardware = HardwareJs.normalize(hw)
+      disks = root.displayDoc(parsed.disks)
+      if (disks) {
         if (disks.disks) root.disks = disks.disks
         if (disks.luksDevices) root.luksDevices = disks.luksDevices
         if (disks.swapDevices) root.swapDevices = disks.swapDevices
         if (disks.snapshots) root.snapshots = disks.snapshots
       }
-      if (parsed.services) {
-        units = root.unstamp(parsed.services)
-        if (units && Array.isArray(units.items)) root.systemdUnits = units.items
-      }
-      if (parsed.software) {
-        apps = root.unstamp(parsed.software)
+      units = root.displayDoc(parsed.services)
+      if (units && Array.isArray(units.items)) root.systemdUnits = units.items
+      apps = root.displayDoc(parsed.software)
+      if (apps) {
         if (apps.desktop) root.desktopApps = apps.desktop
         if (apps.tui) root.tuiApps = apps.tui
         if (apps.web) root.webApps = apps.web
       }
-      if (parsed.diagnostics) {
-        diag = root.unstamp(parsed.diagnostics)
-        root.diagnostics = DiagnosticsJs.normalize(diag)
-      }
+      diag = root.displayDoc(parsed.diagnostics)
+      if (diag) root.diagnostics = DiagnosticsJs.normalize(diag)
     }
   }
 

@@ -7,6 +7,12 @@ set -euo pipefail
 action=${1:-}
 target=${2:-}
 
+# Fixture runs (--root) set this so the script is still the writer, without
+# changing the live NetworkManager radio.
+if [[ ${ATMOS_SKIP_LIVE:-0} == 1 ]]; then
+  exit 0
+fi
+
 usage() {
   echo "Usage: set-wifi-connection.sh radio <on|off> | up <uuid> | down <uuid> | delete <uuid> | join <ssid> | down-ssid <ssid> | delete-ssid <ssid> | metered <uuid> <yes|no|unknown> | priority <uuid> <n> | mac <uuid> <default|random|stable|permanent|preserve> | ipv4 <uuid> auto | ipv4 <uuid> manual <addr> <prefix> [gateway] [dns] | wireguard-import <file> | hotspot on <ssid> <password> | hotspot off" >&2
   exit 1

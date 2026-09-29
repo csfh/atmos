@@ -15,6 +15,12 @@ usage() {
 [[ $value =~ ^[0-9]+$ ]] || usage
 (( value >= 0 && value <= 100 )) || usage
 
+# Fixture runs (--root) set this so the script is still the writer, without
+# touching the live PipeWire session.
+if [[ ${ATMOS_SKIP_LIVE:-0} == 1 ]]; then
+  exit 0
+fi
+
 case "$action" in
   output-volume)
     sink=$(omarchy audio output sink 2>/dev/null || true)

@@ -9,6 +9,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde_json::{Map, Value};
 
 use crate::domain::{Place, PlaceKind, Ty};
+use crate::effects;
 use crate::patch;
 
 extern "C" {
@@ -21,7 +22,7 @@ const LOCK_UN: i32 = 8;
 pub fn read_place(root: Option<&Path>, place: &Place, key: &str, ty: Ty) -> Result<Value, String> {
     let path = place_path(root, &place.rel);
     with_lock(&path, || match &place.kind {
-        PlaceKind::Map | PlaceKind::Sentinel { .. } => {
+        PlaceKind::Map => {
             let map = load_object(&path, place)?;
             Ok(map.get(key).cloned().unwrap_or(Value::Null))
         }
@@ -45,6 +46,8 @@ pub fn read_place(root: Option<&Path>, place: &Place, key: &str, ty: Ty) -> Resu
             patch::line_read(&text, prefix, ty)
         }
         PlaceKind::Flag => Ok(Value::Bool(path.is_file())),
+        PlaceKind::Hypr { kind } => effects::read_hypr(&path, kind, key),
+        PlaceKind::Doc => effects::read_doc(root, &path, key),
         PlaceKind::Items => read_items(&path),
         PlaceKind::Whole => read_whole(&path),
     })
@@ -68,8 +71,12 @@ pub fn write_place(
         }
     }
     let path = place_path(root, &place.rel);
+    if let PlaceKind::Hypr { kind } = &place.kind {
+        // hypr-sentinel.py locks this same file. Taking the lock here first deadlocks the child.
+        return effects::write_hypr(&path, kind, key, value);
+    }
     with_lock(&path, || match &place.kind {
-        PlaceKind::Map | PlaceKind::Sentinel { .. } => {
+        PlaceKind::Map => {
             let mut map = load_object(&path, place)?;
             map.insert(key.to_string(), value.clone());
             store_object(&path, place, &map)
@@ -95,6 +102,8 @@ pub fn write_place(
             atomic_write(&path, next.as_bytes())
         }
         PlaceKind::Flag => write_flag(&path, &place.rel, value),
+        PlaceKind::Hypr { .. } => Err("hypr writes run outside the lock".into()),
+        PlaceKind::Doc => effects::write_doc(root, &path, key, value),
         PlaceKind::Items => {
             let body = serde_json::to_string(&serde_json::json!({ "items": value }))
                 .map_err(|err| err.to_string())?;
@@ -219,7 +228,6 @@ fn load_object(path: &Path, place: &Place) -> Result<Map<String, Value>, String>
     }
     match &place.kind {
         PlaceKind::Map => parse_object(&text, path),
-        PlaceKind::Sentinel { begin, end, mark } => read_sentinel_map(&text, begin, end, mark),
         _ => Err("not an object place".into()),
     }
 }
@@ -231,15 +239,6 @@ fn store_object(path: &Path, place: &Place, map: &Map<String, Value>) -> Result<
                 .map_err(|err| err.to_string())?;
             atomic_write(path, format!("{body}\n").as_bytes())
         }
-        PlaceKind::Sentinel { begin, end, mark } => {
-            let existing = if path.exists() {
-                fs::read_to_string(path).map_err(|err| err.to_string())?
-            } else {
-                String::new()
-            };
-            let next = write_sentinel(&existing, begin, end, mark, map)?;
-            atomic_write(path, next.as_bytes())
-        }
         _ => Err("not an object place".into()),
     }
 }
@@ -249,66 +248,6 @@ fn parse_object(text: &str, path: &Path) -> Result<Map<String, Value>, String> {
         Value::Object(map) => Ok(map),
         _ => Err(format!("{} is not a JSON object", path.display())),
     }
-}
-
-fn read_sentinel_map(
-    text: &str,
-    begin: &str,
-    end: &str,
-    mark: &str,
-) -> Result<Map<String, Value>, String> {
-    let lines = split_lines(text);
-    let Some(start) = lines.iter().position(|line| line.trim() == begin) else {
-        return Ok(Map::new());
-    };
-    let end_at = lines
-        .iter()
-        .enumerate()
-        .skip(start + 1)
-        .find(|(_, line)| line.trim() == end)
-        .map(|(index, _)| index)
-        .ok_or_else(|| format!("missing {end}"))?;
-    let mut map = Map::new();
-    for line in &lines[start + 1..end_at] {
-        let Some(rest) = line.trim().strip_prefix(mark) else {
-            continue;
-        };
-        match serde_json::from_str(rest).map_err(|err| err.to_string())? {
-            Value::Object(parsed) => map = parsed,
-            _ => return Err("sentinel JSON is not an object".into()),
-        }
-    }
-    Ok(map)
-}
-
-fn write_sentinel(
-    text: &str,
-    begin: &str,
-    end: &str,
-    mark: &str,
-    map: &Map<String, Value>,
-) -> Result<String, String> {
-    let lines = split_lines(text);
-    let json = serde_json::to_string(&Value::Object(map.clone())).map_err(|err| err.to_string())?;
-    let block = [begin.to_string(), format!("{mark}{json}"), end.to_string()];
-    let begin_at = lines.iter().position(|line| line.trim() == begin);
-    let (head, tail) = if let Some(start) = begin_at {
-        let end_at = lines
-            .iter()
-            .enumerate()
-            .skip(start + 1)
-            .find(|(_, line)| line.trim() == end)
-            .map(|(index, _)| index)
-            .ok_or_else(|| format!("missing {end}"))?;
-        (lines[..start].to_vec(), lines[end_at + 1..].to_vec())
-    } else {
-        (lines, Vec::new())
-    };
-    let mut out = Vec::new();
-    out.extend(head);
-    out.extend(block);
-    out.extend(tail);
-    Ok(join_lines(&out))
 }
 
 fn read_items(path: &Path) -> Result<Value, String> {
@@ -331,26 +270,6 @@ fn read_whole(path: &Path) -> Result<Value, String> {
         return Ok(Value::Null);
     }
     serde_json::from_str(&text).map_err(|err| err.to_string())
-}
-
-fn split_lines(text: &str) -> Vec<String> {
-    if text.is_empty() {
-        return Vec::new();
-    }
-    let mut lines: Vec<String> = text.split('\n').map(str::to_string).collect();
-    if text.ends_with('\n') {
-        lines.pop();
-    }
-    lines
-}
-
-fn join_lines(lines: &[String]) -> String {
-    if lines.is_empty() {
-        return String::new();
-    }
-    let mut out = lines.join("\n");
-    out.push('\n');
-    out
 }
 
 fn with_lock<T>(path: &Path, body: impl FnOnce() -> Result<T, String>) -> Result<T, String> {

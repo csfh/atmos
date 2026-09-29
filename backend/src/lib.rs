@@ -7,6 +7,7 @@
 
 mod display;
 mod domain;
+mod effects;
 mod patch;
 mod store;
 
@@ -274,12 +275,20 @@ fn write_domain(
         }
         Err(err) => return Err(err),
     }
+    if backend == "omarchy" {
+        effects::after_write(root, key, value)?;
+    }
     if root.is_none() && backend == "omarchy" {
         if matches!(
             place.kind,
-            domain::PlaceKind::Lua { .. } | domain::PlaceKind::Flag
+            domain::PlaceKind::Lua { .. }
+                | domain::PlaceKind::Flag
+                | domain::PlaceKind::Hypr { .. }
         ) {
             spawn_command("hyprctl", &["reload"]);
+        }
+        if key.starts_with("nightlight") {
+            spawn_command("omarchy", &["restart", "hyprsunset"]);
         }
         run_live_command(key, value);
         if key == "tweaks.swappiness" {

@@ -2,6 +2,7 @@ mod common;
 
 use std::fs;
 use std::io::Write;
+use std::os::unix::fs::PermissionsExt;
 use std::process::{Command, Stdio};
 
 use serde_json::Value;
@@ -37,7 +38,7 @@ fn every_domain_roundtrips_through_the_backend_process() {
             file != "atmos-settings.json",
             "{key} is not a private prefs file"
         );
-        let value = probe(index, ty, key);
+        let value = probe_for(index, ty, key);
         let set = request(
             &root,
             "omarchy",
@@ -57,7 +58,11 @@ fn every_domain_roundtrips_through_the_backend_process() {
             "omarchy",
             &serde_json::json!({"op": "settings.get", "domain": key}),
         );
-        assert_eq!(&got["result"], value, "{key} read does not match the write");
+        assert!(
+            round_ok(key, value, &got["result"]),
+            "{key} read does not match the write\nwritten {value}\ngot {}",
+            got["result"]
+        );
         let rel = domain["file"].as_str().unwrap();
         let text =
             fs::read_to_string(root.join(rel)).unwrap_or_else(|err| panic!("read {rel}: {err}"));
@@ -139,6 +144,50 @@ fn assert_pinned(domains: &Value, key: &str, file: &str) {
     assert_eq!(found["file"], file, "{key}");
 }
 
+fn probe_for(index: usize, ty: &str, domain: &str) -> Value {
+    match domain {
+        "bindings" => serde_json::json!([{
+            "keys": "SUPER+A",
+            "label": "Probe",
+            "command": "true",
+            "unbind": false
+        }]),
+        "windowRules" => serde_json::json!([{
+            "match": "probe-window",
+            "placement": "float"
+        }]),
+        "workspaces" => serde_json::json!([{
+            "id": "1",
+            "name": "ProbeWs",
+            "persistent": true
+        }]),
+        "autostart" => serde_json::json!([{
+            "command": "probe-autostart",
+            "delay": 0,
+            "enabled": true
+        }]),
+        "monitorRules" => serde_json::json!([{
+            "output": "DP-1",
+            "mode": "preferred",
+            "position": "auto",
+            "scale": 1
+        }]),
+        "envVars" => serde_json::json!([{
+            "key": "ATMOS_PROBE",
+            "value": "probe-envVars"
+        }]),
+        "envPathPrepend" => serde_json::json!("/opt/probe"),
+        "nightlightDay" => serde_json::json!("07:11"),
+        "nightlightNight" => serde_json::json!("20:11"),
+        "nightlightTemperature" => serde_json::json!(4500),
+        "audioOutputVolume" | "audioInputVolume" => serde_json::json!(40),
+        "mimePdf" => serde_json::json!("mimePdf.desktop"),
+        "mimeImage" => serde_json::json!("mimeImage.desktop"),
+        "mimeVideo" => serde_json::json!("mimeVideo.desktop"),
+        _ => probe(index, ty, domain),
+    }
+}
+
 fn probe(index: usize, ty: &str, domain: &str) -> Value {
     let token = format!("probe-{}", domain.replace('.', "-"));
     match ty {
@@ -172,7 +221,101 @@ fn file_contains(text: &str, domain: &Value, value: &Value) -> bool {
         }
         "lua" => !text.contains("atmos-json") && text.contains(&scalar(value)),
         "flag" => text.contains("hl.config"),
+        "hypr" => hypr_file_contains(key, text, value),
+        "doc" => doc_file_contains(key, text, value),
         other => panic!("unknown encoding {other}"),
+    }
+}
+
+fn round_ok(key: &str, written: &Value, got: &Value) -> bool {
+    match key {
+        "bindings" => list_has(got, "keys", "SUPER+A") && list_has(got, "command", "true"),
+        "windowRules" => list_has(got, "match", "probe-window"),
+        "workspaces" => list_has(got, "name", "ProbeWs"),
+        "autostart" => list_has(got, "command", "probe-autostart"),
+        "monitorRules" => list_has(got, "output", "DP-1"),
+        _ => got == written,
+    }
+}
+
+fn list_has(value: &Value, field: &str, expect: &str) -> bool {
+    value.as_array().is_some_and(|items| {
+        items
+            .iter()
+            .any(|item| item.get(field).and_then(Value::as_str) == Some(expect))
+    })
+}
+
+fn hypr_file_contains(key: &str, text: &str, value: &Value) -> bool {
+    if text.contains("atmos-json") {
+        return false;
+    }
+    match key {
+        "bindings" => text.contains("o.bind(\"SUPER+A\", \"Probe\", \"true\")"),
+        "windowRules" => text.contains("o.window(\"probe-window\""),
+        "workspaces" => text.contains("default_name = \"ProbeWs\""),
+        "autostart" => text.contains("o.launch_on_start(\"probe-autostart\")"),
+        "monitorRules" => text.contains("output = \"DP-1\""),
+        "workspaceWrapSwitch" | "workspaceWheelSwitch" => {
+            let name = if key == "workspaceWrapSwitch" {
+                "wrapSwitch"
+            } else {
+                "wheelSwitch"
+            };
+            let flag = if value.as_bool() == Some(true) {
+                "true"
+            } else {
+                "false"
+            };
+            text.contains(&format!("-- atmos:{name} = {flag}"))
+        }
+        _ => false,
+    }
+}
+
+fn doc_file_contains(key: &str, text: &str, value: &Value) -> bool {
+    if text.contains("atmos-json") {
+        return false;
+    }
+    let rendered = scalar(value);
+    match key {
+        "nightlight" => text.contains("# atmos:nightlight = true"),
+        "nightlightDay" => text.contains("time = 07:11"),
+        "nightlightNight" => text.contains("time = 20:11"),
+        "nightlightNightOn" => text.matches("profile {").count() >= 2,
+        "nightlightTemperature" => text.contains(&format!("temperature = {rendered}")),
+        "envPathPrepend" => text.contains(&format!("PATH={rendered}:$PATH")),
+        "envVars" => text.contains("ATMOS_PROBE=probe-envVars"),
+        "mimePdf" => text.contains(&format!("application/pdf={rendered}")),
+        "mimeImage" => {
+            text.contains(&format!("image/png={rendered}"))
+                && text.contains(&format!("image/jpeg={rendered}"))
+                && text.contains(&format!("image/webp={rendered}"))
+                && text.contains(&format!("image/gif={rendered}"))
+        }
+        "mimeVideo" => {
+            text.contains(&format!("video/mp4={rendered}"))
+                && text.contains(&format!("video/webm={rendered}"))
+                && text.contains(&format!("video/x-matroska={rendered}"))
+        }
+        "audioOutputVolume" => text.contains(&format!("output-volume {rendered}")),
+        "audioInputVolume" => text.contains(&format!("input-volume {rendered}")),
+        "audioOutputMuted" => text.contains("output-muted true"),
+        "audioInputMuted" => text.contains("input-muted true"),
+        "audioTuningOn" => text.contains("tuning true"),
+        "bluetooth" | "wifiRadio" | "suspendEnabled" | "crashCapture" => text.trim() == rendered,
+        "presentationMode" => text.contains("\"on\":true"),
+        "chargeLimit" => text.trim() == rendered,
+        "snapperNumberLimit" => text.contains(&format!("NUMBER_LIMIT=\"{rendered}\"")),
+        "snapperTimeline" => text.contains("TIMELINE_CREATE=\"yes\""),
+        "passwordlessSudo" => text.contains("NOPASSWD"),
+        "fingerprintConfigured" => text.contains("pam_fprintd.so"),
+        "fido2Configured" => text.contains("pam_u2f.so"),
+        "sshdEnabled" => text.contains("enable sshd.service"),
+        "fstrimEnabled" => text.trim() == "enabled",
+        "directBoot" => text.contains("Boot0001* Omarchy"),
+        "sudolessDocker" => text.trim() == "docker",
+        _ => false,
     }
 }
 
@@ -362,4 +505,284 @@ fn planted_documents_keep_their_shape() {
     assert!(!lua.contains("\"24\""), "{lua}");
 
     cleanup(&root);
+}
+
+#[test]
+fn planted_bindings_keep_lines_outside_the_sentinel() {
+    let root = temp_root();
+    let file = root.join(".config/hypr/bindings.lua");
+    fs::create_dir_all(file.parent().unwrap()).unwrap();
+    fs::write(
+        &file,
+        "\
+-- keep outside
+o.bind(\"SUPER+Q\", \"Outside\", \"true\")
+-- atmos:bindings begin
+o.bind(\"SUPER+Z\", \"Old\", \"false\")
+-- atmos:bindings end
+",
+    )
+    .unwrap();
+
+    request(
+        &root,
+        "omarchy",
+        &serde_json::json!({
+            "op": "settings.set",
+            "domain": "bindings",
+            "value": [{
+                "keys": "SUPER+A",
+                "label": "Probe",
+                "command": "true",
+                "unbind": false
+            }]
+        }),
+    );
+
+    let text = fs::read_to_string(&file).unwrap();
+    let begin = text
+        .find("-- atmos:bindings begin")
+        .expect("bindings sentinel");
+    let outside = text.find("SUPER+Q").expect("outside bind");
+    let inside = text.find("SUPER+A").expect("new bind");
+    assert!(text.contains("-- keep outside"), "{text}");
+    assert!(outside < begin, "{text}");
+    assert!(inside > begin, "{text}");
+    assert!(
+        text.contains("o.bind(\"SUPER+Q\", \"Outside\", \"true\")"),
+        "{text}"
+    );
+    assert!(
+        text.contains("o.bind(\"SUPER+A\", \"Probe\", \"true\")"),
+        "{text}"
+    );
+    assert!(!text.contains("SUPER+Z"), "{text}");
+    assert!(!text.contains("atmos-json"), "{text}");
+
+    let got = request(
+        &root,
+        "omarchy",
+        &serde_json::json!({"op": "settings.get", "domain": "bindings"}),
+    );
+    assert!(
+        list_has(&got["result"], "keys", "SUPER+Q"),
+        "{}",
+        got["result"]
+    );
+    assert!(
+        list_has(&got["result"], "keys", "SUPER+A"),
+        "{}",
+        got["result"]
+    );
+    assert!(
+        !list_has(&got["result"], "keys", "SUPER+Z"),
+        "{}",
+        got["result"]
+    );
+
+    cleanup(&root);
+}
+
+#[test]
+fn planted_atmos_lua_keeps_the_other_sentinel() {
+    let root = temp_root();
+    let file = root.join(".config/hypr/atmos.lua");
+    fs::create_dir_all(file.parent().unwrap()).unwrap();
+    fs::write(
+        &file,
+        "\
+-- keep outside atmos
+-- atmos:windows begin
+o.window(\"old-window\", { float = true })
+-- atmos:windows end
+-- atmos:workspaces begin
+-- atmos:wrapSwitch = true
+-- atmos:wheelSwitch = true
+hl.workspace_rule({ workspace = \"1\", persistent = true, default_name = \"Kept\" })
+-- atmos:workspaces end
+",
+    )
+    .unwrap();
+
+    request(
+        &root,
+        "omarchy",
+        &serde_json::json!({
+            "op": "settings.set",
+            "domain": "windowRules",
+            "value": [{"match": "probe-window", "placement": "float"}]
+        }),
+    );
+    let after_window = fs::read_to_string(&file).unwrap();
+    assert!(
+        after_window.contains("-- keep outside atmos"),
+        "{after_window}"
+    );
+    assert!(
+        after_window.contains("o.window(\"probe-window\""),
+        "{after_window}"
+    );
+    assert!(!after_window.contains("old-window"), "{after_window}");
+    assert!(
+        after_window.contains("default_name = \"Kept\""),
+        "{after_window}"
+    );
+    assert!(!after_window.contains("atmos-json"), "{after_window}");
+
+    request(
+        &root,
+        "omarchy",
+        &serde_json::json!({
+            "op": "settings.set",
+            "domain": "workspaces",
+            "value": [{"id": "1", "name": "ProbeWs", "persistent": true}]
+        }),
+    );
+    let after_workspace = fs::read_to_string(&file).unwrap();
+    assert!(
+        after_workspace.contains("-- keep outside atmos"),
+        "{after_workspace}"
+    );
+    assert!(
+        after_workspace.contains("o.window(\"probe-window\""),
+        "{after_workspace}"
+    );
+    assert!(
+        after_workspace.contains("default_name = \"ProbeWs\""),
+        "{after_workspace}"
+    );
+    assert!(
+        !after_workspace.contains("default_name = \"Kept\""),
+        "{after_workspace}"
+    );
+    assert!(!after_workspace.contains("atmos-json"), "{after_workspace}");
+
+    let windows = request(
+        &root,
+        "omarchy",
+        &serde_json::json!({"op": "settings.get", "domain": "windowRules"}),
+    );
+    assert!(
+        list_has(&windows["result"], "match", "probe-window"),
+        "{}",
+        windows["result"]
+    );
+    let workspaces = request(
+        &root,
+        "omarchy",
+        &serde_json::json!({"op": "settings.get", "domain": "workspaces"}),
+    );
+    assert!(
+        list_has(&workspaces["result"], "name", "ProbeWs"),
+        "{}",
+        workspaces["result"]
+    );
+
+    cleanup(&root);
+}
+
+#[test]
+fn audio_volume_runs_set_audio_without_a_private_map() {
+    let home = temp_root();
+    let bin = home.join("bin");
+    let log = home.join("pactl.log");
+    fs::create_dir_all(&bin).unwrap();
+    let log_path = log.display().to_string();
+    fs::write(
+        bin.join("omarchy"),
+        format!(
+            "#!/bin/sh\nprintf '%s\\n' \"$*\" >> '{log_path}'\nif [ \"$1\" = audio ] && [ \"$2\" = output ] && [ \"$3\" = sink ]; then\n  printf '%s\\n' fake-sink\nfi\nexit 0\n"
+        ),
+    )
+    .unwrap();
+    fs::write(
+        bin.join("pactl"),
+        format!("#!/bin/sh\nprintf '%s\\n' \"$*\" >> '{log_path}'\nexit 0\n"),
+    )
+    .unwrap();
+    fs::write(
+        bin.join("wpctl"),
+        format!("#!/bin/sh\nprintf '%s\\n' \"$*\" >> '{log_path}'\nexit 0\n"),
+    )
+    .unwrap();
+    for name in ["omarchy", "pactl", "wpctl"] {
+        let path = bin.join(name);
+        let mut perms = fs::metadata(&path).unwrap().permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(path, perms).unwrap();
+    }
+    let repo = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .to_path_buf();
+    let path = format!(
+        "{}:{}",
+        bin.display(),
+        std::env::var("PATH").unwrap_or_default()
+    );
+
+    let set = request_at_home(
+        &home,
+        &repo,
+        &path,
+        &serde_json::json!({
+            "op": "settings.set",
+            "domain": "audioOutputVolume",
+            "value": 40
+        }),
+    );
+    assert_eq!(set["result"]["value"], 40, "{set}");
+    let recorded = fs::read_to_string(&log).unwrap_or_default();
+    assert!(
+        recorded.contains("set-sink-volume fake-sink 40%"),
+        "{recorded}"
+    );
+    assert!(!home.join(".config/omarchy/audio.json").exists());
+    let level = fs::read_to_string(home.join(".local/state/omarchy/audio-level")).unwrap();
+    assert!(level.contains("output-volume 40"), "{level}");
+
+    let got = request_at_home(
+        &home,
+        &repo,
+        &path,
+        &serde_json::json!({"op": "settings.get", "domain": "audioOutputVolume"}),
+    );
+    assert_eq!(got["result"], 40, "{got}");
+
+    cleanup(&home);
+}
+
+fn request_at_home(
+    home: &std::path::Path,
+    repo: &std::path::Path,
+    path: &str,
+    body: &Value,
+) -> Value {
+    let mut child = Command::new(env!("CARGO_BIN_EXE_atmos-backend"))
+        .env("HOME", home)
+        .env("PATH", path)
+        .env("ATMOS_ROOT", repo)
+        .args(["--backend", "omarchy", "request"])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(serde_json::to_string(body).unwrap().as_bytes())
+        .unwrap();
+    let output = child.wait_with_output().unwrap();
+    assert!(
+        output.status.success(),
+        "stdout {}\nstderr {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let value: Value = serde_json::from_slice(&output.stdout).expect("response json");
+    assert_eq!(value["ok"], Value::Bool(true), "{value}");
+    assert_eq!(value["version"], "0.1.0", "{value}");
+    value
 }

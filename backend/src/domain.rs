@@ -60,16 +60,17 @@ pub enum PlaceKind {
         begin: &'static str,
         end: &'static str,
     },
-    Sentinel {
-        begin: &'static str,
-        end: &'static str,
-        mark: &'static str,
-    },
     Line {
         prefix: &'static str,
     },
     /// A file whose presence is the toggle. `true` writes the file; `false` removes it.
     Flag,
+    /// Hyprland block written by `hypr-sentinel.py` (`o.bind`, `o.window`, and the rest).
+    Hypr {
+        kind: &'static str,
+    },
+    /// A document the existing shell script already writes (env, sunset, mime, audio, …).
+    Doc,
     Items,
     Whole,
 }
@@ -81,9 +82,10 @@ impl Place {
             PlaceKind::Shell => "shell",
             PlaceKind::Nested { .. } => "nested",
             PlaceKind::Lua { .. } => "lua",
-            PlaceKind::Sentinel { .. } => "sentinel",
             PlaceKind::Line { .. } => "line",
             PlaceKind::Flag => "flag",
+            PlaceKind::Hypr { .. } => "hypr",
+            PlaceKind::Doc => "doc",
             PlaceKind::Items => "items",
             PlaceKind::Whole => "whole",
         }
@@ -346,9 +348,9 @@ pub fn locate(backend: &str, spec: &Spec) -> Result<Place, String> {
         "theme" => map(".config/omarchy/theme.json"),
         "defaults" => map(".config/omarchy/defaults.json"),
         "network" => map(".config/omarchy/network.json"),
-        "audio" => map(".config/omarchy/audio.json"),
+        "audio" => doc(".local/state/omarchy/audio-level"),
         "power" => map(".config/omarchy/power.json"),
-        "env" => map(".config/omarchy/env.json"),
+        "env" => doc(".config/environment.d/10-atmos.conf"),
         "tweaks" => map(".config/omarchy/tweaks.json"),
         "security" => map(".config/omarchy/security.json"),
         "shell" => Place {
@@ -365,42 +367,12 @@ pub fn locate(backend: &str, spec: &Spec) -> Result<Place, String> {
             "-- atmos:input begin",
             "-- atmos:input end",
         ),
-        "bindings" => sentinel(
-            ".config/hypr/bindings.lua",
-            "-- atmos:bindings begin",
-            "-- atmos:bindings end",
-            "-- atmos-json ",
-        ),
-        "windows" => sentinel(
-            ".config/hypr/atmos.lua",
-            "-- atmos:windows begin",
-            "-- atmos:windows end",
-            "-- atmos-json ",
-        ),
-        "workspaces" => sentinel(
-            ".config/hypr/atmos.lua",
-            "-- atmos:workspaces begin",
-            "-- atmos:workspaces end",
-            "-- atmos-json ",
-        ),
-        "autostart" => sentinel(
-            ".config/hypr/autostart.lua",
-            "-- atmos:autostart begin",
-            "-- atmos:autostart end",
-            "-- atmos-json ",
-        ),
-        "monitors" => sentinel(
-            ".config/hypr/monitors.lua",
-            "-- atmos:monitors begin",
-            "-- atmos:monitors end",
-            "-- atmos-json ",
-        ),
-        "hyprsunset" => sentinel(
-            ".config/hypr/hyprsunset.conf",
-            "# atmos:hyprsunset begin",
-            "# atmos:hyprsunset end",
-            "# atmos-json ",
-        ),
+        "bindings" => hypr("bindings", ".config/hypr/bindings.lua"),
+        "windows" => hypr("windows", ".config/hypr/atmos.lua"),
+        "workspaces" => hypr("workspaces", ".config/hypr/atmos.lua"),
+        "autostart" => hypr("autostart", ".config/hypr/autostart.lua"),
+        "monitors" => hypr("monitors", ".config/hypr/monitors.lua"),
+        "hyprsunset" => doc(".config/hypr/hyprsunset.conf"),
         "hostname" => line("etc/hostname", ""),
         "timezone" => line("etc/timezone", ""),
         "locale" => line("etc/locale.conf", "LANG="),
@@ -439,10 +411,17 @@ fn line(rel: &str, prefix: &'static str) -> Place {
     }
 }
 
-fn sentinel(rel: &str, begin: &'static str, end: &'static str, mark: &'static str) -> Place {
+fn hypr(kind: &'static str, rel: &str) -> Place {
     Place {
         rel: rel.into(),
-        kind: PlaceKind::Sentinel { begin, end, mark },
+        kind: PlaceKind::Hypr { kind },
+    }
+}
+
+fn doc(rel: &str) -> Place {
+    Place {
+        rel: rel.into(),
+        kind: PlaceKind::Doc,
     }
 }
 
@@ -474,6 +453,24 @@ fn omarchy_key(key: &str) -> Option<Place> {
             flag(".local/state/omarchy/toggles/hypr/single-window-aspect-ratio.lua")
         }
         "doNotDisturb" => nested(".local/state/omarchy/notifications.json", &["dnd"]),
+        "mimePdf" | "mimeImage" | "mimeVideo" => doc(".config/mimeapps.list"),
+        "customDns" => line(".config/omarchy/custom-dns", ""),
+        "bluetooth" => doc(".local/state/omarchy/bluetooth-power"),
+        "wifiRadio" => doc(".local/state/omarchy/wifi-radio"),
+        "suspendEnabled" => doc(".local/state/omarchy/suspend"),
+        "crashCapture" => doc(".local/state/omarchy/crash-capture"),
+        "presentationMode" => doc(".local/state/omarchy/atmos-presentation.json"),
+        "chargeLimit" => doc("sys/class/power_supply/BAT0/charge_control_end_threshold"),
+        "snapperNumberLimit" | "snapperTimeline" => doc("etc/snapper/configs/root"),
+        "passwordlessSudo" => doc("etc/sudoers.d/99-omarchy-nopasswd"),
+        "fingerprintConfigured" | "fido2Configured" => doc("etc/pam.d/sudo"),
+        "sshdEnabled" => doc("etc/systemd/system-preset/atmos-sshd.preset"),
+        "fstrimEnabled" => doc("etc/systemd/system/timers.target.wants/fstrim.timer"),
+        "directBoot" => doc("sys/firmware/efi/omarchy-entry"),
+        "sudolessDocker" => doc("etc/group.d/atmos-docker"),
+        "monitorScale" | "internalDisplay" | "internalMirror" => {
+            map(".config/omarchy/monitor-prefs.json")
+        }
         _ => return None,
     })
 }

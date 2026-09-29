@@ -100,9 +100,7 @@ fn run_script(kind: &str, sampler: Option<&Path>) -> Result<Value, String> {
 }
 
 fn script_path(kind: &str) -> Result<PathBuf, String> {
-    let name = collector("omarchy", kind);
-    let root = std::env::var("ATMOS_ROOT").map_err(|_| "ATMOS_ROOT is not set".to_string())?;
-    Ok(PathBuf::from(root).join("scripts").join(name))
+    crate::scripts::repo_script(collector("omarchy", kind))
 }
 
 fn stamp(value: Value, platform: &str, collector: &str) -> Value {

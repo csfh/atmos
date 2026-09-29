@@ -1,6 +1,7 @@
 mod common;
 
 use std::fs;
+use std::process::{Command, Stdio};
 
 use common::{cleanup, request, temp_root};
 
@@ -31,4 +32,25 @@ fn display_kinds_return_fixture_identity() {
         println!("ok {kind} {field}={value}");
     }
     cleanup(&root);
+}
+
+#[test]
+fn display_finds_scripts_without_atmos_root() {
+    let output = Command::new(env!("CARGO_BIN_EXE_ratmos"))
+        .env_remove("ATMOS_ROOT")
+        .args(["--backend", "omarchy", "display", "diagnostics"])
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .output()
+        .expect("spawn ratmos");
+    let err = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        !err.contains("ATMOS_ROOT is not set"),
+        "display should walk to scripts/\n{err}"
+    );
+    if output.status.success() {
+        let value: serde_json::Value = serde_json::from_slice(&output.stdout).expect("display json");
+        assert_eq!(value["collector"], "diag-inventory.py");
+    }
 }

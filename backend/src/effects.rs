@@ -984,7 +984,7 @@ fn keep_managed(value: &Value) -> Value {
 }
 
 fn hypr_apply(kind: &str, path: &Path, payload: &Value) -> Result<(), String> {
-    let script = repo_script("hypr-sentinel.py")?;
+    let script = crate::scripts::repo_script("hypr-sentinel.py")?;
     let json = serde_json::to_string(payload).map_err(|err| err.to_string())?;
     let output = Command::new("python3")
         .arg(&script)
@@ -1006,7 +1006,7 @@ fn hypr_apply(kind: &str, path: &Path, payload: &Value) -> Result<(), String> {
 }
 
 fn hypr_list(kind: &str, path: &Path) -> Result<Value, String> {
-    let script = repo_script("hypr-sentinel.py")?;
+    let script = crate::scripts::repo_script("hypr-sentinel.py")?;
     let output = Command::new("python3")
         .arg(&script)
         .arg(kind)
@@ -1024,28 +1024,8 @@ fn hypr_list(kind: &str, path: &Path) -> Result<Value, String> {
     serde_json::from_slice(&output.stdout).map_err(|err| err.to_string())
 }
 
-fn repo_script(name: &str) -> Result<PathBuf, String> {
-    let mut candidates = Vec::new();
-    if let Ok(root) = std::env::var("ATMOS_ROOT") {
-        candidates.push(PathBuf::from(root).join("scripts").join(name));
-    }
-    if let Ok(exe) = std::env::current_exe() {
-        let mut dir = exe.parent().map(Path::to_path_buf);
-        for _ in 0..8 {
-            if let Some(current) = dir.as_ref() {
-                candidates.push(current.join("scripts").join(name));
-                dir = current.parent().map(Path::to_path_buf);
-            }
-        }
-    }
-    candidates
-        .into_iter()
-        .find(|path| path.is_file())
-        .ok_or_else(|| format!("missing scripts/{name}"))
-}
-
 fn run_bash(skip_live: bool, name: &str, args: &[&str]) -> Result<(), String> {
-    let script = repo_script(name)?;
+    let script = crate::scripts::repo_script(name)?;
     let mut command = Command::new("bash");
     command.arg(&script).args(args);
     if skip_live {

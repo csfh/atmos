@@ -10,6 +10,7 @@ pub mod domain;
 pub mod effect;
 mod effects;
 mod patch;
+mod scripts;
 mod store;
 
 use std::io::Write;
@@ -339,8 +340,7 @@ fn scalar_arg(value: &Value) -> Result<String, String> {
 }
 
 fn run_script(name: &str, args: &[&str]) -> Result<(), String> {
-    let root = std::env::var("ATMOS_ROOT").map_err(|_| "ATMOS_ROOT is not set".to_string())?;
-    let path = PathBuf::from(root).join("scripts").join(name);
+    let path = scripts::repo_script(name)?;
     let status = Command::new("bash")
         .arg(&path)
         .args(args)
@@ -479,8 +479,7 @@ fn overlay_domain(doc: &mut Map<String, Value>, key: &str, value: Value) {
 }
 
 fn capture_snapshot_sh(group: &str) -> Result<String, String> {
-    let root = std::env::var("ATMOS_ROOT").map_err(|_| "ATMOS_ROOT is not set".to_string())?;
-    let script = PathBuf::from(root).join("scripts").join("snapshot.sh");
+    let script = scripts::repo_script("snapshot.sh")?;
     let output = Command::new("bash")
         .arg(&script)
         .arg(group)

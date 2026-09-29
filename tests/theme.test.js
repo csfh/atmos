@@ -3,10 +3,13 @@ const path = require("path");
 const { load, assert, assertEqual } = require("./harness");
 
 const themeQml = fs.readFileSync(path.join(__dirname, "..", "services", "Theme.qml"), "utf8");
-assert(themeQml.indexOf("inotifywait") !== -1, "Theme.qml watches currentDir with inotifywait");
 assert(
-  themeQml.indexOf("interval: 1000") !== -1,
-  "Theme.qml restarts inotifywait after 1s, not a poll",
+  themeQml.indexOf("inotifywait") === -1,
+  "Theme.qml does not watch the host with inotifywait",
+);
+assert(
+  themeQml.indexOf("host.chrome") !== -1 && themeQml.indexOf("interval: 1000") !== -1,
+  "Theme.qml polls ratmos for chrome once a second",
 );
 assert(themeQml.indexOf("interval: 800") === -1, "Theme.qml has no 800ms theme poll");
 assert(
@@ -376,10 +379,10 @@ assert(
   "restorePreview does not reread named dirs or current/ files",
 );
 
-const applyFn = qmlFunctionBody(themeQml, "applyNamedTheme");
+const applyFn = qmlFunctionBody(themeQml, "applyPack");
 assert(
-  applyFn.indexOf("themeShellValues = raw ? ThemeJs.parseShell(raw) : ({})") !== -1,
-  "applyNamedTheme resets themeShellValues when a theme has no shell.toml",
+  applyFn.indexOf("themeShellValues = shellRaw ? ThemeJs.parseShell(shellRaw) : ({})") !== -1,
+  "applyPack resets themeShellValues when a theme has no shell.toml",
 );
 
 const setThemeFn = qmlFunctionBody(bgOmarchySrc, "setTheme");

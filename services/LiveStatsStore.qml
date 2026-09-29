@@ -101,7 +101,7 @@ QtObject {
   }
 
   property Process statsProc: Process {
-    command: Omarchy.backendCommand(["display", "live", "--sampler", Omarchy.liveStatsScript])
+    command: Omarchy.backendCommand(["display", "live"])
     stdout: StdioCollector {
       id: statsOut
       waitForEnd: true

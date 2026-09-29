@@ -92,7 +92,6 @@ QtObject {
   readonly property string createHookScript: shellDir + "/scripts/create-hook.sh"
   readonly property string setHookSampleScript: shellDir + "/scripts/set-hook-sample.sh"
   readonly property string diagReportScript: shellDir + "/scripts/diag-report.sh"
-  readonly property string liveStatsScript: shellDir + "/scripts/live-stats.py"
   readonly property string signalProcessScript: shellDir + "/scripts/signal-process.sh"
   readonly property string envFile: Quickshell.env("HOME") + "/.config/environment.d/10-atmos.conf"
   readonly property string presentationFile: Quickshell.env("HOME") + "/.local/state/omarchy/atmos-presentation.json"
@@ -863,11 +862,7 @@ QtObject {
   }
 
   function inputLuaText() {
-    inputLuaView.reload()
-    if (typeof inputLuaView.waitForJob === "function")
-      inputLuaView.waitForJob()
-    var src = typeof inputLuaView.text === "function" ? inputLuaView.text() : inputLuaView.text
-    return String(src || "")
+    return String(inputLuaCache || "")
   }
 
   function applyHyprWorkspaceGestureFromFile() {
@@ -3056,6 +3051,7 @@ QtObject {
   Component.onCompleted: {
     SnapshotGroups.setSnapshotGroupForHub(HubsJs.snapshotGroupForHub)
     Theme.currentThemeSwapped.connect(root.applyThemeNameFromFile)
+    root.pollWatches()
     startSession(Quickshell.env("ATMOS_PAGE") || "home")
   }
 
@@ -3123,43 +3119,95 @@ QtObject {
     if (mapped && mapped !== root.theme) root.applySnapshot(JSON.stringify({ theme: mapped }))
   }
 
-  property Instantiator fileWatchers: Instantiator {
-    model: root.watchSpecs
-    delegate: FileView {
-      path: modelData.path
-      watchChanges: true
-      printErrors: false
-      onFileChanged: {
-        reload()
-        root.scheduleRefresh(modelData.group)
+  property string inputLuaCache: ""
+  property var watchSig: ({})
+  property string stampStdin: ""
+
+  function watchPaths() {
+    var specs = root.watchSpecs || []
+    var paths = []
+    var i
+    for (i = 0; i < specs.length; i++) {
+      if (specs[i] && specs[i].path) paths.push(String(specs[i].path))
+    }
+    paths.push(root.extraThemesDir)
+    paths.push(root.favoritesFile)
+    paths.push(root.inputLuaFile)
+    return paths
+  }
+
+  function pollWatches() {
+    if (stampProc.running) return
+    root.stampStdin = JSON.stringify({ op: "host.stamp", paths: root.watchPaths() })
+    stampProc.command = root.backendCommand(["request"])
+    stampProc.stdinEnabled = true
+    stampProc.running = true
+  }
+
+  function groupForPath(path) {
+    var specs = root.watchSpecs || []
+    var i
+    for (i = 0; i < specs.length; i++) {
+      if (specs[i] && String(specs[i].path) === path) return String(specs[i].group || "")
+    }
+    return ""
+  }
+
+  function adoptStamp(doc) {
+    var items = doc && doc.items ? doc.items : []
+    var next = {}
+    var i, item, path, sig, prev
+    for (i = 0; i < items.length; i++) {
+      item = items[i]
+      path = String(item.path || "")
+      sig = String(item.sig || "")
+      next[path] = sig
+      prev = root.watchSig[path]
+      if (path === root.inputLuaFile) {
+        var lua = String(item.text || "")
+        if (lua !== root.inputLuaCache) {
+          root.inputLuaCache = lua
+          root.applyHyprWorkspaceGestureFromFile()
+        }
+      }
+      if (path === root.favoritesFile && (prev === undefined || prev !== sig))
+        root.loadFavorites(String(item.text || ""))
+      if (prev !== undefined && prev !== sig) {
+        if (path === root.extraThemesDir) root.scheduleRefresh("look")
+        else {
+          var group = root.groupForPath(path)
+          if (group) root.scheduleRefresh(group)
+        }
       }
     }
+    root.watchSig = next
   }
 
-  // FileView misses nested git clones in extraThemesDir. inotifywait follows
-  // create/delete/move/close_write; the 1s timer restarts a dead watcher.
-  property Process extraThemesWatcher: Process {
-    running: true
-    command: [
-      "inotifywait", "-m", "-q",
-      "-e", "create,delete,move,close_write",
-      "--format", "%e %f",
-      extraThemesDir
-    ]
-    stdout: SplitParser {
-      onRead: function(line) { extraThemesDebounce.restart() }
-    }
-    onExited: extraThemesWatcherRestart.restart()
-  }
-
-  property Timer extraThemesWatcherRestart: Timer {
+  property Timer watchTimer: Timer {
     interval: 1000
-    onTriggered: extraThemesWatcher.running = true
+    running: true
+    repeat: true
+    onTriggered: root.pollWatches()
   }
 
-  property Timer extraThemesDebounce: Timer {
-    interval: 180
-    onTriggered: root.scheduleRefresh("look")
+  property Process stampProc: Process {
+    command: ["true"]
+    stdinEnabled: false
+    stdout: StdioCollector { id: stampOut; waitForEnd: true }
+    onStarted: {
+      if (root.stampStdin.length > 0) {
+        write(root.stampStdin)
+        root.stampStdin = ""
+        stdinEnabled = false
+      }
+    }
+    onExited: function(code) {
+      if (code !== 0) return
+      var env = null
+      try { env = JSON.parse(String(stampOut.text || "")) } catch (e) { env = null }
+      if (!env || env.ok !== true || !env.result) return
+      root.adoptStamp(env.result)
+    }
   }
 
   property Timer refreshTimer: Timer {
@@ -3249,22 +3297,6 @@ QtObject {
       root.snapshotReady = true
       root.ioFinished()
     }
-  }
-
-  property FileView inputLuaView: FileView {
-    path: root.inputLuaFile
-    watchChanges: false
-    printErrors: false
-  }
-
-  property FileView favoritesView: FileView {
-    path: root.favoritesFile
-    watchChanges: true
-    preload: true
-    printErrors: false
-    onLoaded: root.loadFavorites(text())
-    onLoadFailed: root.favoriteItems = []
-    onFileChanged: reload()
   }
 
   property Process interactiveProc: Process {

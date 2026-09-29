@@ -9,6 +9,7 @@ mod display;
 pub mod domain;
 pub mod effect;
 mod effects;
+mod host;
 mod patch;
 mod scripts;
 mod store;
@@ -223,6 +224,16 @@ fn handle(
             display::load(root, backend, kind, sampler)?
         }
         "display.snapshot" => load_displays(backend, root, sampler, display::KINDS),
+        "host.chrome" => host::chrome(backend, root)?,
+        "host.themePack" => host::theme_pack(backend, root, request)?,
+        "host.accounts" => host::accounts(backend, root, request)?,
+        "host.stamp" => host::stamp(root, request)?,
+        "host.read" => host::read_files(root, request)?,
+        "host.write" => host::write_file(root, request)?,
+        "host.open" => host::open_file(root, request)?,
+        "speedtest.disk" => host::speed_disk(backend, root, request)?,
+        "speedtest.net" => host::speed_net(backend, root, request)?,
+        "unit.output" => host::unit_output(backend, root, request)?,
         other => return Ok(error_envelope(backend, &format!("unknown op {other}"))),
     };
     Ok(ok_envelope(backend, result))

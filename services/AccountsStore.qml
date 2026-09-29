@@ -14,30 +14,13 @@ QtObject {
   property var users: []
   property var groups: []
 
-  readonly property string hostnameFile: "/etc/hostname"
-  readonly property string passwdFile: "/etc/passwd"
-  readonly property string groupFile: "/etc/group"
-  readonly property string faceIconFile: Quickshell.env("HOME") + "/.face.icon"
-  readonly property string faceFile: Quickshell.env("HOME") + "/.face"
   readonly property string homeDir: Quickshell.env("HOME") || ""
 
-  function pathExists(path) {
-    var target = String(path || "")
-    if (!target) return false
-    peekFile.path = ""
-    peekFile.path = target
-    peekFile.reload()
-    peekFile.waitForJob()
-    return peekFile.loaded
-  }
-
-  function readPath(path) {
-    var target = String(path || "")
-    if (!target) return ""
-    peekFile.path = target
-    peekFile.reload()
-    peekFile.waitForJob()
-    return peekFile.text() || ""
+  function backendRequest() {
+    var bin = String(Quickshell.env("ATMOS_BACKEND") || "")
+    if (!bin.length) bin = String(Quickshell.shellDir || "") + "/bin/ratmos"
+    var id = String(Quickshell.env("ATMOS_BACKEND_ID") || "omarchy")
+    return [bin, "--backend", id, "request"]
   }
 
   function applyPatch(parsed) {
@@ -58,43 +41,57 @@ QtObject {
   }
 
   function reloadFromDisk() {
+    if (accountProc.running) return
+    accountStdin = JSON.stringify({
+      op: "host.accounts",
+      user: Quickshell.env("USER") || Quickshell.env("LOGNAME") || "",
+      home: root.homeDir
+    })
+    accountProc.command = root.backendRequest()
+    accountProc.stdinEnabled = true
+    accountProc.running = true
+  }
+
+  function adoptAccounts(doc) {
+    var present = doc && doc.exists ? doc.exists : {}
     var seeded = AccountsJs.seedFromDisk({
       currentUser: Quickshell.env("USER") || Quickshell.env("LOGNAME") || "",
-      hostname: root.readPath(root.hostnameFile),
-      passwd: root.readPath(root.passwdFile),
-      group: root.readPath(root.groupFile),
+      hostname: doc ? String(doc.hostname || "") : "",
+      passwd: doc ? String(doc.passwd || "") : "",
+      group: doc ? String(doc.group || "") : "",
       home: root.homeDir,
-      exists: root.pathExists
+      exists: function(path) { return present[String(path)] === true }
     })
     root.applyPatch(seeded)
   }
 
-  property FileView peekFile: FileView {
-    printErrors: false
-    blockLoading: true
+  property string accountStdin: ""
+
+  property Timer accountTimer: Timer {
+    interval: 2000
+    running: true
+    repeat: true
+    onTriggered: root.reloadFromDisk()
   }
 
-  property var watchPaths: [
-    hostnameFile, passwdFile, groupFile, faceIconFile, faceFile
-  ]
-
-  property Instantiator fileWatchers: Instantiator {
-    model: root.watchPaths
-    delegate: FileView {
-      path: modelData
-      watchChanges: true
-      printErrors: false
-      onFileChanged: {
-        reload()
-        diskDebounce.restart()
+  property Process accountProc: Process {
+    command: ["true"]
+    stdinEnabled: false
+    stdout: StdioCollector { id: accountOut; waitForEnd: true }
+    onStarted: {
+      if (root.accountStdin.length > 0) {
+        write(root.accountStdin)
+        root.accountStdin = ""
+        stdinEnabled = false
       }
     }
-  }
-
-  property Timer diskDebounce: Timer {
-    interval: 80
-    repeat: false
-    onTriggered: root.reloadFromDisk()
+    onExited: function(code) {
+      if (code !== 0) return
+      var env = null
+      try { env = JSON.parse(String(accountOut.text || "")) } catch (e) { env = null }
+      if (!env || env.ok !== true || !env.result) return
+      root.adoptAccounts(env.result)
+    }
   }
 
   Component.onCompleted: root.reloadFromDisk()

@@ -25,7 +25,7 @@ QtObject {
   property var userShellValues: ({})
   property var shellValues: ({})
 
-  // In-memory copy of the live FileView chrome. Hover preview paints over
+  // In-memory copy of the live chrome. Hover preview paints over
   // Theme colors, then restorePreview puts these back. source: "live" --
   // never a named theme directory.
   property var livePreviewSnapshot: null
@@ -196,41 +196,37 @@ QtObject {
     shellValues = ThemeJs.mergeShell(themeShellValues, userShellValues)
   }
 
-  function reload() {
-    colorsFile.reload()
-    shellFile.reload()
-    userShellFile.reload()
+  function backendRequest() {
+    var bin = String(Quickshell.env("ATMOS_BACKEND") || "")
+    if (!bin.length) bin = String(Quickshell.shellDir || "") + "/bin/ratmos"
+    var id = String(Quickshell.env("ATMOS_BACKEND_ID") || "omarchy")
+    return [bin, "--backend", id, "request"]
   }
 
-  function readPath(path) {
-    peekFile.path = path
-    peekFile.reload()
-    peekFile.waitForJob()
-    return peekFile.text() || ""
+  function reload() {
+    root.requestChrome()
+  }
+
+  function requestChrome() {
+    if (chromeProc.running) return
+    chromeKind = "chrome"
+    chromeStdin = JSON.stringify({ op: "host.chrome" })
+    chromeProc.command = root.backendRequest()
+    chromeProc.stdinEnabled = true
+    chromeProc.running = true
   }
 
   function applyNamedTheme(name) {
-    var paths = ThemeJs.themeFileCandidates(name, "colors.toml", root.home)
-    var i
-    var raw = ""
-    for (i = 0; i < paths.length; i++) {
-      raw = root.readPath(paths[i])
-      if (raw) {
-        root.applyColors(raw)
-        break
-      }
-    }
-    paths = ThemeJs.themeFileCandidates(name, "shell.toml", root.home)
-    raw = ""
-    for (i = 0; i < paths.length; i++) {
-      raw = root.readPath(paths[i])
-      if (raw) break
-    }
-    // Always replace. A theme with no shell.toml must not keep the previous
-    // theme's font.base-size / fills, or the chrome (and an open popup) jump
-    // to leftover tokens.
-    root.themeShellValues = raw ? ThemeJs.parseShell(raw) : ({})
-    root.mergeShell()
+    if (chromeProc.running) return
+    chromeKind = "pack"
+    chromeStdin = JSON.stringify({
+      op: "host.themePack",
+      name: String(name || ""),
+      home: root.home
+    })
+    chromeProc.command = root.backendRequest()
+    chromeProc.stdinEnabled = true
+    chromeProc.running = true
   }
 
   function discardPreview() {
@@ -276,148 +272,80 @@ QtObject {
   // so fontSize / rowHeight stay put and the open popup does not reflow.
   function previewNamedTheme(name) {
     root.captureLivePreview()
-    var raw = ThemeJs.firstThemeFile(name, "colors.toml", root.home, function(path) {
-      return root.readPath(path)
+    if (chromeProc.running) return
+    chromeKind = "colors"
+    chromeStdin = JSON.stringify({
+      op: "host.themePack",
+      name: String(name || ""),
+      home: root.home,
+      part: "colors.toml"
     })
-    if (raw) root.applyColors(raw)
+    chromeProc.command = root.backendRequest()
+    chromeProc.stdinEnabled = true
+    chromeProc.running = true
   }
 
-  // omarchy-theme-set rm -rf's current/theme then mv's a new directory in.
-  // FileView watches the old inode, so bounce the path onto the new files.
-  function reopenThemeFiles() {
-    var colors = root.currentThemePath + "/colors.toml"
-    var shell = root.currentThemePath + "/shell.toml"
-    colorsFile.path = ""
-    shellFile.path = ""
-    colorsFile.path = colors
-    shellFile.path = shell
-    userShellFile.reload()
-  }
-
-  function currentThemeSlug() {
-    return String(root.readPath(root.currentThemeNameFile) || "").replace(/^\s+|\s+$/g, "")
-  }
-
-  // The bar watches ~/.local/state/omarchy/current (the directory), not
-  // theme.name. omarchy-theme-set replaces the theme directory, then writes
-  // theme.name, then retargets the background symlink. Debounce those events
-  // so colors.toml exists before we read it.
-  function handleCurrentChanged() {
-    var slug = root.currentThemeSlug()
-    var colors = root.readPath(root.currentThemePath + "/colors.toml")
-    if (!colors && root.currentDirTries < 8) {
-      root.currentDirTries++
-      currentDirDebounce.interval = 40
-      currentDirDebounce.restart()
-      return
-    }
-    root.currentDirTries = 0
-    currentDirDebounce.interval = 80
-    if (slug) root.applyNamedTheme(slug)
+  function applyChrome(doc) {
+    if (!doc) return
+    var slug = String(doc.themeName || "").replace(/^\s+|\s+$/g, "")
+    var colors = String(doc.colors || "")
     if (colors) root.applyColors(colors)
-    var shellRaw = root.readPath(root.currentThemePath + "/shell.toml")
-    if (shellRaw) {
-      root.themeShellValues = ThemeJs.parseShell(shellRaw)
-      root.mergeShell()
+    root.themeShellValues = doc.themeShell ? ThemeJs.parseShell(String(doc.themeShell)) : ({})
+    root.userShellValues = doc.userShell ? ThemeJs.parseShell(String(doc.userShell)) : ({})
+    root.mergeShell()
+    if (slug && slug !== root.lastThemeSlug) {
+      root.lastThemeSlug = slug
+      root.currentThemeSwapped(slug)
     }
-    root.reopenThemeFiles()
-    if (slug) root.currentThemeSwapped(slug)
+  }
+
+  function applyPack(doc, colorsOnly) {
+    if (!doc) return
+    var colors = String(doc.colors || "")
+    if (colors) root.applyColors(colors)
+    if (colorsOnly) return
+    var shellRaw = String(doc.shell || "")
+    root.themeShellValues = shellRaw ? ThemeJs.parseShell(shellRaw) : ({})
+    root.mergeShell()
   }
 
   signal currentThemeSwapped(string slug)
 
-  property int currentDirTries: 0
+  property string lastThemeSlug: ""
+  property string chromeKind: "chrome"
+  property string chromeStdin: ""
 
-  property Timer currentDirDebounce: Timer {
-    interval: 80
-    repeat: false
-    onTriggered: root.handleCurrentChanged()
-  }
-
-  // omarchy-theme-set replaces current/theme. FileView keeps the old inode;
-  // inotifywait on currentDir follows the replace. The 1s timer only restarts
-  // a dead watcher.
-  property Process currentDirWatcher: Process {
-    running: true
-    command: [
-      "inotifywait", "-m", "-q",
-      "-e", "close_write,create,delete,move,modify,attrib",
-      "--format", "%e %f",
-      root.currentDir
-    ]
-    stdout: SplitParser {
-      onRead: function(line) { currentDirWatcherDebounce.restart() }
-    }
-    onExited: currentDirWatcherRestart.restart()
-  }
-
-  property Timer currentDirWatcherRestart: Timer {
+  // Poll the backend for the live theme files. A timer asks again. Quickshell
+  // does not watch the theme directory itself.
+  property Timer chromeTimer: Timer {
     interval: 1000
-    onTriggered: currentDirWatcher.running = true
+    running: true
+    repeat: true
+    onTriggered: root.requestChrome()
   }
 
-  property Timer currentDirWatcherDebounce: Timer {
-    interval: 120
-    onTriggered: root.handleCurrentChanged()
-  }
-
-  property FileView peekFile: FileView {
-    printErrors: false
-    blockLoading: true
-  }
-
-  property FileView themeNameFile: FileView {
-    path: root.currentThemeNameFile
-    watchChanges: true
-    preload: true
-    printErrors: false
-    onFileChanged: currentDirDebounce.restart()
-  }
-
-  property FileView colorsFile: FileView {
-    path: root.currentThemePath + "/colors.toml"
-    watchChanges: true
-    preload: true
-    printErrors: false
-    onLoaded: {
-      var raw = text()
-      if (!raw) return
-      root.applyColors(raw)
+  property Process chromeProc: Process {
+    command: ["true"]
+    stdinEnabled: false
+    stdout: StdioCollector { id: chromeOut; waitForEnd: true }
+    stderr: StdioCollector { id: chromeErr; waitForEnd: true }
+    onStarted: {
+      if (root.chromeStdin.length > 0) {
+        write(root.chromeStdin)
+        root.chromeStdin = ""
+        stdinEnabled = false
+      }
     }
-    onFileChanged: reload()
+    onExited: function(code) {
+      if (code !== 0) return
+      var env = null
+      try { env = JSON.parse(String(chromeOut.text || "")) } catch (e) { env = null }
+      if (!env || env.ok !== true || !env.result) return
+      if (root.chromeKind === "colors") root.applyPack(env.result, true)
+      else if (root.chromeKind === "pack") root.applyPack(env.result, false)
+      else root.applyChrome(env.result)
+    }
   }
 
-  property FileView shellFile: FileView {
-    path: root.currentThemePath + "/shell.toml"
-    watchChanges: true
-    preload: true
-    printErrors: false
-    onLoaded: {
-      var raw = text()
-      if (!raw) return
-      root.themeShellValues = ThemeJs.parseShell(raw)
-      root.mergeShell()
-    }
-    onLoadFailed: {
-      root.themeShellValues = ({})
-      root.mergeShell()
-    }
-    onFileChanged: reload()
-  }
-
-  property FileView userShellFile: FileView {
-    path: root.userShellPath
-    watchChanges: true
-    preload: true
-    printErrors: false
-    onLoaded: {
-      root.userShellValues = ThemeJs.parseShell(text())
-      root.mergeShell()
-    }
-    onLoadFailed: {
-      root.userShellValues = ({})
-      root.mergeShell()
-    }
-    onFileChanged: reload()
-  }
+  Component.onCompleted: root.requestChrome()
 }

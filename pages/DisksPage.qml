@@ -95,10 +95,12 @@ PrefsPage {
     diskTarget = dir || ""
     if (diskTarget)
       setDiskResult(diskTarget, { name: "", read: "", write: "", error: "" })
-    if (dir && Omarchy.validMountPath(dir))
-      diskProc.command = ["omarchy", "disk", "speedtest", dir]
-    else
-      diskProc.command = ["omarchy", "disk", "speedtest"]
+    diskStdin = JSON.stringify({
+      op: "speedtest.disk",
+      dir: dir && Omarchy.validMountPath(dir) ? dir : ""
+    })
+    diskProc.command = Omarchy.backendCommand(["request"])
+    diskProc.stdinEnabled = true
     diskProc.running = true
   }
 
@@ -113,31 +115,45 @@ PrefsPage {
     if (diskProc.running) diskProc.running = false
   }
 
-  Process {
-    id: diskProc
-    stdout: SplitParser {
-      onRead: function(line) {
-        var parsed = RichUi.parseDiskSpeedLine(line)
-        if (!parsed) return
-        if (parsed.kind === "disk") {
-          root.diskName = String(parsed.value)
-          root.setDiskResult(root.diskTarget, { name: root.diskName })
-        } else if (parsed.kind === "read") {
-          root.diskPhase = "read"
-          root.diskRead = String(parsed.value)
-          root.setDiskResult(root.diskTarget, { read: root.diskRead })
-        } else if (parsed.kind === "write") {
-          root.diskPhase = "write"
-          root.diskWrite = String(parsed.value)
-          root.setDiskResult(root.diskTarget, { write: root.diskWrite })
-        }
+  property string diskStdin: ""
+
+  function adoptDisk(text) {
+    var lines = String(text || "").split("\n")
+    var i, parsed
+    for (i = 0; i < lines.length; i++) {
+      parsed = RichUi.parseDiskSpeedLine(lines[i])
+      if (!parsed) continue
+      if (parsed.kind === "disk") {
+        root.diskName = String(parsed.value)
+        root.setDiskResult(root.diskTarget, { name: root.diskName })
+      } else if (parsed.kind === "read") {
+        root.diskPhase = "read"
+        root.diskRead = String(parsed.value)
+        root.setDiskResult(root.diskTarget, { read: root.diskRead })
+      } else if (parsed.kind === "write") {
+        root.diskPhase = "write"
+        root.diskWrite = String(parsed.value)
+        root.setDiskResult(root.diskTarget, { write: root.diskWrite })
       }
     }
-    stderr: StdioCollector {
-      id: diskErr
-      waitForEnd: true
+  }
+
+  Process {
+    id: diskProc
+    stdinEnabled: false
+    stdout: StdioCollector { id: diskOut; waitForEnd: true }
+    stderr: StdioCollector { id: diskErr; waitForEnd: true }
+    onStarted: {
+      if (root.diskStdin.length > 0) {
+        write(root.diskStdin)
+        root.diskStdin = ""
+        stdinEnabled = false
+      }
     }
     onExited: function(code) {
+      var env = null
+      try { env = JSON.parse(String(diskOut.text || "")) } catch (e) { env = null }
+      if (env && env.ok === true && env.result) root.adoptDisk(env.result.stdout)
       if (root.diskExpectedStop) {
         root.diskExpectedStop = false
         root.diskRunning = false
@@ -146,8 +162,10 @@ PrefsPage {
       }
       root.diskRunning = false
       root.diskPhase = ""
-      if (code !== 0) {
-        root.diskError = String(diskErr.text || "Disk speed test failed").replace(/^\s+|\s+$/g, "")
+      var diskExit = env && env.result ? Number(env.result.exit) : code
+      if (code !== 0 || diskExit !== 0) {
+        var diskErrText = env && env.result && env.result.stderr ? env.result.stderr : diskErr.text
+        root.diskError = String(diskErrText || "Disk speed test failed").replace(/^\s+|\s+$/g, "")
         root.setDiskResult(root.diskTarget, { error: root.diskError })
       } else {
         root.setDiskResult(root.diskTarget, { error: "" })

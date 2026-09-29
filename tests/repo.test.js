@@ -1716,7 +1716,7 @@ assert(
 );
 assert(
   omarchySrc.indexOf("applyHyprWorkspaceGestureFromFile") !== -1 &&
-    omarchySrc.indexOf("inputLuaView.waitForJob") !== -1 &&
+    omarchySrc.indexOf("inputLuaCache") !== -1 &&
     omarchySrc.indexOf('job.key === "hyprInput"') !== -1,
   "Omarchy refreshes workspace gesture ownership from the file after an input write",
 );
@@ -1803,8 +1803,9 @@ assert(
 
 const exportPage = fs.readFileSync(path.join(__dirname, "..", "pages", "ExportPage.qml"), "utf8");
 assert(
-  exportPage.indexOf("writeProc.stdinEnabled = true") !== -1,
-  "export re-arms stdin, so a second export is not an empty file",
+  exportPage.indexOf("host.write") !== -1 &&
+    exportPage.indexOf("ioProc.stdinEnabled = true") !== -1,
+  "export writes through ratmos and re-arms stdin for the next request",
 );
 assert(
   exportPage.indexOf("workspaceGestureUnmanaged: Omarchy.liveWorkspaceGestureUnmanaged()") !== -1,
@@ -1934,7 +1935,8 @@ const liveStoreSrc = fs.readFileSync(
   "utf8",
 );
 assert(
-  liveStoreSrc.indexOf("Omarchy.liveStatsScript") !== -1 &&
+  liveStoreSrc.indexOf('["display", "live"]') !== -1 &&
+    liveStoreSrc.indexOf("liveStatsScript") === -1 &&
     liveStoreSrc.indexOf("interval: root.intervalMs") !== -1 &&
     liveStoreSrc.indexOf("pragma Singleton") !== -1 &&
     liveStoreSrc.indexOf("syncIntervalHolds") !== -1,
@@ -2557,18 +2559,16 @@ assert(
   "syncThemeFromDiskIfStale is gone",
 );
 const themeQmlSrc = fs.readFileSync(path.join(__dirname, "..", "services", "Theme.qml"), "utf8");
-assert(themeQmlSrc.indexOf("inotifywait") !== -1, "inotifywait is in Theme.qml");
+assert(themeQmlSrc.indexOf("inotifywait") === -1, "inotifywait is not in Theme.qml");
 const watchStart = omarchySrc.indexOf("readonly property var watchSpecs:");
 const watchEnd = omarchySrc.indexOf("function applyThemeNameFromFile", watchStart);
 const watchBody = omarchySrc.slice(watchStart, watchEnd);
 assert(watchBody.indexOf("extraThemesDir") === -1, "extraThemesDir is not in watchSpecs");
 assert(watchBody.indexOf("packagedThemesDir") !== -1, "packaged themes dir may stay FileView");
-const extraWatchStart = omarchySrc.indexOf("property Process extraThemesWatcher:");
-assert(extraWatchStart !== -1, "Omarchy watches extraThemesDir with a Process");
-const extraWatchBody = omarchySrc.slice(extraWatchStart, extraWatchStart + 900);
+assert(omarchySrc.indexOf("inotifywait") === -1, "Omarchy does not run inotifywait");
 assert(
-  extraWatchBody.indexOf("inotifywait") !== -1 && extraWatchBody.indexOf("extraThemesDir") !== -1,
-  "extraThemesDir has inotifywait",
+  omarchySrc.indexOf("host.stamp") !== -1 && omarchySrc.indexOf("extraThemesDir") !== -1,
+  "extraThemesDir is included in the ratmos stamp poll",
 );
 const jobProcStart = omarchySrc.indexOf("property Process jobProc:");
 assert(jobProcStart !== -1, "jobProc exists");

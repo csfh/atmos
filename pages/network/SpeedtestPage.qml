@@ -33,7 +33,9 @@ PrefsPage {
 
   function startSpeedPhase(phase) {
     speedPhase = phase
-    speedProc.command = ["omarchy", "network", "speedtest", phase]
+    speedStdin = JSON.stringify({ op: "speedtest.net", phase: phase })
+    speedProc.command = Omarchy.backendCommand(["request"])
+    speedProc.stdinEnabled = true
     speedProc.running = true
     speedTimer.restart()
   }
@@ -130,29 +132,45 @@ PrefsPage {
     }
   }
 
+  property string speedStdin: ""
+
+  function adoptSpeed(text) {
+    var lines = String(text || "").split("\n")
+    var i, n
+    for (i = 0; i < lines.length; i++) {
+      n = RichUi.parseMbpsLine(lines[i])
+      if (!isFinite(n)) continue
+      if (root.speedPhase === "down") root.downloadMbps = String(n)
+      else if (root.speedPhase === "up") root.uploadMbps = String(n)
+    }
+  }
+
   Process {
     id: speedProc
-    stdout: SplitParser {
-      onRead: function(line) {
-        var n = RichUi.parseMbpsLine(line)
-        if (!isFinite(n)) return
-        if (root.speedPhase === "down") root.downloadMbps = String(n)
-        else if (root.speedPhase === "up") root.uploadMbps = String(n)
+    stdinEnabled: false
+    stdout: StdioCollector { id: speedOut; waitForEnd: true }
+    stderr: StdioCollector { id: speedErr; waitForEnd: true }
+    onStarted: {
+      if (root.speedStdin.length > 0) {
+        write(root.speedStdin)
+        root.speedStdin = ""
+        stdinEnabled = false
       }
-    }
-    stderr: StdioCollector {
-      id: speedErr
-      waitForEnd: true
     }
     onExited: function(code) {
       speedTimer.stop()
+      var env = null
+      try { env = JSON.parse(String(speedOut.text || "")) } catch (e) { env = null }
+      if (env && env.ok === true && env.result) root.adoptSpeed(env.result.stdout)
       if (root.speedExpectedStop) {
         root.speedExpectedStop = false
         if (root.speedRunning) root.finishSpeedPhase()
         return
       }
-      if (code !== 0) {
-        root.speedError = String(speedErr.text || "Speed test failed").replace(/^\s+|\s+$/g, "")
+      var speedExit = env && env.result ? Number(env.result.exit) : code
+      if (code !== 0 || speedExit !== 0) {
+        var speedErrText = env && env.result && env.result.stderr ? env.result.stderr : speedErr.text
+        root.speedError = String(speedErrText || "Speed test failed").replace(/^\s+|\s+$/g, "")
         root.speedRunning = false
         root.speedPhase = ""
         return

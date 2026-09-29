@@ -64,10 +64,10 @@ assert(
   "display inventories are requested from the Rust backend",
 );
 assert(
-  live.indexOf('["display", "live"') !== -1 &&
+  live.indexOf('["display", "live"]') !== -1 &&
     live.indexOf("Omarchy.backendCommand") !== -1 &&
-    live.indexOf("Omarchy.liveStatsScript") !== -1,
-  "live stats load through the Rust backend",
+    live.indexOf("liveStatsScript") === -1,
+  "live stats load through the Rust backend without a script path",
 );
 assert(
   launcher.indexOf("exec quickshell") !== -1 && launcher.indexOf("ATMOS_BACKEND") !== -1,

@@ -39,36 +39,28 @@ PrefsPage {
       return
     }
     if (action === "status") {
-      root.showOutput("Status · " + row.unit, root.statusArgv(row))
+      root.showOutput("Status · " + row.unit, "status", row)
       return
     }
     if (action === "logs") {
-      root.showOutput("Logs · " + row.unit, root.logsArgv(row))
+      root.showOutput("Logs · " + row.unit, "logs", row)
       return
     }
     if (!row.allowed) return
     Omarchy.systemdAction(action, row.unit, row.scope)
   }
 
-  function statusArgv(row) {
-    var argv = ["systemctl"]
-    if (row.scope === "user") argv.push("--user")
-    argv.push("--no-pager", "--full", "status", row.unit)
-    return argv
-  }
-
-  function logsArgv(row) {
-    var argv = ["journalctl"]
-    if (row.scope === "user") argv.push("--user")
-    else argv.push("--system")
-    argv.push("-u", row.unit, "-n", "80", "--no-pager")
-    return argv
-  }
-
-  function showOutput(title, argv) {
+  function showOutput(title, kind, row) {
     root.outputTitle = title
     root.outputText = "Reading…"
-    outputProc.command = argv
+    outputStdin = JSON.stringify({
+      op: "unit.output",
+      kind: kind,
+      scope: row && row.scope === "user" ? "user" : "system",
+      unit: row ? String(row.unit || "") : ""
+    })
+    outputProc.command = Omarchy.backendCommand(["request"])
+    outputProc.stdinEnabled = true
     outputProc.running = true
     outputDialog.open()
   }
@@ -208,23 +200,27 @@ PrefsPage {
     }
   }
 
+  property string outputStdin: ""
+
   Process {
     id: outputProc
     command: ["true"]
-    stdout: StdioCollector {
-      id: outputOut
-      waitForEnd: true
-    }
-    stderr: StdioCollector {
-      id: outputErr
-      waitForEnd: true
+    stdinEnabled: false
+    stdout: StdioCollector { id: outputOut; waitForEnd: true }
+    stderr: StdioCollector { id: outputErr; waitForEnd: true }
+    onStarted: {
+      if (root.outputStdin.length > 0) {
+        write(root.outputStdin)
+        root.outputStdin = ""
+        stdinEnabled = false
+      }
     }
     onExited: function(code) {
-      var text = String(outputOut.text || "")
-      var err = String(outputErr.text || "")
-      if (text.replace(/^\s+|\s+$/g, "").length === 0) text = err
+      var env = null
+      try { env = JSON.parse(String(outputOut.text || "")) } catch (e) { env = null }
+      var text = env && env.result ? String(env.result.text || "") : ""
       if (text.replace(/^\s+|\s+$/g, "").length === 0)
-        text = code === 0 ? "No output." : "Could not read that unit."
+        text = code === 0 ? "No output." : String(outputErr.text || "Could not read that unit.")
       root.outputText = text
     }
   }

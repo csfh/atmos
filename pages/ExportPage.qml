@@ -49,7 +49,7 @@ PrefsPage {
   readonly property bool applyingJob: Omarchy.jobKind === "settings-import" || Omarchy.jobKind === "settings-undo"
   // Derived rather than assigned, so it cannot be left stuck on by a path
   // that forgot to clear it.
-  readonly property bool working: writeProc.running || readProc.running || root.applyingJob || root.pendingApply
+  readonly property bool working: ioProc.running || root.applyingJob || root.pendingApply
 
   readonly property var sectionList: SettingsJs.selectableSections()
 
@@ -157,25 +157,31 @@ PrefsPage {
       hardware: Omarchy.dmiProduct
     })
     root.forgetExport()
-    // Re-armed every time: onStarted clears it to give cat its EOF, and that
-    // assignment does not restore itself, so a second export would write
-    // nothing and still report success.
-    writeProc.stdinEnabled = true
-    writeProc.target = root.realPath(root.exportPath)
-    writeProc.text = text
-    writeProc.command = ["sh", "-c", "cat > \"$1\"", "sh", writeProc.target]
-    writeProc.running = true
+    root.startIo("write", {
+      op: "host.write",
+      path: root.realPath(root.exportPath),
+      text: text
+    })
   }
 
   function openFile(path) {
-    openProc.command = ["xdg-open", root.realPath(path)]
-    openProc.running = true
+    root.startIo("open", { op: "host.open", path: root.realPath(path) })
   }
 
   function doReview() {
     root.forgetPlan()
-    readProc.command = ["cat", root.realPath(root.importPath)]
-    readProc.running = true
+    root.startIo("read", { op: "host.read", paths: [root.realPath(root.importPath)] })
+  }
+
+  function startIo(kind, body) {
+    if (ioProc.running) return
+    root.ioKind = kind
+    root.ioPath = body.path || (body.paths && body.paths[0]) || ""
+    root.ioText = body.text || ""
+    root.ioStdin = JSON.stringify(body)
+    ioProc.command = Omarchy.backendCommand(["request"])
+    ioProc.stdinEnabled = true
+    ioProc.running = true
   }
 
   // One queued job. enqueueIo prompts for sudo when the plan needs root,
@@ -255,52 +261,49 @@ PrefsPage {
 
   // ---- processes ---------------------------------------------------------
 
+  property string ioKind: ""
+  property string ioPath: ""
+  property string ioText: ""
+  property string ioStdin: ""
+
   Process {
-    id: writeProc
-    property string text: ""
-    property string target: ""
+    id: ioProc
     command: ["true"]
-    stdinEnabled: true
-    stderr: StdioCollector { id: writeErr; waitForEnd: true }
+    stdinEnabled: false
+    stdout: StdioCollector { id: ioOut; waitForEnd: true }
+    stderr: StdioCollector { id: ioErr; waitForEnd: true }
     onStarted: {
-      write(text)
-      // cat only finishes when its input ends.
-      stdinEnabled = false
+      if (root.ioStdin.length > 0) {
+        write(root.ioStdin)
+        root.ioStdin = ""
+        stdinEnabled = false
+      }
     }
     onExited: function(exitCode) {
-      if (exitCode === 0) {
-        root.writtenPath = writeProc.target
-        root.exportStatus = "Wrote " + root.chosenKeys.length + " settings to " + writeProc.target
+      var err = String(ioErr.text || "").replace(/^\s+|\s+$/g, "")
+      if (root.ioKind === "write") {
+        if (exitCode === 0) {
+          root.writtenPath = root.ioPath
+          root.exportStatus = "Wrote " + root.chosenKeys.length + " settings to " + root.ioPath
+        } else {
+          root.exportStatus = err.length > 0 ? err : "Could not write " + root.ioPath
+        }
         return
       }
-      var err = String(writeErr.text || "").replace(/^\s+|\s+$/g, "")
-      root.exportStatus = err.length > 0 ? err : "Could not write " + writeProc.target
-    }
-  }
-
-  Process {
-    id: openProc
-    command: ["true"]
-    stderr: StdioCollector { id: openErr; waitForEnd: true }
-    onExited: function(exitCode) {
-      if (exitCode === 0) return
-      var err = String(openErr.text || "").replace(/^\s+|\s+$/g, "")
-      root.exportStatus = err.length > 0 ? err : "Nothing on this machine opens that file."
-    }
-  }
-
-  Process {
-    id: readProc
-    command: ["true"]
-    stdout: StdioCollector { id: readOut; waitForEnd: true }
-    stderr: StdioCollector { id: readErr; waitForEnd: true }
-    onExited: function(exitCode) {
+      if (root.ioKind === "open") {
+        if (exitCode !== 0)
+          root.exportStatus = err.length > 0 ? err : "Nothing on this machine opens that file."
+        return
+      }
       if (exitCode !== 0) {
-        var err = String(readErr.text || "").replace(/^\s+|\s+$/g, "")
         root.importStatus = err.length > 0 ? err : "Could not read " + root.importPath
         return
       }
-      var doc = SettingsJs.parseSettingsMarkdown(String(readOut.text || ""))
+      var env = null
+      try { env = JSON.parse(String(ioOut.text || "")) } catch (e) { env = null }
+      var files = env && env.result && env.result.files ? env.result.files : []
+      var raw = files.length ? String(files[0].text || "") : ""
+      var doc = SettingsJs.parseSettingsMarkdown(raw)
       root.lastDoc = doc
       root.plan = SettingsJs.planImport(doc, Omarchy.snapshotData, null, {
         hardware: Omarchy.dmiProduct,

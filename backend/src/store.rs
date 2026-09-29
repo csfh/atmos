@@ -9,6 +9,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde_json::{Map, Value};
 
 use crate::domain::{Place, PlaceKind, Ty};
+use crate::patch;
 
 extern "C" {
     fn flock(fd: i32, operation: i32) -> i32;
@@ -17,20 +18,45 @@ extern "C" {
 const LOCK_EX: i32 = 2;
 const LOCK_UN: i32 = 8;
 
-pub fn read_place(root: &Path, place: &Place, key: &str, ty: Ty) -> Result<Value, String> {
-    let path = root.join(&place.rel);
+pub fn read_place(root: Option<&Path>, place: &Place, key: &str, ty: Ty) -> Result<Value, String> {
+    let path = place_path(root, &place.rel);
     with_lock(&path, || match &place.kind {
         PlaceKind::Map | PlaceKind::Sentinel { .. } => {
             let map = load_object(&path, place)?;
             Ok(map.get(key).cloned().unwrap_or(Value::Null))
         }
-        PlaceKind::Line { prefix } => read_line(&path, prefix, ty),
+        PlaceKind::Shell => {
+            let doc = load_value(&path)?;
+            Ok(patch::shell_get(&doc, key))
+        }
+        PlaceKind::Nested { path: keys } => {
+            let doc = load_value(&path)?;
+            Ok(patch::nested_get(&doc, keys))
+        }
+        PlaceKind::Lua { begin, end } => {
+            let text = read_text(&path)?;
+            patch::lua_read(&text, begin, end, key, ty)
+        }
+        PlaceKind::Line { prefix } => {
+            if !path.exists() {
+                return Ok(Value::Null);
+            }
+            let text = fs::read_to_string(&path).map_err(|err| err.to_string())?;
+            patch::line_read(&text, prefix, ty)
+        }
+        PlaceKind::Flag => Ok(Value::Bool(path.is_file())),
         PlaceKind::Items => read_items(&path),
         PlaceKind::Whole => read_whole(&path),
     })
 }
 
-pub fn write_place(root: &Path, place: &Place, key: &str, ty: Ty, value: &Value) -> Result<(), String> {
+pub fn write_place(
+    root: Option<&Path>,
+    place: &Place,
+    key: &str,
+    ty: Ty,
+    value: &Value,
+) -> Result<(), String> {
     if !ty.accepts(value) {
         return Err(format!("{key} expects {}", ty.name()));
     }
@@ -41,14 +67,34 @@ pub fn write_place(root: &Path, place: &Place, key: &str, ty: Ty, value: &Value)
             }
         }
     }
-    let path = root.join(&place.rel);
+    let path = place_path(root, &place.rel);
     with_lock(&path, || match &place.kind {
         PlaceKind::Map | PlaceKind::Sentinel { .. } => {
             let mut map = load_object(&path, place)?;
             map.insert(key.to_string(), value.clone());
             store_object(&path, place, &map)
         }
-        PlaceKind::Line { prefix } => write_line(&path, prefix, value),
+        PlaceKind::Shell => {
+            let mut doc = load_value(&path)?;
+            patch::shell_set(&mut doc, key, value);
+            write_pretty(&path, &doc)
+        }
+        PlaceKind::Nested { path: keys } => {
+            let mut doc = load_value(&path)?;
+            patch::nested_set(&mut doc, keys, value);
+            write_pretty(&path, &doc)
+        }
+        PlaceKind::Lua { begin, end } => {
+            let text = read_text(&path)?;
+            let next = patch::lua_write(&text, begin, end, key, value)?;
+            atomic_write(&path, next.as_bytes())
+        }
+        PlaceKind::Line { prefix } => {
+            let existing = read_text(&path)?;
+            let next = patch::line_write(&existing, prefix, value);
+            atomic_write(&path, next.as_bytes())
+        }
+        PlaceKind::Flag => write_flag(&path, &place.rel, value),
         PlaceKind::Items => {
             let body = serde_json::to_string(&serde_json::json!({ "items": value }))
                 .map_err(|err| err.to_string())?;
@@ -59,6 +105,108 @@ pub fn write_place(root: &Path, place: &Place, key: &str, ty: Ty, value: &Value)
             atomic_write(&path, format!("{body}\n").as_bytes())
         }
     })
+}
+
+fn place_path(root: Option<&Path>, rel: &str) -> PathBuf {
+    if let Some(root) = root {
+        return root.join(rel);
+    }
+    if rel.starts_with("etc/") || rel.starts_with("var/") || rel.starts_with("sys/") {
+        return Path::new("/").join(rel);
+    }
+    let home = std::env::var_os("HOME")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("/"));
+    home.join(rel)
+}
+
+fn read_text(path: &Path) -> Result<String, String> {
+    if !path.exists() {
+        return Ok(String::new());
+    }
+    fs::read_to_string(path).map_err(|err| err.to_string())
+}
+
+fn load_value(path: &Path) -> Result<Value, String> {
+    if !path.exists() {
+        return Ok(Value::Object(Map::new()));
+    }
+    let text = fs::read_to_string(path).map_err(|err| err.to_string())?;
+    if text.trim().is_empty() {
+        return Ok(Value::Object(Map::new()));
+    }
+    match serde_json::from_str::<Value>(&text).map_err(|err| err.to_string())? {
+        value if value.is_object() => Ok(value),
+        _ => Err(format!("{} is not a JSON object", path.display())),
+    }
+}
+
+fn write_pretty(path: &Path, value: &Value) -> Result<(), String> {
+    let body = serde_json::to_string_pretty(value).map_err(|err| err.to_string())?;
+    atomic_write(path, format!("{body}\n").as_bytes())
+}
+
+fn write_flag(path: &Path, rel: &str, value: &Value) -> Result<(), String> {
+    let on = value
+        .as_bool()
+        .ok_or_else(|| format!("{rel} expects a bool"))?;
+    if !on {
+        if path.exists() {
+            fs::remove_file(path).map_err(|err| err.to_string())?;
+        }
+        return Ok(());
+    }
+    let body = flag_text(rel);
+    atomic_write(path, body.as_bytes())
+}
+
+fn flag_text(rel: &str) -> String {
+    let name = Path::new(rel)
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("flag.lua");
+    let mut candidates = Vec::new();
+    if let Some(root) = std::env::var_os("OMARCHY_PATH") {
+        candidates.push(PathBuf::from(root).join("default/hypr/toggles").join(name));
+    }
+    candidates.push(PathBuf::from("/usr/share/omarchy/default/hypr/toggles").join(name));
+    for candidate in candidates {
+        if let Ok(text) = fs::read_to_string(&candidate) {
+            if !text.trim().is_empty() {
+                return if text.ends_with('\n') {
+                    text
+                } else {
+                    format!("{text}\n")
+                };
+            }
+        }
+    }
+    match name {
+        "window-no-gaps.lua" => "\
+-- Remove all window gaps and borders.
+hl.config({
+  general = {
+    gaps_out = 0,
+    gaps_in = 0,
+    border_size = 0,
+  },
+  decoration = {
+    rounding = 0,
+  },
+})
+"
+        .into(),
+        "single-window-aspect-ratio.lua" => "\
+-- Avoid overly wide single-window layouts on wide screens.
+hl.config({
+  layout = {
+    single_window_aspect_ratio = { 1, 1 },
+  },
+})
+"
+        .into(),
+        _ => format!("-- atmos flag {name}\nhl.config({{}})\n"),
+    }
 }
 
 fn load_object(path: &Path, place: &Place) -> Result<Map<String, Value>, String> {
@@ -79,7 +227,8 @@ fn load_object(path: &Path, place: &Place) -> Result<Map<String, Value>, String>
 fn store_object(path: &Path, place: &Place, map: &Map<String, Value>) -> Result<(), String> {
     match &place.kind {
         PlaceKind::Map => {
-            let body = serde_json::to_string(&Value::Object(map.clone())).map_err(|err| err.to_string())?;
+            let body = serde_json::to_string(&Value::Object(map.clone()))
+                .map_err(|err| err.to_string())?;
             atomic_write(path, format!("{body}\n").as_bytes())
         }
         PlaceKind::Sentinel { begin, end, mark } => {
@@ -102,7 +251,12 @@ fn parse_object(text: &str, path: &Path) -> Result<Map<String, Value>, String> {
     }
 }
 
-fn read_sentinel_map(text: &str, begin: &str, end: &str, mark: &str) -> Result<Map<String, Value>, String> {
+fn read_sentinel_map(
+    text: &str,
+    begin: &str,
+    end: &str,
+    mark: &str,
+) -> Result<Map<String, Value>, String> {
     let lines = split_lines(text);
     let Some(start) = lines.iter().position(|line| line.trim() == begin) else {
         return Ok(Map::new());
@@ -155,55 +309,6 @@ fn write_sentinel(
     out.extend(block);
     out.extend(tail);
     Ok(join_lines(&out))
-}
-
-fn read_line(path: &Path, prefix: &str, ty: Ty) -> Result<Value, String> {
-    if !path.exists() {
-        return Ok(Value::Null);
-    }
-    let text = fs::read_to_string(path).map_err(|err| err.to_string())?;
-    let text = text.trim_end_matches(['\n', '\r']);
-    if text.is_empty() && prefix.is_empty() {
-        return match ty {
-            Ty::String => Ok(Value::String(String::new())),
-            _ => Ok(Value::Null),
-        };
-    }
-    let rest = text
-        .strip_prefix(prefix)
-        .ok_or_else(|| format!("{} does not start with {prefix}", path.display()))?;
-    match ty {
-        Ty::String => Ok(Value::String(rest.to_string())),
-        Ty::Bool => match rest {
-            "true" => Ok(Value::Bool(true)),
-            "false" => Ok(Value::Bool(false)),
-            _ => Err(format!("expected true or false in {}", path.display())),
-        },
-        Ty::Int => {
-            let number: i64 = rest
-                .parse()
-                .map_err(|_| format!("expected an integer in {}", path.display()))?;
-            Ok(Value::from(number))
-        }
-        Ty::Number => {
-            let number: serde_json::Number = rest
-                .parse()
-                .map_err(|_| format!("expected a number in {}", path.display()))?;
-            Ok(Value::Number(number))
-        }
-        Ty::List => Err("line files do not store lists".into()),
-    }
-}
-
-fn write_line(path: &Path, prefix: &str, value: &Value) -> Result<(), String> {
-    let rendered = match value {
-        Value::String(text) => text.clone(),
-        Value::Bool(true) => "true".into(),
-        Value::Bool(false) => "false".into(),
-        Value::Number(number) => number.to_string(),
-        _ => return Err("line files store a scalar".into()),
-    };
-    atomic_write(path, format!("{prefix}{rendered}\n").as_bytes())
 }
 
 fn read_items(path: &Path) -> Result<Value, String> {
@@ -263,7 +368,11 @@ fn with_lock<T>(path: &Path, body: impl FnOnce() -> Result<T, String>) -> Result
         .map_err(|err| err.to_string())?;
     let rc = unsafe { flock(file.as_raw_fd(), LOCK_EX) };
     if rc != 0 {
-        return Err(format!("flock {} failed: {}", lock_path.display(), std::io::Error::last_os_error()));
+        return Err(format!(
+            "flock {} failed: {}",
+            lock_path.display(),
+            std::io::Error::last_os_error()
+        ));
     }
     let result = body();
     unsafe { flock(file.as_raw_fd(), LOCK_UN) };
@@ -271,9 +380,14 @@ fn with_lock<T>(path: &Path, body: impl FnOnce() -> Result<T, String>) -> Result
 }
 
 fn atomic_write(path: &Path, bytes: &[u8]) -> Result<(), String> {
-    let parent = path.parent().ok_or_else(|| format!("no parent for {}", path.display()))?;
+    let parent = path
+        .parent()
+        .ok_or_else(|| format!("no parent for {}", path.display()))?;
     fs::create_dir_all(parent).map_err(|err| err.to_string())?;
-    let nanos = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0);
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
     let mut tmp_name = path.file_name().unwrap_or_default().to_os_string();
     tmp_name.push(format!(".tmp-{}-{nanos}", std::process::id()));
     let tmp = parent.join(tmp_name);

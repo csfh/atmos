@@ -45,6 +45,9 @@ QtObject {
     for (i = 0; i < args.length; i++) cmd.push(String(args[i]))
     return cmd
   }
+  property var platform: ({ "id": "", "compositor": "", "family": "" })
+  property string snapStdin: ""
+  property string mutStdin: ""
   readonly property string setIdleScript: shellDir + "/scripts/set-idle.sh"
   readonly property string setBarWidgetScript: shellDir + "/scripts/set-bar-widget.sh"
   readonly property string setWifiConnectionScript: shellDir + "/scripts/set-wifi-connection.sh"
@@ -495,9 +498,63 @@ QtObject {
     kickIo()
   }
 
+  function domainValue(cmd, key) {
+    if (!cmd || !key) return undefined
+    if (Object.prototype.hasOwnProperty.call(cmd, "value")) return cmd.value
+    var apply = cmd.apply
+    if (apply && typeof apply === "object" && Object.prototype.hasOwnProperty.call(apply, key))
+      return apply[key]
+    var dot = String(key).indexOf(".")
+    if (dot > 0 && apply && typeof apply === "object") {
+      var head = String(key).slice(0, dot)
+      var tail = String(key).slice(dot + 1)
+      var node = apply[head]
+      if (node && typeof node === "object" && Object.prototype.hasOwnProperty.call(node, tail))
+        return node[tail]
+    }
+    return undefined
+  }
+
+  function foldSettings(result) {
+    var out = {}
+    var dotted = []
+    var key
+    if (!result || typeof result !== "object") return out
+    for (key in result) {
+      if (!Object.prototype.hasOwnProperty.call(result, key)) continue
+      if (result[key] === null || result[key] === undefined) continue
+      if (String(key).indexOf(".") === -1) out[key] = result[key]
+      else dotted.push(key)
+    }
+    var i, head, tail, dot
+    for (i = 0; i < dotted.length; i++) {
+      key = dotted[i]
+      dot = String(key).indexOf(".")
+      head = String(key).slice(0, dot)
+      tail = String(key).slice(dot + 1)
+      if (!out[head] || typeof out[head] !== "object" || Array.isArray(out[head])) out[head] = {}
+      out[head][tail] = result[key]
+    }
+    return out
+  }
+
+  function unstamp(value) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return value
+    var out = {}
+    var key
+    for (key in value) {
+      if (!Object.prototype.hasOwnProperty.call(value, key)) continue
+      if (key === "platform" || key === "collector") continue
+      out[key] = value[key]
+    }
+    return out
+  }
+
   function startIoJob(job) {
     if (job.kind === "read") {
-      snapshotProc.command = root.backendCommand(["gui-snapshot", job.group || "all"])
+      root.snapStdin = JSON.stringify({ op: "settings.snapshot", group: String(job.group || "all") })
+      snapshotProc.stdinEnabled = true
+      snapshotProc.command = root.backendCommand(["request"])
       snapshotProc.running = true
       return
     }
@@ -522,8 +579,21 @@ QtObject {
       return
     }
     lastError = ""
+    if (job.hasValue === true) {
+      root.mutStdin = JSON.stringify({
+        op: "settings.set",
+        domain: String(job.domain || job.key || ""),
+        value: job.value
+      })
+      mutProc.stdinEnabled = true
+      mutProc.command = root.backendCommand(["request"])
+      mutProc.running = true
+      return
+    }
+    root.mutStdin = ""
+    mutProc.stdinEnabled = false
     var argv = job.argv instanceof Array ? job.argv : []
-    var cmd = [root.backendBin, "apply", "--"]
+    var cmd = root.backendCommand(["apply", "--"])
     var argIndex
     for (argIndex = 0; argIndex < argv.length; argIndex++) cmd.push(String(argv[argIndex]))
     mutProc.command = cmd
@@ -626,6 +696,9 @@ QtObject {
       argv: argv,
       stdin: opts.stdin != null ? String(opts.stdin) : "",
       key: opts.key ? String(opts.key) : "",
+      domain: opts.domain ? String(opts.domain) : "",
+      hasValue: opts.hasValue === true,
+      value: opts.value,
       apply: opts.apply && typeof opts.apply === "object" ? opts.apply : null,
       refresh: snapshotRefreshGroup(opts.refresh),
       sudo: opts.sudo === true,
@@ -670,11 +743,17 @@ QtObject {
 
   function runSettingCommand(cmd, key, guard) {
     if (!cmd || cmd.skip) return
+    var value = root.domainValue(cmd, key)
     var opts = {
       key: cmd.coalesceKey || key,
+      domain: key,
       apply: cmd.apply,
       refresh: "none",
       sudo: cmd.sudo === true
+    }
+    if (value !== undefined) {
+      opts.hasValue = true
+      opts.value = value
     }
     if (guard && guard.id) opts.guard = guard
     runCommand(cmd.argv, opts)
@@ -961,19 +1040,7 @@ QtObject {
     // restorePreview cannot paint the pre-click chrome back over this.
     Theme.discardPreview()
     Theme.applyNamedTheme(name)
-    var cmd = SettingsJs.commandFor("theme", name, snapshotData, scriptOpts())
-    if (!cmd || cmd.skip) return
-    // Import argv stays omarchy theme set. Detach here so mutProc does not
-    // wait for omarchy-theme-set to recolor the shell.
-    var argv = ["bash", "-c", "\"$@\" >/dev/null 2>&1 &", "theme-set"]
-    var i
-    for (i = 0; i < cmd.argv.length; i++) argv.push(cmd.argv[i])
-    runCommand(argv, {
-      key: cmd.coalesceKey || "theme",
-      apply: cmd.apply,
-      refresh: "none",
-      sudo: cmd.sudo === true
-    })
+    dispatchSetting("theme", name)
   }
   function openThemeSwitcher() {
     runInteractive(["bash", "-c", "theme=$(omarchy theme switcher || true); [[ -n $theme ]] && omarchy theme set \"$theme\" >/dev/null 2>&1 &"], {
@@ -3109,10 +3176,42 @@ QtObject {
       id: displayErr
       waitForEnd: true
     }
+    onExited: function(exitCode) {
+      if (exitCode !== 0) return
+      var parsed = SnapshotJs.parseSnapshot(displayOut.text)
+      if (!parsed) return
+      var hw, disks, units, apps, diag
+      if (parsed.hardware) {
+        hw = root.unstamp(parsed.hardware)
+        root.hardware = HardwareJs.normalize(hw)
+      }
+      if (parsed.disks) {
+        disks = root.unstamp(parsed.disks)
+        if (disks.disks) root.disks = disks.disks
+        if (disks.luksDevices) root.luksDevices = disks.luksDevices
+        if (disks.swapDevices) root.swapDevices = disks.swapDevices
+        if (disks.snapshots) root.snapshots = disks.snapshots
+      }
+      if (parsed.services) {
+        units = root.unstamp(parsed.services)
+        if (units && Array.isArray(units.items)) root.systemdUnits = units.items
+      }
+      if (parsed.software) {
+        apps = root.unstamp(parsed.software)
+        if (apps.desktop) root.desktopApps = apps.desktop
+        if (apps.tui) root.tuiApps = apps.tui
+        if (apps.web) root.webApps = apps.web
+      }
+      if (parsed.diagnostics) {
+        diag = root.unstamp(parsed.diagnostics)
+        root.diagnostics = DiagnosticsJs.normalize(diag)
+      }
+    }
   }
 
   property Process snapshotProc: Process {
-    command: [root.backendBin, "--backend", root.backendId, "gui-snapshot", "all"]
+    command: root.backendCommand(["request"])
+    stdinEnabled: false
     stdout: StdioCollector {
       id: snapOut
       waitForEnd: true
@@ -3121,14 +3220,30 @@ QtObject {
       id: snapErr
       waitForEnd: true
     }
+    onStarted: {
+      if (root.snapStdin.length > 0) {
+        write(root.snapStdin)
+        root.snapStdin = ""
+        stdinEnabled = false
+      }
+    }
     onExited: function(exitCode) {
       var job = root.ioJob
       if (exitCode === 0) {
         root.lastError = ""
-        if (WorkQueue.shouldApplyRead(job, root.ioQueue))
-          root.applySnapshot(snapOut.text)
+        if (WorkQueue.shouldApplyRead(job, root.ioQueue)) {
+          var env = SnapshotJs.parseSnapshot(snapOut.text)
+          if (!env || env.ok !== true || !env.result) {
+            root.lastError = env && env.error ? String(env.error) : "settings snapshot failed"
+          } else {
+            if (env.platform) root.platform = env.platform
+            var folded = root.foldSettings(env.result)
+            if (job && job.group) folded.group = String(job.group)
+            root.applySnapshot(folded)
+          }
+        }
       } else {
-        root.lastError = String(snapErr.text || "omarchy snapshot failed").replace(/^\s+|\s+$/g, "")
+        root.lastError = String(snapErr.text || "settings snapshot failed").replace(/^\s+|\s+$/g, "")
       }
       root.snapshotReady = true
       root.ioFinished()
@@ -3185,6 +3300,7 @@ QtObject {
 
   property Process mutProc: Process {
     command: ["true"]
+    stdinEnabled: false
     stdout: StdioCollector {
       id: mutOut
       waitForEnd: true
@@ -3192,6 +3308,13 @@ QtObject {
     stderr: StdioCollector {
       id: mutErr
       waitForEnd: true
+    }
+    onStarted: {
+      if (root.mutStdin.length > 0) {
+        write(root.mutStdin)
+        root.mutStdin = ""
+        stdinEnabled = false
+      }
     }
     onExited: function(exitCode) {
       var job = root.ioJob

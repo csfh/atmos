@@ -20,12 +20,33 @@ function body(src, name, next) {
 
 const io = body(omarchy, "startIoJob", "snapshotRefreshGroup");
 assert(
-  io.indexOf("gui-snapshot") !== -1 && io.indexOf("backendCommand") !== -1,
-  "settings loads go through the Rust backend",
+  io.indexOf("settings.snapshot") !== -1 &&
+    io.indexOf("settings.set") !== -1 &&
+    io.indexOf('"request"') !== -1 &&
+    io.indexOf("backendCommand") !== -1 &&
+    io.indexOf("gui-snapshot") === -1,
+  "settings loads and writes go through backend request ops",
+);
+function between(src, start, end) {
+  const a = src.indexOf(start);
+  const b = src.indexOf(end, a + start.length);
+  assert(a !== -1 && b > a, start + " is present");
+  return src.slice(a, b);
+}
+const displayProc = between(
+  omarchy,
+  "property Process displayProc",
+  "property Process snapshotProc",
 );
 assert(
-  io.indexOf('"apply"') !== -1 && io.indexOf("backendBin") !== -1,
-  "settings writes go through the Rust backend",
+  displayProc.indexOf("onExited") !== -1 &&
+    displayProc.indexOf("displayOut") !== -1 &&
+    displayProc.indexOf("hardware") !== -1 &&
+    displayProc.indexOf("disks") !== -1 &&
+    displayProc.indexOf("systemdUnits") !== -1 &&
+    displayProc.indexOf("desktopApps") !== -1 &&
+    displayProc.indexOf("diagnostics") !== -1,
+  "display-snapshot is applied to the page properties",
 );
 assert(
   omarchy.indexOf("display-snapshot") !== -1 &&

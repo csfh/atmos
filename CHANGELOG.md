@@ -6,7 +6,7 @@ Notable changes to Atmos. Each section is a git tag on `main` and `alpha`. Insta
 
 ### Added
 
-- Atmos 0.1.0 reads and writes settings through `atmos-backend`, a Rust process started by `bin/atmos`. The Quickshell window is unchanged. Settings land in the Hyprland drop-ins, shell config, and the other files those settings already use. Live stats and the hardware, disk, service, software, and diagnostics inventories come from the same backend. A `plain` backend answers the same requests with its own platform identity.
+- Atmos 0.1.0 reads and writes settings through `atmos-backend`, a Rust process started by `bin/atmos`. The Quickshell window asks that process for settings and for the live, hardware, disk, service, software, and diagnostics data it shows. Writes update the Hyprland drop-ins, shell config, and the other files those settings already use. A `plain` backend answers the same requests with its own platform identity.
 
 ## [v0.0.1-alpha.24] - 2026-09-28
 

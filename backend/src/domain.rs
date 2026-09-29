@@ -49,6 +49,17 @@ pub struct Place {
 #[derive(Clone, Debug)]
 pub enum PlaceKind {
     Map,
+    /// Nested `shell.json` fields and bar widgets the shell already reads.
+    Shell,
+    /// One nested field inside an existing JSON object, leaving siblings in place.
+    Nested {
+        path: &'static [&'static str],
+    },
+    /// Hyprland sentinel whose body is `hl.config` / assignment Lua, not a private JSON line.
+    Lua {
+        begin: &'static str,
+        end: &'static str,
+    },
     Sentinel {
         begin: &'static str,
         end: &'static str,
@@ -57,6 +68,8 @@ pub enum PlaceKind {
     Line {
         prefix: &'static str,
     },
+    /// A file whose presence is the toggle. `true` writes the file; `false` removes it.
+    Flag,
     Items,
     Whole,
 }
@@ -65,8 +78,12 @@ impl Place {
     pub fn encoding(&self) -> &'static str {
         match self.kind {
             PlaceKind::Map => "map",
+            PlaceKind::Shell => "shell",
+            PlaceKind::Nested { .. } => "nested",
+            PlaceKind::Lua { .. } => "lua",
             PlaceKind::Sentinel { .. } => "sentinel",
             PlaceKind::Line { .. } => "line",
+            PlaceKind::Flag => "flag",
             PlaceKind::Items => "items",
             PlaceKind::Whole => "whole",
         }
@@ -243,6 +260,75 @@ pub fn find(key: &str) -> Option<&'static Spec> {
     SPECS.iter().find(|spec| spec.key == key)
 }
 
+#[derive(Clone, Copy)]
+pub enum LuaForm {
+    /// `name = <scalar>`
+    Value,
+    /// `name = { enabled = <bool> }`
+    Enabled,
+    /// `hl.env("HYPRCURSOR_SIZE", "<int>")`
+    Cursor,
+    /// A `hl.gesture` whose action is `workspace`.
+    Gesture,
+    /// `kb_options` contains `grp:alts_toggle`.
+    KbToggle,
+}
+
+pub struct LuaBind {
+    pub name: &'static str,
+    pub form: LuaForm,
+}
+
+pub fn lua_bind(key: &str) -> Option<LuaBind> {
+    let (name, form) = match key {
+        "hyprLook.cursorSize" => ("HYPRCURSOR_SIZE", LuaForm::Cursor),
+        "hyprLook.gapsIn" => ("gaps_in", LuaForm::Value),
+        "hyprLook.gapsOut" => ("gaps_out", LuaForm::Value),
+        "hyprLook.rounding" => ("rounding", LuaForm::Value),
+        "hyprLook.borderSize" => ("border_size", LuaForm::Value),
+        "hyprLook.activeOpacity" => ("active_opacity", LuaForm::Value),
+        "hyprLook.inactiveOpacity" => ("inactive_opacity", LuaForm::Value),
+        "hyprLook.blur" => ("blur", LuaForm::Enabled),
+        "hyprLook.shadow" => ("shadow", LuaForm::Enabled),
+        "hyprLook.dimInactive" => ("dim_inactive", LuaForm::Value),
+        "hyprLook.dimStrength" => ("dim_strength", LuaForm::Value),
+        "hyprLook.animations" => ("animations", LuaForm::Enabled),
+        "hyprLook.columnWidth" => ("column_width", LuaForm::Value),
+        "hyprLook.cursorHideOnKey" => ("hide_on_key_press", LuaForm::Value),
+        "hyprLook.cursorWarp" => ("warp_on_change_workspace", LuaForm::Value),
+        "hyprLook.resizeOnBorder" => ("resize_on_border", LuaForm::Value),
+        "hyprLook.allowTearing" => ("allow_tearing", LuaForm::Value),
+        "hyprLook.layout" => ("layout", LuaForm::Value),
+        "hyprLook.preserveSplit" => ("preserve_split", LuaForm::Value),
+        "hyprLook.enableSwallow" => ("enable_swallow", LuaForm::Value),
+        "hyprLook.swallowRegex" => ("swallow_regex", LuaForm::Value),
+        "hyprLook.onFocusUnderFullscreen" => ("on_focus_under_fullscreen", LuaForm::Value),
+        "hyprLook.focusOnActivate" => ("focus_on_activate", LuaForm::Value),
+        "hyprInput.sensitivity" => ("sensitivity", LuaForm::Value),
+        "hyprInput.accelProfile" => ("accel_profile", LuaForm::Value),
+        "hyprInput.emulateDiscreteScroll" => ("emulate_discrete_scroll", LuaForm::Value),
+        "hyprInput.naturalScroll" => ("natural_scroll", LuaForm::Value),
+        "hyprInput.scrollFactor" => ("scroll_factor", LuaForm::Value),
+        "hyprInput.clickfinger" => ("clickfinger_behavior", LuaForm::Value),
+        "hyprInput.disableWhileTyping" => ("disable_while_typing", LuaForm::Value),
+        "hyprInput.drag3fg" => ("drag_3fg", LuaForm::Value),
+        "hyprInput.repeatRate" => ("repeat_rate", LuaForm::Value),
+        "hyprInput.repeatDelay" => ("repeat_delay", LuaForm::Value),
+        "hyprInput.numlock" => ("numlock_by_default", LuaForm::Value),
+        "hyprInput.followMouse" => ("follow_mouse", LuaForm::Value),
+        "hyprInput.keyPressDpms" => ("key_press_enables_dpms", LuaForm::Value),
+        "hyprInput.mouseMoveDpms" => ("mouse_move_enables_dpms", LuaForm::Value),
+        "hyprInput.kbLayoutOverride" => ("kb_layout", LuaForm::Value),
+        "hyprInput.kbVariantOverride" => ("kb_variant", LuaForm::Value),
+        "hyprInput.kbGroupToggle" => ("kb_options", LuaForm::KbToggle),
+        "hyprInput.workspaceGesture" => ("workspace", LuaForm::Gesture),
+        "touchpadEnabled" => ("touchpad_enabled", LuaForm::Value),
+        "touchscreenEnabled" => ("touchscreen_enabled", LuaForm::Value),
+        _ => return None,
+    };
+    Some(LuaBind { name, form })
+}
+
 pub fn locate(backend: &str, spec: &Spec) -> Result<Place, String> {
     if backend == "plain" {
         return Ok(Place {
@@ -253,8 +339,10 @@ pub fn locate(backend: &str, spec: &Spec) -> Result<Place, String> {
     if backend != "omarchy" {
         return Err(format!("unknown backend {backend}"));
     }
+    if let Some(place) = omarchy_key(spec.key) {
+        return Ok(place);
+    }
     Ok(match spec.group {
-        "shell" => map(".config/omarchy/shell.json"),
         "theme" => map(".config/omarchy/theme.json"),
         "defaults" => map(".config/omarchy/defaults.json"),
         "network" => map(".config/omarchy/network.json"),
@@ -263,17 +351,19 @@ pub fn locate(backend: &str, spec: &Spec) -> Result<Place, String> {
         "env" => map(".config/omarchy/env.json"),
         "tweaks" => map(".config/omarchy/tweaks.json"),
         "security" => map(".config/omarchy/security.json"),
-        "look" => sentinel(
+        "shell" => Place {
+            rel: ".config/omarchy/shell.json".into(),
+            kind: PlaceKind::Shell,
+        },
+        "look" => lua(
             ".config/hypr/looknfeel.lua",
             "-- atmos:look begin",
             "-- atmos:look end",
-            "-- atmos-json ",
         ),
-        "input" => sentinel(
+        "input" => lua(
             ".config/hypr/input.lua",
             "-- atmos:input begin",
             "-- atmos:input end",
-            "-- atmos-json ",
         ),
         "bindings" => sentinel(
             ".config/hypr/bindings.lua",
@@ -354,4 +444,36 @@ fn sentinel(rel: &str, begin: &'static str, end: &'static str, mark: &'static st
         rel: rel.into(),
         kind: PlaceKind::Sentinel { begin, end, mark },
     }
+}
+
+fn lua(rel: &str, begin: &'static str, end: &'static str) -> Place {
+    Place {
+        rel: rel.into(),
+        kind: PlaceKind::Lua { begin, end },
+    }
+}
+
+fn flag(rel: &str) -> Place {
+    Place {
+        rel: rel.into(),
+        kind: PlaceKind::Flag,
+    }
+}
+
+fn nested(rel: &str, path: &'static [&'static str]) -> Place {
+    Place {
+        rel: rel.into(),
+        kind: PlaceKind::Nested { path },
+    }
+}
+
+fn omarchy_key(key: &str) -> Option<Place> {
+    Some(match key {
+        "hyprNoGaps" => flag(".local/state/omarchy/toggles/hypr/window-no-gaps.lua"),
+        "hyprSquareAspect" => {
+            flag(".local/state/omarchy/toggles/hypr/single-window-aspect-ratio.lua")
+        }
+        "doNotDisturb" => nested(".local/state/omarchy/notifications.json", &["dnd"]),
+        _ => return None,
+    })
 }

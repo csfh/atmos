@@ -7,11 +7,12 @@
 
 mod display;
 mod domain;
+mod patch;
 mod store;
 
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
 
 use serde_json::{Map, Value};
 
@@ -27,7 +28,12 @@ pub fn run(args: &[String], stdin: &str, stdout: &mut dyn Write, stderr: &mut dy
     }
 }
 
-fn dispatch(args: &[String], stdin: &str, stdout: &mut dyn Write, stderr: &mut dyn Write) -> Result<i32, String> {
+fn dispatch(
+    args: &[String],
+    stdin: &str,
+    stdout: &mut dyn Write,
+    stderr: &mut dyn Write,
+) -> Result<i32, String> {
     let parsed = parse_args(args)?;
     match parsed.command.as_str() {
         "version" => {
@@ -42,9 +48,14 @@ fn dispatch(args: &[String], stdin: &str, stdout: &mut dyn Write, stderr: &mut d
             Ok(0)
         }
         "request" => {
-            let root = parsed.root.ok_or("request needs --root")?;
-            let request: Value = serde_json::from_str(stdin.trim()).map_err(|err| format!("request: {err}"))?;
-            let response = handle(&parsed.backend, &root, &request, parsed.sampler.as_deref())?;
+            let request: Value =
+                serde_json::from_str(stdin.trim()).map_err(|err| format!("request: {err}"))?;
+            let response = handle(
+                &parsed.backend,
+                parsed.root.as_deref(),
+                &request,
+                parsed.sampler.as_deref(),
+            )?;
             let code = if response.get("ok").and_then(|v| v.as_bool()) == Some(true) {
                 0
             } else {
@@ -58,7 +69,12 @@ fn dispatch(args: &[String], stdin: &str, stdout: &mut dyn Write, stderr: &mut d
             if kind.is_empty() {
                 return Err("display needs a kind".into());
             }
-            let value = display::load(parsed.root.as_deref(), &parsed.backend, kind, parsed.sampler.as_deref())?;
+            let value = display::load(
+                parsed.root.as_deref(),
+                &parsed.backend,
+                kind,
+                parsed.sampler.as_deref(),
+            )?;
             write_json(stdout, &value)?;
             Ok(0)
         }
@@ -75,7 +91,12 @@ fn dispatch(args: &[String], stdin: &str, stdout: &mut dyn Write, stderr: &mut d
             }
             let mut display = Map::new();
             for kind in kinds {
-                let value = match display::load(parsed.root.as_deref(), &parsed.backend, kind, parsed.sampler.as_deref()) {
+                let value = match display::load(
+                    parsed.root.as_deref(),
+                    &parsed.backend,
+                    kind,
+                    parsed.sampler.as_deref(),
+                ) {
                     Ok(value) => value,
                     Err(err) => stamp_error(&parsed.backend, kind, &err),
                 };
@@ -167,7 +188,12 @@ fn parse_args(args: &[String]) -> Result<Parsed, String> {
     })
 }
 
-fn handle(backend: &str, root: &Path, request: &Value, sampler: Option<&Path>) -> Result<Value, String> {
+fn handle(
+    backend: &str,
+    root: Option<&Path>,
+    request: &Value,
+    sampler: Option<&Path>,
+) -> Result<Value, String> {
     let op = request.get("op").and_then(Value::as_str).unwrap_or("");
     let result = match op {
         "version" => Value::String(VERSION.into()),
@@ -189,10 +215,20 @@ fn handle(backend: &str, root: &Path, request: &Value, sampler: Option<&Path>) -
                 "encoding": place.encoding(),
             })
         }
-        "settings.snapshot" => Value::Object(settings_snapshot(backend, root)?),
+        "settings.snapshot" => {
+            let group = request
+                .get("group")
+                .and_then(Value::as_str)
+                .unwrap_or("all");
+            if root.is_none() && backend == "omarchy" {
+                Value::Object(live_settings_snapshot(group)?)
+            } else {
+                Value::Object(settings_snapshot(backend, root)?)
+            }
+        }
         "display.get" => {
             let kind = field(request, "kind")?;
-            display::load(Some(root), backend, kind, sampler)?
+            display::load(root, backend, kind, sampler)?
         }
         "display.snapshot" => display_snapshot(backend, root, sampler)?,
         other => return Ok(error_envelope(backend, &format!("unknown op {other}"))),
@@ -217,16 +253,146 @@ fn settings_list(backend: &str) -> Result<Vec<Value>, String> {
     Ok(out)
 }
 
-fn read_domain(backend: &str, root: &Path, key: &str) -> Result<Value, String> {
+fn read_domain(backend: &str, root: Option<&Path>, key: &str) -> Result<Value, String> {
     let spec = domain::find(key).ok_or_else(|| format!("unknown domain {key}"))?;
     let place = domain::locate(backend, spec)?;
     store::read_place(root, &place, spec.key, spec.ty)
 }
 
-fn write_domain(backend: &str, root: &Path, key: &str, value: &Value) -> Result<(), String> {
+fn write_domain(
+    backend: &str,
+    root: Option<&Path>,
+    key: &str,
+    value: &Value,
+) -> Result<(), String> {
     let spec = domain::find(key).ok_or_else(|| format!("unknown domain {key}"))?;
     let place = domain::locate(backend, spec)?;
-    store::write_place(root, &place, spec.key, spec.ty, value)
+    match store::write_place(root, &place, spec.key, spec.ty, value) {
+        Ok(()) => {}
+        Err(err) if root.is_none() && backend == "omarchy" && permission_denied(&err) => {
+            delegate_root_script(key, value)?;
+        }
+        Err(err) => return Err(err),
+    }
+    if root.is_none() && backend == "omarchy" {
+        if matches!(
+            place.kind,
+            domain::PlaceKind::Lua { .. } | domain::PlaceKind::Flag
+        ) {
+            spawn_command("hyprctl", &["reload"]);
+        }
+        run_live_command(key, value);
+        if key == "tweaks.swappiness" {
+            let flag = if value.as_bool() == Some(true) {
+                "on"
+            } else {
+                "off"
+            };
+            let _ = run_script("set-tweaks.sh", &["swappiness", flag]);
+        }
+    }
+    Ok(())
+}
+
+fn permission_denied(err: &str) -> bool {
+    let lower = err.to_ascii_lowercase();
+    lower.contains("permission denied") || lower.contains("os error 13")
+}
+
+fn delegate_root_script(key: &str, value: &Value) -> Result<(), String> {
+    let rendered = scalar_arg(value)?;
+    match key {
+        "hostname" => run_script("set-hostname.sh", &[&rendered]),
+        "timezone" => run_script("set-timezone.sh", &[&rendered]),
+        "locale" => run_script("set-locale.sh", &[&rendered]),
+        "keyboardLayout" => run_script("set-keyboard-layout.sh", &[&rendered]),
+        "ntp" => run_script("set-ntp.sh", &[&rendered]),
+        "fullName" => run_script("set-full-name.sh", &[&rendered]),
+        "parallelDownloads" => run_script("set-parallel-downloads.sh", &[&rendered]),
+        "plymouth" => run_command("omarchy", &["plymouth", "set", "by", "theme", &rendered]),
+        _ => Err(format!("cannot write {key} without permission")),
+    }
+}
+
+fn scalar_arg(value: &Value) -> Result<String, String> {
+    match value {
+        Value::String(text) => Ok(text.clone()),
+        Value::Bool(true) => Ok("true".into()),
+        Value::Bool(false) => Ok("false".into()),
+        Value::Number(number) => Ok(number.to_string()),
+        _ => Err("live writer needs a scalar".into()),
+    }
+}
+
+fn run_script(name: &str, args: &[&str]) -> Result<(), String> {
+    let root = std::env::var("ATMOS_ROOT").map_err(|_| "ATMOS_ROOT is not set".to_string())?;
+    let path = PathBuf::from(root).join("scripts").join(name);
+    let status = Command::new("bash")
+        .arg(&path)
+        .args(args)
+        .status()
+        .map_err(|err| err.to_string())?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(format!("{name} exited {}", status.code().unwrap_or(1)))
+    }
+}
+
+fn run_command(program: &str, args: &[&str]) -> Result<(), String> {
+    let status = Command::new(program)
+        .args(args)
+        .status()
+        .map_err(|err| err.to_string())?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(format!("{program} exited {}", status.code().unwrap_or(1)))
+    }
+}
+
+fn run_live_command(key: &str, value: &Value) {
+    let Ok(rendered) = scalar_arg(value) else {
+        return;
+    };
+    let args: &[&str] = match key {
+        "theme" => &["theme", "set"],
+        "background" => &["theme", "bg", "set"],
+        "barPosition" => &["bar", "position"],
+        "barTransparent" => &["bar", "transparent"],
+        "font" => &["font", "set"],
+        "textSize" => &["display", "text", "size"],
+        "browser" => &["default", "browser"],
+        "terminal" => &["default", "terminal"],
+        "editor" => &["default", "editor"],
+        "agent" => &["default", "agent"],
+        "dns" => &["dns"],
+        "powerProfile" => &["powerprofiles", "set", "autodetect"],
+        "powerProfileAc" => &["powerprofiles", "set", "ac"],
+        "powerProfileBattery" => &["powerprofiles", "set", "battery"],
+        "audioTuningOn" => {
+            let flag = if value.as_bool() == Some(true) {
+                "on"
+            } else {
+                "off"
+            };
+            spawn_command("omarchy", &["audio", "tuning", flag]);
+            return;
+        }
+        _ => return,
+    };
+    let mut owned: Vec<&str> = args.to_vec();
+    owned.push(&rendered);
+    spawn_command("omarchy", &owned);
+}
+
+fn spawn_command(program: &str, args: &[&str]) {
+    let _ = Command::new(program)
+        .args(args)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn();
 }
 
 fn place_for(backend: &str, key: &str) -> Result<domain::Place, String> {
@@ -234,7 +400,7 @@ fn place_for(backend: &str, key: &str) -> Result<domain::Place, String> {
     domain::locate(backend, spec)
 }
 
-fn settings_snapshot(backend: &str, root: &Path) -> Result<Map<String, Value>, String> {
+fn settings_snapshot(backend: &str, root: Option<&Path>) -> Result<Map<String, Value>, String> {
     let mut snapshot = Map::new();
     for spec in domain::specs() {
         snapshot.insert(spec.key.to_string(), read_domain(backend, root, spec.key)?);
@@ -242,10 +408,72 @@ fn settings_snapshot(backend: &str, root: &Path) -> Result<Map<String, Value>, S
     Ok(snapshot)
 }
 
-fn display_snapshot(backend: &str, root: &Path, sampler: Option<&Path>) -> Result<Value, String> {
+/// Live Omarchy reads merge `snapshot.sh` with the files settings.set writes.
+/// A null file value does not erase a snapshot field. Dotted domains fold into
+/// the nested objects the Quickshell snapshot already uses. `--root` never
+/// reaches this path, so fixture launches stay file-only and deterministic.
+fn live_settings_snapshot(group: &str) -> Result<Map<String, Value>, String> {
+    let mut snapshot = Map::new();
+    if let Ok(text) = capture_snapshot_sh(group) {
+        if let Ok(Value::Object(map)) = serde_json::from_str::<Value>(&text) {
+            snapshot = map;
+        }
+    }
+    let group_name = if group.is_empty() { "all" } else { group };
+    snapshot.insert("group".into(), Value::String(group_name.into()));
+    for spec in domain::specs() {
+        // One unreadable system file must not drop the rest of the page.
+        if let Ok(value) = read_domain("omarchy", None, spec.key) {
+            overlay_domain(&mut snapshot, spec.key, value);
+        }
+    }
+    Ok(snapshot)
+}
+
+fn overlay_domain(doc: &mut Map<String, Value>, key: &str, value: Value) {
+    if value.is_null() {
+        return;
+    }
+    if let Some((head, tail)) = key.split_once('.') {
+        let entry = doc
+            .entry(head.to_string())
+            .or_insert_with(|| Value::Object(Map::new()));
+        if !entry.is_object() {
+            *entry = Value::Object(Map::new());
+        }
+        if let Some(map) = entry.as_object_mut() {
+            map.insert(tail.to_string(), value);
+        }
+        return;
+    }
+    doc.insert(key.to_string(), value);
+}
+
+fn capture_snapshot_sh(group: &str) -> Result<String, String> {
+    let root = std::env::var("ATMOS_ROOT").map_err(|_| "ATMOS_ROOT is not set".to_string())?;
+    let script = PathBuf::from(root).join("scripts").join("snapshot.sh");
+    let output = Command::new("bash")
+        .arg(&script)
+        .arg(group)
+        .output()
+        .map_err(|err| err.to_string())?;
+    if !output.status.success() {
+        return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
+    }
+    Ok(String::from_utf8_lossy(&output.stdout).to_string())
+}
+
+fn display_snapshot(
+    backend: &str,
+    root: Option<&Path>,
+    sampler: Option<&Path>,
+) -> Result<Value, String> {
     let mut display = Map::new();
     for kind in display::KINDS {
-        display.insert((*kind).to_string(), display::load(Some(root), backend, kind, sampler)?);
+        display.insert(
+            (*kind).to_string(),
+            display::load(root, backend, kind, sampler)?,
+        );
     }
     Ok(Value::Object(display))
 }
@@ -254,15 +482,19 @@ fn snapshot_document(backend: &str, root: &Path, sampler: Option<&Path>) -> Resu
     Ok(serde_json::json!({
         "version": VERSION,
         "platform": platform(backend)?,
-        "settings": Value::Object(settings_snapshot(backend, root)?),
-        "display": display_snapshot(backend, root, sampler)?,
+        "settings": Value::Object(settings_snapshot(backend, Some(root))?),
+        "display": display_snapshot(backend, Some(root), sampler)?,
     }))
 }
 
 fn platform(backend: &str) -> Result<Value, String> {
     match backend {
-        "omarchy" => Ok(serde_json::json!({"id": "omarchy", "compositor": "hyprland", "family": "arch"})),
-        "plain" => Ok(serde_json::json!({"id": "plain", "compositor": "none", "family": "portable"})),
+        "omarchy" => {
+            Ok(serde_json::json!({"id": "omarchy", "compositor": "hyprland", "family": "arch"}))
+        }
+        "plain" => {
+            Ok(serde_json::json!({"id": "plain", "compositor": "none", "family": "portable"}))
+        }
         other => Err(format!("unknown backend {other}")),
     }
 }

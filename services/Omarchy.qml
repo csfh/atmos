@@ -27,7 +27,6 @@ QtObject {
   id: root
 
   readonly property string shellDir: Quickshell.shellDir
-  readonly property string snapshotScript: shellDir + "/scripts/snapshot.sh"
   readonly property string backendBin: {
     var fromEnv = String(Quickshell.env("ATMOS_BACKEND") || "")
     if (fromEnv.length > 0) return fromEnv

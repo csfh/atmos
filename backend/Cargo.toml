@@ -1,8 +1,8 @@
 [package]
-name = "atmos-backend"
+name = "ratmos"
 version = "0.1.0"
 edition = "2021"
-description = "Settings and display-data backend for the Atmos Quickshell UI"
+description = "Rust backend for the Atmos Quickshell UI"
 license = "MIT"
 
 [dependencies]

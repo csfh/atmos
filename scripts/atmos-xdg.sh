@@ -62,8 +62,8 @@ atmos_build_backend() {
   }
   cargo build --release --manifest-path "$src/backend/Cargo.toml" || return 1
   mkdir -p "$dest/bin"
-  cp -a "$src/backend/target/release/atmos-backend" "$dest/bin/atmos-backend"
-  chmod +x "$dest/bin/atmos-backend"
+  cp -a "$src/backend/target/release/ratmos" "$dest/bin/ratmos"
+  chmod +x "$dest/bin/ratmos"
 }
 
 atmos_stage() {

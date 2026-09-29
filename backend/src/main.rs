@@ -8,7 +8,7 @@ fn main() -> ExitCode {
     if wants_request_stdin(&args) {
         let _ = io::stdin().read_to_string(&mut stdin);
     }
-    let code = atmos_backend::run(&args, &stdin, &mut io::stdout(), &mut io::stderr());
+    let code = ratmos::run(&args, &stdin, &mut io::stdout(), &mut io::stderr());
     ExitCode::from(u8::try_from(code).unwrap_or(1))
 }
 

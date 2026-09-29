@@ -1,4 +1,4 @@
-//! Atmos settings and display-data backend.
+//! ratmos serves Atmos settings and display data.
 //!
 //! `main` calls [`run`]. Quickshell sends the same requests for every system
 //! backend. Omarchy writes the Hyprland drop-ins, shell config, and the other
@@ -24,7 +24,7 @@ pub fn run(args: &[String], stdin: &str, stdout: &mut dyn Write, stderr: &mut dy
     match dispatch(args, stdin, stdout, stderr) {
         Ok(code) => code,
         Err(err) => {
-            let _ = writeln!(stderr, "atmos-backend: {err}");
+            let _ = writeln!(stderr, "ratmos: {err}");
             1
         }
     }
@@ -113,12 +113,12 @@ fn dispatch(
         }
         "apply" => Ok(apply(&parsed.rest, stderr)),
         "" => {
-            let _ = writeln!(stderr, "atmos-backend: missing command");
+            let _ = writeln!(stderr, "ratmos: missing command");
             usage(stderr);
             Ok(2)
         }
         other => {
-            let _ = writeln!(stderr, "atmos-backend: unknown command {other}");
+            let _ = writeln!(stderr, "ratmos: unknown command {other}");
             usage(stderr);
             Ok(2)
         }
@@ -584,19 +584,19 @@ fn gui_snapshot(group: &str, stderr: &mut dyn Write) -> i32 {
     let root = match std::env::var("ATMOS_ROOT") {
         Ok(root) => root,
         Err(_) => {
-            let _ = writeln!(stderr, "atmos-backend: ATMOS_ROOT is not set");
+            let _ = writeln!(stderr, "ratmos: ATMOS_ROOT is not set");
             return 1;
         }
     };
     let script = PathBuf::from(root).join("scripts").join("snapshot.sh");
     if !script.is_file() {
-        let _ = writeln!(stderr, "atmos-backend: missing {}", script.display());
+        let _ = writeln!(stderr, "ratmos: missing {}", script.display());
         return 1;
     }
     match Command::new("bash").arg(&script).arg(group).status() {
         Ok(status) => status.code().unwrap_or(1),
         Err(err) => {
-            let _ = writeln!(stderr, "atmos-backend: {err}");
+            let _ = writeln!(stderr, "ratmos: {err}");
             1
         }
     }
@@ -604,13 +604,13 @@ fn gui_snapshot(group: &str, stderr: &mut dyn Write) -> i32 {
 
 fn apply(argv: &[String], stderr: &mut dyn Write) -> i32 {
     let Some(program) = argv.first() else {
-        let _ = writeln!(stderr, "atmos-backend: apply needs a command");
+        let _ = writeln!(stderr, "ratmos: apply needs a command");
         return 2;
     };
     match Command::new(program).args(&argv[1..]).status() {
         Ok(status) => status.code().unwrap_or(1),
         Err(err) => {
-            let _ = writeln!(stderr, "atmos-backend: {err}");
+            let _ = writeln!(stderr, "ratmos: {err}");
             1
         }
     }
@@ -619,6 +619,6 @@ fn apply(argv: &[String], stderr: &mut dyn Write) -> i32 {
 fn usage(stderr: &mut dyn Write) {
     let _ = writeln!(
         stderr,
-        "usage: atmos-backend [--backend omarchy|plain] [--root DIR] <snapshot|request|display KIND|display-snapshot|gui-snapshot|apply -- CMD|version>"
+        "usage: ratmos [--backend omarchy|plain] [--root DIR] <snapshot|request|display KIND|display-snapshot|gui-snapshot|apply -- CMD|version>"
     );
 }

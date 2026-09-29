@@ -53,9 +53,9 @@ resolve_backend() {
   fi
   local candidate
   for candidate in \
-    "$ROOT/bin/atmos-backend" \
-    "$ROOT/backend/target/release/atmos-backend" \
-    "$ROOT/backend/target/debug/atmos-backend"
+    "$ROOT/bin/ratmos" \
+    "$ROOT/backend/target/release/ratmos" \
+    "$ROOT/backend/target/debug/ratmos"
   do
     if [[ -x $candidate ]]; then
       printf '%s\n' "$candidate"
@@ -66,7 +66,7 @@ resolve_backend() {
 }
 
 BACKEND=$(resolve_backend) || {
-  echo "atmos: missing atmos-backend. Build it with: cargo build --manifest-path \"$ROOT/backend/Cargo.toml\"" >&2
+  echo "atmos: missing ratmos. Build it with: cargo build --manifest-path \"$ROOT/backend/Cargo.toml\"" >&2
   exit 1
 }
 export ATMOS_BACKEND=$BACKEND

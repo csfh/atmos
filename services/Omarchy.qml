@@ -31,7 +31,7 @@ QtObject {
   readonly property string backendBin: {
     var fromEnv = String(Quickshell.env("ATMOS_BACKEND") || "")
     if (fromEnv.length > 0) return fromEnv
-    return shellDir + "/bin/atmos-backend"
+    return shellDir + "/bin/ratmos"
   }
   readonly property string backendId: {
     var fromEnv = String(Quickshell.env("ATMOS_BACKEND_ID") || "")

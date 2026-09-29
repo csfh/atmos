@@ -1,10 +1,10 @@
 //! One effect row per settings domain.
 //!
-//! Omarchy `settings.set` dispatches through this table. `Command` argv is the
-//! Settings.js writer. Under `--root` that argv is appended to `commands.log`
-//! and the platform file is left alone. A live set spawns the same argv.
-//! Live reads of those keys stay null so `snapshot.sh` keeps the status it
-//! already collected from `omarchy toggle nightlight --status` and pactl.
+//! Omarchy `settings.set` dispatches through this table. `Command` renders the
+//! Settings.js argv, including the on/off flag when that writer takes one.
+//! Under `--root` the rendered argv is appended to `commands.log` and the
+//! platform file is left alone. A live set spawns the same argv. Live reads
+//! of those keys stay null so `snapshot.sh` keeps the toggle status.
 
 use std::fs::OpenOptions;
 use std::io::Write;
@@ -19,8 +19,22 @@ pub enum Effect {
     Document,
     /// Hyprland sentinel. Apply keeps rows whose `managed` flag is not false.
     Sentinel { kind: &'static str },
-    /// Settings.js argv. Fixture logs it. Live spawns it.
-    Command { argv: &'static [&'static str] },
+    /// Settings.js argv. Fixture logs the rendered argv. Live spawns it.
+    Command(CommandForm),
+}
+
+/// How a command row turns the written value into argv.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CommandForm {
+    /// The argv is the same for both bools.
+    Exact(&'static [&'static str]),
+    /// Settings.js `onOff`. The flag is `on` when the bool differs from `invert`.
+    OnOff {
+        prefix: &'static [&'static str],
+        invert: bool,
+    },
+    /// `true` appends `stay-awake`. `false` appends `allow-idle`.
+    Idle(&'static [&'static str]),
 }
 
 const SENTINELS: &[(&str, &str)] = &[
@@ -33,13 +47,55 @@ const SENTINELS: &[(&str, &str)] = &[
     ("workspaceWheelSwitch", "workspaces"),
 ];
 
-const COMMANDS: &[(&str, &[&str])] = &[
-    ("nightlight", &["omarchy", "toggle", "nightlight"]),
+const COMMANDS: &[(&str, CommandForm)] = &[
+    (
+        "nightlight",
+        CommandForm::Exact(&["omarchy", "toggle", "nightlight"]),
+    ),
     (
         "audioOutputMuted",
-        &["omarchy", "audio", "output", "volume", "mute-toggle"],
+        CommandForm::Exact(&["omarchy", "audio", "output", "volume", "mute-toggle"]),
     ),
-    ("audioInputMuted", &["omarchy", "audio", "input", "mute"]),
+    (
+        "audioInputMuted",
+        CommandForm::Exact(&["omarchy", "audio", "input", "mute"]),
+    ),
+    (
+        "barVisible",
+        CommandForm::OnOff {
+            prefix: &["omarchy", "toggle", "bar"],
+            invert: true,
+        },
+    ),
+    (
+        "screensaverEnabled",
+        CommandForm::OnOff {
+            prefix: &["omarchy", "toggle", "screensaver-off"],
+            invert: true,
+        },
+    ),
+    (
+        "stayAwake",
+        CommandForm::Idle(&["omarchy", "toggle", "idle"]),
+    ),
+    (
+        "touchpadEnabled",
+        CommandForm::OnOff {
+            prefix: &["omarchy", "toggle", "touchpad"],
+            invert: false,
+        },
+    ),
+    (
+        "touchscreenEnabled",
+        CommandForm::OnOff {
+            prefix: &["omarchy", "toggle", "touchscreen"],
+            invert: false,
+        },
+    ),
+    (
+        "doNotDisturb",
+        CommandForm::Exact(&["omarchy", "toggle", "notification", "silencing"]),
+    ),
 ];
 
 const DOCUMENTS: &[&str] = &[
@@ -75,7 +131,6 @@ const DOCUMENTS: &[&str] = &[
     "hyprSquareAspect",
     "barPosition",
     "barTransparent",
-    "barVisible",
     "clockFormat",
     "clockFormatAlt",
     "clockWeekStart",
@@ -97,9 +152,6 @@ const DOCUMENTS: &[&str] = &[
     "trayPinned",
     "idleScreensaver",
     "idleLock",
-    "stayAwake",
-    "screensaverEnabled",
-    "doNotDisturb",
     "workspaceBarNames",
     "workspaceBarCount",
     "browser",
@@ -131,8 +183,6 @@ const DOCUMENTS: &[&str] = &[
     "hyprInput.kbVariantOverride",
     "hyprInput.kbGroupToggle",
     "hyprInput.workspaceGesture",
-    "touchpadEnabled",
-    "touchscreenEnabled",
     "hostname",
     "timezone",
     "locale",
@@ -185,8 +235,8 @@ pub fn get(key: &str) -> Option<Effect> {
     if let Some((_, kind)) = SENTINELS.iter().copied().find(|(name, _)| *name == key) {
         return Some(Effect::Sentinel { kind });
     }
-    if let Some((_, argv)) = COMMANDS.iter().copied().find(|(name, _)| *name == key) {
-        return Some(Effect::Command { argv });
+    if let Some((_, form)) = COMMANDS.iter().copied().find(|(name, _)| *name == key) {
+        return Some(Effect::Command(form));
     }
     if DOCUMENTS.contains(&key) {
         return Some(Effect::Document);
@@ -202,17 +252,44 @@ pub fn row_keys() -> Vec<&'static str> {
     keys
 }
 
+pub fn command_argv(form: CommandForm, value: &Value) -> Vec<&'static str> {
+    match form {
+        CommandForm::Exact(argv) => argv.to_vec(),
+        CommandForm::OnOff { prefix, invert } => {
+            let flag = if (value.as_bool() == Some(true)) ^ invert {
+                "on"
+            } else {
+                "off"
+            };
+            let mut argv = prefix.to_vec();
+            argv.push(flag);
+            argv
+        }
+        CommandForm::Idle(prefix) => {
+            let flag = if value.as_bool() == Some(true) {
+                "stay-awake"
+            } else {
+                "allow-idle"
+            };
+            let mut argv = prefix.to_vec();
+            argv.push(flag);
+            argv
+        }
+    }
+}
+
 pub fn apply_command(
     root: Option<&Path>,
     key: &str,
-    argv: &[&str],
+    form: CommandForm,
     value: &Value,
 ) -> Result<(), String> {
+    let argv = command_argv(form, value);
     if argv.is_empty() {
         return Err(format!("{key} command is empty"));
     }
     if let Some(dir) = root {
-        return append_command_log(dir, key, argv, value);
+        return append_command_log(dir, key, &argv, value);
     }
     let status = Command::new(argv[0])
         .args(&argv[1..])

@@ -61,7 +61,8 @@ fn every_domain_roundtrips_through_the_backend_process() {
             "omarchy",
             &serde_json::json!({"op": "settings.get", "domain": key}),
         );
-        if let Some(argv) = settings_js_argv(key) {
+        let on = value.as_bool().unwrap_or(false);
+        if let Some(argv) = expected_command(key, on) {
             assert_eq!(
                 got["result"], *value,
                 "{key} read does not match the write\nwritten {value}\ngot {}",
@@ -96,12 +97,30 @@ fn every_domain_roundtrips_through_the_backend_process() {
         &serde_json::json!({"op": "settings.set", "domain": "barVisible", "value": false}),
     );
     assert_eq!(hidden["result"]["value"], Value::Bool(false));
+    assert_command_logged(
+        &root,
+        "barVisible",
+        &["omarchy", "toggle", "bar", "on"],
+        &Value::Bool(false),
+    );
     let shell: Value =
         serde_json::from_str(&fs::read_to_string(root.join(".config/omarchy/shell.json")).unwrap())
             .unwrap();
-    assert_eq!(shell["bar"]["visible"], Value::Bool(false), "{shell}");
+    assert!(shell["bar"].get("visible").is_none(), "{shell}");
     assert_eq!(shell["bar"]["position"], "probe-barPosition", "{shell}");
     assert!(shell.get("barVisible").is_none(), "{shell}");
+    assert!(shell["idle"].get("stayAwake").is_none(), "{shell}");
+    assert!(shell["idle"].get("screensaverEnabled").is_none(), "{shell}");
+    let input = fs::read_to_string(root.join(".config/hypr/input.lua")).unwrap_or_default();
+    assert!(!input.contains("touchpad_enabled"), "{input}");
+    assert!(!input.contains("touchscreen_enabled"), "{input}");
+    assert!(!root
+        .join(".local/state/omarchy/notifications.json")
+        .exists());
+    println!(
+        "ok barVisible false commands.log {}",
+        serde_json::to_string(&serde_json::json!(["omarchy", "toggle", "bar", "on"])).unwrap()
+    );
 
     assert_pinned(&listed["result"], "theme", ".config/omarchy/theme.json");
     assert_pinned(
@@ -534,20 +553,32 @@ fn effect_table_matches_every_settings_domain() {
     assert_eq!(rows, specs, "effect rows and domain specs differ");
     for spec in domain::specs() {
         let row = effect::get(spec.key).unwrap_or_else(|| panic!("{} has no effect row", spec.key));
-        match (row, expected_sentinel(spec.key), settings_js_argv(spec.key)) {
-            (Effect::Command { argv }, None, Some(expected)) => {
-                assert_eq!(argv, expected, "{}", spec.key);
+        let command = expected_command(spec.key, true).is_some();
+        match (row, expected_sentinel(spec.key), command) {
+            (Effect::Command(form), None, true) => {
+                for on in [false, true] {
+                    let value = Value::Bool(on);
+                    let expected = expected_command(spec.key, on).unwrap_or_else(|| {
+                        panic!("{} is Command without the Settings.js argv", spec.key)
+                    });
+                    assert_eq!(
+                        effect::command_argv(form, &value),
+                        expected,
+                        "{} value={on}",
+                        spec.key
+                    );
+                }
             }
-            (Effect::Command { .. }, _, _) => {
+            (Effect::Command(_), _, _) => {
                 panic!("{} is Command without the Settings.js argv", spec.key);
             }
-            (Effect::Sentinel { kind }, Some(expected), None) => {
+            (Effect::Sentinel { kind }, Some(expected), false) => {
                 assert_eq!(kind, expected, "{}", spec.key);
             }
             (Effect::Sentinel { .. }, _, _) => {
                 panic!("{} is Sentinel without a kind in the test", spec.key);
             }
-            (Effect::Document, None, None) => {}
+            (Effect::Document, None, false) => {}
             (Effect::Document, _, _) => {
                 panic!(
                     "{} is Document but the test expects a command or sentinel",
@@ -751,47 +782,42 @@ hl.monitor({ output = \"DP-1\", mode = \"preferred\", position = \"auto\", scale
     println!("ok windowRules seed outside once");
     cleanup(&root);
 
-    for (key, argv) in [
-        ("nightlight", &["omarchy", "toggle", "nightlight"][..]),
-        (
-            "audioOutputMuted",
-            &["omarchy", "audio", "output", "volume", "mute-toggle"][..],
-        ),
-        (
-            "audioInputMuted",
-            &["omarchy", "audio", "input", "mute"][..],
-        ),
+    for key in [
+        "nightlight",
+        "audioOutputMuted",
+        "audioInputMuted",
+        "barVisible",
+        "screensaverEnabled",
+        "stayAwake",
+        "touchpadEnabled",
+        "touchscreenEnabled",
+        "doNotDisturb",
     ] {
-        let root = temp_root();
-        let value = Value::Bool(true);
-        let set = request(
-            &root,
-            "omarchy",
-            &serde_json::json!({"op": "settings.set", "domain": key, "value": value}),
-        );
-        assert_eq!(set["result"]["value"], value, "{set}");
-        let got = request(
-            &root,
-            "omarchy",
-            &serde_json::json!({"op": "settings.get", "domain": key}),
-        );
-        assert_eq!(got["result"], value, "{got}");
-        assert_command_logged(&root, key, argv, &value);
-        assert!(!root.join(".config/omarchy/audio.json").exists(), "{key}");
-        assert!(!root.join(".config/omarchy/env.json").exists(), "{key}");
-        assert!(
-            !root.join(".config/hypr/hyprsunset.conf").exists(),
-            "{key} wrote hyprsunset.conf"
-        );
-        assert!(
-            !root.join(".local/state/omarchy/audio-level").exists(),
-            "{key} wrote audio-level"
-        );
-        println!(
-            "ok {key} commands.log {}",
-            serde_json::to_string(&serde_json::json!(argv)).unwrap()
-        );
-        cleanup(&root);
+        for on in [false, true] {
+            let argv = expected_command(key, on)
+                .unwrap_or_else(|| panic!("{key} is missing from the Settings.js argv table"));
+            let root = temp_root();
+            let value = Value::Bool(on);
+            let set = request(
+                &root,
+                "omarchy",
+                &serde_json::json!({"op": "settings.set", "domain": key, "value": value}),
+            );
+            assert_eq!(set["result"]["value"], value, "{set}");
+            let got = request(
+                &root,
+                "omarchy",
+                &serde_json::json!({"op": "settings.get", "domain": key}),
+            );
+            assert_eq!(got["result"], value, "{got}");
+            assert_command_logged(&root, key, argv, &value);
+            assert_fresh_command_shadow_absent(&root, key);
+            println!(
+                "ok {key} {on} commands.log {}",
+                serde_json::to_string(&serde_json::json!(argv)).unwrap()
+            );
+            cleanup(&root);
+        }
     }
 }
 
@@ -975,11 +1001,37 @@ fn audio_volume_runs_set_audio_without_a_private_map() {
     cleanup(&home);
 }
 
-fn settings_js_argv(key: &str) -> Option<&'static [&'static str]> {
+fn expected_command(key: &str, on: bool) -> Option<&'static [&'static str]> {
     match key {
         "nightlight" => Some(&["omarchy", "toggle", "nightlight"]),
         "audioOutputMuted" => Some(&["omarchy", "audio", "output", "volume", "mute-toggle"]),
         "audioInputMuted" => Some(&["omarchy", "audio", "input", "mute"]),
+        "doNotDisturb" => Some(&["omarchy", "toggle", "notification", "silencing"]),
+        "barVisible" => Some(if on {
+            &["omarchy", "toggle", "bar", "off"]
+        } else {
+            &["omarchy", "toggle", "bar", "on"]
+        }),
+        "screensaverEnabled" => Some(if on {
+            &["omarchy", "toggle", "screensaver-off", "off"]
+        } else {
+            &["omarchy", "toggle", "screensaver-off", "on"]
+        }),
+        "stayAwake" => Some(if on {
+            &["omarchy", "toggle", "idle", "stay-awake"]
+        } else {
+            &["omarchy", "toggle", "idle", "allow-idle"]
+        }),
+        "touchpadEnabled" => Some(if on {
+            &["omarchy", "toggle", "touchpad", "on"]
+        } else {
+            &["omarchy", "toggle", "touchpad", "off"]
+        }),
+        "touchscreenEnabled" => Some(if on {
+            &["omarchy", "toggle", "touchscreen", "on"]
+        } else {
+            &["omarchy", "toggle", "touchscreen", "off"]
+        }),
         _ => None,
     }
 }
@@ -1036,6 +1088,74 @@ fn assert_no_command_shadow(root: &std::path::Path, key: &str) {
             assert!(!text.contains("input-muted"), "{key}\n{text}");
         }
     }
+    if let Ok(text) = fs::read_to_string(root.join(".config/omarchy/shell.json")) {
+        let shell: Value = serde_json::from_str(&text).unwrap_or(Value::Null);
+        match key {
+            "barVisible" => assert!(shell.pointer("/bar/visible").is_none(), "{key}\n{shell}"),
+            "stayAwake" => assert!(shell.pointer("/idle/stayAwake").is_none(), "{key}\n{shell}"),
+            "screensaverEnabled" => {
+                assert!(
+                    shell.pointer("/idle/screensaverEnabled").is_none(),
+                    "{key}\n{shell}"
+                );
+            }
+            _ => {}
+        }
+    }
+    if matches!(key, "touchpadEnabled" | "touchscreenEnabled") {
+        if let Ok(text) = fs::read_to_string(root.join(".config/hypr/input.lua")) {
+            let needle = if key == "touchpadEnabled" {
+                "touchpad_enabled"
+            } else {
+                "touchscreen_enabled"
+            };
+            assert!(!text.contains(needle), "{key}\n{text}");
+        }
+    }
+    if key == "doNotDisturb" {
+        assert!(
+            !root
+                .join(".local/state/omarchy/notifications.json")
+                .exists(),
+            "{key} wrote notifications.json"
+        );
+    }
+}
+
+fn assert_fresh_command_shadow_absent(root: &std::path::Path, key: &str) {
+    assert!(!root.join(".config/omarchy/audio.json").exists(), "{key}");
+    assert!(!root.join(".config/omarchy/env.json").exists(), "{key}");
+    assert!(
+        !root.join(".config/hypr/hyprsunset.conf").exists(),
+        "{key} wrote hyprsunset.conf"
+    );
+    assert!(
+        !root.join(".local/state/omarchy/audio-level").exists(),
+        "{key} wrote audio-level"
+    );
+    match key {
+        "barVisible" | "screensaverEnabled" | "stayAwake" => {
+            assert!(
+                !root.join(".config/omarchy/shell.json").exists(),
+                "{key} wrote shell.json"
+            );
+        }
+        "touchpadEnabled" | "touchscreenEnabled" => {
+            assert!(
+                !root.join(".config/hypr/input.lua").exists(),
+                "{key} wrote input.lua"
+            );
+        }
+        "doNotDisturb" => {
+            assert!(
+                !root
+                    .join(".local/state/omarchy/notifications.json")
+                    .exists(),
+                "{key} wrote notifications.json"
+            );
+        }
+        _ => {}
+    }
 }
 
 #[test]
@@ -1062,22 +1182,28 @@ fn live_command_keys_spawn_the_settings_js_argv() {
         bin.display(),
         std::env::var("PATH").unwrap_or_default()
     );
-    for (key, argv) in [
-        ("nightlight", &["omarchy", "toggle", "nightlight"][..]),
-        (
-            "audioOutputMuted",
-            &["omarchy", "audio", "output", "volume", "mute-toggle"][..],
-        ),
-        (
-            "audioInputMuted",
-            &["omarchy", "audio", "input", "mute"][..],
-        ),
+    for (key, on) in [
+        ("nightlight", true),
+        ("audioOutputMuted", true),
+        ("audioInputMuted", true),
+        ("barVisible", false),
+        ("barVisible", true),
+        ("screensaverEnabled", false),
+        ("screensaverEnabled", true),
+        ("stayAwake", true),
+        ("stayAwake", false),
+        ("touchpadEnabled", true),
+        ("touchpadEnabled", false),
+        ("touchscreenEnabled", true),
+        ("touchscreenEnabled", false),
+        ("doNotDisturb", true),
+        ("doNotDisturb", false),
     ] {
         let set = request_at_home(
             &home,
             &repo,
             &path,
-            &serde_json::json!({"op": "settings.set", "domain": key, "value": true}),
+            &serde_json::json!({"op": "settings.set", "domain": key, "value": on}),
         );
         assert_eq!(set["result"]["value"], Value::Null, "{set}");
         let got = request_at_home(
@@ -1087,7 +1213,8 @@ fn live_command_keys_spawn_the_settings_js_argv() {
             &serde_json::json!({"op": "settings.get", "domain": key}),
         );
         assert_eq!(got["result"], Value::Null, "{got}");
-        println!("ok live {key} {}", argv.join(" "));
+        let argv = expected_command(key, on).unwrap();
+        println!("ok live {key} {on} {}", argv.join(" "));
     }
     let recorded = fs::read_to_string(&log).unwrap_or_default();
     assert!(recorded.contains("toggle nightlight"), "{recorded}");
@@ -1096,7 +1223,35 @@ fn live_command_keys_spawn_the_settings_js_argv() {
         "{recorded}"
     );
     assert!(recorded.contains("audio input mute"), "{recorded}");
+    assert!(recorded.contains("toggle bar on"), "{recorded}");
+    assert!(recorded.contains("toggle bar off"), "{recorded}");
+    assert!(recorded.contains("toggle screensaver-off on"), "{recorded}");
+    assert!(
+        recorded.contains("toggle screensaver-off off"),
+        "{recorded}"
+    );
+    assert!(recorded.contains("toggle idle stay-awake"), "{recorded}");
+    assert!(recorded.contains("toggle idle allow-idle"), "{recorded}");
+    assert!(recorded.contains("toggle touchpad on"), "{recorded}");
+    assert!(recorded.contains("toggle touchpad off"), "{recorded}");
+    assert!(recorded.contains("toggle touchscreen on"), "{recorded}");
+    assert!(recorded.contains("toggle touchscreen off"), "{recorded}");
+    assert!(
+        recorded.contains("toggle notification silencing"),
+        "{recorded}"
+    );
+    assert!(
+        recorded
+            .lines()
+            .all(|line| !line.starts_with("toggle notification silencing ")),
+        "{recorded}"
+    );
     assert!(!recorded.contains("restart hyprsunset"), "{recorded}");
+    assert!(!home.join(".config/omarchy/shell.json").exists());
+    assert!(!home.join(".config/hypr/input.lua").exists());
+    assert!(!home
+        .join(".local/state/omarchy/notifications.json")
+        .exists());
     let sunset = home.join(".config/hypr/hyprsunset.conf");
     if let Ok(text) = fs::read_to_string(&sunset) {
         assert!(!text.contains("# atmos:nightlight"), "{text}");

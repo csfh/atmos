@@ -258,7 +258,7 @@ fn settings_list(backend: &str) -> Result<Vec<Value>, String> {
 fn read_domain(backend: &str, root: Option<&Path>, key: &str) -> Result<Value, String> {
     let spec = domain::find(key).ok_or_else(|| format!("unknown domain {key}"))?;
     if backend == "omarchy" {
-        if let Some(effect::Effect::Command { .. }) = effect::get(key) {
+        if let Some(effect::Effect::Command(_)) = effect::get(key) {
             return effect::read_command(root, key);
         }
     }
@@ -277,8 +277,8 @@ fn write_domain(
         return Err(format!("{key} expects {}", spec.ty.name()));
     }
     if backend == "omarchy" {
-        if let Some(effect::Effect::Command { argv }) = effect::get(key) {
-            return effect::apply_command(root, key, argv, value);
+        if let Some(effect::Effect::Command(form)) = effect::get(key) {
+            return effect::apply_command(root, key, form, value);
         }
     }
     let place = domain::locate(backend, spec)?;
@@ -460,7 +460,18 @@ fn overlay_domain(doc: &mut Map<String, Value>, key: &str, value: Value) {
         return;
     }
     // These switches are live command status. A file value must not cover them.
-    if matches!(key, "nightlight" | "audioOutputMuted" | "audioInputMuted") {
+    if matches!(
+        key,
+        "nightlight"
+            | "audioOutputMuted"
+            | "audioInputMuted"
+            | "barVisible"
+            | "screensaverEnabled"
+            | "stayAwake"
+            | "touchpadEnabled"
+            | "touchscreenEnabled"
+            | "doNotDisturb"
+    ) {
         return;
     }
     if let Some((head, tail)) = key.split_once('.') {

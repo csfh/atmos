@@ -51,7 +51,13 @@ fn the_same_requests_hit_plain_with_a_different_platform() {
     assert_eq!(omarchy_display["result"]["collector"], "hw-inventory.py");
     assert_eq!(plain_display["result"]["collector"], "plain-hardware");
     assert_ne!(omarchy_display["result"]["platform"], plain_display["result"]["platform"]);
-    println!("ok plain platform {}", plain_display["platform"]);
+    println!(
+        "ok platforms {} vs {} payload {} vs {}",
+        omarchy_display["platform"]["id"],
+        plain_display["platform"]["id"],
+        omarchy_display["result"]["cpuModel"],
+        plain_display["result"]["cpuModel"]
+    );
     cleanup(&omarchy_root);
     cleanup(&plain_root);
 }

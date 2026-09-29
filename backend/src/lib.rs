@@ -107,10 +107,6 @@ fn dispatch(
             write_json(stdout, &Value::Object(display))?;
             Ok(0)
         }
-        "gui-snapshot" => {
-            let group = parsed.rest.first().map(String::as_str).unwrap_or("all");
-            Ok(gui_snapshot(group, stderr))
-        }
         "apply" => Ok(apply(&parsed.rest, stderr)),
         "" => {
             let _ = writeln!(stderr, "ratmos: missing command");
@@ -580,28 +576,6 @@ fn write_json(stdout: &mut dyn Write, value: &Value) -> Result<(), String> {
     stdout.flush().map_err(|err| err.to_string())
 }
 
-fn gui_snapshot(group: &str, stderr: &mut dyn Write) -> i32 {
-    let root = match std::env::var("ATMOS_ROOT") {
-        Ok(root) => root,
-        Err(_) => {
-            let _ = writeln!(stderr, "ratmos: ATMOS_ROOT is not set");
-            return 1;
-        }
-    };
-    let script = PathBuf::from(root).join("scripts").join("snapshot.sh");
-    if !script.is_file() {
-        let _ = writeln!(stderr, "ratmos: missing {}", script.display());
-        return 1;
-    }
-    match Command::new("bash").arg(&script).arg(group).status() {
-        Ok(status) => status.code().unwrap_or(1),
-        Err(err) => {
-            let _ = writeln!(stderr, "ratmos: {err}");
-            1
-        }
-    }
-}
-
 fn apply(argv: &[String], stderr: &mut dyn Write) -> i32 {
     let Some(program) = argv.first() else {
         let _ = writeln!(stderr, "ratmos: apply needs a command");
@@ -619,6 +593,6 @@ fn apply(argv: &[String], stderr: &mut dyn Write) -> i32 {
 fn usage(stderr: &mut dyn Write) {
     let _ = writeln!(
         stderr,
-        "usage: ratmos [--backend omarchy|plain] [--root DIR] <snapshot|request|display KIND|display-snapshot|gui-snapshot|apply -- CMD|version>"
+        "usage: ratmos [--backend omarchy|plain] [--root DIR] <snapshot|request|display KIND|display-snapshot|apply -- CMD|version>"
     );
 }

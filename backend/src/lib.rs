@@ -91,20 +91,13 @@ fn dispatch(
                     return Err(format!("unknown display kind {kind}"));
                 }
             }
-            let mut display = Map::new();
-            for kind in kinds {
-                let value = match display::load(
-                    parsed.root.as_deref(),
-                    &parsed.backend,
-                    kind,
-                    parsed.sampler.as_deref(),
-                ) {
-                    Ok(value) => value,
-                    Err(err) => stamp_error(&parsed.backend, kind, &err),
-                };
-                display.insert(kind.to_string(), value);
-            }
-            write_json(stdout, &Value::Object(display))?;
+            let display = load_displays(
+                &parsed.backend,
+                parsed.root.as_deref(),
+                parsed.sampler.as_deref(),
+                &kinds,
+            );
+            write_json(stdout, &display)?;
             Ok(0)
         }
         "apply" => Ok(apply(&parsed.rest, stderr)),
@@ -228,7 +221,7 @@ fn handle(
             let kind = field(request, "kind")?;
             display::load(root, backend, kind, sampler)?
         }
-        "display.snapshot" => display_snapshot(backend, root, sampler)?,
+        "display.snapshot" => load_displays(backend, root, sampler, display::KINDS),
         other => return Ok(error_envelope(backend, &format!("unknown op {other}"))),
     };
     Ok(ok_envelope(backend, result))
@@ -499,19 +492,22 @@ fn capture_snapshot_sh(group: &str) -> Result<String, String> {
     Ok(String::from_utf8_lossy(&output.stdout).to_string())
 }
 
-fn display_snapshot(
+/// One failing inventory stays on its own kind. The other documents still return.
+fn load_displays(
     backend: &str,
     root: Option<&Path>,
     sampler: Option<&Path>,
-) -> Result<Value, String> {
+    kinds: &[&str],
+) -> Value {
     let mut display = Map::new();
-    for kind in display::KINDS {
-        display.insert(
-            (*kind).to_string(),
-            display::load(root, backend, kind, sampler)?,
-        );
+    for kind in kinds {
+        let value = match display::load(root, backend, kind, sampler) {
+            Ok(value) => value,
+            Err(err) => stamp_error(backend, kind, &err),
+        };
+        display.insert((*kind).to_string(), value);
     }
-    Ok(Value::Object(display))
+    Value::Object(display)
 }
 
 fn snapshot_document(backend: &str, root: &Path, sampler: Option<&Path>) -> Result<Value, String> {
@@ -519,7 +515,7 @@ fn snapshot_document(backend: &str, root: &Path, sampler: Option<&Path>) -> Resu
         "version": VERSION,
         "platform": platform(backend)?,
         "settings": Value::Object(settings_snapshot(backend, Some(root))?),
-        "display": display_snapshot(backend, Some(root), sampler)?,
+        "display": load_displays(backend, Some(root), sampler, display::KINDS),
     }))
 }
 

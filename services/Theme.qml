@@ -40,6 +40,7 @@ QtObject {
   readonly property string fontFamily: "monospace"
   readonly property int fontSize: Math.max(9, Math.round(ThemeJs.numberToken(root.shellValues, "font.base-size", 12)))
   readonly property int titleSize: Math.max(fontSize + 6, Math.round(fontSize * 1.4))
+  readonly property int captionSize: Math.max(11, fontSize - 2)
   // Page titles step clearly above section copy. The declaration name is
   // part of the tested interface (PrefsPage reads pageTitleSize), so the
   // hierarchy lift lives in the formula, not a new name.

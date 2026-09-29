@@ -6,7 +6,8 @@
 //! in its own config tree.
 
 mod display;
-mod domain;
+pub mod domain;
+pub mod effect;
 mod effects;
 mod patch;
 mod store;
@@ -256,6 +257,11 @@ fn settings_list(backend: &str) -> Result<Vec<Value>, String> {
 
 fn read_domain(backend: &str, root: Option<&Path>, key: &str) -> Result<Value, String> {
     let spec = domain::find(key).ok_or_else(|| format!("unknown domain {key}"))?;
+    if backend == "omarchy" {
+        if let Some(effect::Effect::Command { .. }) = effect::get(key) {
+            return effect::read_command(root, key);
+        }
+    }
     let place = domain::locate(backend, spec)?;
     store::read_place(root, &place, spec.key, spec.ty)
 }
@@ -267,6 +273,14 @@ fn write_domain(
     value: &Value,
 ) -> Result<(), String> {
     let spec = domain::find(key).ok_or_else(|| format!("unknown domain {key}"))?;
+    if !spec.ty.accepts(value) {
+        return Err(format!("{key} expects {}", spec.ty.name()));
+    }
+    if backend == "omarchy" {
+        if let Some(effect::Effect::Command { argv }) = effect::get(key) {
+            return effect::apply_command(root, key, argv, value);
+        }
+    }
     let place = domain::locate(backend, spec)?;
     match store::write_place(root, &place, spec.key, spec.ty, value) {
         Ok(()) => {}
@@ -287,7 +301,9 @@ fn write_domain(
         ) {
             spawn_command("hyprctl", &["reload"]);
         }
-        if key.starts_with("nightlight") {
+        // Schedule and temperature land in hyprsunset.conf. The nightlight
+        // switch is `omarchy toggle nightlight` and must not reload that file.
+        if key.starts_with("nightlight") && key != "nightlight" {
             spawn_command("omarchy", &["restart", "hyprsunset"]);
         }
         run_live_command(key, value);
@@ -441,6 +457,10 @@ fn live_settings_snapshot(group: &str) -> Result<Map<String, Value>, String> {
 
 fn overlay_domain(doc: &mut Map<String, Value>, key: &str, value: Value) {
     if value.is_null() {
+        return;
+    }
+    // These switches are live command status. A file value must not cover them.
+    if matches!(key, "nightlight" | "audioOutputMuted" | "audioInputMuted") {
         return;
     }
     if let Some((head, tail)) = key.split_once('.') {

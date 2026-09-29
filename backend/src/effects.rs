@@ -23,8 +23,7 @@ pub fn read_hypr(path: &Path, kind: &str, key: &str) -> Result<Value, String> {
             if !text.contains(begin) && !text_has_calls(&text, kind) {
                 return Ok(Value::Null);
             }
-            let listed = hypr_list(kind, path)?;
-            Ok(strip_managed(listed))
+            hypr_list(kind, path)
         }
     }
 }
@@ -40,16 +39,16 @@ pub fn write_hypr(path: &Path, kind: &str, key: &str, value: &Value) -> Result<(
     };
     let payload = match key {
         "bindings" | "windowRules" | "autostart" | "monitorRules" => {
-            serde_json::json!({ "items": value })
+            serde_json::json!({ "items": keep_managed(value) })
         }
         "workspaces" => {
             let wrap = flag_comment(&text, "wrapSwitch").as_bool().unwrap_or(true);
             let wheel = flag_comment(&text, "wheelSwitch").as_bool().unwrap_or(true);
-            serde_json::json!({ "items": value, "wrapSwitch": wrap, "wheelSwitch": wheel })
+            serde_json::json!({ "items": keep_managed(value), "wrapSwitch": wrap, "wheelSwitch": wheel })
         }
         "workspaceWrapSwitch" | "workspaceWheelSwitch" => {
             let mut items = if text.contains("-- atmos:workspaces begin") {
-                strip_managed(hypr_list("workspaces", path)?)
+                keep_managed(&hypr_list("workspaces", path)?)
             } else {
                 Value::Array(Vec::new())
             };
@@ -148,15 +147,14 @@ pub fn write_doc(root: Option<&Path>, path: &Path, key: &str, value: &Value) -> 
         return Ok(());
     }
     match key {
-        "nightlight"
-        | "nightlightTemperature"
-        | "nightlightDay"
-        | "nightlightNight"
-        | "nightlightNightOn" => write_sunset(path, key, value),
+        "nightlightTemperature" | "nightlightDay" | "nightlightNight" | "nightlightNightOn" => {
+            write_sunset(path, key, value)
+        }
         "envVars" | "envPathPrepend" => write_env(path, key, value),
         "mimePdf" | "mimeImage" | "mimeVideo" => write_mime(path, key, value),
-        "audioOutputVolume" | "audioInputVolume" | "audioOutputMuted" | "audioInputMuted"
-        | "audioTuningOn" => write_audio_line(path, key, value),
+        "audioOutputVolume" | "audioInputVolume" | "audioTuningOn" => {
+            write_audio_line(path, key, value)
+        }
         "bluetooth" | "wifiRadio" | "suspendEnabled" | "crashCapture" => {
             let token = match value.as_bool() {
                 Some(true) => "true",
@@ -388,7 +386,7 @@ fn systemctl_enabled(unit: &str) -> Result<Value, String> {
 
 fn read_doc_text(key: &str, text: &str) -> Result<Value, String> {
     match key {
-        "nightlight" => Ok(sunset_state(text).enabled),
+        "nightlight" | "audioOutputMuted" | "audioInputMuted" => Ok(Value::Null),
         "nightlightTemperature" => {
             let state = sunset_state(text);
             if state.saw_temp {
@@ -428,8 +426,6 @@ fn read_doc_text(key: &str, text: &str) -> Result<Value, String> {
         "mimeVideo" => Ok(mime_desktop(text, "video/mp4")),
         "audioOutputVolume" => audio_number(text, "output-volume "),
         "audioInputVolume" => audio_number(text, "input-volume "),
-        "audioOutputMuted" => audio_bool(text, "output-muted "),
-        "audioInputMuted" => audio_bool(text, "input-muted "),
         "audioTuningOn" => audio_bool(text, "tuning "),
         "bluetooth" | "wifiRadio" | "suspendEnabled" | "crashCapture" => {
             Ok(Value::Bool(text.trim() == "true"))
@@ -450,7 +446,6 @@ fn read_doc_text(key: &str, text: &str) -> Result<Value, String> {
 }
 
 struct Sunset {
-    enabled: Value,
     day: String,
     night: String,
     temp: i64,
@@ -461,7 +456,6 @@ struct Sunset {
 }
 
 fn sunset_state(text: &str) -> Sunset {
-    let mut enabled = Value::Null;
     let mut day = "07:00".to_string();
     let mut night = "20:00".to_string();
     let mut temp = 4000_i64;
@@ -472,9 +466,6 @@ fn sunset_state(text: &str) -> Sunset {
     let mut current: Option<Vec<String>> = None;
     for line in text.lines() {
         let trimmed = line.trim();
-        if let Some(rest) = trimmed.strip_prefix("# atmos:nightlight = ") {
-            enabled = Value::Bool(rest == "true");
-        }
         if let Some(rest) = trimmed.strip_prefix("# atmos:night = ") {
             night = rest.to_string();
             saw_night = true;
@@ -523,7 +514,6 @@ fn sunset_state(text: &str) -> Sunset {
         }
     }
     Sunset {
-        enabled,
         day,
         night,
         temp,
@@ -541,17 +531,7 @@ fn write_sunset(path: &Path, key: &str, value: &Value) -> Result<(), String> {
         String::new()
     };
     let mut state = sunset_state(&existing);
-    if state.enabled.is_null() {
-        state.enabled = Value::Bool(false);
-    }
     match key {
-        "nightlight" => {
-            state.enabled = Value::Bool(
-                value
-                    .as_bool()
-                    .ok_or_else(|| "nightlight expects a bool".to_string())?,
-            );
-        }
         "nightlightNightOn" => {
             state.night_on = value
                 .as_bool()
@@ -581,11 +561,8 @@ fn write_sunset(path: &Path, key: &str, value: &Value) -> Result<(), String> {
         }
         _ => return Err(format!("not a sunset field {key}")),
     }
-    let enabled = state.enabled.as_bool().unwrap_or(false);
-    let mut lines = vec![
-        "# Written by atmos. Day leaves the screen untinted.".to_string(),
-        format!("# atmos:nightlight = {enabled}"),
-    ];
+    // Profiles only. The on/off switch is `omarchy toggle nightlight`.
+    let mut lines = vec!["# Written by atmos. Day leaves the screen untinted.".to_string()];
     if state.saw_night {
         lines.push(format!("# atmos:night = {}", state.night));
     }
@@ -783,8 +760,6 @@ fn audio_prefix(key: &str) -> &'static str {
     match key {
         "audioOutputVolume" => "output-volume ",
         "audioInputVolume" => "input-volume ",
-        "audioOutputMuted" => "output-muted ",
-        "audioInputMuted" => "input-muted ",
         "audioTuningOn" => "tuning ",
         _ => "",
     }
@@ -995,23 +970,17 @@ fn text_has_calls(text: &str, kind: &str) -> bool {
     }
 }
 
-fn strip_managed(value: Value) -> Value {
-    match value {
-        Value::Array(items) => Value::Array(
-            items
-                .into_iter()
-                .map(|item| {
-                    if let Value::Object(mut map) = item {
-                        map.remove("managed");
-                        Value::Object(map)
-                    } else {
-                        item
-                    }
-                })
-                .collect(),
-        ),
-        other => other,
-    }
+fn keep_managed(value: &Value) -> Value {
+    let Some(items) = value.as_array() else {
+        return value.clone();
+    };
+    Value::Array(
+        items
+            .iter()
+            .filter(|item| item.get("managed").and_then(Value::as_bool) != Some(false))
+            .cloned()
+            .collect(),
+    )
 }
 
 fn hypr_apply(kind: &str, path: &Path, payload: &Value) -> Result<(), String> {

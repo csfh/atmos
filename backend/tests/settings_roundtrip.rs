@@ -7,6 +7,9 @@ use std::process::{Command, Stdio};
 
 use serde_json::Value;
 
+use atmos_backend::domain;
+use atmos_backend::effect::{self, Effect};
+
 use common::{cleanup, request, temp_root};
 
 #[test]
@@ -58,6 +61,20 @@ fn every_domain_roundtrips_through_the_backend_process() {
             "omarchy",
             &serde_json::json!({"op": "settings.get", "domain": key}),
         );
+        if let Some(argv) = settings_js_argv(key) {
+            assert_eq!(
+                got["result"], *value,
+                "{key} read does not match the write\nwritten {value}\ngot {}",
+                got["result"]
+            );
+            assert_command_logged(&root, key, argv, value);
+            assert_no_command_shadow(&root, key);
+            println!(
+                "ok {key} commands.log {}",
+                serde_json::to_string(&serde_json::json!(argv)).unwrap()
+            );
+            continue;
+        }
         assert!(
             round_ok(key, value, &got["result"]),
             "{key} read does not match the write\nwritten {value}\ngot {}",
@@ -279,7 +296,7 @@ fn doc_file_contains(key: &str, text: &str, value: &Value) -> bool {
     }
     let rendered = scalar(value);
     match key {
-        "nightlight" => text.contains("# atmos:nightlight = true"),
+        "nightlight" | "audioOutputMuted" | "audioInputMuted" => false,
         "nightlightDay" => text.contains("time = 07:11"),
         "nightlightNight" => text.contains("time = 20:11"),
         "nightlightNightOn" => text.matches("profile {").count() >= 2,
@@ -300,8 +317,6 @@ fn doc_file_contains(key: &str, text: &str, value: &Value) -> bool {
         }
         "audioOutputVolume" => text.contains(&format!("output-volume {rendered}")),
         "audioInputVolume" => text.contains(&format!("input-volume {rendered}")),
-        "audioOutputMuted" => text.contains("output-muted true"),
-        "audioInputMuted" => text.contains("input-muted true"),
         "audioTuningOn" => text.contains("tuning true"),
         "bluetooth" | "wifiRadio" | "suspendEnabled" | "crashCapture" => text.trim() == rendered,
         "presentationMode" => text.contains("\"on\":true"),
@@ -508,79 +523,287 @@ fn planted_documents_keep_their_shape() {
 }
 
 #[test]
-fn planted_bindings_keep_lines_outside_the_sentinel() {
-    let root = temp_root();
-    let file = root.join(".config/hypr/bindings.lua");
-    fs::create_dir_all(file.parent().unwrap()).unwrap();
-    fs::write(
-        &file,
-        "\
+fn effect_table_matches_every_settings_domain() {
+    let mut rows = effect::row_keys();
+    let mut specs: Vec<_> = domain::specs().iter().map(|spec| spec.key).collect();
+    let width = rows.len();
+    rows.sort_unstable();
+    rows.dedup();
+    assert_eq!(rows.len(), width, "duplicate effect row");
+    specs.sort_unstable();
+    assert_eq!(rows, specs, "effect rows and domain specs differ");
+    for spec in domain::specs() {
+        let row = effect::get(spec.key).unwrap_or_else(|| panic!("{} has no effect row", spec.key));
+        match (row, expected_sentinel(spec.key), settings_js_argv(spec.key)) {
+            (Effect::Command { argv }, None, Some(expected)) => {
+                assert_eq!(argv, expected, "{}", spec.key);
+            }
+            (Effect::Command { .. }, _, _) => {
+                panic!("{} is Command without the Settings.js argv", spec.key);
+            }
+            (Effect::Sentinel { kind }, Some(expected), None) => {
+                assert_eq!(kind, expected, "{}", spec.key);
+            }
+            (Effect::Sentinel { .. }, _, _) => {
+                panic!("{} is Sentinel without a kind in the test", spec.key);
+            }
+            (Effect::Document, None, None) => {}
+            (Effect::Document, _, _) => {
+                panic!(
+                    "{} is Document but the test expects a command or sentinel",
+                    spec.key
+                );
+            }
+        }
+    }
+    assert!(effect::get("not-a-domain").is_none());
+    println!("ok effect rows {}", specs.len());
+}
+
+#[test]
+fn effect_table_round_trips_through_the_backend() {
+    let plants = [
+        Plant {
+            domain: "bindings",
+            rel: ".config/hypr/bindings.lua",
+            outside_field: Some("keys"),
+            outside: "SUPER+Q",
+            inside_field: Some("keys"),
+            inside: "SUPER+Z",
+            needle: "o.bind(\"SUPER+Q\", \"Outside\", \"true\")",
+            body: "\
 -- keep outside
 o.bind(\"SUPER+Q\", \"Outside\", \"true\")
 -- atmos:bindings begin
-o.bind(\"SUPER+Z\", \"Old\", \"false\")
+o.bind(\"SUPER+Z\", \"Inside\", \"true\")
 -- atmos:bindings end
 ",
-    )
-    .unwrap();
+        },
+        Plant {
+            domain: "windowRules",
+            rel: ".config/hypr/atmos.lua",
+            outside_field: Some("match"),
+            outside: "outside-window",
+            inside_field: Some("match"),
+            inside: "inside-window",
+            needle: "o.window(\"outside-window\"",
+            body: "\
+-- keep outside
+o.window(\"outside-window\", { float = true })
+-- atmos:windows begin
+o.window(\"inside-window\", { tile = true })
+-- atmos:windows end
+",
+        },
+        Plant {
+            domain: "autostart",
+            rel: ".config/hypr/autostart.lua",
+            outside_field: Some("command"),
+            outside: "outside-start",
+            inside_field: Some("command"),
+            inside: "inside-start",
+            needle: "o.launch_on_start(\"outside-start\")",
+            body: "\
+-- keep outside
+o.launch_on_start(\"outside-start\")
+-- atmos:autostart begin
+o.launch_on_start(\"inside-start\")
+-- atmos:autostart end
+",
+        },
+        Plant {
+            domain: "workspaces",
+            rel: ".config/hypr/atmos.lua",
+            outside_field: None,
+            outside: "OutsideWs",
+            inside_field: None,
+            inside: "InsideWs",
+            needle: "default_name = \"OutsideWs\"",
+            body: "\
+-- keep outside
+hl.workspace_rule({ workspace = \"11\", persistent = true, default_name = \"OutsideWs\" })
+-- atmos:workspaces begin
+-- atmos:wrapSwitch = true
+-- atmos:wheelSwitch = true
+hl.workspace_rule({ workspace = \"1\", persistent = true, default_name = \"InsideWs\" })
+-- atmos:workspaces end
+",
+        },
+        Plant {
+            domain: "monitorRules",
+            rel: ".config/hypr/monitors.lua",
+            outside_field: None,
+            outside: "HDMI-A-9",
+            inside_field: None,
+            inside: "DP-1",
+            needle: "output = \"HDMI-A-9\"",
+            body: "\
+-- keep outside
+hl.monitor({ output = \"HDMI-A-9\", mode = \"preferred\", position = \"auto\", scale = 1 })
+-- atmos:monitors begin
+hl.monitor({ output = \"DP-1\", mode = \"preferred\", position = \"auto\", scale = 1 })
+-- atmos:monitors end
+",
+        },
+    ];
 
+    for plant in plants {
+        let root = temp_root();
+        let file = root.join(plant.rel);
+        fs::create_dir_all(file.parent().unwrap()).unwrap();
+        fs::write(&file, plant.body).unwrap();
+        let got = request(
+            &root,
+            "omarchy",
+            &serde_json::json!({"op": "settings.get", "domain": plant.domain}),
+        );
+        if let (Some(field), Some(inside_field)) = (plant.outside_field, plant.inside_field) {
+            assert_eq!(
+                row_managed(&got["result"], field, plant.outside),
+                Value::Bool(false),
+                "{} dropped managed:false\n{}",
+                plant.domain,
+                got["result"]
+            );
+            assert_eq!(
+                row_managed(&got["result"], inside_field, plant.inside),
+                Value::Bool(true),
+                "{} inside row\n{}",
+                plant.domain,
+                got["result"]
+            );
+        } else {
+            let encoded = got["result"].to_string();
+            assert!(
+                !encoded.contains(plant.outside),
+                "{} get included the outside call\n{encoded}",
+                plant.domain
+            );
+        }
+        request(
+            &root,
+            "omarchy",
+            &serde_json::json!({
+                "op": "settings.set",
+                "domain": plant.domain,
+                "value": got["result"]
+            }),
+        );
+        let text = fs::read_to_string(&file).unwrap();
+        assert_eq!(
+            text.matches(plant.needle).count(),
+            1,
+            "{} duplicated the outside call\n{text}",
+            plant.domain
+        );
+        assert!(
+            text.contains(plant.inside),
+            "{} lost the inside call\n{text}",
+            plant.domain
+        );
+        assert!(!text.contains("atmos-json"), "{text}");
+        println!("ok {} {} once", plant.domain, plant.needle);
+        cleanup(&root);
+    }
+
+    let root = temp_root();
     request(
         &root,
         "omarchy",
         &serde_json::json!({
             "op": "settings.set",
-            "domain": "bindings",
-            "value": [{
-                "keys": "SUPER+A",
-                "label": "Probe",
-                "command": "true",
-                "unbind": false
-            }]
+            "domain": "windowRules",
+            "value": [{"match": "probe-window", "placement": "float"}]
         }),
     );
-
-    let text = fs::read_to_string(&file).unwrap();
-    let begin = text
-        .find("-- atmos:bindings begin")
-        .expect("bindings sentinel");
-    let outside = text.find("SUPER+Q").expect("outside bind");
-    let inside = text.find("SUPER+A").expect("new bind");
-    assert!(text.contains("-- keep outside"), "{text}");
-    assert!(outside < begin, "{text}");
-    assert!(inside > begin, "{text}");
-    assert!(
-        text.contains("o.bind(\"SUPER+Q\", \"Outside\", \"true\")"),
-        "{text}"
-    );
-    assert!(
-        text.contains("o.bind(\"SUPER+A\", \"Probe\", \"true\")"),
-        "{text}"
-    );
-    assert!(!text.contains("SUPER+Z"), "{text}");
-    assert!(!text.contains("atmos-json"), "{text}");
-
     let got = request(
         &root,
         "omarchy",
-        &serde_json::json!({"op": "settings.get", "domain": "bindings"}),
+        &serde_json::json!({"op": "settings.get", "domain": "windowRules"}),
     );
-    assert!(
-        list_has(&got["result"], "keys", "SUPER+Q"),
-        "{}",
+    assert_eq!(
+        row_managed(&got["result"], "match", "dev.csfh.atmos"),
+        Value::Bool(false),
+        "window seed lost managed:false\n{}",
         got["result"]
     );
-    assert!(
-        list_has(&got["result"], "keys", "SUPER+A"),
-        "{}",
-        got["result"]
+    request(
+        &root,
+        "omarchy",
+        &serde_json::json!({
+            "op": "settings.set",
+            "domain": "windowRules",
+            "value": got["result"]
+        }),
     );
-    assert!(
-        !list_has(&got["result"], "keys", "SUPER+Z"),
-        "{}",
-        got["result"]
+    let text = fs::read_to_string(root.join(".config/hypr/atmos.lua")).unwrap();
+    assert_eq!(
+        text.matches("dev.csfh.atmos").count(),
+        1,
+        "window seed was copied into the sentinel\n{text}"
     );
-
+    let begin = text
+        .find("-- atmos:windows begin")
+        .expect("windows sentinel");
+    let seed = text.find("dev.csfh.atmos").expect("window seed");
+    assert!(seed < begin, "{text}");
+    assert!(text.contains("probe-window"), "{text}");
+    println!("ok windowRules seed outside once");
     cleanup(&root);
+
+    for (key, argv) in [
+        ("nightlight", &["omarchy", "toggle", "nightlight"][..]),
+        (
+            "audioOutputMuted",
+            &["omarchy", "audio", "output", "volume", "mute-toggle"][..],
+        ),
+        (
+            "audioInputMuted",
+            &["omarchy", "audio", "input", "mute"][..],
+        ),
+    ] {
+        let root = temp_root();
+        let value = Value::Bool(true);
+        let set = request(
+            &root,
+            "omarchy",
+            &serde_json::json!({"op": "settings.set", "domain": key, "value": value}),
+        );
+        assert_eq!(set["result"]["value"], value, "{set}");
+        let got = request(
+            &root,
+            "omarchy",
+            &serde_json::json!({"op": "settings.get", "domain": key}),
+        );
+        assert_eq!(got["result"], value, "{got}");
+        assert_command_logged(&root, key, argv, &value);
+        assert!(!root.join(".config/omarchy/audio.json").exists(), "{key}");
+        assert!(!root.join(".config/omarchy/env.json").exists(), "{key}");
+        assert!(
+            !root.join(".config/hypr/hyprsunset.conf").exists(),
+            "{key} wrote hyprsunset.conf"
+        );
+        assert!(
+            !root.join(".local/state/omarchy/audio-level").exists(),
+            "{key} wrote audio-level"
+        );
+        println!(
+            "ok {key} commands.log {}",
+            serde_json::to_string(&serde_json::json!(argv)).unwrap()
+        );
+        cleanup(&root);
+    }
+}
+
+struct Plant {
+    domain: &'static str,
+    rel: &'static str,
+    outside_field: Option<&'static str>,
+    outside: &'static str,
+    inside_field: Option<&'static str>,
+    inside: &'static str,
+    needle: &'static str,
+    body: &'static str,
 }
 
 #[test]
@@ -749,6 +972,142 @@ fn audio_volume_runs_set_audio_without_a_private_map() {
     );
     assert_eq!(got["result"], 40, "{got}");
 
+    cleanup(&home);
+}
+
+fn settings_js_argv(key: &str) -> Option<&'static [&'static str]> {
+    match key {
+        "nightlight" => Some(&["omarchy", "toggle", "nightlight"]),
+        "audioOutputMuted" => Some(&["omarchy", "audio", "output", "volume", "mute-toggle"]),
+        "audioInputMuted" => Some(&["omarchy", "audio", "input", "mute"]),
+        _ => None,
+    }
+}
+
+fn expected_sentinel(key: &str) -> Option<&'static str> {
+    match key {
+        "bindings" => Some("bindings"),
+        "windowRules" => Some("windows"),
+        "autostart" => Some("autostart"),
+        "monitorRules" => Some("monitors"),
+        "workspaces" | "workspaceWrapSwitch" | "workspaceWheelSwitch" => Some("workspaces"),
+        _ => None,
+    }
+}
+
+fn row_managed(list: &Value, field: &str, expect: &str) -> Value {
+    list.as_array()
+        .and_then(|items| {
+            items
+                .iter()
+                .find(|item| item.get(field).and_then(Value::as_str) == Some(expect))
+        })
+        .and_then(|item| item.get("managed"))
+        .cloned()
+        .unwrap_or(Value::Null)
+}
+
+fn assert_command_logged(root: &std::path::Path, key: &str, argv: &[&str], value: &Value) {
+    let text = fs::read_to_string(root.join("commands.log")).unwrap_or_default();
+    let want = serde_json::json!(argv);
+    let found = text.lines().any(|line| {
+        let Ok(parsed) = serde_json::from_str::<Value>(line) else {
+            return false;
+        };
+        parsed.get("domain").and_then(Value::as_str) == Some(key)
+            && parsed.get("argv") == Some(&want)
+            && parsed.get("value") == Some(value)
+    });
+    assert!(found, "{key} argv missing from commands.log\n{text}");
+}
+
+fn assert_no_command_shadow(root: &std::path::Path, key: &str) {
+    assert!(!root.join(".config/omarchy/audio.json").exists(), "{key}");
+    assert!(!root.join(".config/omarchy/env.json").exists(), "{key}");
+    if let Ok(text) = fs::read_to_string(root.join(".config/hypr/hyprsunset.conf")) {
+        assert!(
+            !text.contains("# atmos:nightlight"),
+            "{key} wrote a nightlight comment\n{text}"
+        );
+    }
+    if matches!(key, "audioOutputMuted" | "audioInputMuted") {
+        if let Ok(text) = fs::read_to_string(root.join(".local/state/omarchy/audio-level")) {
+            assert!(!text.contains("output-muted"), "{key}\n{text}");
+            assert!(!text.contains("input-muted"), "{key}\n{text}");
+        }
+    }
+}
+
+#[test]
+fn live_command_keys_spawn_the_settings_js_argv() {
+    let home = temp_root();
+    let bin = home.join("bin");
+    let log = home.join("omarchy.log");
+    fs::create_dir_all(&bin).unwrap();
+    let log_path = log.display().to_string();
+    fs::write(
+        bin.join("omarchy"),
+        format!("#!/bin/sh\nprintf '%s\\n' \"$*\" >> '{log_path}'\nexit 0\n"),
+    )
+    .unwrap();
+    let mut perms = fs::metadata(bin.join("omarchy")).unwrap().permissions();
+    perms.set_mode(0o755);
+    fs::set_permissions(bin.join("omarchy"), perms).unwrap();
+    let repo = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .to_path_buf();
+    let path = format!(
+        "{}:{}",
+        bin.display(),
+        std::env::var("PATH").unwrap_or_default()
+    );
+    for (key, argv) in [
+        ("nightlight", &["omarchy", "toggle", "nightlight"][..]),
+        (
+            "audioOutputMuted",
+            &["omarchy", "audio", "output", "volume", "mute-toggle"][..],
+        ),
+        (
+            "audioInputMuted",
+            &["omarchy", "audio", "input", "mute"][..],
+        ),
+    ] {
+        let set = request_at_home(
+            &home,
+            &repo,
+            &path,
+            &serde_json::json!({"op": "settings.set", "domain": key, "value": true}),
+        );
+        assert_eq!(set["result"]["value"], Value::Null, "{set}");
+        let got = request_at_home(
+            &home,
+            &repo,
+            &path,
+            &serde_json::json!({"op": "settings.get", "domain": key}),
+        );
+        assert_eq!(got["result"], Value::Null, "{got}");
+        println!("ok live {key} {}", argv.join(" "));
+    }
+    let recorded = fs::read_to_string(&log).unwrap_or_default();
+    assert!(recorded.contains("toggle nightlight"), "{recorded}");
+    assert!(
+        recorded.contains("audio output volume mute-toggle"),
+        "{recorded}"
+    );
+    assert!(recorded.contains("audio input mute"), "{recorded}");
+    assert!(!recorded.contains("restart hyprsunset"), "{recorded}");
+    let sunset = home.join(".config/hypr/hyprsunset.conf");
+    if let Ok(text) = fs::read_to_string(&sunset) {
+        assert!(!text.contains("# atmos:nightlight"), "{text}");
+    }
+    assert!(!home.join(".config/omarchy/audio.json").exists());
+    assert!(!home.join(".config/omarchy/env.json").exists());
+    if let Ok(text) = fs::read_to_string(home.join(".local/state/omarchy/audio-level")) {
+        assert!(!text.contains("output-muted"), "{text}");
+        assert!(!text.contains("input-muted"), "{text}");
+    }
+    println!("ok live commands.log\n{recorded}");
     cleanup(&home);
 }
 

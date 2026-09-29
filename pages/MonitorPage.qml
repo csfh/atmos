@@ -185,6 +185,13 @@ PrefsPage {
     wide: true
     detail: "Meters share the live sample. Hot ink is 90% and up."
 
+    PrefsSkeleton {
+      width: parent.width - Theme.copyInset * 2
+      x: Theme.copyInset
+      visible: LiveStatsStore.waiting
+      active: visible
+    }
+
     Flow {
       id: nowFlow
       width: parent.width - Theme.copyInset * 2

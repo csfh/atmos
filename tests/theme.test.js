@@ -422,27 +422,28 @@ const appearanceSrc = fs.readFileSync(
   path.join(__dirname, "..", "pages", "AppearancePage.qml"),
   "utf8",
 );
-const themeSelectStart = appearanceSrc.indexOf('label: "Current theme"');
-const themeSelectEnd = appearanceSrc.indexOf('label: "Theme files"', themeSelectStart);
-const themeSelect = appearanceSrc.slice(themeSelectStart, themeSelectEnd);
+const themeGalleryStart = appearanceSrc.indexOf('label: "Themes"');
+const themeGalleryEnd = appearanceSrc.indexOf('title: "Additional themes"', themeGalleryStart);
+const themeGallery = appearanceSrc.slice(themeGalleryStart, themeGalleryEnd);
 assert(
-  themeSelect.indexOf("onPreviewed:") !== -1 &&
-    themeSelect.indexOf("Theme.previewNamedTheme") !== -1,
-  "Current theme hover calls previewNamedTheme",
+  themeGallery.indexOf("onEntered:") !== -1 &&
+    themeGallery.indexOf("Theme.previewNamedTheme") !== -1,
+  "Themes gallery hover calls previewNamedTheme",
 );
 assert(
-  themeSelect.indexOf("Theme.restorePreview()") !== -1 &&
-    themeSelect.indexOf("applyNamedTheme") === -1,
-  "Current theme restore uses restorePreview, not applyNamedTheme",
+  themeGallery.indexOf("Theme.restorePreview()") !== -1 &&
+    themeGallery.indexOf("applyNamedTheme") === -1,
+  "Themes gallery restore uses restorePreview, not applyNamedTheme",
 );
 assert(
-  themeSelect.indexOf("Omarchy.setTheme") !== -1 &&
-    /onPreviewed:[\s\S]*setTheme/.test(themeSelect) === false,
-  "Current theme hover does not call setTheme",
+  themeGallery.indexOf("Omarchy.setTheme") !== -1 &&
+    /onEntered:[\s\S]*Omarchy\.setTheme/.test(themeGallery) === false,
+  "Themes gallery hover does not call setTheme",
 );
 assert(
-  themeSelect.indexOf("onChanged:") !== -1 && themeSelect.indexOf("Omarchy.setTheme(value)") !== -1,
-  "Current theme click still commits through Omarchy.setTheme",
+  themeGallery.indexOf("function apply()") !== -1 &&
+    themeGallery.indexOf("Omarchy.setTheme(modelData)") !== -1,
+  "Themes gallery click commits through Omarchy.setTheme",
 );
 
 const extraGroupStart = appearanceSrc.indexOf('title: "Additional themes"');

@@ -41,7 +41,12 @@ QtObject {
   readonly property int fontSize: Math.max(9, Math.round(ThemeJs.numberToken(root.shellValues, "font.base-size", 12)))
   readonly property int titleSize: Math.max(fontSize + 6, Math.round(fontSize * 1.4))
   readonly property int captionSize: Math.max(11, fontSize - 2)
-  readonly property int pageTitleSize: titleSize
+  // Page titles step clearly above section copy. The declaration name is
+  // part of the tested interface (PrefsPage reads pageTitleSize), so the
+  // hierarchy lift lives in the formula, not a new name.
+  readonly property int pageTitleSize: Math.max(titleSize + 4, Math.round(fontSize * 1.8))
+  // Hero numerals for stat tiles. Foreground ink, never a private color.
+  readonly property int heroNumeralSize: Math.max(28, Math.round(fontSize * 2.6))
   readonly property int pageDescriptionSize: fontSize
   readonly property int embedTitleSize: fontSize + 2
   readonly property int sectionSize: captionSize
@@ -73,6 +78,10 @@ QtObject {
   // glance. Status ink is Theme.urgent / Theme.muted, not a private green.
   readonly property int badgeSize: Math.max(12, fontSize + 1)
   readonly property real normalFill: ThemeJs.numberToken(root.shellValues, "controls.normal-fill-alpha", 0.04)
+  // Stat tiles and gallery cards sit one step above the base fill.
+  readonly property real tileFill: 0.07
+  // Gallery swatch dots and avatar ring accents.
+  readonly property int swatchSize: 20
   readonly property real hoverFill: ThemeJs.numberToken(root.shellValues, "controls.hover-cursor-fill-alpha", 0.08)
   readonly property real selectedFill: ThemeJs.numberToken(root.shellValues, "controls.selected-fill-alpha", 0.18)
   readonly property real borderAlpha: ThemeJs.numberToken(root.shellValues, "controls.normal-border-alpha", 0.4)
@@ -121,6 +130,8 @@ QtObject {
   readonly property int motionFast: 90
   readonly property int motionMed: 120
   readonly property int motionNav: 180
+  // Page and hero entrances. One step above nav motion, still instant-feeling.
+  readonly property int motionEnter: 240
 
   readonly property int sidebarWidth: 220
   readonly property int contentMaxWidth: 1000

@@ -3,6 +3,7 @@ import "../components"
 import "../services"
 import "../services/HyprSunset.js" as HyprSunset
 import "../services/RichUi.js" as RichUi
+import "../services/Theme.js" as ThemeJs
 import "appearance" as Look
 import "rows"
 
@@ -145,38 +146,6 @@ PrefsPage {
     hint: "omarchy theme set"
 
     SettingRow {
-      label: "Current theme"
-      description: "The palette in use right now. The shell and themed apps follow this. Hover a name to preview its colors on this window."
-      hint: "omarchy theme set"
-      query: root.query
-      keywords: ["appearance", "color", "style", "palette"]
-
-      PrefsSelect {
-        value: Omarchy.theme
-        options: Omarchy.themes
-        enabled: Omarchy.themes.length > 0
-        onChanged: function(value) {
-          if (value !== Omarchy.theme) Omarchy.setTheme(value)
-          else Theme.restorePreview()
-        }
-
-        // Hover paints this window from the named theme's colors.toml.
-        // Wallpaper, bar, terminals, and Hyprland stay put. Preview never
-        // runs omarchy theme set. Leave the list or close the popup to put
-        // the live chrome back (the in-memory snapshot from current/, not
-        // the named theme directory). Click commits through setTheme;
-        // pickValue clears hover without emitting previewed("") so that
-        // paint is not undone while Omarchy.theme is still the old name.
-        onPreviewed: function(value) {
-          if (value.length > 0 && value !== Omarchy.theme)
-            Theme.previewNamedTheme(value)
-          else
-            Theme.restorePreview()
-        }
-      }
-    }
-
-    SettingRow {
       label: "Theme files"
       description: "The files behind the current theme. Open the folder if you want to tweak colors or templates by hand."
       hint: "omarchy theme dir"
@@ -200,6 +169,117 @@ PrefsPage {
       PrefsButton {
         text: "Refresh"
         onClicked: Omarchy.refreshTheme()
+      }
+    }
+
+    SettingRow {
+      label: "Themes"
+      description: "The palette in use right now, and every theme you can switch to. The shell and themed apps follow the current one. Hover a card to preview its colors on this window; click to paint the desktop."
+      hint: "omarchy theme set"
+      query: root.query
+      keywords: ["appearance", "current", "theme", "gallery", "swatch", "preview", "color", "style", "palette"]
+      available: Omarchy.themes.length > 0
+      stretchControl: true
+
+      Flow {
+        width: parent.width
+        spacing: Theme.space
+
+        Repeater {
+          model: Omarchy.themes
+
+          delegate: Rectangle {
+            required property var modelData
+            property var dots: []
+            width: 148
+            height: cardCol.implicitHeight + Theme.pad * 2
+            color: modelData === Omarchy.theme
+              ? Theme.accentFill(Theme.primaryFill)
+              : Theme.fill(Theme.tileFill)
+            border.width: Theme.borderWidth
+            border.color: modelData === Omarchy.theme ? Theme.accent : Theme.borderColor()
+            radius: Theme.radius
+
+            Accessible.role: Accessible.Button
+            Accessible.name: modelData === Omarchy.theme ? modelData + ", current theme" : "Apply " + modelData
+            Accessible.onPressAction: apply()
+
+            Component.onCompleted: loadDots()
+
+            function apply() {
+              if (modelData !== Omarchy.theme) Omarchy.setTheme(modelData)
+              else Theme.restorePreview()
+            }
+
+            // Read-only parse of the theme's colors.toml. Never runs
+            // omarchy theme set; hover and click own the commit paths.
+            function loadDots() {
+              var paths = ThemeJs.themeFileCandidates(modelData, "colors.toml", Theme.home)
+              var i
+              var raw = ""
+              for (i = 0; i < paths.length; i++) {
+                raw = Theme.readPath(paths[i])
+                if (raw) break
+              }
+              if (!raw) return
+              var parsed = ThemeJs.parseColors(raw)
+              dots = [parsed.accent, parsed.foreground, parsed.muted, parsed.urgent]
+            }
+
+            Behavior on border.color {
+              ColorAnimation { duration: Theme.motionFast }
+            }
+
+            Column {
+              id: cardCol
+              anchors.left: parent.left
+              anchors.right: parent.right
+              anchors.top: parent.top
+              anchors.margins: Theme.pad
+              spacing: Theme.labelGap
+
+              Row {
+                spacing: Theme.sliderTickGap
+
+                Repeater {
+                  model: dots
+
+                  Rectangle {
+                    required property var modelData
+                    width: Theme.swatchSize - 6
+                    height: Theme.swatchSize - 6
+                    color: modelData
+                    border.width: Theme.borderWidth
+                    border.color: Theme.borderColor()
+                    radius: Theme.radius
+                  }
+                }
+              }
+
+              Text {
+                width: parent.width
+                text: modelData
+                color: Theme.foreground
+                font.family: Theme.fontFamily
+                font.pixelSize: Theme.labelSize
+                font.bold: modelData === Omarchy.theme
+                elide: Text.ElideRight
+              }
+            }
+
+            MouseArea {
+              id: chipMouse
+              anchors.fill: parent
+              hoverEnabled: true
+              cursorShape: Qt.PointingHandCursor
+              onEntered: {
+                if (modelData !== Omarchy.theme) Theme.previewNamedTheme(modelData)
+              }
+              onExited: Theme.restorePreview()
+              onClicked: apply()
+            }
+          }
+        }
       }
     }
   }

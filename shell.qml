@@ -1064,7 +1064,7 @@ ShellRoot {
           anchors.right: searchBox.left
           anchors.rightMargin: Theme.space
           anchors.verticalCenter: parent.verticalCenter
-          spacing: 0
+          spacing: Theme.space
 
           Accessible.role: Accessible.Grouping
           Accessible.name: "Which options to show"

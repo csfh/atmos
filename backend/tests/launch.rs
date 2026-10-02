@@ -13,7 +13,11 @@ fn snapshot_launches_match_on_one_fixture() {
         &["--backend", "omarchy", "--root", &root_arg, "request"],
         r#"{"op":"settings.set","domain":"theme","value":"fixture-theme-alpha"}"#,
     );
-    assert!(set.status.success(), "{}", String::from_utf8_lossy(&set.stderr));
+    assert!(
+        set.status.success(),
+        "{}",
+        String::from_utf8_lossy(&set.stderr)
+    );
 
     let samples = [
         ("live", "sampleHost", "fixture-live-host"),
@@ -31,8 +35,16 @@ fn snapshot_launches_match_on_one_fixture() {
 
     let first = snapshot(&root_arg);
     let second = snapshot(&root_arg);
-    assert!(first.status.success(), "{}", String::from_utf8_lossy(&first.stderr));
-    assert!(second.status.success(), "{}", String::from_utf8_lossy(&second.stderr));
+    assert!(
+        first.status.success(),
+        "{}",
+        String::from_utf8_lossy(&first.stderr)
+    );
+    assert!(
+        second.status.success(),
+        "{}",
+        String::from_utf8_lossy(&second.stderr)
+    );
     assert_eq!(first.stdout, second.stdout);
     let text = String::from_utf8(first.stdout).unwrap();
     assert!(text.contains("\"version\": \"0.1.0\""), "{text}");

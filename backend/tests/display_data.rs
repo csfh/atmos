@@ -26,9 +26,12 @@ fn display_kinds_return_fixture_identity() {
             "omarchy",
             &serde_json::json!({"op": "display.get", "kind": kind}),
         );
-        assert_eq!(response["result"][field], value, "{kind} dropped the fixture value");
+        assert_eq!(
+            response["result"][field], value,
+            "{kind} dropped the fixture value"
+        );
         assert_eq!(response["result"]["platform"], "omarchy");
-        assert_eq!(response["result"]["collector"].as_str().unwrap().is_empty(), false);
+        assert!(!response["result"]["collector"].as_str().unwrap().is_empty());
         println!("ok {kind} {field}={value}");
     }
     cleanup(&root);
@@ -50,7 +53,8 @@ fn display_finds_scripts_without_atmos_root() {
         "display should walk to scripts/\n{err}"
     );
     if output.status.success() {
-        let value: serde_json::Value = serde_json::from_slice(&output.stdout).expect("display json");
+        let value: serde_json::Value =
+            serde_json::from_slice(&output.stdout).expect("display json");
         assert_eq!(value["collector"], "diag-inventory.py");
     }
 }

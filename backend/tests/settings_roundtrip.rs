@@ -542,17 +542,16 @@ fn planted_documents_keep_their_shape() {
 }
 
 #[test]
-fn effect_table_matches_every_settings_domain() {
-    let mut rows = effect::row_keys();
-    let mut specs: Vec<_> = domain::specs().iter().map(|spec| spec.key).collect();
-    let width = rows.len();
-    rows.sort_unstable();
-    rows.dedup();
-    assert_eq!(rows.len(), width, "duplicate effect row");
-    specs.sort_unstable();
-    assert_eq!(rows, specs, "effect rows and domain specs differ");
+fn every_settings_domain_carries_the_effect_the_scripts_expect() {
+    let mut keys: Vec<_> = domain::specs().iter().map(|spec| spec.key).collect();
+    let total = keys.len();
+    keys.sort_unstable();
+    keys.dedup();
+    assert_eq!(keys.len(), total, "duplicate domain row");
+    let specs = keys;
     for spec in domain::specs() {
-        let row = effect::get(spec.key).unwrap_or_else(|| panic!("{} has no effect row", spec.key));
+        let row = effect::get(spec.key).unwrap_or_else(|| panic!("{} has no effect", spec.key));
+        assert_eq!(row, spec.effect, "{}: get disagrees with the row", spec.key);
         let command = expected_command(spec.key, true).is_some();
         match (row, expected_sentinel(spec.key), command) {
             (Effect::Command(form), None, true) => {

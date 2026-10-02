@@ -4,6 +4,7 @@
 //! `hl.config` assignments such as `gaps_in`. Line files such as pacman.conf keep
 //! every other line and only replace the matching assignment.
 
+use crate::error::Result;
 use serde_json::{Map, Value};
 
 use crate::domain::{self, LuaForm, Ty};
@@ -69,7 +70,7 @@ pub fn nested_set(doc: &mut Value, path: &[&str], value: &Value) {
     set_path(doc, path, value.clone());
 }
 
-pub fn lua_read(text: &str, begin: &str, end: &str, key: &str, ty: Ty) -> Result<Value, String> {
+pub fn lua_read(text: &str, begin: &str, end: &str, key: &str, ty: Ty) -> Result<Value> {
     let Some(bind) = domain::lua_bind(key) else {
         return Ok(Value::Null);
     };
@@ -77,9 +78,9 @@ pub fn lua_read(text: &str, begin: &str, end: &str, key: &str, ty: Ty) -> Result
         return Ok(Value::Null);
     };
     let value = match bind.form {
-        LuaForm::Value => assign_value(&body, bind.name),
-        LuaForm::Enabled => enabled_value(&body, bind.name),
-        LuaForm::Cursor => cursor_value(&body),
+        LuaForm::Value => assign_value(body, bind.name),
+        LuaForm::Enabled => enabled_value(body, bind.name),
+        LuaForm::Cursor => cursor_value(body),
         LuaForm::Gesture => Value::Bool(
             body.contains("action = \"workspace\"") || body.contains("action=\"workspace\""),
         ),
@@ -88,13 +89,7 @@ pub fn lua_read(text: &str, begin: &str, end: &str, key: &str, ty: Ty) -> Result
     coerce(value, ty)
 }
 
-pub fn lua_write(
-    text: &str,
-    begin: &str,
-    end: &str,
-    key: &str,
-    value: &Value,
-) -> Result<String, String> {
+pub fn lua_write(text: &str, begin: &str, end: &str, key: &str, value: &Value) -> Result<String> {
     let bind = domain::lua_bind(key).ok_or_else(|| format!("no lua field for {key}"))?;
     let mut text = ensure_sentinel(text, begin, end);
     let rendered = lua_token(&bind.form, value);
@@ -124,7 +119,7 @@ pub fn lua_write(
     Ok(text)
 }
 
-pub fn line_read(text: &str, prefix: &str, ty: Ty) -> Result<Value, String> {
+pub fn line_read(text: &str, prefix: &str, ty: Ty) -> Result<Value> {
     if prefix.is_empty() {
         let text = text.trim_end_matches(['\n', '\r']);
         return coerce(Value::String(text.to_string()), ty);
@@ -468,7 +463,7 @@ fn assignment_value(line: &str, key: &str) -> Option<String> {
     Some(rest.trim().to_string())
 }
 
-fn coerce(value: Value, ty: Ty) -> Result<Value, String> {
+fn coerce(value: Value, ty: Ty) -> Result<Value> {
     if value.is_null() {
         return Ok(value);
     }
@@ -854,4 +849,78 @@ fn cursor_value(body: &str) -> Value {
         return parse_lua_scalar(&rest[start..start + end]);
     }
     Value::Null
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    const BEGIN: &str = "-- atmos:look begin";
+    const END: &str = "-- atmos:look end";
+
+    #[test]
+    fn lua_write_adds_a_block_and_keeps_the_text_around_it() {
+        let user = "-- my own settings\nhl.config({ general = { layout = \"dwindle\" } })\n";
+        let out = lua_write(user, BEGIN, END, "hyprLook.gapsIn", &json!(7)).unwrap();
+        assert!(out.starts_with(user), "user text stays first: {out}");
+        assert!(out.contains(BEGIN) && out.contains(END));
+        assert_eq!(
+            lua_read(&out, BEGIN, END, "hyprLook.gapsIn", Ty::Int).unwrap(),
+            json!(7)
+        );
+    }
+
+    #[test]
+    fn lua_write_replaces_in_place_and_does_not_grow() {
+        let once = lua_write("", BEGIN, END, "hyprLook.gapsIn", &json!(5)).unwrap();
+        let twice = lua_write(&once, BEGIN, END, "hyprLook.gapsIn", &json!(9)).unwrap();
+        assert_eq!(
+            lua_read(&twice, BEGIN, END, "hyprLook.gapsIn", Ty::Int).unwrap(),
+            json!(9)
+        );
+        assert_eq!(twice.matches(BEGIN).count(), 1, "one block, not two");
+        assert_eq!(once.lines().count(), twice.lines().count());
+    }
+
+    #[test]
+    fn lua_write_keeps_the_other_keys_in_the_block() {
+        let a = lua_write("", BEGIN, END, "hyprLook.gapsIn", &json!(5)).unwrap();
+        let b = lua_write(&a, BEGIN, END, "hyprLook.gapsOut", &json!(12)).unwrap();
+        assert_eq!(
+            lua_read(&b, BEGIN, END, "hyprLook.gapsIn", Ty::Int).unwrap(),
+            json!(5)
+        );
+        assert_eq!(
+            lua_read(&b, BEGIN, END, "hyprLook.gapsOut", Ty::Int).unwrap(),
+            json!(12)
+        );
+    }
+
+    #[test]
+    fn lua_read_without_a_block_is_null() {
+        assert_eq!(
+            lua_read("hl.config({})\n", BEGIN, END, "hyprLook.gapsIn", Ty::Int).unwrap(),
+            Value::Null
+        );
+    }
+
+    #[test]
+    fn line_write_replaces_one_assignment_and_appends_a_missing_one() {
+        let text = "A=1\nB=2\n";
+        let replaced = line_write(text, "B=", &json!(5));
+        assert_eq!(replaced, "A=1\nB=5\n");
+        let appended = line_write(text, "C=", &json!("x"));
+        assert_eq!(appended, "A=1\nB=2\nC=x\n");
+        assert_eq!(line_read(&appended, "C=", Ty::String).unwrap(), json!("x"));
+    }
+
+    #[test]
+    fn nested_set_creates_the_path_and_replaces_a_non_object_root() {
+        let mut doc = json!("not an object");
+        nested_set(&mut doc, &["a", "b"], &json!(1));
+        assert_eq!(nested_get(&doc, &["a", "b"]), json!(1));
+        nested_set(&mut doc, &["a", "c"], &json!(2));
+        assert_eq!(nested_get(&doc, &["a", "b"]), json!(1), "siblings survive");
+    }
 }

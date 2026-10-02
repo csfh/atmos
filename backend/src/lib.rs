@@ -5,19 +5,29 @@
 //! files those settings already use. The plain backend stores the same keys
 //! in its own config tree.
 
+mod apply;
 mod display;
 pub mod domain;
 pub mod effect;
 mod effects;
+pub mod error;
+mod fsutil;
 mod host;
 mod patch;
+mod platform;
+mod request;
+mod runner;
 mod scripts;
+pub mod serve;
 mod store;
 
+use crate::error::{Error, Result};
+use crate::platform::Backend;
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
 
+use crate::request::Request;
+use crate::runner::Run;
 use serde_json::{Map, Value};
 
 pub const VERSION: &str = "0.1.0";
@@ -37,29 +47,38 @@ fn dispatch(
     stdin: &str,
     stdout: &mut dyn Write,
     stderr: &mut dyn Write,
-) -> Result<i32, String> {
+) -> Result<i32> {
     let parsed = parse_args(args)?;
     match parsed.command.as_str() {
         "version" => {
-            writeln!(stdout, "{VERSION}").map_err(|err| err.to_string())?;
-            stdout.flush().map_err(|err| err.to_string())?;
+            writeln!(stdout, "{VERSION}")?;
+            stdout.flush()?;
             Ok(0)
         }
         "snapshot" => {
             let root = parsed.root.ok_or("snapshot needs --root")?;
-            let doc = snapshot_document(&parsed.backend, &root, parsed.sampler.as_deref())?;
+            let doc = snapshot_document(parsed.backend, &root, parsed.sampler.as_deref())?;
             write_json(stdout, &doc)?;
             Ok(0)
         }
         "request" => {
-            let request: Value =
-                serde_json::from_str(stdin.trim()).map_err(|err| format!("request: {err}"))?;
-            let response = handle(
-                &parsed.backend,
+            let request: Value = match serde_json::from_str(stdin.trim()) {
+                Ok(request) => request,
+                Err(err) => {
+                    let err = Error::bad_request(format!("request: {err}"));
+                    write_json(stdout, &error_envelope(parsed.backend, &err))?;
+                    return Ok(1);
+                }
+            };
+            let response = match handle(
+                parsed.backend,
                 parsed.root.as_deref(),
                 &request,
                 parsed.sampler.as_deref(),
-            )?;
+            ) {
+                Ok(response) => response,
+                Err(err) => error_envelope(parsed.backend, &err),
+            };
             let code = if response.get("ok").and_then(|v| v.as_bool()) == Some(true) {
                 0
             } else {
@@ -75,7 +94,7 @@ fn dispatch(
             }
             let value = display::load(
                 parsed.root.as_deref(),
-                &parsed.backend,
+                parsed.backend,
                 kind,
                 parsed.sampler.as_deref(),
             )?;
@@ -90,11 +109,11 @@ fn dispatch(
             };
             for kind in &kinds {
                 if !display::is_kind(kind) {
-                    return Err(format!("unknown display kind {kind}"));
+                    return Err(format!("unknown display kind {kind}").into());
                 }
             }
             let display = load_displays(
-                &parsed.backend,
+                parsed.backend,
                 parsed.root.as_deref(),
                 parsed.sampler.as_deref(),
                 &kinds,
@@ -102,7 +121,12 @@ fn dispatch(
             write_json(stdout, &display)?;
             Ok(0)
         }
-        "apply" => Ok(apply(parsed.root.as_deref(), &parsed.rest, stderr)),
+        "apply" => Ok(apply::run(
+            parsed.root.as_deref(),
+            &parsed.rest,
+            stdout,
+            stderr,
+        )),
         "" => {
             let _ = writeln!(stderr, "ratmos: missing command");
             usage(stderr);
@@ -116,16 +140,39 @@ fn dispatch(
     }
 }
 
+/// `ratmos serve`: read requests from stdin until it closes. Not part of `run`
+/// because it streams instead of reading one document.
+pub fn run_serve(args: &[String]) -> i32 {
+    let parsed = match parse_args(args) {
+        Ok(parsed) => parsed,
+        Err(err) => {
+            eprintln!("ratmos: {err}");
+            return 2;
+        }
+    };
+    let stdin = std::io::stdin();
+    serve::serve(
+        serve::Config {
+            backend: parsed.backend,
+            root: parsed.root,
+            sampler: parsed.sampler,
+        },
+        stdin.lock(),
+        Box::new(std::io::stdout()),
+    );
+    0
+}
+
 struct Parsed {
-    backend: String,
+    backend: Backend,
     root: Option<PathBuf>,
     sampler: Option<PathBuf>,
     command: String,
     rest: Vec<String>,
 }
 
-fn parse_args(args: &[String]) -> Result<Parsed, String> {
-    let mut backend = String::from("omarchy");
+fn parse_args(args: &[String]) -> Result<Parsed> {
+    let mut backend = Backend::Omarchy;
     let mut root = None;
     let mut sampler = None;
     let mut positionals = Vec::new();
@@ -138,7 +185,7 @@ fn parse_args(args: &[String]) -> Result<Parsed, String> {
         }
         if arg == "--backend" {
             index += 1;
-            backend = args.get(index).cloned().ok_or("--backend needs a name")?;
+            backend = Backend::parse(args.get(index).ok_or("--backend needs a name")?)?;
             index += 1;
             continue;
         }
@@ -157,14 +204,13 @@ fn parse_args(args: &[String]) -> Result<Parsed, String> {
             continue;
         }
         if arg.starts_with('-') {
-            return Err(format!("unknown argument {arg}"));
+            return Err(format!("unknown argument {arg}").into());
         }
         positionals.push(arg.clone());
         index += 1;
     }
-    platform(&backend)?;
     if let Some(dir) = &root {
-        std::fs::create_dir_all(dir).map_err(|err| err.to_string())?;
+        std::fs::create_dir_all(dir)?;
     }
     let command = positionals.first().cloned().unwrap_or_default();
     let rest = if positionals.is_empty() {
@@ -181,65 +227,55 @@ fn parse_args(args: &[String]) -> Result<Parsed, String> {
     })
 }
 
-fn handle(
-    backend: &str,
+pub(crate) fn handle(
+    backend: Backend,
     root: Option<&Path>,
     request: &Value,
     sampler: Option<&Path>,
-) -> Result<Value, String> {
-    let op = request.get("op").and_then(Value::as_str).unwrap_or("");
-    let result = match op {
-        "version" => Value::String(VERSION.into()),
-        "platform" => platform(backend)?,
-        "settings.list" => Value::Array(settings_list(backend)?),
-        "settings.get" => {
-            let domain = field(request, "domain")?;
-            read_domain(backend, root, domain)?
-        }
-        "settings.set" => {
-            let domain = field(request, "domain")?;
-            let value = request.get("value").ok_or("missing value")?;
-            write_domain(backend, root, domain, value)?;
-            let place = place_for(backend, domain)?;
+) -> Result<Value> {
+    let request = Request::parse(request.clone())?;
+    let result = match request {
+        Request::Version => Value::String(VERSION.into()),
+        Request::Platform => platform(backend)?,
+        Request::SettingsList => Value::Array(settings_list(backend)?),
+        Request::SettingsGet { domain } => read_domain(backend, root, &domain)?,
+        Request::SettingsSet { domain, value } => {
+            write_domain(backend, root, &domain, &value)?;
+            let place = place_for(backend, &domain)?;
             serde_json::json!({
                 "domain": domain,
-                "value": read_domain(backend, root, domain)?,
+                "value": read_domain(backend, root, &domain)?,
                 "file": place.rel,
                 "encoding": place.encoding(),
             })
         }
-        "settings.snapshot" => {
-            let group = request
-                .get("group")
-                .and_then(Value::as_str)
-                .unwrap_or("all");
-            if root.is_none() && backend == "omarchy" {
-                Value::Object(live_settings_snapshot(group)?)
+        Request::SettingsSnapshot { group, keys } => {
+            let mut doc = if backend.is_live(root) {
+                live_settings_snapshot(&group, keys.as_deref())?
             } else {
-                Value::Object(settings_snapshot(backend, root)?)
-            }
+                nested_snapshot(backend, root, keys.as_deref())?
+            };
+            // An unset value is absent, not null.
+            doc.retain(|_, value| !value.is_null());
+            Value::Object(doc)
         }
-        "display.get" => {
-            let kind = field(request, "kind")?;
-            display::load(root, backend, kind, sampler)?
-        }
-        "display.snapshot" => load_displays(backend, root, sampler, display::KINDS),
-        "host.chrome" => host::chrome(backend, root)?,
-        "host.themePack" => host::theme_pack(backend, root, request)?,
-        "host.accounts" => host::accounts(backend, root, request)?,
-        "host.stamp" => host::stamp(root, request)?,
-        "host.read" => host::read_files(root, request)?,
-        "host.write" => host::write_file(root, request)?,
-        "host.open" => host::open_file(root, request)?,
-        "speedtest.disk" => host::speed_disk(backend, root, request)?,
-        "speedtest.net" => host::speed_net(backend, root, request)?,
-        "unit.output" => host::unit_output(backend, root, request)?,
-        other => return Ok(error_envelope(backend, &format!("unknown op {other}"))),
+        Request::DisplayGet { kind } => display::load(root, backend, &kind, sampler)?,
+        Request::DisplaySnapshot => load_displays(backend, root, sampler, display::KINDS),
+        Request::HostChrome => host::chrome(backend, root)?,
+        Request::HostThemePack(args) => host::theme_pack(backend, root, &args)?,
+        Request::HostAccounts(args) => host::accounts(backend, root, &args)?,
+        Request::HostStamp(args) => host::stamp(root, &args)?,
+        Request::HostRead(args) => host::read_files(root, &args)?,
+        Request::HostWrite(args) => host::write_file(root, &args)?,
+        Request::HostOpen { path } => host::open_file(root, &path)?,
+        Request::SpeedtestDisk(args) => host::speed_disk(backend, root, &args)?,
+        Request::SpeedtestNet(args) => host::speed_net(backend, root, &args)?,
+        Request::UnitOutput(args) => host::unit_output(backend, root, &args)?,
     };
     Ok(ok_envelope(backend, result))
 }
 
-fn settings_list(backend: &str) -> Result<Vec<Value>, String> {
+fn settings_list(backend: Backend) -> Result<Vec<Value>> {
     let mut specs: Vec<_> = domain::specs().iter().collect();
     specs.sort_by_key(|spec| spec.key);
     let mut out = Vec::new();
@@ -256,9 +292,9 @@ fn settings_list(backend: &str) -> Result<Vec<Value>, String> {
     Ok(out)
 }
 
-fn read_domain(backend: &str, root: Option<&Path>, key: &str) -> Result<Value, String> {
+fn read_domain(backend: Backend, root: Option<&Path>, key: &str) -> Result<Value> {
     let spec = domain::find(key).ok_or_else(|| format!("unknown domain {key}"))?;
-    if backend == "omarchy" {
+    if backend == Backend::Omarchy {
         if let Some(effect::Effect::Command(_)) = effect::get(key) {
             return effect::read_command(root, key);
         }
@@ -267,17 +303,12 @@ fn read_domain(backend: &str, root: Option<&Path>, key: &str) -> Result<Value, S
     store::read_place(root, &place, spec.key, spec.ty)
 }
 
-fn write_domain(
-    backend: &str,
-    root: Option<&Path>,
-    key: &str,
-    value: &Value,
-) -> Result<(), String> {
+fn write_domain(backend: Backend, root: Option<&Path>, key: &str, value: &Value) -> Result<()> {
     let spec = domain::find(key).ok_or_else(|| format!("unknown domain {key}"))?;
     if !spec.ty.accepts(value) {
-        return Err(format!("{key} expects {}", spec.ty.name()));
+        return Err(format!("{key} expects {}", spec.ty.name()).into());
     }
-    if backend == "omarchy" {
+    if backend == Backend::Omarchy {
         if let Some(effect::Effect::Command(form)) = effect::get(key) {
             return effect::apply_command(root, key, form, value);
         }
@@ -285,15 +316,15 @@ fn write_domain(
     let place = domain::locate(backend, spec)?;
     match store::write_place(root, &place, spec.key, spec.ty, value) {
         Ok(()) => {}
-        Err(err) if root.is_none() && backend == "omarchy" && permission_denied(&err) => {
+        Err(err) if backend.is_live(root) && err.is_denied() => {
             delegate_root_script(key, value)?;
         }
         Err(err) => return Err(err),
     }
-    if backend == "omarchy" {
+    if backend == Backend::Omarchy {
         effects::after_write(root, key, value)?;
     }
-    if root.is_none() && backend == "omarchy" {
+    if backend.is_live(root) {
         if matches!(
             place.kind,
             domain::PlaceKind::Lua { .. }
@@ -320,12 +351,7 @@ fn write_domain(
     Ok(())
 }
 
-fn permission_denied(err: &str) -> bool {
-    let lower = err.to_ascii_lowercase();
-    lower.contains("permission denied") || lower.contains("os error 13")
-}
-
-fn delegate_root_script(key: &str, value: &Value) -> Result<(), String> {
+fn delegate_root_script(key: &str, value: &Value) -> Result<()> {
     let rendered = scalar_arg(value)?;
     match key {
         "hostname" => run_script("set-hostname.sh", &[&rendered]),
@@ -336,11 +362,11 @@ fn delegate_root_script(key: &str, value: &Value) -> Result<(), String> {
         "fullName" => run_script("set-full-name.sh", &[&rendered]),
         "parallelDownloads" => run_script("set-parallel-downloads.sh", &[&rendered]),
         "plymouth" => run_command("omarchy", &["plymouth", "set", "by", "theme", &rendered]),
-        _ => Err(format!("cannot write {key} without permission")),
+        _ => Err(format!("cannot write {key} without permission").into()),
     }
 }
 
-fn scalar_arg(value: &Value) -> Result<String, String> {
+fn scalar_arg(value: &Value) -> Result<String> {
     match value {
         Value::String(text) => Ok(text.clone()),
         Value::Bool(true) => Ok("true".into()),
@@ -350,30 +376,20 @@ fn scalar_arg(value: &Value) -> Result<String, String> {
     }
 }
 
-fn run_script(name: &str, args: &[&str]) -> Result<(), String> {
+/// A repo script that may need the user (polkit, a password), so it has no
+/// time limit.
+fn run_script(name: &str, args: &[&str]) -> Result<()> {
     let path = scripts::repo_script(name)?;
-    let status = Command::new("bash")
+    Run::new("bash")
         .arg(&path)
         .args(args)
-        .status()
-        .map_err(|err| err.to_string())?;
-    if status.success() {
-        Ok(())
-    } else {
-        Err(format!("{name} exited {}", status.code().unwrap_or(1)))
-    }
+        .checked()
+        .map(|_| ())
+        .map_err(|err| err.with_context(name))
 }
 
-fn run_command(program: &str, args: &[&str]) -> Result<(), String> {
-    let status = Command::new(program)
-        .args(args)
-        .status()
-        .map_err(|err| err.to_string())?;
-    if status.success() {
-        Ok(())
-    } else {
-        Err(format!("{program} exited {}", status.code().unwrap_or(1)))
-    }
+fn run_command(program: &str, args: &[&str]) -> Result<()> {
+    Run::new(program).args(args).checked().map(|_| ())
 }
 
 fn run_live_command(key: &str, value: &Value) {
@@ -412,20 +428,36 @@ fn run_live_command(key: &str, value: &Value) {
 }
 
 fn spawn_command(program: &str, args: &[&str]) {
-    let _ = Command::new(program)
-        .args(args)
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .spawn();
+    // Fire and forget, but a command that cannot start is not silent.
+    if let Err(err) = Run::new(program).args(args).detach() {
+        eprintln!("ratmos: {err}");
+    }
 }
 
-fn place_for(backend: &str, key: &str) -> Result<domain::Place, String> {
+fn place_for(backend: Backend, key: &str) -> Result<domain::Place> {
     let spec = domain::find(key).ok_or_else(|| format!("unknown domain {key}"))?;
     domain::locate(backend, spec)
 }
 
-fn settings_snapshot(backend: &str, root: Option<&Path>) -> Result<Map<String, Value>, String> {
+fn nested_snapshot(
+    backend: Backend,
+    root: Option<&Path>,
+    keys: Option<&[String]>,
+) -> Result<Map<String, Value>> {
+    let mut doc = Map::new();
+    for spec in domain::specs() {
+        if !wanted(spec.key, keys) {
+            continue;
+        }
+        let value = read_domain(backend, root, spec.key)?;
+        if !value.is_null() {
+            nest_domain(&mut doc, spec.key, value);
+        }
+    }
+    Ok(doc)
+}
+
+fn settings_snapshot(backend: Backend, root: Option<&Path>) -> Result<Map<String, Value>> {
     let mut snapshot = Map::new();
     for spec in domain::specs() {
         snapshot.insert(spec.key.to_string(), read_domain(backend, root, spec.key)?);
@@ -437,7 +469,7 @@ fn settings_snapshot(backend: &str, root: Option<&Path>) -> Result<Map<String, V
 /// A null file value does not erase a snapshot field. Dotted domains fold into
 /// the nested objects the Quickshell snapshot already uses. `--root` never
 /// reaches this path, so fixture launches stay file-only and deterministic.
-fn live_settings_snapshot(group: &str) -> Result<Map<String, Value>, String> {
+fn live_settings_snapshot(group: &str, keys: Option<&[String]>) -> Result<Map<String, Value>> {
     let mut snapshot = Map::new();
     if let Ok(text) = capture_snapshot_sh(group) {
         if let Ok(Value::Object(map)) = serde_json::from_str::<Value>(&text) {
@@ -447,8 +479,11 @@ fn live_settings_snapshot(group: &str) -> Result<Map<String, Value>, String> {
     let group_name = if group.is_empty() { "all" } else { group };
     snapshot.insert("group".into(), Value::String(group_name.into()));
     for spec in domain::specs() {
+        if !wanted(spec.key, keys) {
+            continue;
+        }
         // One unreadable system file must not drop the rest of the page.
-        if let Ok(value) = read_domain("omarchy", None, spec.key) {
+        if let Ok(value) = read_domain(Backend::Omarchy, None, spec.key) {
             overlay_domain(&mut snapshot, spec.key, value);
         }
     }
@@ -474,6 +509,11 @@ fn overlay_domain(doc: &mut Map<String, Value>, key: &str, value: Value) {
     ) {
         return;
     }
+    nest_domain(doc, key, value);
+}
+
+/// A dotted domain such as `hyprLook.gaps` lands inside the object `hyprLook`.
+fn nest_domain(doc: &mut Map<String, Value>, key: &str, value: Value) {
     if let Some((head, tail)) = key.split_once('.') {
         let entry = doc
             .entry(head.to_string())
@@ -489,38 +529,58 @@ fn overlay_domain(doc: &mut Map<String, Value>, key: &str, value: Value) {
     doc.insert(key.to_string(), value);
 }
 
-fn capture_snapshot_sh(group: &str) -> Result<String, String> {
+/// Whether a domain is in the requested key list. The list names top-level
+/// keys, so `hyprLook.gaps` is wanted when `hyprLook` is.
+fn wanted(key: &str, keys: Option<&[String]>) -> bool {
+    let Some(keys) = keys else { return true };
+    let head = key.split_once('.').map_or(key, |(head, _)| head);
+    keys.iter().any(|name| name == head)
+}
+
+fn capture_snapshot_sh(group: &str) -> Result<String> {
     let script = scripts::repo_script("snapshot.sh")?;
-    let output = Command::new("bash")
+    let output = Run::new("bash")
         .arg(&script)
         .arg(group)
-        .output()
-        .map_err(|err| err.to_string())?;
-    if !output.status.success() {
-        return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
-    }
-    Ok(String::from_utf8_lossy(&output.stdout).to_string())
+        .timeout(std::time::Duration::from_secs(60))
+        .checked()?;
+    Ok(output.stdout_text())
 }
 
 /// One failing inventory stays on its own kind. The other documents still return.
 fn load_displays(
-    backend: &str,
+    backend: Backend,
     root: Option<&Path>,
     sampler: Option<&Path>,
     kinds: &[&str],
 ) -> Value {
+    // The inventories are independent scripts, so run them side by side.
+    let loaded: Vec<(String, Value)> = std::thread::scope(|scope| {
+        let handles: Vec<_> = kinds
+            .iter()
+            .map(|kind| {
+                scope.spawn(move || {
+                    let value = match display::load(root, backend, kind, sampler) {
+                        Ok(value) => value,
+                        Err(err) => stamp_error(backend, kind, &err),
+                    };
+                    ((*kind).to_string(), value)
+                })
+            })
+            .collect();
+        handles
+            .into_iter()
+            .filter_map(|handle| handle.join().ok())
+            .collect()
+    });
     let mut display = Map::new();
-    for kind in kinds {
-        let value = match display::load(root, backend, kind, sampler) {
-            Ok(value) => value,
-            Err(err) => stamp_error(backend, kind, &err),
-        };
-        display.insert((*kind).to_string(), value);
+    for (kind, value) in loaded {
+        display.insert(kind, value);
     }
     Value::Object(display)
 }
 
-fn snapshot_document(backend: &str, root: &Path, sampler: Option<&Path>) -> Result<Value, String> {
+fn snapshot_document(backend: Backend, root: &Path, sampler: Option<&Path>) -> Result<Value> {
     Ok(serde_json::json!({
         "version": VERSION,
         "platform": platform(backend)?,
@@ -529,19 +589,11 @@ fn snapshot_document(backend: &str, root: &Path, sampler: Option<&Path>) -> Resu
     }))
 }
 
-fn platform(backend: &str) -> Result<Value, String> {
-    match backend {
-        "omarchy" => {
-            Ok(serde_json::json!({"id": "omarchy", "compositor": "hyprland", "family": "arch"}))
-        }
-        "plain" => {
-            Ok(serde_json::json!({"id": "plain", "compositor": "none", "family": "portable"}))
-        }
-        other => Err(format!("unknown backend {other}")),
-    }
+fn platform(backend: Backend) -> Result<Value> {
+    Ok(backend.info())
 }
 
-fn ok_envelope(backend: &str, result: Value) -> Value {
+pub(crate) fn ok_envelope(backend: Backend, result: Value) -> Value {
     serde_json::json!({
         "ok": true,
         "version": VERSION,
@@ -550,71 +602,36 @@ fn ok_envelope(backend: &str, result: Value) -> Value {
     })
 }
 
-fn error_envelope(backend: &str, message: &str) -> Value {
+pub(crate) fn error_envelope(backend: Backend, err: &Error) -> Value {
     serde_json::json!({
         "ok": false,
         "version": VERSION,
         "platform": platform(backend).unwrap_or(Value::Null),
-        "error": message,
+        "error": {
+            "code": err.kind.code(),
+            "message": err.message,
+            "context": err.context,
+        },
         "result": Value::Null,
     })
 }
 
-fn stamp_error(backend: &str, kind: &str, err: &str) -> Value {
+fn stamp_error(backend: Backend, kind: &str, err: &Error) -> Value {
     serde_json::json!({
-        "platform": backend,
+        "platform": backend.id(),
         "collector": display::collector(backend, kind),
-        "error": err,
+        "error": {
+            "code": err.kind.code(),
+            "message": err.message,
+            "context": err.context,
+        },
     })
 }
 
-fn field<'a>(request: &'a Value, name: &str) -> Result<&'a str, String> {
-    request
-        .get(name)
-        .and_then(Value::as_str)
-        .filter(|text| !text.is_empty())
-        .ok_or_else(|| format!("missing {name}"))
-}
-
-fn write_json(stdout: &mut dyn Write, value: &Value) -> Result<(), String> {
-    let text = serde_json::to_string_pretty(value).map_err(|err| err.to_string())?;
-    writeln!(stdout, "{text}").map_err(|err| err.to_string())?;
-    stdout.flush().map_err(|err| err.to_string())
-}
-
-fn apply(root: Option<&Path>, argv: &[String], stderr: &mut dyn Write) -> i32 {
-    let Some(program) = argv.first() else {
-        let _ = writeln!(stderr, "ratmos: apply needs a command");
-        return 2;
-    };
-    if let Some(dir) = root {
-        return match log_apply(dir, argv) {
-            Ok(()) => 0,
-            Err(err) => {
-                let _ = writeln!(stderr, "ratmos: {err}");
-                1
-            }
-        };
-    }
-    match Command::new(program).args(&argv[1..]).status() {
-        Ok(status) => status.code().unwrap_or(1),
-        Err(err) => {
-            let _ = writeln!(stderr, "ratmos: {err}");
-            1
-        }
-    }
-}
-
-fn log_apply(dir: &Path, argv: &[String]) -> Result<(), String> {
-    use std::io::Write as _;
-    let path = dir.join("commands.log");
-    let mut file = std::fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(&path)
-        .map_err(|err| err.to_string())?;
-    let line = serde_json::json!({ "argv": argv });
-    writeln!(file, "{line}").map_err(|err| err.to_string())
+fn write_json(stdout: &mut dyn Write, value: &Value) -> Result<()> {
+    let text = serde_json::to_string_pretty(value)?;
+    writeln!(stdout, "{text}")?;
+    stdout.flush().map_err(Error::from)
 }
 
 fn usage(stderr: &mut dyn Write) {

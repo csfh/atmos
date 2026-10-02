@@ -1,17 +1,22 @@
 //! Host reads Quickshell used to do itself. Fixture roots stay off the live machine.
 
+use crate::error::{Error, Kind, Result};
+use crate::fsutil::atomic_write;
+use crate::platform::Backend;
+use crate::request::{Accounts, Paths, SpeedDisk, SpeedNet, ThemePack, UnitOutput, WriteFile};
+use crate::runner::Run;
 use std::fs;
-use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
-use std::time::UNIX_EPOCH;
+use std::io::Read;
+use std::path::{Component, Path, PathBuf};
+use std::time::{Duration, UNIX_EPOCH};
 
 use serde_json::{json, Map, Value};
 
 const TEXT_CAP: usize = 1_000_000;
 const WALK_CAP: usize = 4000;
 
-pub fn chrome(backend: &str, root: Option<&Path>) -> Result<Value, String> {
-    if backend == "plain" {
+pub fn chrome(backend: Backend, root: Option<&Path>) -> Result<Value> {
+    if backend == Backend::Plain {
         return Ok(json!({
             "themeName": "plain",
             "colors": "plain-colors",
@@ -27,17 +32,16 @@ pub fn chrome(backend: &str, root: Option<&Path>) -> Result<Value, String> {
     }))
 }
 
-pub fn theme_pack(backend: &str, root: Option<&Path>, request: &Value) -> Result<Value, String> {
-    if backend == "plain" {
+pub fn theme_pack(backend: Backend, root: Option<&Path>, request: &ThemePack) -> Result<Value> {
+    if backend == Backend::Plain {
         return Ok(json!({
             "colors": "plain-theme-colors",
             "shell": "plain-theme-shell",
         }));
     }
-    let name = request.get("name").and_then(Value::as_str).unwrap_or("");
-    let slug = slug(name);
-    let home = request.get("home").and_then(Value::as_str).unwrap_or("");
-    let part = request.get("part").and_then(Value::as_str).unwrap_or("");
+    let slug = slug(&request.name);
+    let home = request.home.as_str();
+    let part = request.part.as_str();
     let colors = if part == "shell.toml" {
         String::new()
     } else {
@@ -51,8 +55,8 @@ pub fn theme_pack(backend: &str, root: Option<&Path>, request: &Value) -> Result
     Ok(json!({ "colors": colors, "shell": shell }))
 }
 
-pub fn accounts(backend: &str, root: Option<&Path>, request: &Value) -> Result<Value, String> {
-    if backend == "plain" {
+pub fn accounts(backend: Backend, root: Option<&Path>, request: &Accounts) -> Result<Value> {
+    if backend == Backend::Plain {
         return Ok(json!({
             "hostname": "plain-host",
             "passwd": "plain:x:1000:1000:Plain:/home/plain:/bin/sh\n",
@@ -60,8 +64,8 @@ pub fn accounts(backend: &str, root: Option<&Path>, request: &Value) -> Result<V
             "exists": {},
         }));
     }
-    let user = request.get("user").and_then(Value::as_str).unwrap_or("");
-    let home = request.get("home").and_then(Value::as_str).unwrap_or("");
+    let user = request.user.as_str();
+    let home = request.home.as_str();
     Ok(json!({
         "hostname": read_capped(&host_path(root, "/etc/hostname"))?,
         "passwd": read_capped(&host_path(root, "/etc/passwd"))?,
@@ -70,8 +74,8 @@ pub fn accounts(backend: &str, root: Option<&Path>, request: &Value) -> Result<V
     }))
 }
 
-pub fn stamp(root: Option<&Path>, request: &Value) -> Result<Value, String> {
-    let paths = string_list(request, "paths")?;
+pub fn stamp(root: Option<&Path>, request: &Paths) -> Result<Value> {
+    let paths = check_paths(&request.paths)?;
     let mut items = Vec::new();
     for path in paths {
         let resolved = host_path(root, &path);
@@ -90,11 +94,11 @@ pub fn stamp(root: Option<&Path>, request: &Value) -> Result<Value, String> {
     Ok(json!({ "items": items }))
 }
 
-pub fn read_files(root: Option<&Path>, request: &Value) -> Result<Value, String> {
-    let paths = string_list(request, "paths")?;
+pub fn read_files(root: Option<&Path>, request: &Paths) -> Result<Value> {
+    let paths = check_paths(&request.paths)?;
     let mut files = Vec::new();
     for path in paths {
-        let resolved = host_path(root, &path);
+        let resolved = confine(root, &path)?;
         files.push(json!({
             "path": path,
             "exists": resolved.is_file(),
@@ -104,67 +108,53 @@ pub fn read_files(root: Option<&Path>, request: &Value) -> Result<Value, String>
     Ok(json!({ "files": files }))
 }
 
-pub fn write_file(root: Option<&Path>, request: &Value) -> Result<Value, String> {
-    let path = request
-        .get("path")
-        .and_then(Value::as_str)
-        .filter(|text| !text.is_empty())
-        .ok_or("missing path")?;
-    let text = request.get("text").and_then(Value::as_str).unwrap_or("");
-    let resolved = host_path(root, path);
-    if let Some(parent) = resolved.parent() {
-        fs::create_dir_all(parent).map_err(|err| err.to_string())?;
-    }
-    atomic_write(&resolved, text.as_bytes())?;
-    Ok(json!({ "path": path, "bytes": text.len() }))
+pub fn write_file(root: Option<&Path>, request: &WriteFile) -> Result<Value> {
+    let resolved = confine(root, &request.path)?;
+    atomic_write(&resolved, request.text.as_bytes())?;
+    Ok(json!({ "path": request.path, "bytes": request.text.len() }))
 }
 
-pub fn open_file(root: Option<&Path>, request: &Value) -> Result<Value, String> {
-    let path = request
-        .get("path")
-        .and_then(Value::as_str)
-        .filter(|text| !text.is_empty())
-        .ok_or("missing path")?;
+pub fn open_file(root: Option<&Path>, path: &str) -> Result<Value> {
+    let web = path.starts_with("http://") || path.starts_with("https://");
+    let target = if web {
+        path.to_string()
+    } else {
+        let resolved = confine(root, path)?;
+        if !resolved.exists() {
+            return Err(Error::new(Kind::NotFound, "nothing to open").with_context(path));
+        }
+        resolved.display().to_string()
+    };
     if root.is_some() {
         return Ok(json!({ "opened": path }));
     }
-    let status = Command::new("xdg-open")
-        .arg(path)
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .map_err(|err| err.to_string())?;
-    if !status.success() {
-        return Err(format!("xdg-open exited {}", status.code().unwrap_or(1)));
-    }
+    // The opener may stay up as long as the app it launches, so do not wait.
+    Run::new("xdg-open").arg(&target).detach()?;
     Ok(json!({ "opened": path }))
 }
 
-pub fn speed_disk(backend: &str, root: Option<&Path>, request: &Value) -> Result<Value, String> {
-    if backend == "plain" {
+pub fn speed_disk(backend: Backend, root: Option<&Path>, request: &SpeedDisk) -> Result<Value> {
+    if backend == Backend::Plain {
         return Ok(json!({ "exit": 0, "stdout": "plain-disk\n", "stderr": "" }));
     }
     if root.is_some() {
         let text = read_capped(&host_path(root, ".local/state/omarchy/speed/disk.txt"))?;
         return Ok(json!({ "exit": 0, "stdout": text, "stderr": "" }));
     }
-    let dir = request.get("dir").and_then(Value::as_str).unwrap_or("");
+    let dir = request.dir.as_str();
     let mut argv = vec!["disk", "speedtest"];
     if !dir.is_empty() {
         argv.push(dir);
     }
-    run_omarchy(&argv)
+    // A disk test writes and reads a real file, so it gets room to finish.
+    run_omarchy(&argv, Duration::from_secs(300))
 }
 
-pub fn speed_net(backend: &str, root: Option<&Path>, request: &Value) -> Result<Value, String> {
-    if backend == "plain" {
+pub fn speed_net(backend: Backend, root: Option<&Path>, request: &SpeedNet) -> Result<Value> {
+    if backend == Backend::Plain {
         return Ok(json!({ "exit": 0, "stdout": "plain-mbps\n", "stderr": "" }));
     }
-    let phase = request
-        .get("phase")
-        .and_then(Value::as_str)
-        .unwrap_or("down");
+    let phase = request.phase.as_str();
     if phase != "down" && phase != "up" {
         return Err("speedtest phase must be down or up".into());
     }
@@ -173,19 +163,16 @@ pub fn speed_net(backend: &str, root: Option<&Path>, request: &Value) -> Result<
         let text = read_capped(&host_path(root, &rel))?;
         return Ok(json!({ "exit": 0, "stdout": text, "stderr": "" }));
     }
-    run_omarchy(&["network", "speedtest", phase])
+    run_omarchy(&["network", "speedtest", phase], Duration::from_secs(90))
 }
 
-pub fn unit_output(backend: &str, root: Option<&Path>, request: &Value) -> Result<Value, String> {
-    if backend == "plain" {
+pub fn unit_output(backend: Backend, root: Option<&Path>, request: &UnitOutput) -> Result<Value> {
+    if backend == Backend::Plain {
         return Ok(json!({ "exit": 0, "text": "plain-unit\n" }));
     }
-    let kind = request.get("kind").and_then(Value::as_str).unwrap_or("");
-    let scope = request
-        .get("scope")
-        .and_then(Value::as_str)
-        .unwrap_or("system");
-    let unit = request.get("unit").and_then(Value::as_str).unwrap_or("");
+    let kind = request.kind.as_str();
+    let scope = request.scope.as_str();
+    let unit = request.unit.as_str();
     if kind != "status" && kind != "logs" {
         return Err("unit kind must be status or logs".into());
     }
@@ -200,31 +187,29 @@ pub fn unit_output(backend: &str, root: Option<&Path>, request: &Value) -> Resul
         let text = read_capped(&host_path(root, &rel))?;
         return Ok(json!({ "exit": 0, "text": text }));
     }
-    let output = if kind == "status" {
-        let mut cmd = Command::new("systemctl");
+    let mut run = if kind == "status" {
+        let mut run = Run::new("systemctl");
         if scope == "user" {
-            cmd.arg("--user");
+            run = run.arg("--user");
         }
-        cmd.args(["--no-pager", "--full", "status", unit])
-            .output()
-            .map_err(|err| err.to_string())?
+        run.args(["--no-pager", "--full", "status", unit])
     } else {
-        let mut cmd = Command::new("journalctl");
-        if scope == "user" {
-            cmd.arg("--user");
+        let mut run = Run::new("journalctl");
+        run = run.arg(if scope == "user" {
+            "--user"
         } else {
-            cmd.arg("--system");
-        }
-        cmd.args(["-u", unit, "-n", "80", "--no-pager"])
-            .output()
-            .map_err(|err| err.to_string())?
+            "--system"
+        });
+        run.args(["-u", unit, "-n", "80", "--no-pager"])
     };
-    let mut text = String::from_utf8_lossy(&output.stdout).to_string();
+    run = run.timeout(Duration::from_secs(15));
+    let output = run.output()?;
+    let mut text = output.stdout_text();
     if text.trim().is_empty() {
-        text = String::from_utf8_lossy(&output.stderr).to_string();
+        text = output.stderr_text();
     }
     Ok(json!({
-        "exit": output.status.code().unwrap_or(1),
+        "exit": output.code,
         "text": text,
     }))
 }
@@ -240,7 +225,7 @@ fn theme_candidates(home: &str, slug: &str, rel: &str) -> Vec<String> {
     paths
 }
 
-fn first_text(root: Option<&Path>, paths: &[String]) -> Result<String, String> {
+fn first_text(root: Option<&Path>, paths: &[String]) -> Result<String> {
     for path in paths {
         let resolved = host_path(root, path);
         if resolved.is_file() {
@@ -250,7 +235,7 @@ fn first_text(root: Option<&Path>, paths: &[String]) -> Result<String, String> {
     Ok(String::new())
 }
 
-fn exists_map(root: Option<&Path>, user: &str, home: &str) -> Result<Value, String> {
+fn exists_map(root: Option<&Path>, user: &str, home: &str) -> Result<Value> {
     let mut map = Map::new();
     let mut paths = Vec::new();
     if !user.is_empty() && !user.contains('/') {
@@ -280,15 +265,77 @@ fn host_path(root: Option<&Path>, raw: &str) -> PathBuf {
     home.join(raw)
 }
 
-fn read_capped(path: &Path) -> Result<String, String> {
+fn read_capped(path: &Path) -> Result<String> {
     if !path.is_file() {
         return Ok(String::new());
     }
-    let text = fs::read_to_string(path).map_err(|err| err.to_string())?;
-    if text.len() > TEXT_CAP {
+    // Four bytes per character is the most a UTF-8 character takes, so this
+    // reads enough for TEXT_CAP characters and no more of a huge file.
+    let mut bytes = Vec::new();
+    fs::File::open(path)?
+        .take((TEXT_CAP as u64) * 4)
+        .read_to_end(&mut bytes)?;
+    let text = String::from_utf8_lossy(&bytes);
+    if text.chars().count() > TEXT_CAP {
         return Ok(text.chars().take(TEXT_CAP).collect());
     }
-    Ok(text)
+    Ok(text.into_owned())
+}
+
+/// Where a user-chosen path may point. Live, that is anywhere under $HOME;
+/// in a fixture, anywhere under the root. A `..` step is refused outright,
+/// and the deepest existing ancestor must resolve (through symlinks) inside
+/// the allowed tree, so a link in $HOME cannot reach /etc.
+pub fn confine(root: Option<&Path>, raw: &str) -> Result<PathBuf> {
+    let raw = raw.trim();
+    if raw.is_empty() || raw.contains('\0') {
+        return Err(Error::bad_request("empty path").with_context("path"));
+    }
+    let base = match root {
+        Some(root) => root.to_path_buf(),
+        None => std::env::var_os("HOME")
+            .map(PathBuf::from)
+            .filter(|home| home.is_absolute())
+            .ok_or_else(|| Error::denied("HOME is not set").with_context(raw))?,
+    };
+    let given = Path::new(raw);
+    if given
+        .components()
+        .any(|part| matches!(part, Component::ParentDir))
+    {
+        return Err(Error::denied("path may not contain ..").with_context(raw));
+    }
+    let candidate = match root {
+        Some(root) => root.join(raw.trim_start_matches('/')),
+        None => {
+            if let Some(rest) = raw.strip_prefix("~/") {
+                base.join(rest)
+            } else if given.is_absolute() {
+                given.to_path_buf()
+            } else {
+                base.join(given)
+            }
+        }
+    };
+    let allowed = fs::canonicalize(&base).unwrap_or(base);
+    let mut probe = candidate.as_path();
+    let existing = loop {
+        if probe.exists() {
+            break fs::canonicalize(probe)?;
+        }
+        match probe.parent() {
+            Some(parent) => probe = parent,
+            None => break PathBuf::new(),
+        }
+    };
+    if !existing.starts_with(&allowed) {
+        return Err(Error::denied(match root {
+            Some(_) => "path is outside the root",
+            None => "path is outside your home folder",
+        })
+        .with_context(raw));
+    }
+    Ok(candidate)
 }
 
 fn signature(path: &Path) -> String {
@@ -349,21 +396,13 @@ fn file_sig(path: &Path) -> String {
     }
 }
 
-fn string_list(request: &Value, key: &str) -> Result<Vec<String>, String> {
-    let Some(list) = request.get(key).and_then(Value::as_array) else {
-        return Err(format!("missing {key}"));
-    };
-    let mut out = Vec::new();
-    for item in list {
-        let Some(text) = item.as_str() else {
-            return Err(format!("{key} entries must be strings"));
-        };
+fn check_paths(list: &[String]) -> Result<Vec<String>> {
+    for text in list {
         if text.is_empty() || text.contains('\0') {
-            return Err(format!("{key} has an empty path"));
+            return Err(Error::bad_request("paths has an empty path").with_context("paths"));
         }
-        out.push(text.to_string());
     }
-    Ok(out)
+    Ok(list.to_vec())
 }
 
 fn slug(name: &str) -> String {
@@ -386,21 +425,51 @@ fn unit_name_ok(unit: &str) -> bool {
         })
 }
 
-fn run_omarchy(args: &[&str]) -> Result<Value, String> {
-    let output = Command::new("omarchy")
-        .args(args)
-        .stdin(Stdio::null())
-        .output()
-        .map_err(|err| err.to_string())?;
+fn run_omarchy(args: &[&str], limit: Duration) -> Result<Value> {
+    let output = Run::new("omarchy").args(args).timeout(limit).output()?;
     Ok(json!({
-        "exit": output.status.code().unwrap_or(1),
-        "stdout": String::from_utf8_lossy(&output.stdout).to_string(),
-        "stderr": String::from_utf8_lossy(&output.stderr).to_string(),
+        "exit": output.code,
+        "stdout": output.stdout_text(),
+        "stderr": output.stderr_text(),
     }))
 }
 
-fn atomic_write(path: &Path, bytes: &[u8]) -> Result<(), String> {
-    let tmp = path.with_extension("tmp");
-    fs::write(&tmp, bytes).map_err(|err| err.to_string())?;
-    fs::rename(&tmp, path).map_err(|err| err.to_string())
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn scratch(name: &str) -> PathBuf {
+        let dir =
+            std::env::temp_dir().join(format!("ratmos-confine-{name}-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    #[test]
+    fn a_fixture_path_stays_under_the_root() {
+        let root = scratch("root");
+        let ok = confine(Some(&root), "/exports/a.md").unwrap();
+        assert_eq!(ok, root.join("exports/a.md"));
+        assert!(confine(Some(&root), "../escape").unwrap_err().is_denied());
+        assert!(confine(Some(&root), "a/../../b").unwrap_err().is_denied());
+        assert!(confine(Some(&root), "  ").is_err());
+    }
+
+    #[test]
+    fn a_symlink_cannot_lead_out_of_the_root() {
+        let root = scratch("link");
+        let outside = scratch("outside");
+        std::os::unix::fs::symlink(&outside, root.join("door")).unwrap();
+        let err = confine(Some(&root), "door/secret.txt").unwrap_err();
+        assert!(err.is_denied(), "{err}");
+    }
+
+    #[test]
+    fn a_long_file_is_cut_at_the_cap() {
+        let dir = scratch("cap");
+        let file = dir.join("big.txt");
+        fs::write(&file, "é".repeat(TEXT_CAP + 10)).unwrap();
+        assert_eq!(read_capped(&file).unwrap().chars().count(), TEXT_CAP);
+    }
 }

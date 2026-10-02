@@ -1,11 +1,12 @@
 //! Locate the scripts Atmos already ships.
 
+use crate::error::{Error, Kind, Result};
 use std::path::{Path, PathBuf};
 
 /// `ATMOS_ROOT/scripts` wins. Otherwise walk up from the binary so a
 /// checkout build and an XDG install (`bin/ratmos` next to `scripts/`)
 /// both work when the launcher did not export `ATMOS_ROOT`.
-pub fn repo_script(name: &str) -> Result<PathBuf, String> {
+pub fn repo_script(name: &str) -> Result<PathBuf> {
     let mut candidates = Vec::new();
     if let Ok(root) = std::env::var("ATMOS_ROOT") {
         candidates.push(PathBuf::from(root).join("scripts").join(name));
@@ -22,5 +23,5 @@ pub fn repo_script(name: &str) -> Result<PathBuf, String> {
     candidates
         .into_iter()
         .find(|path| path.is_file())
-        .ok_or_else(|| format!("missing scripts/{name}"))
+        .ok_or_else(|| Error::new(Kind::NotFound, format!("missing scripts/{name}")))
 }

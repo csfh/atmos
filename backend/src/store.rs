@@ -1,10 +1,10 @@
 //! Flock plus atomic rename for the platform files a backend reads and writes.
 
+use crate::error::{Error, Result};
+use crate::fsutil::atomic_write;
 use std::fs::{self, OpenOptions};
-use std::io::Write;
 use std::os::unix::io::AsRawFd;
 use std::path::{Path, PathBuf};
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde_json::{Map, Value};
 
@@ -16,12 +16,13 @@ extern "C" {
     fn flock(fd: i32, operation: i32) -> i32;
 }
 
+const LOCK_SH: i32 = 1;
 const LOCK_EX: i32 = 2;
 const LOCK_UN: i32 = 8;
 
-pub fn read_place(root: Option<&Path>, place: &Place, key: &str, ty: Ty) -> Result<Value, String> {
+pub fn read_place(root: Option<&Path>, place: &Place, key: &str, ty: Ty) -> Result<Value> {
     let path = place_path(root, &place.rel);
-    with_lock(&path, || match &place.kind {
+    with_read_lock(&path, || match &place.kind {
         PlaceKind::Map => {
             let map = load_object(&path, place)?;
             Ok(map.get(key).cloned().unwrap_or(Value::Null))
@@ -42,7 +43,7 @@ pub fn read_place(root: Option<&Path>, place: &Place, key: &str, ty: Ty) -> Resu
             if !path.exists() {
                 return Ok(Value::Null);
             }
-            let text = fs::read_to_string(&path).map_err(|err| err.to_string())?;
+            let text = fs::read_to_string(&path)?;
             patch::line_read(&text, prefix, ty)
         }
         PlaceKind::Flag => Ok(Value::Bool(path.is_file())),
@@ -59,14 +60,14 @@ pub fn write_place(
     key: &str,
     ty: Ty,
     value: &Value,
-) -> Result<(), String> {
+) -> Result<()> {
     if !ty.accepts(value) {
-        return Err(format!("{key} expects {}", ty.name()));
+        return Err(format!("{key} expects {}", ty.name()).into());
     }
     if matches!(place.kind, PlaceKind::Line { .. }) {
         if let Some(text) = value.as_str() {
             if text.contains('\n') || text.contains('\r') {
-                return Err(format!("{key} cannot contain a newline"));
+                return Err(format!("{key} cannot contain a newline").into());
             }
         }
     }
@@ -105,12 +106,11 @@ pub fn write_place(
         PlaceKind::Hypr { .. } => Err("hypr writes run outside the lock".into()),
         PlaceKind::Doc => effects::write_doc(root, &path, key, value),
         PlaceKind::Items => {
-            let body = serde_json::to_string(&serde_json::json!({ "items": value }))
-                .map_err(|err| err.to_string())?;
+            let body = serde_json::to_string(&serde_json::json!({ "items": value }))?;
             atomic_write(&path, format!("{body}\n").as_bytes())
         }
         PlaceKind::Whole => {
-            let body = serde_json::to_string(value).map_err(|err| err.to_string())?;
+            let body = serde_json::to_string(value)?;
             atomic_write(&path, format!("{body}\n").as_bytes())
         }
     })
@@ -129,39 +129,39 @@ fn place_path(root: Option<&Path>, rel: &str) -> PathBuf {
     home.join(rel)
 }
 
-fn read_text(path: &Path) -> Result<String, String> {
+fn read_text(path: &Path) -> Result<String> {
     if !path.exists() {
         return Ok(String::new());
     }
-    fs::read_to_string(path).map_err(|err| err.to_string())
+    fs::read_to_string(path).map_err(Error::from)
 }
 
-fn load_value(path: &Path) -> Result<Value, String> {
+fn load_value(path: &Path) -> Result<Value> {
     if !path.exists() {
         return Ok(Value::Object(Map::new()));
     }
-    let text = fs::read_to_string(path).map_err(|err| err.to_string())?;
+    let text = fs::read_to_string(path)?;
     if text.trim().is_empty() {
         return Ok(Value::Object(Map::new()));
     }
-    match serde_json::from_str::<Value>(&text).map_err(|err| err.to_string())? {
+    match serde_json::from_str::<Value>(&text)? {
         value if value.is_object() => Ok(value),
-        _ => Err(format!("{} is not a JSON object", path.display())),
+        _ => Err(format!("{} is not a JSON object", path.display()).into()),
     }
 }
 
-fn write_pretty(path: &Path, value: &Value) -> Result<(), String> {
-    let body = serde_json::to_string_pretty(value).map_err(|err| err.to_string())?;
+fn write_pretty(path: &Path, value: &Value) -> Result<()> {
+    let body = serde_json::to_string_pretty(value)?;
     atomic_write(path, format!("{body}\n").as_bytes())
 }
 
-fn write_flag(path: &Path, rel: &str, value: &Value) -> Result<(), String> {
+fn write_flag(path: &Path, rel: &str, value: &Value) -> Result<()> {
     let on = value
         .as_bool()
         .ok_or_else(|| format!("{rel} expects a bool"))?;
     if !on {
         if path.exists() {
-            fs::remove_file(path).map_err(|err| err.to_string())?;
+            fs::remove_file(path)?;
         }
         return Ok(());
     }
@@ -218,11 +218,11 @@ hl.config({
     }
 }
 
-fn load_object(path: &Path, place: &Place) -> Result<Map<String, Value>, String> {
+fn load_object(path: &Path, place: &Place) -> Result<Map<String, Value>> {
     if !path.exists() {
         return Ok(Map::new());
     }
-    let text = fs::read_to_string(path).map_err(|err| err.to_string())?;
+    let text = fs::read_to_string(path)?;
     if text.trim().is_empty() {
         return Ok(Map::new());
     }
@@ -232,96 +232,95 @@ fn load_object(path: &Path, place: &Place) -> Result<Map<String, Value>, String>
     }
 }
 
-fn store_object(path: &Path, place: &Place, map: &Map<String, Value>) -> Result<(), String> {
+fn store_object(path: &Path, place: &Place, map: &Map<String, Value>) -> Result<()> {
     match &place.kind {
         PlaceKind::Map => {
-            let body = serde_json::to_string(&Value::Object(map.clone()))
-                .map_err(|err| err.to_string())?;
+            let body = serde_json::to_string(&Value::Object(map.clone()))?;
             atomic_write(path, format!("{body}\n").as_bytes())
         }
         _ => Err("not an object place".into()),
     }
 }
 
-fn parse_object(text: &str, path: &Path) -> Result<Map<String, Value>, String> {
-    match serde_json::from_str(text).map_err(|err| err.to_string())? {
+fn parse_object(text: &str, path: &Path) -> Result<Map<String, Value>> {
+    match serde_json::from_str(text)? {
         Value::Object(map) => Ok(map),
-        _ => Err(format!("{} is not a JSON object", path.display())),
+        _ => Err(format!("{} is not a JSON object", path.display()).into()),
     }
 }
 
-fn read_items(path: &Path) -> Result<Value, String> {
+fn read_items(path: &Path) -> Result<Value> {
     if !path.exists() {
         return Ok(Value::Null);
     }
-    let text = fs::read_to_string(path).map_err(|err| err.to_string())?;
-    match serde_json::from_str(&text).map_err(|err| err.to_string())? {
+    let text = fs::read_to_string(path)?;
+    match serde_json::from_str(&text)? {
         Value::Object(map) => Ok(map.get("items").cloned().unwrap_or(Value::Null)),
-        _ => Err(format!("{} is not a favorites object", path.display())),
+        _ => Err(format!("{} is not a favorites object", path.display()).into()),
     }
 }
 
-fn read_whole(path: &Path) -> Result<Value, String> {
+fn read_whole(path: &Path) -> Result<Value> {
     if !path.exists() {
         return Ok(Value::Null);
     }
-    let text = fs::read_to_string(path).map_err(|err| err.to_string())?;
+    let text = fs::read_to_string(path)?;
     if text.trim().is_empty() {
         return Ok(Value::Null);
     }
-    serde_json::from_str(&text).map_err(|err| err.to_string())
+    serde_json::from_str(&text).map_err(Error::from)
 }
 
-fn with_lock<T>(path: &Path, body: impl FnOnce() -> Result<T, String>) -> Result<T, String> {
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).map_err(|err| err.to_string())?;
+/// Holds an flock until it drops, so every exit path releases it.
+struct Locked(fs::File);
+
+impl Drop for Locked {
+    fn drop(&mut self) {
+        unsafe { flock(self.0.as_raw_fd(), LOCK_UN) };
     }
-    let mut lock_name = path.as_os_str().to_os_string();
-    lock_name.push(".atmos.lock");
-    let lock_path = PathBuf::from(lock_name);
+}
+
+fn lock_path_for(path: &Path) -> PathBuf {
+    let mut name = path.as_os_str().to_os_string();
+    name.push(".atmos.lock");
+    PathBuf::from(name)
+}
+
+fn acquire(file: fs::File, mode: i32, lock_path: &Path) -> Result<Locked> {
+    let rc = unsafe { flock(file.as_raw_fd(), mode) };
+    if rc != 0 {
+        return Err(Error::io(std::io::Error::last_os_error(), lock_path));
+    }
+    Ok(Locked(file))
+}
+
+/// Writers serialise on a sidecar lock next to the file.
+fn with_lock<T>(path: &Path, body: impl FnOnce() -> Result<T>) -> Result<T> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    let lock_path = lock_path_for(path);
     let file = OpenOptions::new()
         .create(true)
+        .truncate(false)
         .read(true)
         .write(true)
         .open(&lock_path)
-        .map_err(|err| err.to_string())?;
-    let rc = unsafe { flock(file.as_raw_fd(), LOCK_EX) };
-    if rc != 0 {
-        return Err(format!(
-            "flock {} failed: {}",
-            lock_path.display(),
-            std::io::Error::last_os_error()
-        ));
-    }
-    let result = body();
-    unsafe { flock(file.as_raw_fd(), LOCK_UN) };
-    result
+        .map_err(|err| Error::io(err, &lock_path))?;
+    let _held = acquire(file, LOCK_EX, &lock_path)?;
+    body()
 }
 
-fn atomic_write(path: &Path, bytes: &[u8]) -> Result<(), String> {
-    let parent = path
-        .parent()
-        .ok_or_else(|| format!("no parent for {}", path.display()))?;
-    fs::create_dir_all(parent).map_err(|err| err.to_string())?;
-    let nanos = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_nanos())
-        .unwrap_or(0);
-    let mut tmp_name = path.file_name().unwrap_or_default().to_os_string();
-    tmp_name.push(format!(".tmp-{}-{nanos}", std::process::id()));
-    let tmp = parent.join(tmp_name);
-    {
-        let mut file = OpenOptions::new()
-            .create(true)
-            .write(true)
-            .truncate(true)
-            .open(&tmp)
-            .map_err(|err| err.to_string())?;
-        file.write_all(bytes).map_err(|err| err.to_string())?;
-        file.sync_all().map_err(|err| err.to_string())?;
-    }
-    fs::rename(&tmp, path).map_err(|err| {
-        let _ = fs::remove_file(&tmp);
-        err.to_string()
-    })
+/// Readers never create anything. Writers replace files by rename, so a
+/// reader sees the old file or the new one; it only waits on the sidecar
+/// lock when a writer has made one, so a read cannot litter /etc or ~/.config.
+fn with_read_lock<T>(path: &Path, body: impl FnOnce() -> Result<T>) -> Result<T> {
+    let lock_path = lock_path_for(path);
+    let held = match OpenOptions::new().read(true).open(&lock_path) {
+        Ok(file) => acquire(file, LOCK_SH, &lock_path).ok(),
+        Err(_) => None,
+    };
+    let result = body();
+    drop(held);
+    result
 }

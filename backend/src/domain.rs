@@ -1,5 +1,8 @@
 //! Settings domains the Quickshell GUI can change, and the platform file each one uses.
 
+use crate::effect::{CommandForm, Effect};
+use crate::error::Result;
+use crate::platform::Backend;
 use serde_json::Value;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -38,6 +41,8 @@ pub struct Spec {
     pub key: &'static str,
     pub group: &'static str,
     pub ty: Ty,
+    /// What a `settings.set` does besides, or instead of, writing the file.
+    pub effect: Effect,
 }
 
 #[derive(Clone, Debug)]
@@ -99,10 +104,19 @@ impl Place {
     }
 }
 
+/// Each row is `(key, group, type)` or `(key, group, type, effect)`. A row with
+/// no effect patches the platform file the domain already lives in.
 macro_rules! specs {
-    ($(($key:literal, $group:literal, $ty:ident)),* $(,)?) => {
-        [ $(Spec { key: $key, group: $group, ty: Ty::$ty }),* ]
+    ($(($key:literal, $group:literal, $ty:ident $(, $effect:expr)?)),* $(,)?) => {
+        [ $(Spec {
+            key: $key,
+            group: $group,
+            ty: Ty::$ty,
+            effect: specs!(@effect $($effect)?),
+        }),* ]
     };
+    (@effect) => { Effect::Document };
+    (@effect $effect:expr) => { $effect };
 }
 
 const SPECS: &[Spec] = &specs![
@@ -138,7 +152,15 @@ const SPECS: &[Spec] = &specs![
     ("hyprSquareAspect", "look", Bool),
     ("barPosition", "shell", String),
     ("barTransparent", "shell", Bool),
-    ("barVisible", "shell", Bool),
+    (
+        "barVisible",
+        "shell",
+        Bool,
+        Effect::Command(CommandForm::OnOff {
+            prefix: &["omarchy", "toggle", "bar"],
+            invert: true,
+        })
+    ),
     ("clockFormat", "shell", String),
     ("clockFormatAlt", "shell", String),
     ("clockWeekStart", "shell", String),
@@ -160,9 +182,32 @@ const SPECS: &[Spec] = &specs![
     ("trayPinned", "shell", List),
     ("idleScreensaver", "shell", Int),
     ("idleLock", "shell", Int),
-    ("stayAwake", "shell", Bool),
-    ("screensaverEnabled", "shell", Bool),
-    ("doNotDisturb", "shell", Bool),
+    (
+        "stayAwake",
+        "shell",
+        Bool,
+        Effect::Command(CommandForm::Idle(&["omarchy", "toggle", "idle"]))
+    ),
+    (
+        "screensaverEnabled",
+        "shell",
+        Bool,
+        Effect::Command(CommandForm::OnOff {
+            prefix: &["omarchy", "toggle", "screensaver-off"],
+            invert: true,
+        })
+    ),
+    (
+        "doNotDisturb",
+        "shell",
+        Bool,
+        Effect::Command(CommandForm::Exact(&[
+            "omarchy",
+            "toggle",
+            "notification",
+            "silencing"
+        ]))
+    ),
     ("workspaceBarNames", "shell", Bool),
     ("workspaceBarCount", "shell", Int),
     ("browser", "defaults", String),
@@ -172,7 +217,12 @@ const SPECS: &[Spec] = &specs![
     ("mimePdf", "defaults", String),
     ("mimeImage", "defaults", String),
     ("mimeVideo", "defaults", String),
-    ("nightlight", "hyprsunset", Bool),
+    (
+        "nightlight",
+        "hyprsunset",
+        Bool,
+        Effect::Command(CommandForm::Exact(&["omarchy", "toggle", "nightlight"]))
+    ),
     ("nightlightTemperature", "hyprsunset", Int),
     ("nightlightDay", "hyprsunset", String),
     ("nightlightNight", "hyprsunset", String),
@@ -195,8 +245,24 @@ const SPECS: &[Spec] = &specs![
     ("hyprInput.kbVariantOverride", "input", String),
     ("hyprInput.kbGroupToggle", "input", Bool),
     ("hyprInput.workspaceGesture", "input", Bool),
-    ("touchpadEnabled", "input", Bool),
-    ("touchscreenEnabled", "input", Bool),
+    (
+        "touchpadEnabled",
+        "input",
+        Bool,
+        Effect::Command(CommandForm::OnOff {
+            prefix: &["omarchy", "toggle", "touchpad"],
+            invert: false,
+        })
+    ),
+    (
+        "touchscreenEnabled",
+        "input",
+        Bool,
+        Effect::Command(CommandForm::OnOff {
+            prefix: &["omarchy", "toggle", "touchscreen"],
+            invert: false,
+        })
+    ),
     ("hostname", "hostname", String),
     ("timezone", "timezone", String),
     ("locale", "locale", String),
@@ -211,8 +277,24 @@ const SPECS: &[Spec] = &specs![
     ("wifiBand", "wifiband", String),
     ("audioOutputVolume", "audio", Int),
     ("audioInputVolume", "audio", Int),
-    ("audioOutputMuted", "audio", Bool),
-    ("audioInputMuted", "audio", Bool),
+    (
+        "audioOutputMuted",
+        "audio",
+        Bool,
+        Effect::Command(CommandForm::Exact(&[
+            "omarchy",
+            "audio",
+            "output",
+            "volume",
+            "mute-toggle"
+        ]))
+    ),
+    (
+        "audioInputMuted",
+        "audio",
+        Bool,
+        Effect::Command(CommandForm::Exact(&["omarchy", "audio", "input", "mute"]))
+    ),
     ("audioTuningOn", "audio", Bool),
     ("powerProfileAc", "power", String),
     ("powerProfileBattery", "power", String),
@@ -221,17 +303,52 @@ const SPECS: &[Spec] = &specs![
     ("crashCapture", "power", Bool),
     ("presentationMode", "power", Bool),
     ("chargeLimit", "power", Int),
-    ("bindings", "bindings", List),
-    ("windowRules", "windows", List),
-    ("workspaces", "workspaces", List),
-    ("workspaceWrapSwitch", "workspaces", Bool),
-    ("workspaceWheelSwitch", "workspaces", Bool),
-    ("monitorRules", "monitors", List),
+    (
+        "bindings",
+        "bindings",
+        List,
+        Effect::Sentinel { kind: "bindings" }
+    ),
+    (
+        "windowRules",
+        "windows",
+        List,
+        Effect::Sentinel { kind: "windows" }
+    ),
+    (
+        "workspaces",
+        "workspaces",
+        List,
+        Effect::Sentinel { kind: "workspaces" }
+    ),
+    (
+        "workspaceWrapSwitch",
+        "workspaces",
+        Bool,
+        Effect::Sentinel { kind: "workspaces" }
+    ),
+    (
+        "workspaceWheelSwitch",
+        "workspaces",
+        Bool,
+        Effect::Sentinel { kind: "workspaces" }
+    ),
+    (
+        "monitorRules",
+        "monitors",
+        List,
+        Effect::Sentinel { kind: "monitors" }
+    ),
     ("monitorScale", "monitors", Number),
     ("internalDisplay", "monitors", Bool),
     ("internalMirror", "monitors", Bool),
     ("displayBrightness", "backlight", Int),
-    ("autostart", "autostart", List),
+    (
+        "autostart",
+        "autostart",
+        List,
+        Effect::Sentinel { kind: "autostart" }
+    ),
     ("envVars", "env", List),
     ("envPathPrepend", "env", String),
     ("tweaks.middlePaste", "tweaks", Bool),
@@ -331,15 +448,12 @@ pub fn lua_bind(key: &str) -> Option<LuaBind> {
     Some(LuaBind { name, form })
 }
 
-pub fn locate(backend: &str, spec: &Spec) -> Result<Place, String> {
-    if backend == "plain" {
+pub fn locate(backend: Backend, spec: &Spec) -> Result<Place> {
+    if backend == Backend::Plain {
         return Ok(Place {
             rel: format!(".config/plain/{}.json", spec.group),
             kind: PlaceKind::Map,
         });
-    }
-    if backend != "omarchy" {
-        return Err(format!("unknown backend {backend}"));
     }
     if let Some(place) = omarchy_key(spec.key) {
         return Ok(place);
@@ -393,7 +507,7 @@ pub fn locate(backend: &str, spec: &Spec) -> Result<Place, String> {
             rel: ".config/omarchy/plugins.json".into(),
             kind: PlaceKind::Whole,
         },
-        other => return Err(format!("no omarchy file for group {other}")),
+        other => return Err(format!("no omarchy file for group {other}").into()),
     })
 }
 

@@ -234,7 +234,11 @@ fn host_reads_return_fixture_values_and_round_trip_a_file() {
         ],
         "",
     );
-    assert!(logged.status.success(), "{}", String::from_utf8_lossy(&logged.stderr));
+    assert!(
+        logged.status.success(),
+        "{}",
+        String::from_utf8_lossy(&logged.stderr)
+    );
     let commands = fs::read_to_string(root.join("commands.log")).unwrap();
     assert!(commands.contains("theme"), "{commands}");
     assert!(commands.contains("fixture-theme-url"), "{commands}");

@@ -979,7 +979,8 @@ ShellRoot {
                 color: modelData.link ? (crumbMouse.containsMouse ? Theme.accent : Theme.muted)
                   : (modelData.context ? Theme.muted : Theme.foreground)
                 font.family: Theme.fontFamily
-                font.pixelSize: modelData.context ? Theme.captionSize : Theme.fontSize
+                // One size for every crumb, so the baselines match.
+                font.pixelSize: Theme.fontSize
                 font.bold: !modelData.link && !modelData.context
                 font.letterSpacing: modelData.context ? Theme.sectionTracking : 0
                 font.capitalization: modelData.context ? Font.AllUppercase : Font.MixedCase

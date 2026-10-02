@@ -190,17 +190,7 @@ ShellRoot {
     Qt.callLater(function() { root.revealCurrentNav() })
   }
 
-  // The nav item that is selected, so the rail can find it again when the
-  // layout settles after startup or a group opens.
-  property var navSelected: null
-
-  function replaceNavHighlight() {
-    var item = root.navSelected
-    if (item && item.selected) root.placeNavHighlight(item)
-  }
-
   function placeNavHighlight(item) {
-    root.navSelected = item
     if (!item || root.query.length > 0) {
       navHighlight.visible = false
       return
@@ -625,7 +615,7 @@ ShellRoot {
             width: parent.width
             z: 1
             spacing: 0
-            onImplicitHeightChanged: Qt.callLater(root.replaceNavHighlight)
+            onImplicitHeightChanged: root.revealCurrentNav()
 
             Repeater {
               model: root.groupedPages
@@ -996,6 +986,20 @@ ShellRoot {
                 }
               }
             }
+          }
+        }
+
+        Rectangle {
+          id: searchGlow
+          anchors.fill: searchBox
+          anchors.margins: -1
+          radius: Theme.radius
+          color: Theme.accentFill(0.14)
+          visible: searchField.activeFocus
+          opacity: searchField.activeFocus ? 1 : 0
+
+          Behavior on opacity {
+            NumberAnimation { duration: Theme.motionFast }
           }
         }
 

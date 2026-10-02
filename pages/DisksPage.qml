@@ -1,8 +1,9 @@
 import QtQuick
 import Quickshell
-import Quickshell.Io
 import "../components"
 import "../services"
+import "../services/Failure.js" as FailureJs
+import "../services/Requests.js" as Requests
 import "../services/RichUi.js" as RichUi
 
 PrefsPage {
@@ -12,7 +13,7 @@ PrefsPage {
   description: "Space on each drive, plus encryption if the disk is locked. Snapper snapshots and hibernation are further down."
 
   property bool diskRunning: false
-  property bool diskExpectedStop: false
+  property int diskToken: 0
   property string diskPhase: ""
   property string diskName: ""
   property string diskRead: ""
@@ -84,38 +85,45 @@ PrefsPage {
   }
 
   function startDiskSpeedtest(dir) {
-    if (diskProc.running) return
+    if (diskRunning) return
     diskError = ""
     diskName = ""
     diskRead = ""
     diskWrite = ""
     diskPhase = "read"
     diskRunning = true
-    diskExpectedStop = false
     diskTarget = dir || ""
     if (diskTarget)
       setDiskResult(diskTarget, { name: "", read: "", write: "", error: "" })
-    diskStdin = JSON.stringify({
-      op: "speedtest.disk",
-      dir: dir && Omarchy.validMountPath(dir) ? dir : ""
+    diskToken += 1
+    var token = diskToken
+    var target = dir && Omarchy.validMountPath(dir) ? dir : ""
+    Backend.request(Requests.speedtestDisk(target), function(env) {
+      if (token === root.diskToken) root.finishDiskSpeedtest(env)
     })
-    diskProc.command = Omarchy.backendCommand(["request"])
-    diskProc.stdinEnabled = true
-    diskProc.running = true
   }
 
+  // The backend finishes the run on its own. Stopping only stops listening, so
+  // a late answer is ignored.
   function stopDiskSpeedtest() {
-    diskExpectedStop = true
+    diskToken += 1
     diskRunning = false
     diskPhase = ""
-    if (diskProc.running) diskProc.running = false
   }
 
-  Component.onDestruction: {
-    if (diskProc.running) diskProc.running = false
+  function finishDiskSpeedtest(env) {
+    var result = env && env.ok === true && env.result ? env.result : null
+    if (result) root.adoptDisk(result.stdout)
+    root.diskRunning = false
+    root.diskPhase = ""
+    if (!result || Number(result.exit) !== 0) {
+      var text = result && result.stderr ? result.stderr : FailureJs.errorText(env && env.error)
+      root.diskError = String(text || "Disk speed test failed").replace(/^\s+|\s+$/g, "")
+      root.setDiskResult(root.diskTarget, { error: root.diskError })
+    } else {
+      root.setDiskResult(root.diskTarget, { error: "" })
+    }
   }
-
-  property string diskStdin: ""
 
   function adoptDisk(text) {
     var lines = String(text || "").split("\n")
@@ -134,41 +142,6 @@ PrefsPage {
         root.diskPhase = "write"
         root.diskWrite = String(parsed.value)
         root.setDiskResult(root.diskTarget, { write: root.diskWrite })
-      }
-    }
-  }
-
-  Process {
-    id: diskProc
-    stdinEnabled: false
-    stdout: StdioCollector { id: diskOut; waitForEnd: true }
-    stderr: StdioCollector { id: diskErr; waitForEnd: true }
-    onStarted: {
-      if (root.diskStdin.length > 0) {
-        write(root.diskStdin)
-        root.diskStdin = ""
-        stdinEnabled = false
-      }
-    }
-    onExited: function(code) {
-      var env = null
-      try { env = JSON.parse(String(diskOut.text || "")) } catch (e) { env = null }
-      if (env && env.ok === true && env.result) root.adoptDisk(env.result.stdout)
-      if (root.diskExpectedStop) {
-        root.diskExpectedStop = false
-        root.diskRunning = false
-        root.diskPhase = ""
-        return
-      }
-      root.diskRunning = false
-      root.diskPhase = ""
-      var diskExit = env && env.result ? Number(env.result.exit) : code
-      if (code !== 0 || diskExit !== 0) {
-        var diskErrText = env && env.result && env.result.stderr ? env.result.stderr : diskErr.text
-        root.diskError = String(diskErrText || "Disk speed test failed").replace(/^\s+|\s+$/g, "")
-        root.setDiskResult(root.diskTarget, { error: root.diskError })
-      } else {
-        root.setDiskResult(root.diskTarget, { error: "" })
       }
     }
   }

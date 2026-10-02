@@ -1,12 +1,20 @@
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Layouts
 import "../services"
 
 Popup {
   id: root
 
   property string title: ""
+  // Standard footer. Leave primaryText empty to keep a caller-built button row.
+  property string primaryText: ""
+  property string cancelText: "Cancel"
+  property bool primaryEnabled: true
+  property bool primaryDanger: false
   default property alias extra: body.data
+
+  signal primaryClicked()
 
   modal: true
   focus: true
@@ -36,19 +44,43 @@ Popup {
 
   onAboutToShow: attachOverlay()
 
-  Column {
-    id: body
+  ColumnLayout {
     width: parent.width
     spacing: Theme.pad
 
-    PrefsText {
-      visible: root.title.length > 0
-      width: parent.width
-      text: root.title
-      color: Theme.foreground
-      font.family: Theme.fontFamily
-      font.pixelSize: Theme.fontSize
-      font.bold: true
+    Column {
+      id: body
+      Layout.fillWidth: true
+      spacing: Theme.pad
+
+      PrefsText {
+        visible: root.title.length > 0
+        width: parent.width
+        text: root.title
+        color: Theme.foreground
+        font.family: Theme.fontFamily
+        font.pixelSize: Theme.fontSize
+        font.bold: true
+      }
+    }
+
+    Row {
+      visible: root.primaryText.length > 0
+      Layout.alignment: Qt.AlignRight
+      spacing: Theme.space
+
+      PrefsButton {
+        text: root.cancelText
+        onClicked: root.close()
+      }
+
+      PrefsButton {
+        text: root.primaryText
+        enabled: root.primaryEnabled
+        primary: !root.primaryDanger
+        danger: root.primaryDanger
+        onClicked: root.primaryClicked()
+      }
     }
   }
 }

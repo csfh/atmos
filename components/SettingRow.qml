@@ -90,6 +90,21 @@ Item {
 
   readonly property bool hovered: rowHover.hovered
 
+  // Write feedback for this row. Feedback attributes the next write to the
+  // row the user last touched; see services/Feedback.js.
+  readonly property var writeStatus: {
+    var _f = Feedback.fb
+    if (!root.canFavorite) return { phase: "idle", message: "" }
+    return Feedback.rowStatus(root.resolvedHubId, root.label)
+  }
+
+  onKeyboardHereChanged: if (keyboardHere && canFavorite) Feedback.touch(resolvedHubId, label)
+
+  TapHandler {
+    acceptedButtons: Qt.LeftButton
+    onTapped: if (root.canFavorite) Feedback.touch(root.resolvedHubId, root.label)
+  }
+
   // Fill when the pointer is over the row, or when anything inside it
   // holds the keyboard. The rail is keyboard-only, so hover on A and Tab
   // on B stay distinguishable.
@@ -311,6 +326,20 @@ Item {
           }
 
           PrefsText {
+            id: writeText
+            width: parent.width
+            visible: root.writeStatus.phase !== "idle"
+            text: root.writeStatus.phase === "pending" ? "Applying…"
+              : root.writeStatus.phase === "saved" ? "Saved"
+              : "Failed: " + root.writeStatus.message
+            color: root.writeStatus.phase === "failed" ? Theme.urgent
+              : root.writeStatus.phase === "saved" ? Theme.accent : Theme.muted
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.metaSize
+            horizontalAlignment: Text.AlignLeft
+          }
+
+          PrefsText {
             id: captionText
             width: parent.width
             visible: root.caption.length > 0
@@ -393,7 +422,7 @@ Item {
           anchors.centerIn: parent
           name: root.favorited ? Theme.iconStarOn : Theme.iconStar
           size: Theme.helpIcon
-          opacity: root.showFavoriteIcon ? 1 : 0
+          opacity: root.showFavoriteIcon || root.favorited ? 1 : 0.25
           color: root.favorited || favoriteMouse.containsMouse || favoriteHost.activeFocus
             ? Theme.accent
             : Theme.muted

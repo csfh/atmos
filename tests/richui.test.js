@@ -734,3 +734,18 @@ assertEqual(
   "1920x1080@143.86",
   "sanitizeMode keeps the EDID fractional rate",
 );
+
+assert(ui.validMountPath("/mnt/data"), "an absolute mount path is valid");
+assert(ui.validMountPath("/"), "the root is a valid mount path");
+assert(!ui.validMountPath("mnt/data"), "a relative path is not a mount path");
+assert(!ui.validMountPath("/mnt/../etc"), "a path with .. is not a mount path");
+assert(!ui.validMountPath("/mnt/a b"), "a path with a space is not a mount path");
+assert(!ui.validMountPath(""), "an empty path is not a mount path");
+const picks = ui.installedOptions(["firefox", { value: "chromium", label: "Chromium" }, "brave"], {
+  firefox: false,
+  chromium: true,
+});
+assertEqual(picks.length, 2, "an option marked missing is dropped");
+assertEqual(picks[0].value, "chromium", "an installed option stays");
+assertEqual(picks[1], "brave", "an option with no information stays");
+assertEqual(ui.installedOptions(null, {}).length, 0, "no options is an empty list");

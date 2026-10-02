@@ -82,3 +82,31 @@ assertEqual(
   "Python monitors serialize matches JS",
 );
 fs.unlinkSync(tmp);
+
+// patchRules: the rule list after one output changes.
+const rules = [{ output: "DP-1", mode: "2560x1440@144", scale: 1 }];
+const patched = mon.patchRules(rules, [], "DP-1", { scale: 2 }, () => "preferred");
+assertEqual(patched.length, 1, "patching a known output keeps one rule");
+assertEqual(patched[0].scale, 2, "the patch lands on the rule");
+assertEqual(patched[0].mode, "2560x1440@144", "the rest of the rule is kept");
+assertEqual(rules[0].scale, 1, "the input list is not changed");
+const added = mon.patchRules(
+  rules,
+  [{ name: "HDMI-A-1", scale: 1.5, transform: 1, enabled: true, vrr: 0 }],
+  "HDMI-A-1",
+  { disabled: true },
+  () => "1920x1080@60",
+);
+assertEqual(added.length, 2, "an output with no rule gains one");
+assertEqual(added[1].mode, "1920x1080@60", "a new rule starts from the live mode");
+assertEqual(added[1].scale, 1.5, "a new rule starts from the live scale");
+assertEqual(added[1].transform, 1, "a new rule starts from the live transform");
+assertEqual(added[1].disabled, true, "the patch overrides the live value");
+assertEqual(
+  mon.patchRules(rules, [], "bad name;", {}, null),
+  null,
+  "an unsafe output name is refused",
+);
+assertEqual(mon.patchRules(rules, [], "", {}, null), null, "an empty output name is refused");
+const bare = mon.patchRules([], [], "DP-2", {}, null);
+assertEqual(bare[0].mode, "preferred", "an unseen output defaults to preferred");

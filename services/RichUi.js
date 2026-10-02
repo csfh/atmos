@@ -1206,3 +1206,23 @@ function parseXkbLayoutList(text) {
   }
   return out;
 }
+
+// A directory a disk test may target: absolute, no `..`, plain path characters.
+function validMountPath(dir) {
+  var text = String(dir || "");
+  return text.charAt(0) === "/" && text.indexOf("..") === -1 && /^\/[A-Za-z0-9._/-]*$/.test(text);
+}
+
+// The options for a picker, minus the ones `available` says are not installed.
+// An option is a plain value or { value, label }. An unknown value stays.
+function installedOptions(all, available) {
+  var out = [];
+  var list = Array.isArray(all) ? all : [];
+  for (var i = 0; i < list.length; i++) {
+    var item = list[i];
+    var key = item !== null && typeof item === "object" ? item.value : item;
+    if (available && available[key] === false) continue;
+    out.push(item);
+  }
+  return out;
+}

@@ -1,9 +1,10 @@
 import QtQuick
 import QtQuick.Dialogs
 import Quickshell
-import Quickshell.Io
 import "../components"
 import "../services"
+import "../services/Failure.js" as FailureJs
+import "../services/Requests.js" as Requests
 import "../services/Settings.js" as SettingsJs
 import "../services/RichUi.js" as RichUi
 
@@ -49,7 +50,7 @@ PrefsPage {
   readonly property bool applyingJob: Omarchy.jobKind === "settings-import" || Omarchy.jobKind === "settings-undo"
   // Derived rather than assigned, so it cannot be left stuck on by a path
   // that forgot to clear it.
-  readonly property bool working: ioProc.running || root.applyingJob || root.pendingApply
+  readonly property bool working: root.ioBusy || root.applyingJob || root.pendingApply
 
   readonly property var sectionList: SettingsJs.selectableSections()
 
@@ -157,31 +158,29 @@ PrefsPage {
       hardware: Omarchy.dmiProduct
     })
     root.forgetExport()
-    root.startIo("write", {
-      op: "host.write",
-      path: root.realPath(root.exportPath),
-      text: text
-    })
+    var path = root.realPath(root.exportPath)
+    root.startIo("write", Requests.hostWrite(path, text))
   }
 
   function openFile(path) {
-    root.startIo("open", { op: "host.open", path: root.realPath(path) })
+    root.startIo("open", Requests.hostOpen(root.realPath(path)))
   }
 
   function doReview() {
     root.forgetPlan()
-    root.startIo("read", { op: "host.read", paths: [root.realPath(root.importPath)] })
+    root.startIo("read", Requests.hostRead([root.realPath(root.importPath)]))
   }
 
   function startIo(kind, body) {
-    if (ioProc.running) return
+    if (root.ioBusy) return
     root.ioKind = kind
     root.ioPath = body.path || (body.paths && body.paths[0]) || ""
     root.ioText = body.text || ""
-    root.ioStdin = JSON.stringify(body)
-    ioProc.command = Omarchy.backendCommand(["request"])
-    ioProc.stdinEnabled = true
-    ioProc.running = true
+    root.ioBusy = true
+    Backend.request(body, function(env) {
+      root.ioBusy = false
+      root.ioAnswered(env)
+    })
   }
 
   // One queued job. enqueueIo prompts for sudo when the plan needs root,
@@ -264,55 +263,40 @@ PrefsPage {
   property string ioKind: ""
   property string ioPath: ""
   property string ioText: ""
-  property string ioStdin: ""
+  property bool ioBusy: false
 
-  Process {
-    id: ioProc
-    command: ["true"]
-    stdinEnabled: false
-    stdout: StdioCollector { id: ioOut; waitForEnd: true }
-    stderr: StdioCollector { id: ioErr; waitForEnd: true }
-    onStarted: {
-      if (root.ioStdin.length > 0) {
-        write(root.ioStdin)
-        root.ioStdin = ""
-        stdinEnabled = false
+  function ioAnswered(env) {
+    var ok = !!(env && env.ok === true)
+    var err = ok ? "" : FailureJs.errorText(env && env.error)
+    if (root.ioKind === "write") {
+      if (ok) {
+        root.writtenPath = root.ioPath
+        root.exportStatus = "Wrote " + root.chosenKeys.length + " settings to " + root.ioPath
+      } else {
+        root.exportStatus = err.length > 0 ? err : "Could not write " + root.ioPath
       }
+      return
     }
-    onExited: function(exitCode) {
-      var err = String(ioErr.text || "").replace(/^\s+|\s+$/g, "")
-      if (root.ioKind === "write") {
-        if (exitCode === 0) {
-          root.writtenPath = root.ioPath
-          root.exportStatus = "Wrote " + root.chosenKeys.length + " settings to " + root.ioPath
-        } else {
-          root.exportStatus = err.length > 0 ? err : "Could not write " + root.ioPath
-        }
-        return
-      }
-      if (root.ioKind === "open") {
-        if (exitCode !== 0)
-          root.exportStatus = err.length > 0 ? err : "Nothing on this machine opens that file."
-        return
-      }
-      if (exitCode !== 0) {
-        root.importStatus = err.length > 0 ? err : "Could not read " + root.importPath
-        return
-      }
-      var env = null
-      try { env = JSON.parse(String(ioOut.text || "")) } catch (e) { env = null }
-      var files = env && env.result && env.result.files ? env.result.files : []
-      var raw = files.length ? String(files[0].text || "") : ""
-      var doc = SettingsJs.parseSettingsMarkdown(raw)
-      root.lastDoc = doc
-      root.plan = SettingsJs.planImport(doc, Omarchy.snapshotData, null, {
-        hardware: Omarchy.dmiProduct,
-        workspaceGestureUnmanaged: Omarchy.liveWorkspaceGestureUnmanaged(),
-      })
-      root.importStatus = root.plan.changes.length === 0
-        ? "Nothing to change. " + root.plan.summary
-        : ""
+    if (root.ioKind === "open") {
+      if (!ok)
+        root.exportStatus = err.length > 0 ? err : "Nothing on this machine opens that file."
+      return
     }
+    if (!ok) {
+      root.importStatus = err.length > 0 ? err : "Could not read " + root.importPath
+      return
+    }
+    var files = env.result && env.result.files ? env.result.files : []
+    var raw = files.length ? String(files[0].text || "") : ""
+    var doc = SettingsJs.parseSettingsMarkdown(raw)
+    root.lastDoc = doc
+    root.plan = SettingsJs.planImport(doc, Omarchy.snapshotData, null, {
+      hardware: Omarchy.dmiProduct,
+      workspaceGestureUnmanaged: Omarchy.liveWorkspaceGestureUnmanaged(),
+    })
+    root.importStatus = root.plan.changes.length === 0
+      ? "Nothing to change. " + root.plan.summary
+      : ""
   }
 
   // ---- export ------------------------------------------------------------

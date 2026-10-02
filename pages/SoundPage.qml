@@ -176,7 +176,7 @@ PrefsPage {
       PrefsToggle {
         checked: Omarchy.audioTuningOn
         enabled: Omarchy.audioTuningMatch
-        onToggled: Omarchy.setAudioTuning(!Omarchy.audioTuningOn)
+        onToggled: Omarchy.set("audioTuningOn", !Omarchy.audioTuningOn)
       }
     }
   }

@@ -11,7 +11,7 @@ PrefsPage {
   id: root
   hubId: "appearance"
   title: "Appearance"
-  description: "How the desktop looks. The theme sets colors for the shell and themed apps. Wallpaper and type size live further down this page."
+  description: "How the desktop looks. The theme sets colors for the shell and themed apps. Wallpaper and the boot screen open their own pages from the Wallpaper and boot section. Type size is on this page."
 
   property var stack: null
   property var navigator: null
@@ -461,7 +461,7 @@ PrefsPage {
 
       PrefsToggle {
         checked: Omarchy.nightlight
-        onToggled: Omarchy.setNightlight(!Omarchy.nightlight)
+        onToggled: Omarchy.set("nightlight", !Omarchy.nightlight)
       }
     }
   }

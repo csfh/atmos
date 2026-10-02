@@ -18,54 +18,35 @@ function body(src, name, next) {
   return src.slice(start, end);
 }
 
-const io = body(omarchy, "startIoJob", "snapshotRefreshGroup");
+const io = body(omarchy, "onReadRequested", "snapshotRefreshGroup");
 assert(
-  io.indexOf("settings.snapshot") !== -1 &&
-    io.indexOf("settings.set") !== -1 &&
-    io.indexOf('"request"') !== -1 &&
-    io.indexOf("backendCommand") !== -1 &&
+  io.indexOf("Requests.settingsSnapshot") !== -1 &&
+    io.indexOf("Requests.settingsSet") !== -1 &&
+    io.indexOf("Backend.request") !== -1 &&
     io.indexOf("gui-snapshot") === -1,
   "settings loads and writes go through backend request ops",
 );
-function between(src, start, end) {
-  const a = src.indexOf(start);
-  const b = src.indexOf(end, a + start.length);
-  assert(a !== -1 && b > a, start + " is present");
-  return src.slice(a, b);
-}
-const displayProc = between(
-  omarchy,
-  "property Process displayProc",
-  "property Process snapshotProc",
-);
+const displayApply = body(omarchy, "applyDisplays", "domainValue");
 assert(
-  displayProc.indexOf("onExited") !== -1 &&
-    displayProc.indexOf("displayOut") !== -1 &&
-    displayProc.indexOf("hardware") !== -1 &&
-    displayProc.indexOf("disks") !== -1 &&
-    displayProc.indexOf("systemdUnits") !== -1 &&
-    displayProc.indexOf("desktopApps") !== -1 &&
-    displayProc.indexOf("diagnostics") !== -1 &&
-    displayProc.indexOf("displayDoc") !== -1,
-  "display-snapshot is applied to the page properties",
+  displayApply.indexOf("hardware") !== -1 &&
+    displayApply.indexOf("disks") !== -1 &&
+    displayApply.indexOf("systemdUnits") !== -1 &&
+    displayApply.indexOf("desktopApps") !== -1 &&
+    displayApply.indexOf("diagnostics") !== -1 &&
+    displayApply.indexOf("displayDoc") !== -1,
+  "the display snapshot is applied to the page properties",
 );
 assert(
   omarchy.indexOf("function displayDoc") !== -1 && omarchy.indexOf("value.error") !== -1,
   "a failed display kind does not replace the last good page",
 );
 assert(
-  omarchy.indexOf("display-snapshot") !== -1 &&
-    omarchy.indexOf('"hardware"') !== -1 &&
-    omarchy.indexOf('"disks"') !== -1 &&
-    omarchy.indexOf('"services"') !== -1 &&
-    omarchy.indexOf('"software"') !== -1 &&
-    omarchy.indexOf('"diagnostics"') !== -1 &&
-    omarchy.indexOf("loadDisplays") !== -1,
+  omarchy.indexOf("Requests.displaySnapshot") !== -1 && omarchy.indexOf("loadDisplays") !== -1,
   "display inventories are requested from the Rust backend",
 );
 assert(
-  live.indexOf('["display", "live"]') !== -1 &&
-    live.indexOf("Omarchy.backendCommand") !== -1 &&
+  live.indexOf('Requests.displayGet("live")') !== -1 &&
+    live.indexOf("Backend.request") !== -1 &&
     live.indexOf("liveStatsScript") === -1,
   "live stats load through the Rust backend without a script path",
 );

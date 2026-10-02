@@ -20,6 +20,8 @@ Item {
   signal clicked()
 
   property bool picked: false
+  // PrefsGroup sets this so a link sits in a group like any other row.
+  property bool split: false
 
   readonly property string searchHaystack: {
     var parts = [label, description, hint, valueText, detail]
@@ -70,6 +72,13 @@ Item {
     Behavior on color {
       ColorAnimation { duration: Theme.motionFast }
     }
+  }
+
+  Rectangle {
+    width: parent.width
+    height: 1
+    visible: root.split
+    color: Theme.splitColor()
   }
 
   Item {

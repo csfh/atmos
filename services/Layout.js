@@ -290,3 +290,46 @@ function pageContentWidth(avail, opts) {
   if (cols <= 1) return Math.max(floor, Math.min(cap, inner));
   return Math.max(floor, Math.min(wideCap, inner));
 }
+
+// Header trail: the hub, then the open subpage if there is one. Only the
+// hub crumb is a link, and only while a subpage covers it.
+function breadcrumb(hubTitle, subTitle) {
+  var hub = String(hubTitle || "");
+  var sub = String(subTitle || "");
+  var parts = [];
+  if (hub.length) parts.push({ label: hub, link: sub.length > 0 });
+  if (sub.length) parts.push({ label: sub, link: false });
+  return parts;
+}
+
+// The sidebar drops to an icon rail when the window is too narrow to give
+// the page a comfortable column next to a full sidebar.
+var RAIL_BELOW = 900;
+
+function railMode(windowWidth) {
+  var w = Number(windowWidth);
+  return isFinite(w) && w > 0 && w < RAIL_BELOW;
+}
+
+// A group is open unless the user collapsed it, and the group holding the
+// current page never collapses so the selection stays visible.
+function groupOpen(collapsed, title, holdsCurrent) {
+  if (!title) return true;
+  if (holdsCurrent) return true;
+  return !(collapsed && collapsed[title] === true);
+}
+
+function groupHolds(group, pageId) {
+  var pages = group && Array.isArray(group.pages) ? group.pages : [];
+  for (var i = 0; i < pages.length; i++) {
+    if (pages[i] && pages[i].id === pageId) return true;
+  }
+  return false;
+}
+
+function toggleGroup(collapsed, title) {
+  var next = Object.assign({}, collapsed || {});
+  if (next[title] === true) delete next[title];
+  else next[title] = true;
+  return next;
+}

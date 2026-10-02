@@ -343,3 +343,50 @@ assertEqual(snapshot.parseSnapshot("{"), null, "parseSnapshot rejects junk after
 assertEqual(snapshot.patchGroup({ group: "look" }), "look", "patchGroup accepts look");
 assertEqual(snapshot.patchGroup({ group: "nope" }), "", "patchGroup rejects an unknown group");
 assertEqual(snapshot.sanitizeDmi("to be filled by o.e.m."), "", "sanitizeDmi drops DMI filler");
+
+// applyWithResult: the backend's read-back corrects the optimistic patch.
+const guess = { hyprLook: { gapsIn: 20 }, hyprLookManaged: true };
+const settledPatch = snapshot.applyWithResult(guess, "hyprLook.gapsIn", {
+  domain: "hyprLook.gapsIn",
+  value: 12,
+});
+assertEqual(settledPatch.hyprLook.gapsIn, 12, "a dotted scalar takes the value read back");
+assertEqual(settledPatch.hyprLookManaged, true, "the rest of the patch is kept");
+assertEqual(guess.hyprLook.gapsIn, 20, "the original patch is not changed");
+assertEqual(
+  snapshot.applyWithResult({ theme: "a" }, "theme", { domain: "theme", value: "b" }).theme,
+  "b",
+  "a top-level scalar takes the value read back",
+);
+const listPatch = { bindings: [{ keys: "x" }] };
+assert(
+  snapshot.applyWithResult(listPatch, "bindings", {
+    domain: "bindings",
+    value: [{ keys: "y" }],
+  }) === listPatch,
+  "a list stays as the patch has it",
+);
+assert(
+  snapshot.applyWithResult(guess, "hyprLook.gapsIn", { domain: "hyprLook.gapsIn", value: null }) ===
+    guess,
+  "a null read-back changes nothing",
+);
+assert(
+  snapshot.applyWithResult(guess, "hyprLook.gapsIn", { domain: "other", value: 1 }) === guess,
+  "a reply for another domain changes nothing",
+);
+assert(
+  snapshot.applyWithResult(guess, "hyprLook.rounding", {
+    domain: "hyprLook.rounding",
+    value: 3,
+  }) === guess,
+  "a key the patch does not carry is not invented",
+);
+assert(
+  snapshot.applyWithResult(undefined, "theme", { domain: "theme", value: "b" }) === undefined,
+  "no patch stays no patch",
+);
+assert(
+  snapshot.applyWithResult(guess, "hyprLook.gapsIn", null) === guess,
+  "no reply changes nothing",
+);

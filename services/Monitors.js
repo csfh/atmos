@@ -246,6 +246,59 @@ function layoutFromLive(name, live) {
   return items;
 }
 
+// The rule list after changing one output's rule. An output with no rule yet
+// starts from what the monitor reports now. `liveMode` turns a live monitor
+// into the mode string a rule uses; the caller owns that because it reads
+// hyprctl's own wording. Returns null for an output name that cannot be
+// written into monitors.lua.
+function patchRules(rules, live, output, patch, liveMode) {
+  var name = String(output || "");
+  if (!name || !/^[A-Za-z0-9._-]+$/.test(name)) return null;
+  var changes = patch && typeof patch === "object" ? patch : {};
+  var list = Array.isArray(rules) ? rules : [];
+  var next = [];
+  var found = false;
+  var i, k, row, merged;
+  for (i = 0; i < list.length; i++) {
+    row = list[i] || {};
+    if (String(row.output || "") === name) {
+      merged = {};
+      for (k in row) merged[k] = row[k];
+      for (k in changes) merged[k] = changes[k];
+      next.push(merged);
+      found = true;
+    } else {
+      next.push(row);
+    }
+  }
+  if (!found) {
+    var seen = null;
+    var monitors = Array.isArray(live) ? live : [];
+    for (i = 0; i < monitors.length; i++) {
+      if (monitors[i] && String(monitors[i].name || "") === name) {
+        seen = monitors[i];
+        break;
+      }
+    }
+    var mode = "preferred";
+    if (seen && typeof liveMode === "function") mode = liveMode(seen) || "preferred";
+    merged = {
+      output: name,
+      mode: mode,
+      position: "auto",
+      scale: seen && seen.scale ? Number(seen.scale) : 1,
+      transform: seen ? Math.round(Number(seen.transform)) || 0 : 0,
+      disabled: seen ? seen.enabled === false : false,
+      vrr: seen ? Math.round(Number(seen.vrr)) || 0 : 0,
+      bitdepth: 8,
+      cm: "",
+    };
+    for (k in changes) merged[k] = changes[k];
+    next.push(merged);
+  }
+  return next;
+}
+
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     BEGIN: BEGIN,
@@ -257,6 +310,7 @@ if (typeof module !== "undefined" && module.exports) {
     applyFile: applyFile,
     layoutNames: layoutNames,
     layoutFromLive: layoutFromLive,
+    patchRules: patchRules,
     modeFromHyprctl: modeFromHyprctl,
     sanitizeMode: sanitizeMode,
   };

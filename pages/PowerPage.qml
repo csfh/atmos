@@ -63,7 +63,7 @@ PrefsPage {
         options: root.profileOptions
         enabled: root.profileOptions.length > 0
         onChanged: function(value) {
-          if (value !== Omarchy.powerProfileAc) Omarchy.setPowerProfileAc(value)
+          if (value !== Omarchy.powerProfileAc) Omarchy.set("powerProfileAc", value)
         }
       }
     }
@@ -81,7 +81,7 @@ PrefsPage {
         options: root.profileOptions
         enabled: root.profileOptions.length > 0
         onChanged: function(value) {
-          if (value !== Omarchy.powerProfileBattery) Omarchy.setPowerProfileBattery(value)
+          if (value !== Omarchy.powerProfileBattery) Omarchy.set("powerProfileBattery", value)
         }
       }
     }
@@ -189,7 +189,7 @@ PrefsPage {
       PrefsToggle {
         checked: Omarchy.powerShowPercentage
         enabled: Omarchy.powerPresent && Omarchy.isLaptop
-        onToggled: Omarchy.setPowerShowPercentage(!Omarchy.powerShowPercentage)
+        onToggled: Omarchy.set("powerShowPercentage", !Omarchy.powerShowPercentage)
       }
     }
   }

@@ -22,6 +22,8 @@ ShellRoot {
   property string launchPath: Quickshell.env("ATMOS_PAGE") || "home"
   property string currentPage: "home"
   property string query: ""
+  property var collapsedGroups: ({})
+  readonly property bool railMode: LayoutJs.railMode(window.width)
   onQueryChanged: if (query.length > 0) placeNavHighlight(null)
 
   readonly property string profileTitle: AccountsJs.profileTitle(Omarchy.fullName, Omarchy.currentUser)
@@ -45,14 +47,8 @@ ShellRoot {
   })
 
   readonly property var groupedPages: {
-    var q = root.query
-    var matched = []
-    var list = root.pages
-    var i
-    for (i = 0; i < list.length; i++) {
-      if (root.pageMatches(list[i], q)) matched.push(list[i])
-    }
-    return LayoutJs.clusterByGroup(matched, q.length === 0)
+    // Search never filters the nav. It has its own field and result page.
+    return LayoutJs.clusterByGroup(root.pages, true)
   }
 
   // The nav in the order it is drawn. Follows the live search filter.
@@ -128,25 +124,6 @@ ShellRoot {
     }
     if (root.query.length === 0)
       root.loadHub(root.currentPage)
-  }
-
-  // A printable key focuses search and inserts itself. The field then
-  // owns the rest of the word. Space does not start an empty query.
-  function startSearch(event) {
-    if (!event) return
-    event.accepted = false
-    if (event.isAutoRepeat) return
-    if (root.navBusy || searchField.activeFocus) return
-    var mods = event.modifiers
-    if (mods & (Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier)) return
-    var text = event.text || ""
-    if (text.length !== 1) return
-    var code = text.charCodeAt(0)
-    if (code <= 31 || code === 127) return
-    if (text === " " && searchField.text.length === 0) return
-    searchField.forceActiveFocus()
-    searchField.insert(searchField.length, text)
-    event.accepted = true
   }
 
   function moveNav(delta) {
@@ -265,7 +242,7 @@ ShellRoot {
 
   // Re-assert the rail on the current hub. Placement reads live geometry,
   // so a call that lands mid-layout (fresh launch, late badges) is a no-op
-  // until positions settle; the settle hooks below call this again.
+  // until positions settle; the settle hooks call this again.
   function revealCurrentNav() {
     if (root.query.length > 0) {
       navHighlight.visible = false
@@ -438,12 +415,12 @@ ShellRoot {
       anchors.left: parent.left
       anchors.top: parent.top
       anchors.bottom: parent.bottom
-      width: Theme.sidebarWidth
-      color: Theme.fill(0.03)
+      width: root.railMode ? Theme.sidebarRailWidth : Theme.sidebarWidth
+      color: Theme.fill(Theme.sidebarFillAlpha)
 
       Item {
         anchors.fill: parent
-        anchors.margins: Theme.spaceMd
+        anchors.margins: root.railMode ? Theme.space : Theme.spaceMd
 
         FileDialog {
           id: sidebarAvatarDialog
@@ -452,18 +429,17 @@ ShellRoot {
           onAccepted: Omarchy.setAvatarPath(RichUi.pathFromUrl(selectedFile))
         }
 
-        Column {
+        Row {
           id: sidebarTitle
           anchors.left: parent.left
-          anchors.right: parent.right
+          width: parent.width
           anchors.top: parent.top
           spacing: Theme.space
 
           Item {
             id: avatarWell
-            width: 88
-            height: 88
-            anchors.horizontalCenter: parent.horizontalCenter
+            width: Theme.avatarSize
+            height: Theme.avatarSize
 
             Item {
               id: avatarMask
@@ -510,7 +486,7 @@ ShellRoot {
               visible: Omarchy.avatarPath.length === 0
               anchors.centerIn: parent
               name: "user-3-line"
-              size: 36
+              size: Math.round(Theme.avatarSize * 0.5)
               color: avatarMouse.containsMouse ? Theme.foreground : Theme.muted
             }
 
@@ -537,8 +513,10 @@ ShellRoot {
           }
 
           Item {
-            width: parent.width
+            visible: !root.railMode
+            width: parent.width - Theme.avatarSize - Theme.space
             height: profileNameSlot.height + profileHostSlot.height
+            anchors.verticalCenter: avatarWell.verticalCenter
 
             Column {
               id: profileCopy
@@ -559,7 +537,7 @@ ShellRoot {
                   font.family: Theme.fontFamily
                   font.pixelSize: Theme.fontSize
                   font.bold: true
-                  horizontalAlignment: Text.AlignHCenter
+                  horizontalAlignment: Text.AlignLeft
                   verticalAlignment: Text.AlignVCenter
                   elide: Text.ElideRight
                 }
@@ -578,7 +556,7 @@ ShellRoot {
                   color: Theme.muted
                   font.family: Theme.fontFamily
                   font.pixelSize: Theme.captionSize
-                  horizontalAlignment: Text.AlignHCenter
+                  horizontalAlignment: Text.AlignLeft
                   verticalAlignment: Text.AlignTop
                   elide: Text.ElideRight
                   opacity: root.profileHost.length > 0 ? 1 : 0
@@ -599,26 +577,392 @@ ShellRoot {
           }
         }
 
-        Rectangle {
-          id: searchGlow
-          anchors.fill: searchBox
-          anchors.margins: -1
-          radius: Theme.radius
-          color: Theme.accentFill(0.14)
-          visible: searchField.activeFocus
-          opacity: searchField.activeFocus ? 1 : 0
+        PrefsFlickable {
+          id: navFlick
+          anchors.left: parent.left
+          anchors.right: parent.right
+          anchors.top: sidebarTitle.bottom
+          anchors.topMargin: Theme.spaceMd
+          anchors.bottom: navFooter.top
+          anchors.bottomMargin: Theme.space
+          clip: true
+          contentHeight: navColumn.implicitHeight
 
-          Behavior on opacity {
-            NumberAnimation { duration: Theme.motionFast }
+          Item {
+            id: navContent
+            width: navFlick.width
+            height: navColumn.implicitHeight
+
+            Rectangle {
+              id: navHighlight
+              width: Theme.railWidth
+              height: Theme.rowHeight
+              x: 0
+              y: 0
+              z: 2
+              visible: false
+              color: Theme.accent
+
+              Behavior on y {
+                id: highlightSlide
+                enabled: false
+                NumberAnimation { duration: Theme.motionNav; easing.type: Easing.OutCubic }
+              }
+            }
+
+          Column {
+            id: navColumn
+            width: parent.width
+            z: 1
+            spacing: 0
+
+            Repeater {
+              model: root.groupedPages
+              delegate: Column {
+                id: navGroup
+                required property var modelData
+                required property int index
+                width: navColumn.width
+                spacing: Theme.sidebarItemSpacing
+                topPadding: index > 0 ? Theme.sidebarGroupSpacing : 0
+
+                readonly property string groupTitle: navGroup.modelData && navGroup.modelData.title ? navGroup.modelData.title : ""
+                readonly property bool open: LayoutJs.groupOpen(
+                  root.collapsedGroups, navGroup.groupTitle,
+                  LayoutJs.groupHolds(navGroup.modelData, root.currentPage))
+
+                Item {
+                  width: navColumn.width
+                  visible: navGroup.groupTitle.length > 0
+                  height: root.railMode ? Theme.space : groupLabel.implicitHeight + Theme.titleGap + Theme.space
+
+                  Rectangle {
+                    visible: root.railMode
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    height: Theme.borderWidth
+                    color: Theme.splitColor()
+                  }
+
+                  Text {
+                    id: groupLabel
+                    visible: !root.railMode
+                    anchors.left: parent.left
+                    anchors.right: groupChevron.left
+                    anchors.bottom: parent.bottom
+                    anchors.leftMargin: Theme.pad
+                    anchors.rightMargin: Theme.space
+                    text: navGroup.groupTitle.toUpperCase()
+                    color: groupMouse.containsMouse ? Theme.foreground : Theme.muted
+                    font.family: Theme.fontFamily
+                    font.pixelSize: Theme.sectionSize
+                    font.bold: true
+                    font.letterSpacing: Theme.sectionTracking
+                    elide: Text.ElideRight
+                  }
+
+                  PrefsIcon {
+                    id: groupChevron
+                    visible: !root.railMode
+                    anchors.right: parent.right
+                    anchors.rightMargin: Theme.pad
+                    anchors.verticalCenter: groupLabel.verticalCenter
+                    name: Theme.iconChevronRight
+                    rotation: navGroup.open ? 90 : 0
+                    size: Theme.fontSize
+                    color: Theme.muted
+                  }
+
+                  MouseArea {
+                    id: groupMouse
+                    anchors.fill: parent
+                    enabled: !root.railMode
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: root.collapsedGroups = LayoutJs.toggleGroup(root.collapsedGroups, navGroup.groupTitle)
+                  }
+
+                  Accessible.role: Accessible.Button
+                  Accessible.name: navGroup.groupTitle + (navGroup.open ? ", expanded" : ", collapsed")
+                  Accessible.onPressAction: groupMouse.clicked(null)
+                }
+
+                Repeater {
+                  model: navGroup.open && navGroup.modelData && navGroup.modelData.pages ? navGroup.modelData.pages : []
+                  delegate: Rectangle {
+                    id: navItem
+                    required property var modelData
+                    width: navColumn.width
+                    height: Theme.rowHeight
+                    radius: Theme.radius
+                    readonly property bool selected: root.query.length === 0 && root.currentPage === modelData.id
+                    readonly property bool hovered: navMouse.containsMouse
+                    activeFocusOnTab: true
+                    color: (navItem.hovered || navItem.activeFocus) ? Theme.fill(Theme.hoverFill) : "transparent"
+
+                    Accessible.role: Accessible.Button
+                    Accessible.name: modelData && modelData.title ? modelData.title : ""
+                    Accessible.checkable: true
+                    Accessible.checked: navItem.selected
+                    Accessible.onPressAction: navItem.activate()
+                    Keys.onReturnPressed: navItem.activate()
+                    Keys.onSpacePressed: navItem.activate()
+
+                    function activate() {
+                      root.currentPage = modelData.id
+                      if (searchField.text.length > 0) searchField.text = ""
+                      else root.loadHub(modelData.id)
+                    }
+
+                    onSelectedChanged: if (selected) root.placeNavHighlight(navItem)
+                    Component.onCompleted: if (selected) Qt.callLater(function() { root.placeNavHighlight(navItem) })
+
+                    PrefsIcon {
+                      id: navIcon
+                      anchors.left: parent.left
+                      anchors.leftMargin: root.railMode ? Math.round((parent.width - Theme.navIconSize) / 2) : Theme.pad
+                      anchors.verticalCenter: parent.verticalCenter
+                      name: modelData && modelData.icon ? modelData.icon : ""
+                      size: Theme.navIconSize
+                      // Accent marks the current hub; hover/focus stay
+                      // foreground. The sliding rail remains the selection
+                      // box, the icon is its echo.
+                      color: navItem.selected
+                        ? Theme.accent
+                        : (navItem.hovered || navItem.activeFocus ? Theme.foreground : Theme.muted)
+                    }
+
+                    Text {
+                      visible: !root.railMode
+                      anchors.left: navIcon.right
+                      anchors.right: navBadge.visible ? navBadge.left : parent.right
+                      anchors.verticalCenter: parent.verticalCenter
+                      anchors.leftMargin: Theme.space
+                      anchors.rightMargin: navBadge.visible ? Theme.space : Theme.pad
+                      text: modelData.title
+                      color: Theme.foreground
+                      font.family: Theme.fontFamily
+                      font.pixelSize: Theme.labelSize
+                      font.bold: navItem.selected
+                      elide: Text.ElideRight
+                    }
+
+                    // Live state at the row edge. Silent when there is
+                    // nothing to say, which is the common case.
+                    Text {
+                      id: navBadge
+                      anchors.right: parent.right
+                      anchors.rightMargin: Theme.pad
+                      anchors.verticalCenter: parent.verticalCenter
+                      readonly property var badge: NavStatusJs.forHub(
+                        modelData ? modelData.id : "", root.navState)
+                      visible: !!badge && !root.railMode
+                      text: badge ? badge.text : ""
+                      color: badge && badge.tone === "warn" ? Theme.urgent : Theme.muted
+                      font.family: Theme.fontFamily
+                      font.pixelSize: Theme.badgeSize
+                      Accessible.role: Accessible.StaticText
+                      Accessible.name: badge ? badge.title : ""
+                    }
+
+                    MouseArea {
+                      id: navMouse
+                      anchors.fill: parent
+                      hoverEnabled: true
+                      cursorShape: Qt.PointingHandCursor
+                      onClicked: {
+                        navItem.forceActiveFocus()
+                        navItem.activate()
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+          }
+        }
+
+        Item {
+          id: navFooter
+          anchors.left: parent.left
+          anchors.right: parent.right
+          anchors.bottom: parent.bottom
+          height: Theme.controlHeight
+
+          Rectangle {
+            anchors.fill: parent
+            visible: footerMouse.containsMouse
+            color: Theme.fill(Theme.hoverFill)
+          }
+
+          PrefsIcon {
+            id: footerIcon
+            anchors.left: parent.left
+            anchors.leftMargin: root.railMode ? Math.round((parent.width - Theme.navIconSize) / 2) : Theme.pad
+            anchors.verticalCenter: parent.verticalCenter
+            name: Theme.iconInfo
+            size: Theme.navIconSize
+            color: footerMouse.containsMouse ? Theme.foreground : Theme.muted
+          }
+
+          Text {
+            visible: !root.railMode
+            anchors.left: footerIcon.right
+            anchors.leftMargin: Theme.space
+            anchors.right: parent.right
+            anchors.rightMargin: Theme.pad
+            anchors.verticalCenter: parent.verticalCenter
+            text: "Keyboard  Ctrl+/"
+            color: footerMouse.containsMouse ? Theme.foreground : Theme.muted
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.captionSize
+            elide: Text.ElideRight
+          }
+
+          MouseArea {
+            id: footerMouse
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: keysDialog.open()
+          }
+
+          Accessible.role: Accessible.Button
+          Accessible.name: "Keyboard shortcuts"
+          Accessible.onPressAction: keysDialog.open()
+        }
+      }
+    }
+
+    Rectangle {
+      id: divider
+      anchors.left: sidebar.right
+      anchors.top: parent.top
+      anchors.bottom: parent.bottom
+      width: 1
+      color: Theme.borderColor()
+    }
+
+    Item {
+      id: rightPane
+      readonly property bool atmosRightPane: true
+      anchors.left: divider.right
+      anchors.right: parent.right
+      anchors.top: parent.top
+      anchors.bottom: parent.bottom
+
+      PrefsGuardBar {
+        id: guardBar
+      }
+
+      Item {
+        id: header
+        anchors.top: guardBar.bottom
+        anchors.left: parent.left
+        anchors.right: parent.right
+        height: Theme.headerHeight
+        clip: true
+
+        readonly property bool canGoBack: pageStack.depth > 1
+        readonly property int backSlotWidth: Math.max(22, Theme.titleSize)
+        readonly property string hubName: root.query.length > 0 ? "Search" : HubsJs.hubTitle(root.hubId(root.currentPage))
+        readonly property string subName: canGoBack && pageStack.currentItem && pageStack.currentItem.title !== undefined
+          ? String(pageStack.currentItem.title) : ""
+        readonly property var crumbs: LayoutJs.breadcrumb(hubName, subName)
+
+        Item {
+          id: backSlot
+          anchors.left: parent.left
+          anchors.leftMargin: Theme.pad * 1.5
+          anchors.verticalCenter: parent.verticalCenter
+          width: header.canGoBack ? header.backSlotWidth : 0
+          height: header.backSlotWidth
+          visible: header.canGoBack
+
+          Accessible.role: Accessible.Button
+          Accessible.name: "Back"
+          Accessible.onPressAction: pageStack.pop()
+
+          PrefsIcon {
+            anchors.centerIn: parent
+            name: Theme.iconChevronLeft
+            size: Theme.titleSize
+            color: backMouse.containsMouse ? Theme.foreground : Theme.accent
+            scale: backMouse.containsMouse ? 1.08 : 1
+
+            Behavior on scale {
+              NumberAnimation { duration: Theme.motionMed; easing.type: Easing.OutCubic }
+            }
+            Behavior on color {
+              ColorAnimation { duration: Theme.motionMed }
+            }
+          }
+
+          MouseArea {
+            id: backMouse
+            anchors.fill: parent
+            anchors.margins: -6
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: pageStack.pop()
+          }
+        }
+
+        Row {
+          id: crumbRow
+          anchors.left: backSlot.right
+          anchors.leftMargin: header.canGoBack ? Theme.space : Theme.pad * 1.5
+          anchors.right: searchBox.left
+          anchors.rightMargin: Theme.space
+          anchors.verticalCenter: parent.verticalCenter
+          spacing: Theme.space
+          clip: true
+
+          Repeater {
+            model: header.crumbs
+
+            Row {
+              spacing: Theme.space
+
+              PrefsIcon {
+                visible: index > 0
+                anchors.verticalCenter: parent.verticalCenter
+                name: Theme.iconChevronRight
+                size: Theme.fontSize
+                color: Theme.muted
+              }
+
+              Text {
+                id: crumbText
+                anchors.verticalCenter: parent.verticalCenter
+                text: modelData.label
+                color: modelData.link ? (crumbMouse.containsMouse ? Theme.accent : Theme.muted) : Theme.foreground
+                font.family: Theme.fontFamily
+                font.pixelSize: Theme.titleSize
+                font.bold: !modelData.link
+                elide: Text.ElideRight
+
+                MouseArea {
+                  id: crumbMouse
+                  anchors.fill: parent
+                  enabled: modelData.link
+                  hoverEnabled: true
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: pageStack.pop(null)
+                }
+              }
+            }
           }
         }
 
         Rectangle {
           id: searchBox
-          anchors.left: parent.left
-          anchors.right: parent.right
-          anchors.top: sidebarTitle.bottom
-          anchors.topMargin: Theme.spaceMd
+          anchors.right: statusChip.left
+          anchors.rightMargin: Theme.space
+          anchors.verticalCenter: parent.verticalCenter
+          width: Math.min(Theme.fieldWidth + Theme.spaceLg * 2, Math.max(0, header.width / 2.4))
           height: Theme.controlHeight
           radius: Theme.radius
           color: searchField.activeFocus || searchHover.hovered ? Theme.fill(Theme.hoverFill) : Theme.fill(Theme.normalFill)
@@ -662,7 +1006,7 @@ ShellRoot {
             Text {
               anchors.fill: parent
               visible: searchField.text.length === 0 && !searchField.activeFocus
-              text: "Find a setting — e.g. theme, wifi"
+              text: "Search settings  /"
               color: Theme.muted
               font.family: Theme.fontFamily
               font.pixelSize: Theme.fontSize
@@ -671,257 +1015,41 @@ ShellRoot {
           }
         }
 
-        PrefsFlickable {
-          id: navFlick
-          anchors.left: parent.left
-          anchors.right: parent.right
-          anchors.top: searchBox.bottom
-          anchors.topMargin: Theme.space
-          anchors.bottom: parent.bottom
-          clip: true
-          contentHeight: navColumn.implicitHeight
-
-          Item {
-            id: navContent
-            width: navFlick.width
-            height: navColumn.implicitHeight
-
-            Rectangle {
-              id: navHighlight
-              width: Theme.railWidth
-              height: Theme.rowHeight
-              x: 0
-              y: 0
-              z: 2
-              visible: false
-              color: Theme.accent
-
-              Behavior on y {
-                id: highlightSlide
-                enabled: false
-                NumberAnimation { duration: Theme.motionNav; easing.type: Easing.OutCubic }
-              }
-            }
-
-          Column {
-            id: navColumn
-            width: parent.width
-            z: 1
-            spacing: 0
-            onImplicitHeightChanged: root.revealCurrentNav()
-
-            Repeater {
-              model: root.groupedPages
-              delegate: Column {
-                id: navGroup
-                required property var modelData
-                required property int index
-                width: navColumn.width
-                spacing: Theme.sidebarItemSpacing
-                topPadding: index > 0 ? Theme.sidebarGroupSpacing : 0
-
-                Item {
-                  width: navColumn.width
-                  visible: !!(navGroup.modelData && navGroup.modelData.title)
-                  height: groupLabel.implicitHeight + Theme.titleGap
-
-                  Text {
-                    id: groupLabel
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.bottom: parent.bottom
-                    anchors.leftMargin: Theme.pad
-                    anchors.rightMargin: Theme.pad
-                    text: navGroup.modelData && navGroup.modelData.title ? navGroup.modelData.title : ""
-                    color: Theme.muted
-                    font.family: Theme.fontFamily
-                    font.pixelSize: Theme.sectionSize
-                    font.bold: true
-                    elide: Text.ElideRight
-                  }
-                }
-
-                Repeater {
-                  model: navGroup.modelData && navGroup.modelData.pages ? navGroup.modelData.pages : []
-                  delegate: Rectangle {
-                    id: navItem
-                    required property var modelData
-                    width: navColumn.width
-                    height: Theme.rowHeight
-                    radius: Theme.radius
-                    readonly property bool selected: root.query.length === 0 && root.currentPage === modelData.id
-                    readonly property bool hovered: navMouse.containsMouse
-                    activeFocusOnTab: true
-                    color: (navItem.hovered || navItem.activeFocus) ? Theme.fill(Theme.hoverFill) : "transparent"
-
-                    Accessible.role: Accessible.Button
-                    Accessible.name: modelData && modelData.title ? modelData.title : ""
-                    Accessible.checkable: true
-                    Accessible.checked: navItem.selected
-                    Accessible.onPressAction: navItem.activate()
-                    Keys.onReturnPressed: navItem.activate()
-                    Keys.onSpacePressed: navItem.activate()
-
-                    function activate() {
-                      root.currentPage = modelData.id
-                      if (searchField.text.length > 0) searchField.text = ""
-                      else root.loadHub(modelData.id)
-                    }
-
-                    onSelectedChanged: if (selected) root.placeNavHighlight(navItem)
-                    Component.onCompleted: if (selected) Qt.callLater(function() { root.placeNavHighlight(navItem) })
-
-                    PrefsIcon {
-                      id: navIcon
-                      anchors.left: parent.left
-                      anchors.leftMargin: Theme.pad
-                      anchors.verticalCenter: parent.verticalCenter
-                      name: modelData && modelData.icon ? modelData.icon : ""
-                      size: Theme.navIconSize
-                      // Accent marks the current hub; hover/focus stay
-                      // foreground. The sliding rail remains the selection
-                      // box, the icon is its echo.
-                      color: navItem.selected
-                        ? Theme.accent
-                        : (navItem.hovered || navItem.activeFocus ? Theme.foreground : Theme.muted)
-                    }
-
-                    Text {
-                      anchors.left: navIcon.right
-                      anchors.right: navBadge.visible ? navBadge.left : parent.right
-                      anchors.verticalCenter: parent.verticalCenter
-                      anchors.leftMargin: Theme.space
-                      anchors.rightMargin: navBadge.visible ? Theme.space : Theme.pad
-                      text: modelData.title
-                      color: Theme.foreground
-                      font.family: Theme.fontFamily
-                      font.pixelSize: Theme.labelSize
-                      font.bold: navItem.selected
-                      elide: Text.ElideRight
-                    }
-
-                    // Live state at the row edge. Silent when there is
-                    // nothing to say, which is the common case.
-                    Text {
-                      id: navBadge
-                      anchors.right: parent.right
-                      anchors.rightMargin: Theme.pad
-                      anchors.verticalCenter: parent.verticalCenter
-                      readonly property var badge: NavStatusJs.forHub(
-                        modelData ? modelData.id : "", root.navState)
-                      visible: !!badge
-                      text: badge ? badge.text : ""
-                      color: badge && badge.tone === "warn" ? Theme.urgent : Theme.muted
-                      font.family: Theme.fontFamily
-                      font.pixelSize: Theme.badgeSize
-                      Accessible.role: Accessible.StaticText
-                      Accessible.name: badge ? badge.title : ""
-                    }
-
-                    MouseArea {
-                      id: navMouse
-                      anchors.fill: parent
-                      hoverEnabled: true
-                      cursorShape: Qt.PointingHandCursor
-                      onClicked: {
-                        navItem.forceActiveFocus()
-                        navItem.activate()
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-          }
-        }
-      }
-    }
-
-    Rectangle {
-      id: divider
-      anchors.left: sidebar.right
-      anchors.top: parent.top
-      anchors.bottom: parent.bottom
-      width: 1
-      color: Theme.borderColor()
-    }
-
-    Item {
-      id: rightPane
-      readonly property bool atmosRightPane: true
-      anchors.left: divider.right
-      anchors.right: parent.right
-      anchors.top: parent.top
-      anchors.bottom: parent.bottom
-
-      PrefsGuardBar {
-        id: guardBar
-      }
-
-      Item {
-        id: header
-        anchors.top: guardBar.bottom
-        anchors.left: parent.left
-        anchors.right: parent.right
-        height: pageStack.depth > 1 ? 48 : 0
-        clip: true
-
-        readonly property bool canGoBack: pageStack.depth > 1
-        readonly property int backSlotWidth: Math.max(22, Theme.titleSize)
-
-        Behavior on height {
-          NumberAnimation { duration: 180; easing.type: Easing.OutCubic }
-        }
-
+        // Applying / Saved / Failed. A failure stays until dismissed; click it.
         Item {
-          id: backSlot
-          anchors.left: parent.left
-          anchors.leftMargin: Theme.pad * 1.5
+          id: statusChip
+          anchors.right: parent.right
+          anchors.rightMargin: Theme.pad * 1.5
           anchors.verticalCenter: parent.verticalCenter
-          width: header.backSlotWidth
-          height: header.backSlotWidth
+          width: Feedback.chip.length > 0 ? chipText.implicitWidth : 0
+          height: chipText.implicitHeight
+          visible: Feedback.chip.length > 0
 
-          Accessible.role: Accessible.Button
-          Accessible.name: "Back"
-          Accessible.ignored: !header.canGoBack
-          Accessible.onPressAction: pageStack.pop()
-
-          PrefsIcon {
-            id: backIcon
-            anchors.centerIn: parent
-            anchors.horizontalCenterOffset: header.canGoBack ? 0 : -6
-            name: Theme.iconChevronLeft
-            size: Theme.titleSize
-            color: backMouse.containsMouse && header.canGoBack ? Theme.foreground : Theme.accent
-            opacity: header.canGoBack ? 1 : 0
-            scale: backMouse.containsMouse && header.canGoBack ? 1.08 : 1
-
-            Behavior on opacity {
-              NumberAnimation { duration: 180; easing.type: Easing.OutCubic }
-            }
-            Behavior on scale {
-              NumberAnimation { duration: 120; easing.type: Easing.OutCubic }
-            }
-            Behavior on anchors.horizontalCenterOffset {
-              NumberAnimation { duration: 180; easing.type: Easing.OutCubic }
-            }
-            Behavior on color {
-              ColorAnimation { duration: 120 }
-            }
+          Text {
+            id: chipText
+            text: Feedback.chip
+            color: Feedback.phase === "failed" ? Theme.urgent : (Feedback.phase === "saved" ? Theme.accent : Theme.muted)
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.captionSize
+            font.bold: true
           }
 
           MouseArea {
-            id: backMouse
             anchors.fill: parent
-            anchors.margins: -6
-            enabled: header.canGoBack
-            hoverEnabled: true
-            cursorShape: header.canGoBack ? Qt.PointingHandCursor : Qt.ArrowCursor
-            onClicked: pageStack.pop()
+            anchors.margins: -4
+            enabled: Feedback.phase === "failed"
+            cursorShape: Qt.PointingHandCursor
+            onClicked: Feedback.dismiss()
           }
         }
 
+        Rectangle {
+          anchors.left: parent.left
+          anchors.right: parent.right
+          anchors.bottom: parent.bottom
+          height: Theme.borderWidth
+          color: Theme.splitColor()
+        }
       }
 
       StackView {
@@ -933,18 +1061,18 @@ ShellRoot {
         clip: true
 
         pushEnter: Transition {
-          NumberAnimation { property: "x"; from: 36; to: 0; duration: Theme.motionEnter; easing.type: Easing.OutCubic }
+          NumberAnimation { property: "x"; from: Theme.pageSlideOffset; to: 0; duration: Theme.motionEnter; easing.type: Easing.OutCubic }
           NumberAnimation { property: "opacity"; from: 0; to: 1; duration: Theme.motionEnter }
         }
         pushExit: Transition {
-          NumberAnimation { property: "opacity"; from: 1; to: 0; duration: 160 }
+          NumberAnimation { property: "opacity"; from: 1; to: 0; duration: Theme.motionOverlay }
         }
         popEnter: Transition {
-          NumberAnimation { property: "opacity"; from: 0; to: 1; duration: 180 }
+          NumberAnimation { property: "opacity"; from: 0; to: 1; duration: Theme.motionNav }
         }
         popExit: Transition {
-          NumberAnimation { property: "x"; from: 0; to: 36; duration: Theme.motionEnter; easing.type: Easing.InCubic }
-          NumberAnimation { property: "opacity"; from: 1; to: 0; duration: 160 }
+          NumberAnimation { property: "x"; from: 0; to: Theme.pageSlideOffset; duration: Theme.motionEnter; easing.type: Easing.InCubic }
+          NumberAnimation { property: "opacity"; from: 1; to: 0; duration: Theme.motionOverlay }
         }
 
         Component.onCompleted: {
@@ -968,7 +1096,10 @@ ShellRoot {
     PrefsDialog {
       id: errorDialog
       title: "Error"
+      primaryText: "Ask my Agent to work on this"
+      cancelText: "Dismiss"
       closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+      onPrimaryClicked: Omarchy.askAgentAboutError()
 
       PrefsText {
         width: parent.width
@@ -980,27 +1111,8 @@ ShellRoot {
       }
 
       PrefsButton {
-        text: "Ask my Agent to work on this"
-        primary: true
-        onClicked: Omarchy.askAgentAboutError()
-      }
-
-      Row {
-        anchors.right: parent.right
-        spacing: Theme.space
-
-        PrefsButton {
-          text: "Copy"
-          onClicked: Omarchy.copyLastError()
-        }
-
-        PrefsButton {
-          text: "Dismiss"
-          onClicked: {
-            errorDialog.close()
-            Omarchy.clearLastError()
-          }
-        }
+        text: "Copy"
+        onClicked: Omarchy.copyLastError()
       }
 
       onClosed: {
@@ -1029,11 +1141,10 @@ ShellRoot {
 
       Repeater {
         model: [
-          { keys: "A letter", what: "Search settings" },
           { keys: "Up  /  Down", what: "Move through hubs or search hits" },
           { keys: "Ctrl+J  /  Ctrl+K", what: "Move through hubs or search hits" },
           { keys: "Home  /  End", what: "Jump to the first or last" },
-          { keys: "/  /  Ctrl+F", what: "Focus search" },
+          { keys: "/  /  Ctrl+F", what: "Search settings" },
           { keys: "Enter", what: "Open the highlighted hub or setting" },
           { keys: "Tab", what: "Move through controls on the page" },
           { keys: "Escape", what: "Revert a pending change, go back, or leave search" },
@@ -1153,15 +1264,6 @@ ShellRoot {
           sudoPassword.clear()
           Qt.callLater(function() { sudoPassword.focusInput() })
         }
-      }
-    }
-
-    Item {
-      Component.onCompleted: {
-        var item = window.contentItem
-        if (!item) return
-        item.Keys.priority = Keys.BeforeItem
-        item.Keys.pressed.connect(function(event) { root.startSearch(event) })
       }
     }
 

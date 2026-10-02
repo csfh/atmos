@@ -37,3 +37,22 @@
 **job.apply** — Optional object on an enqueueIo job (`kind` `mut` or `job`). `mutProc` and `jobProc` adopt it on success as an object (no JSON round-trip through the Emit parser), then enqueue the job's refresh group.
 
 **emitKeys** — Snapshot key identity in SnapshotGroups. `allowedKey`, `copyableBagKeys`, `groupForKey`, and `tagApply` read it. snapshot.sh remains the live Emit adapter that fills values.
+
+**Backend (QML)** — `services/Backend.qml`, the one connection to `ratmos`. It owns a single `ratmos serve` process, `request(body, callback)`, and `watch(owner, spec)`. If the server cannot run it falls back to one process per request and a once-a-second poll. Builders for every request live in `services/Requests.js`; the line protocol is `services/BackendProtocol.js`.
+
+**ratmos serve** — Long-lived NDJSON server: `{id, op, ...}` in, `{id, ok, result|error}` out. Each request runs on its own thread. `watch.set` subscribes to file stamps, theme chrome, and accounts; the server pushes `{event, result}` only when they change. One process per window, so concurrent windows stay independent.
+
+**Envelope** — Every ratmos answer: `{ok, version, platform, result}` or `{ok:false, error:{code, message, context}}`. `code` is one of `bad_request`, `not_found`, `denied`, `io`, `command`, `timeout`, `failed`. `services/Failure.js` turns either shape into banner text.
+
+**Confine** — `host.read|write|open` accept only paths under `$HOME` (or the fixture root), with no `..` and no symlink out.
+
+**IoQueue** — `services/IoQueue.qml`. The queue that serialises writes and reads, and the processes for jobs that are not plain backend requests (`ratmos apply` for argv writes and streaming jobs, plus blocking interactive tools). It starts a job and reports how it ended through signals; Omarchy does the domain work and calls `finished()`.
+
+**SnapshotStore** — `services/SnapshotStore.qml`. Which snapshot groups to read at the start of a session, batched refreshes, and the file watch list. A pushed stamp for a changed file re-reads that file's group; the two files Omarchy reads itself arrive on `stamped`.
+
+**Paths** — `services/Paths.qml`. Every file, directory, and script path Atmos touches.
+
+**apply summary** — `ratmos apply` ends with one stdout line `@@ratmos-apply@@ {ok, code, message, warnings}`. `message` is stderr that is not known noise. `Failure.applyBanner` turns it into banner text.
+
+**SettingTable** — `services/SettingTable.js`. Settings that need only "skip a no-op, then send it", written with `Omarchy.set(key, value)`. Settings with a rule of their own keep a named setter.
+

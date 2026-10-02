@@ -41,35 +41,54 @@ const speed = fs.readFileSync(
 const exp = fs.readFileSync(path.join(__dirname, "..", "pages", "ExportPage.qml"), "utf8");
 const services = fs.readFileSync(path.join(__dirname, "..", "pages", "ServicesPage.qml"), "utf8");
 
+const snapshotStore = fs.readFileSync(
+  path.join(__dirname, "..", "services", "SnapshotStore.qml"),
+  "utf8",
+);
+const backend = fs.readFileSync(path.join(__dirname, "..", "services", "Backend.qml"), "utf8");
 assert(
-  theme.indexOf("host.chrome") !== -1 && theme.indexOf("/bin/ratmos") !== -1,
+  theme.indexOf("Requests.hostChrome") !== -1 && theme.indexOf("Backend.chrome") !== -1,
   "theme chrome comes from ratmos",
 );
-assert(accounts.indexOf("host.accounts") !== -1, "accounts come from ratmos");
 assert(
-  omarchy.indexOf("host.stamp") !== -1 && omarchy.indexOf("backendCommand") !== -1,
-  "watches poll ratmos",
+  accounts.indexOf("Requests.hostAccounts") !== -1 && accounts.indexOf("Backend.accounts") !== -1,
+  "accounts come from ratmos",
 );
 assert(
-  live.indexOf('["display", "live"]') !== -1 && live.indexOf("--sampler") === -1,
+  snapshotStore.indexOf("Backend.watch(") !== -1 && snapshotStore.indexOf("Backend.stamp") !== -1,
+  "file watches are pushed by ratmos, not polled",
+);
+assert(
+  backend.indexOf('command(["serve"])') !== -1 && backend.indexOf("/bin/ratmos") !== -1,
+  "the app talks to one ratmos serve process",
+);
+for (const [name, src] of [
+  ["Theme", theme],
+  ["AccountsStore", accounts],
+]) {
+  assert(!/\bProcess\b/.test(src), name + " does not own a Process; Backend does");
+  assert(!/\bTimer\b/.test(src), name + " does not poll on a Timer");
+}
+assert(
+  live.indexOf('Requests.displayGet("live")') !== -1 && live.indexOf("--sampler") === -1,
   "live stats do not pass a script path",
 );
 assert(
-  disks.indexOf("speedtest.disk") !== -1 && disks.indexOf("backendCommand") !== -1,
+  disks.indexOf("Requests.speedtestDisk") !== -1 && disks.indexOf("Backend.request") !== -1,
   "disk speed test uses ratmos",
 );
 assert(
-  speed.indexOf("speedtest.net") !== -1 && speed.indexOf("backendCommand") !== -1,
+  speed.indexOf("Requests.speedtestNet") !== -1 && speed.indexOf("Backend.request") !== -1,
   "network speed test uses ratmos",
 );
 assert(
-  exp.indexOf("host.read") !== -1 &&
-    exp.indexOf("host.write") !== -1 &&
-    exp.indexOf("host.open") !== -1,
+  exp.indexOf("Requests.hostRead") !== -1 &&
+    exp.indexOf("Requests.hostWrite") !== -1 &&
+    exp.indexOf("Requests.hostOpen") !== -1,
   "import and export file IO uses ratmos",
 );
 assert(
-  services.indexOf("unit.output") !== -1 && services.indexOf("backendCommand") !== -1,
+  services.indexOf("Requests.unitOutput") !== -1 && services.indexOf("Backend.request") !== -1,
   "unit status and logs use ratmos",
 );
 assert(
@@ -77,11 +96,16 @@ assert(
   "jobs are not started as a raw host argv",
 );
 assert(omarchy.indexOf("function backendApply") !== -1, "host actions go through ratmos apply");
-const interactive = omarchy.slice(
-  omarchy.indexOf("function runInteractive("),
-  omarchy.indexOf("function commandFailureText("),
+const ioQueueSrc = fs.readFileSync(path.join(__dirname, "..", "services", "IoQueue.qml"), "utf8");
+assert(
+  ioQueueSrc.indexOf("function startInteractive(") !== -1 &&
+    ioQueueSrc.indexOf("Backend.applyCommand(wrapped)") !== -1,
+  "interactive tools start through ratmos",
 );
-assert(interactive.indexOf("backendApply") !== -1, "interactive tools start through ratmos");
+assert(
+  ioQueueSrc.indexOf("Backend.applyCommand(job.argv)") !== -1,
+  "queued jobs and writes start through ratmos apply",
+);
 const systemd = omarchy.slice(
   omarchy.indexOf("function systemdAction("),
   omarchy.indexOf("function applyProfileValues("),

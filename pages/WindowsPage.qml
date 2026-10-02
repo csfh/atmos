@@ -293,7 +293,7 @@ PrefsPage {
 
       PrefsToggle {
         checked: Omarchy.hyprNoGaps
-        onToggled: Omarchy.setHyprNoGaps(!Omarchy.hyprNoGaps)
+        onToggled: Omarchy.set("hyprNoGaps", !Omarchy.hyprNoGaps)
       }
     }
 
@@ -306,7 +306,7 @@ PrefsPage {
 
       PrefsToggle {
         checked: Omarchy.hyprSquareAspect
-        onToggled: Omarchy.setHyprSquareAspect(!Omarchy.hyprSquareAspect)
+        onToggled: Omarchy.set("hyprSquareAspect", !Omarchy.hyprSquareAspect)
       }
     }
 

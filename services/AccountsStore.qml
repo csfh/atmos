@@ -1,8 +1,8 @@
 pragma Singleton
 import QtQuick
 import Quickshell
-import Quickshell.Io
 import "Accounts.js" as AccountsJs
+import "Requests.js" as Requests
 
 QtObject {
   id: root
@@ -16,12 +16,7 @@ QtObject {
 
   readonly property string homeDir: Quickshell.env("HOME") || ""
 
-  function backendRequest() {
-    var bin = String(Quickshell.env("ATMOS_BACKEND") || "")
-    if (!bin.length) bin = String(Quickshell.shellDir || "") + "/bin/ratmos"
-    var id = String(Quickshell.env("ATMOS_BACKEND_ID") || "omarchy")
-    return [bin, "--backend", id, "request"]
-  }
+  readonly property string userName: Quickshell.env("USER") || Quickshell.env("LOGNAME") || ""
 
   function applyPatch(parsed) {
     var next = AccountsJs.applyAccountPatch({
@@ -40,22 +35,17 @@ QtObject {
     groups = next.groups
   }
 
+  // Passwd, group and hostname are pushed when they change. This asks once.
   function reloadFromDisk() {
-    if (accountProc.running) return
-    accountStdin = JSON.stringify({
-      op: "host.accounts",
-      user: Quickshell.env("USER") || Quickshell.env("LOGNAME") || "",
-      home: root.homeDir
+    Backend.request(Requests.hostAccounts(root.userName, root.homeDir), function(env) {
+      if (env && env.ok === true && env.result) root.adoptAccounts(env.result)
     })
-    accountProc.command = root.backendRequest()
-    accountProc.stdinEnabled = true
-    accountProc.running = true
   }
 
   function adoptAccounts(doc) {
     var present = doc && doc.exists ? doc.exists : {}
     var seeded = AccountsJs.seedFromDisk({
-      currentUser: Quickshell.env("USER") || Quickshell.env("LOGNAME") || "",
+      currentUser: root.userName,
       hostname: doc ? String(doc.hostname || "") : "",
       passwd: doc ? String(doc.passwd || "") : "",
       group: doc ? String(doc.group || "") : "",
@@ -65,34 +55,9 @@ QtObject {
     root.applyPatch(seeded)
   }
 
-  property string accountStdin: ""
-
-  property Timer accountTimer: Timer {
-    interval: 2000
-    running: true
-    repeat: true
-    onTriggered: root.reloadFromDisk()
+  Component.onCompleted: {
+    Backend.accounts.connect(root.adoptAccounts)
+    Backend.watch("accounts", { accounts: { user: root.userName, home: root.homeDir } })
+    root.reloadFromDisk()
   }
-
-  property Process accountProc: Process {
-    command: ["true"]
-    stdinEnabled: false
-    stdout: StdioCollector { id: accountOut; waitForEnd: true }
-    onStarted: {
-      if (root.accountStdin.length > 0) {
-        write(root.accountStdin)
-        root.accountStdin = ""
-        stdinEnabled = false
-      }
-    }
-    onExited: function(code) {
-      if (code !== 0) return
-      var env = null
-      try { env = JSON.parse(String(accountOut.text || "")) } catch (e) { env = null }
-      if (!env || env.ok !== true || !env.result) return
-      root.adoptAccounts(env.result)
-    }
-  }
-
-  Component.onCompleted: root.reloadFromDisk()
 }

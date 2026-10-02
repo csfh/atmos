@@ -2,6 +2,7 @@ import QtQuick
 import "../components"
 import "../services"
 import "../services/Hardware.js" as HardwareJs
+import "../services/Hubs.js" as HubsJs
 import "../services/LiveStats.js" as LiveStatsJs
 import "../services/Processes.js" as ProcessesJs
 import "../services/RichUi.js" as RichUi
@@ -131,6 +132,45 @@ PrefsPage {
     onCanceled: {
       root.pendingProc = null
       root.pendingSignal = ""
+    }
+  }
+
+  // Starred settings first, then the pages most people open first.
+  readonly property var quickLinks: {
+    var out = []
+    var favs = Omarchy.favoriteItems || []
+    var i
+    for (i = 0; i < favs.length && out.length < 5; i++) {
+      var f = favs[i]
+      if (!f || !f.hub || !f.label) continue
+      out.push({ hub: String(f.hub), label: String(f.label), description: String(f.hubTitle || HubsJs.hubTitle(f.hub) || ""), starred: true })
+    }
+    if (out.length > 0) return out
+    var defaults = ["appearance", "display", "network", "sound", "system"]
+    for (i = 0; i < defaults.length; i++) {
+      var title = HubsJs.hubTitle(defaults[i])
+      if (title) out.push({ hub: defaults[i], label: title, description: "", starred: false })
+    }
+    return out
+  }
+
+  PrefsGroup {
+    title: "Quick access"
+    query: root.query
+    lede: "Star a setting on any page and it appears here."
+
+    Repeater {
+      model: root.quickLinks
+
+      PrefsLink {
+        required property var modelData
+        available: !!(root.navigator && root.navigator.go)
+        label: modelData.label
+        description: modelData.description
+        query: root.query
+        keywords: ["quick", "favorite", "shortcut"]
+        onClicked: root.navigator.go(modelData.hub, modelData.starred ? modelData.label : "")
+      }
     }
   }
 
@@ -334,7 +374,7 @@ PrefsPage {
       }
     }
 
-    SettingRow {
+    PrefsEmpty {
       available: root.processes.length === 0
       sectionHelp: false
       label: "No matching processes"

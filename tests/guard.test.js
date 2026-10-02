@@ -94,7 +94,15 @@ assert(
 assert(omarchy.indexOf('id: "monitorRules"') !== -1, "monitor rule writes are guarded");
 assert(omarchy.indexOf('id: "monitorScale"') !== -1, "focused scale writes are guarded");
 assert(omarchy.indexOf('id: "keyboardLayout"') !== -1, "the system layout write is guarded");
-assert(omarchy.indexOf('id: "kbOverride"') !== -1, "the Hyprland layout override is guarded");
+const hyprPrefsSrc = fs.readFileSync(
+  path.join(__dirname, "..", "services", "HyprPrefs.js"),
+  "utf8",
+);
+assert(
+  hyprPrefsSrc.indexOf('id: "kbOverride"') !== -1 &&
+    omarchy.indexOf("HyprPrefs.kbRunOptions") !== -1,
+  "the Hyprland layout override is guarded",
+);
 assert(omarchy.indexOf('id: "touchpad"') !== -1, "turning the touchpad off is guarded");
 assert(
   omarchy.indexOf("dropWriteKey") !== -1,

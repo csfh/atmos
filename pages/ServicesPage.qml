@@ -1,8 +1,9 @@
 import QtQuick
 import Quickshell
-import Quickshell.Io
 import "../components"
 import "../services"
+import "../services/Failure.js" as FailureJs
+import "../services/Requests.js" as Requests
 import "../services/Systemd.js" as SystemdJs
 
 PrefsPage {
@@ -15,6 +16,7 @@ PrefsPage {
   property string stateFilter: "all"
   property string outputTitle: ""
   property string outputText: ""
+  property int outputToken: 0
 
   readonly property var allRows: {
     var list = Omarchy.systemdUnits || []
@@ -53,15 +55,19 @@ PrefsPage {
   function showOutput(title, kind, row) {
     root.outputTitle = title
     root.outputText = "Reading…"
-    outputStdin = JSON.stringify({
-      op: "unit.output",
-      kind: kind,
-      scope: row && row.scope === "user" ? "user" : "system",
-      unit: row ? String(row.unit || "") : ""
+    root.outputToken += 1
+    var token = root.outputToken
+    var scope = row && row.scope === "user" ? "user" : "system"
+    Backend.request(Requests.unitOutput(kind, scope, row ? String(row.unit || "") : ""), function(env) {
+      if (token !== root.outputToken) return
+      var text = env && env.ok === true && env.result ? String(env.result.text || "") : ""
+      if (text.replace(/^\s+|\s+$/g, "").length === 0) {
+        text = env && env.ok === true
+          ? "No output."
+          : (FailureJs.errorText(env && env.error) || "Could not read that unit.")
+      }
+      root.outputText = text
     })
-    outputProc.command = Omarchy.backendCommand(["request"])
-    outputProc.stdinEnabled = true
-    outputProc.running = true
     outputDialog.open()
   }
 
@@ -162,7 +168,7 @@ PrefsPage {
       }
     }
 
-    SettingRow {
+    PrefsEmpty {
       available: root.rows.length === 0
       sectionHelp: false
       label: "No matching services"
@@ -197,31 +203,6 @@ PrefsPage {
     PrefsButton {
       text: "Close"
       onClicked: outputDialog.close()
-    }
-  }
-
-  property string outputStdin: ""
-
-  Process {
-    id: outputProc
-    command: ["true"]
-    stdinEnabled: false
-    stdout: StdioCollector { id: outputOut; waitForEnd: true }
-    stderr: StdioCollector { id: outputErr; waitForEnd: true }
-    onStarted: {
-      if (root.outputStdin.length > 0) {
-        write(root.outputStdin)
-        root.outputStdin = ""
-        stdinEnabled = false
-      }
-    }
-    onExited: function(code) {
-      var env = null
-      try { env = JSON.parse(String(outputOut.text || "")) } catch (e) { env = null }
-      var text = env && env.result ? String(env.result.text || "") : ""
-      if (text.replace(/^\s+|\s+$/g, "").length === 0)
-        text = code === 0 ? "No output." : String(outputErr.text || "Could not read that unit.")
-      root.outputText = text
     }
   }
 }

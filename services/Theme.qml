@@ -2,6 +2,7 @@ pragma Singleton
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import "Requests.js" as Requests
 import "Theme.js" as ThemeJs
 
 QtObject {
@@ -132,6 +133,18 @@ QtObject {
   readonly property int motionNav: 180
   // Page and hero entrances. One step above nav motion, still instant-feeling.
   readonly property int motionEnter: 240
+  readonly property int motionOverlay: 160
+  readonly property int motionPage: 220
+
+  // Shell chrome. The sidebar collapses to an icon rail on narrow windows.
+  readonly property real sidebarFillAlpha: 0.03
+  readonly property int headerHeight: Math.max(44, rowHeight + 8)
+  readonly property int avatarSize: 44
+  readonly property int sidebarRailWidth: navIconSize + spaceLg * 2
+  readonly property int pageSlideOffset: 36
+  // Heavier than a caption so group headings carry hierarchy.
+  readonly property int groupTitleSize: fontSize
+  readonly property real dangerFill: 0.18
 
   readonly property int sidebarWidth: 220
   readonly property int contentMaxWidth: 1000
@@ -169,6 +182,10 @@ QtObject {
     return Qt.rgba(accent.r, accent.g, accent.b, alpha)
   }
 
+  function urgentFill(alpha) {
+    return Qt.rgba(urgent.r, urgent.g, urgent.b, alpha)
+  }
+
   function borderColor() {
     return Qt.rgba(foreground.r, foreground.g, foreground.b, borderAlpha)
   }
@@ -196,37 +213,22 @@ QtObject {
     shellValues = ThemeJs.mergeShell(themeShellValues, userShellValues)
   }
 
-  function backendRequest() {
-    var bin = String(Quickshell.env("ATMOS_BACKEND") || "")
-    if (!bin.length) bin = String(Quickshell.shellDir || "") + "/bin/ratmos"
-    var id = String(Quickshell.env("ATMOS_BACKEND_ID") || "omarchy")
-    return [bin, "--backend", id, "request"]
-  }
-
   function reload() {
     root.requestChrome()
   }
 
+  // The live theme files are pushed by the backend whenever they change.
+  // This asks once, for the first paint and for an explicit reload.
   function requestChrome() {
-    if (chromeProc.running) return
-    chromeKind = "chrome"
-    chromeStdin = JSON.stringify({ op: "host.chrome" })
-    chromeProc.command = root.backendRequest()
-    chromeProc.stdinEnabled = true
-    chromeProc.running = true
+    Backend.request(Requests.hostChrome(), function(env) {
+      if (env && env.ok === true && env.result) root.applyChrome(env.result)
+    })
   }
 
   function applyNamedTheme(name) {
-    if (chromeProc.running) return
-    chromeKind = "pack"
-    chromeStdin = JSON.stringify({
-      op: "host.themePack",
-      name: String(name || ""),
-      home: root.home
+    Backend.request(Requests.hostThemePack(name, root.home), function(env) {
+      if (env && env.ok === true && env.result) root.applyPack(env.result, false)
     })
-    chromeProc.command = root.backendRequest()
-    chromeProc.stdinEnabled = true
-    chromeProc.running = true
   }
 
   function discardPreview() {
@@ -272,17 +274,9 @@ QtObject {
   // so fontSize / rowHeight stay put and the open popup does not reflow.
   function previewNamedTheme(name) {
     root.captureLivePreview()
-    if (chromeProc.running) return
-    chromeKind = "colors"
-    chromeStdin = JSON.stringify({
-      op: "host.themePack",
-      name: String(name || ""),
-      home: root.home,
-      part: "colors.toml"
+    Backend.request(Requests.hostThemePack(name, root.home, "colors.toml"), function(env) {
+      if (env && env.ok === true && env.result) root.applyPack(env.result, true)
     })
-    chromeProc.command = root.backendRequest()
-    chromeProc.stdinEnabled = true
-    chromeProc.running = true
   }
 
   function applyChrome(doc) {
@@ -312,40 +306,10 @@ QtObject {
   signal currentThemeSwapped(string slug)
 
   property string lastThemeSlug: ""
-  property string chromeKind: "chrome"
-  property string chromeStdin: ""
 
-  // Poll the backend for the live theme files. A timer asks again. Quickshell
-  // does not watch the theme directory itself.
-  property Timer chromeTimer: Timer {
-    interval: 1000
-    running: true
-    repeat: true
-    onTriggered: root.requestChrome()
+  Component.onCompleted: {
+    Backend.chrome.connect(root.applyChrome)
+    Backend.watch("theme", { chrome: true })
+    root.requestChrome()
   }
-
-  property Process chromeProc: Process {
-    command: ["true"]
-    stdinEnabled: false
-    stdout: StdioCollector { id: chromeOut; waitForEnd: true }
-    stderr: StdioCollector { id: chromeErr; waitForEnd: true }
-    onStarted: {
-      if (root.chromeStdin.length > 0) {
-        write(root.chromeStdin)
-        root.chromeStdin = ""
-        stdinEnabled = false
-      }
-    }
-    onExited: function(code) {
-      if (code !== 0) return
-      var env = null
-      try { env = JSON.parse(String(chromeOut.text || "")) } catch (e) { env = null }
-      if (!env || env.ok !== true || !env.result) return
-      if (root.chromeKind === "colors") root.applyPack(env.result, true)
-      else if (root.chromeKind === "pack") root.applyPack(env.result, false)
-      else root.applyChrome(env.result)
-    }
-  }
-
-  Component.onCompleted: root.requestChrome()
 }

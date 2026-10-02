@@ -753,3 +753,39 @@ assert(
   hypr.serializeInput({ workspaceGesture: true }).indexOf("hl.gesture(") !== -1,
   "serializeInput still writes the Atmos gesture with no existing unmanaged line",
 );
+
+// Keyboard override plan.
+const snapshotLib = load("services/Snapshot.js");
+const before = {
+  kbLayoutOverride: "us",
+  kbVariantOverride: "",
+  kbGroupToggle: false,
+  kbLayout: "us",
+};
+const plan = hypr.kbOverridePlan(before, "us,dk", "", true, snapshotLib.mergeSnapshot);
+assertEqual(plan.input.kbLayoutOverride, "us,dk", "the plan carries the new layouts");
+assertEqual(plan.input.kbLayout, "us,dk", "the shown layout follows the override");
+assertEqual(plan.input.kbGroupToggle, true, "the plan carries the group toggle");
+assertEqual(plan.rows.length, 3, "three input rows are planned");
+assertEqual(plan.rows[0].key, "hyprInput.kbLayoutOverride", "the first row is the layout override");
+assertEqual(plan.rows[2].value, true, "the toggle row carries the toggle");
+assertEqual(plan.revert.layouts, "us", "the revert is the layout from before");
+assertEqual(plan.revert.groupToggle, false, "the revert is the toggle from before");
+assertEqual(before.kbLayoutOverride, "us", "the old input is not changed");
+const blank = hypr.kbOverridePlan(null, "", "", false, snapshotLib.mergeSnapshot);
+assertEqual(blank.revert.layouts, "", "no previous input reverts to nothing");
+const cmd = { coalesceKey: "k", apply: { a: 1 }, stdin: "s", sudo: true };
+const armed = hypr.kbRunOptions(cmd, plan.revert, false);
+assertEqual(armed.guard.id, "kbOverride", "a normal write arms the guard");
+assertEqual(armed.key, "k", "the coalesce key is used");
+assertEqual(armed.sudo, true, "sudo carries through");
+assertEqual(
+  hypr.kbRunOptions(cmd, plan.revert, true).guard,
+  null,
+  "a revert does not arm the guard",
+);
+assertEqual(
+  hypr.kbRunOptions({}, plan.revert, false).key,
+  "hyprInput",
+  "the key defaults to hyprInput",
+);

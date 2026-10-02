@@ -32,8 +32,10 @@ Rectangle {
   // Writable so Behavior can tween hover and focus the way color / border
   // did on the square rect.
   property color bodyColor: {
-    if ((mouse.containsMouse || root.activeFocus) && enabled) return Theme.fill(Theme.hoverFill)
-    if (primary) return Theme.accentFill(Theme.primaryFill)
+    var hot = (mouse.containsMouse || root.activeFocus) && enabled
+    if (primary) return Theme.accentFill(hot ? 1 : 0.88)
+    if (danger) return Theme.urgentFill(hot ? Theme.dangerFill * 1.6 : Theme.dangerFill * 0.4)
+    if (hot) return Theme.fill(Theme.hoverFill)
     return Theme.fill(Theme.normalFill)
   }
   property color edgeColor: {
@@ -71,9 +73,10 @@ Rectangle {
     id: label
     anchors.centerIn: parent
     text: root.text
-    color: Theme.foreground
+    color: root.primary ? Theme.background : (root.danger ? Theme.urgent : Theme.foreground)
     font.family: Theme.fontFamily
     font.pixelSize: Theme.labelSize
+    font.bold: root.primary
   }
 
   MouseArea {

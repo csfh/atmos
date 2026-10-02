@@ -175,7 +175,7 @@ PrefsPage {
     detail: "Hyprland did not report any outputs. Refresh after a display is connected. Modes live in ~/.config/hypr/monitors.lua."
     hint: "hyprctl monitors all"
 
-    SettingRow {
+    PrefsEmpty {
       available: Omarchy.monitors.length === 0
       label: "Monitors"
       description: "No monitors reported."
@@ -201,7 +201,7 @@ PrefsPage {
     model: Omarchy.monitors.length
 
     PrefsGroup {
-    framed: true
+      framed: true
       required property int index
       readonly property var modelData: Omarchy.monitors[index] || ({})
       title: root.monitorTitle(modelData)

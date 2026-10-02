@@ -26,7 +26,7 @@ PrefsPage {
 
       PrefsToggle {
         checked: Omarchy.doNotDisturb
-        onToggled: Omarchy.setDoNotDisturb(!Omarchy.doNotDisturb)
+        onToggled: Omarchy.set("doNotDisturb", !Omarchy.doNotDisturb)
       }
     }
   }

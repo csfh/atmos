@@ -149,7 +149,7 @@ PrefsPage {
           { value: "right", label: "Right" }
         ]
         onChanged: function(value) {
-          if (value !== Omarchy.barPosition) Omarchy.setBarPosition(value)
+          if (value !== Omarchy.barPosition) Omarchy.set("barPosition", value)
         }
       }
     }
@@ -163,7 +163,7 @@ PrefsPage {
 
       PrefsToggle {
         checked: Omarchy.barTransparent
-        onToggled: Omarchy.setBarTransparent(!Omarchy.barTransparent)
+        onToggled: Omarchy.set("barTransparent", !Omarchy.barTransparent)
       }
     }
 
@@ -176,7 +176,7 @@ PrefsPage {
 
       PrefsToggle {
         checked: Omarchy.barVisible
-        onToggled: Omarchy.setBarVisible(!Omarchy.barVisible)
+        onToggled: Omarchy.set("barVisible", !Omarchy.barVisible)
       }
     }
   }
@@ -313,7 +313,7 @@ PrefsPage {
       PrefsToggle {
         checked: Omarchy.indicatorsAlwaysShow
         enabled: Omarchy.indicatorsPresent
-        onToggled: Omarchy.setIndicatorsAlwaysShow(!Omarchy.indicatorsAlwaysShow)
+        onToggled: Omarchy.set("indicatorsAlwaysShow", !Omarchy.indicatorsAlwaysShow)
       }
     }
 
@@ -400,7 +400,7 @@ PrefsPage {
       PrefsToggle {
         checked: Omarchy.agentsSync
         enabled: Omarchy.agentsPresent
-        onToggled: Omarchy.setAgentsSync(!Omarchy.agentsSync)
+        onToggled: Omarchy.set("agentsSync", !Omarchy.agentsSync)
       }
     }
 
@@ -534,7 +534,7 @@ PrefsPage {
         options: root.clockFormatOptions
         enabled: Omarchy.clockPresent
         onChanged: function(value) {
-          if (value !== Omarchy.clockFormat) Omarchy.setClockFormat(value)
+          if (value !== Omarchy.clockFormat) Omarchy.set("clockFormat", value)
         }
       }
     }
@@ -553,7 +553,7 @@ PrefsPage {
         options: root.clockFormatAltOptions
         enabled: Omarchy.clockPresent
         onChanged: function(value) {
-          if (value !== Omarchy.clockFormatAlt) Omarchy.setClockFormatAlt(value)
+          if (value !== Omarchy.clockFormatAlt) Omarchy.set("clockFormatAlt", value)
         }
       }
     }

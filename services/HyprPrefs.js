@@ -522,3 +522,46 @@ function inputWorkspaceGestureState(text) {
     workspaceGestureUnmanaged: unmanaged,
   };
 }
+
+// The keyboard override is three input fields written together. This builds
+// everything a write needs that does not depend on the app: the clamped input
+// the page will show, the three rows for the command planner, and what to put
+// back if the new layout strands the keyboard. `merge` is
+// Snapshot.mergeSnapshot, passed in so this file stays free of imports.
+function kbOverridePlan(hyprInput, layouts, variants, groupToggle, merge) {
+  var patch = {
+    kbLayoutOverride: String(layouts || ""),
+    kbVariantOverride: String(variants || ""),
+    kbGroupToggle: groupToggle === true,
+  };
+  var input = clampInput(merge(hyprInput, patch));
+  input.kbLayout = input.kbLayoutOverride;
+  var prev = hyprInput && typeof hyprInput === "object" ? hyprInput : {};
+  return {
+    input: input,
+    rows: [
+      { key: "hyprInput.kbLayoutOverride", value: input.kbLayoutOverride },
+      { key: "hyprInput.kbVariantOverride", value: input.kbVariantOverride },
+      { key: "hyprInput.kbGroupToggle", value: input.kbGroupToggle },
+    ],
+    revert: {
+      kind: "kbOverride",
+      layouts: prev.kbLayoutOverride || "",
+      variants: prev.kbVariantOverride || "",
+      groupToggle: prev.kbGroupToggle === true,
+    },
+  };
+}
+
+// The options for running the planned command. A write that is itself a
+// revert carries no guard, or the revert would arm another one.
+function kbRunOptions(cmd, revert, reverting) {
+  return {
+    key: cmd.coalesceKey || "hyprInput",
+    apply: cmd.apply,
+    stdin: cmd.stdin,
+    refresh: "none",
+    sudo: cmd.sudo === true,
+    guard: reverting ? null : { id: "kbOverride", revert: revert },
+  };
+}

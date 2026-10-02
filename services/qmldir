@@ -5,3 +5,8 @@ singleton Disclosure 1.0 Disclosure.qml
 singleton Preview 1.0 Preview.qml
 singleton LiveStatsStore 1.0 LiveStatsStore.qml
 singleton FrameClock 1.0 FrameClock.qml
+singleton Feedback 1.0 Feedback.qml
+singleton Backend 1.0 Backend.qml
+singleton Paths 1.0 Paths.qml
+singleton IoQueue 1.0 IoQueue.qml
+singleton SnapshotStore 1.0 SnapshotStore.qml

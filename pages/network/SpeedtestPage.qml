@@ -1,7 +1,8 @@
 import QtQuick
-import Quickshell.Io
 import "../../components"
 import "../../services"
+import "../../services/Failure.js" as FailureJs
+import "../../services/Requests.js" as Requests
 import "../../services/RichUi.js" as RichUi
 
 PrefsPage {
@@ -15,10 +16,11 @@ PrefsPage {
   property string downloadMbps: ""
   property string uploadMbps: ""
   property string speedError: ""
-  property bool speedExpectedStop: false
+  property int speedToken: 0
+  property bool speedInFlight: false
 
   function startSpeedtest() {
-    if (speedProc.running) return
+    if (speedInFlight) return
     if (Omarchy.netKind === "disconnected") {
       speedError = "No default route. Join a network on the Network page, then retry."
       return
@@ -27,25 +29,42 @@ PrefsPage {
     downloadMbps = ""
     uploadMbps = ""
     speedRunning = true
-    speedExpectedStop = false
     startSpeedPhase("down")
   }
 
   function startSpeedPhase(phase) {
     speedPhase = phase
-    speedStdin = JSON.stringify({ op: "speedtest.net", phase: phase })
-    speedProc.command = Omarchy.backendCommand(["request"])
-    speedProc.stdinEnabled = true
-    speedProc.running = true
+    speedToken += 1
+    speedInFlight = true
+    var token = speedToken
+    Backend.request(Requests.speedtestNet(phase), function(env) {
+      if (token === root.speedToken) root.speedAnswered(env)
+    })
     speedTimer.restart()
   }
 
+  // Cancel stops listening. The measurement ends by itself on the backend.
   function stopSpeedtest() {
     speedTimer.stop()
-    speedExpectedStop = true
+    speedToken += 1
+    speedInFlight = false
     speedPhase = ""
     speedRunning = false
-    if (speedProc.running) speedProc.running = false
+  }
+
+  function speedAnswered(env) {
+    speedTimer.stop()
+    speedInFlight = false
+    var result = env && env.ok === true && env.result ? env.result : null
+    if (result) root.adoptSpeed(result.stdout)
+    if (!result || Number(result.exit) !== 0) {
+      var text = result && result.stderr ? result.stderr : FailureJs.errorText(env && env.error)
+      root.speedError = String(text || "Speed test failed").replace(/^\s+|\s+$/g, "")
+      root.speedRunning = false
+      root.speedPhase = ""
+      return
+    }
+    root.finishSpeedPhase()
   }
 
   function finishSpeedPhase() {
@@ -55,7 +74,6 @@ PrefsPage {
     }
     speedPhase = ""
     speedRunning = false
-    speedExpectedStop = false
   }
 
   function phaseLabel() {
@@ -115,7 +133,7 @@ PrefsPage {
 
   Component.onCompleted: startSpeedtest()
   Component.onDestruction: {
-    if (speedProc.running) speedProc.running = false
+    speedToken += 1
   }
 
   Timer {
@@ -123,16 +141,13 @@ PrefsPage {
     interval: 5000
     repeat: false
     onTriggered: {
-      if (speedProc.running) {
-        speedExpectedStop = true
-        speedProc.running = false
-      } else {
-        root.finishSpeedPhase()
-      }
+      // Five seconds is the window for one direction. An answer that has not
+      // come by now is dropped and the run moves on.
+      root.speedToken += 1
+      root.speedInFlight = false
+      root.finishSpeedPhase()
     }
   }
-
-  property string speedStdin: ""
 
   function adoptSpeed(text) {
     var lines = String(text || "").split("\n")
@@ -142,40 +157,6 @@ PrefsPage {
       if (!isFinite(n)) continue
       if (root.speedPhase === "down") root.downloadMbps = String(n)
       else if (root.speedPhase === "up") root.uploadMbps = String(n)
-    }
-  }
-
-  Process {
-    id: speedProc
-    stdinEnabled: false
-    stdout: StdioCollector { id: speedOut; waitForEnd: true }
-    stderr: StdioCollector { id: speedErr; waitForEnd: true }
-    onStarted: {
-      if (root.speedStdin.length > 0) {
-        write(root.speedStdin)
-        root.speedStdin = ""
-        stdinEnabled = false
-      }
-    }
-    onExited: function(code) {
-      speedTimer.stop()
-      var env = null
-      try { env = JSON.parse(String(speedOut.text || "")) } catch (e) { env = null }
-      if (env && env.ok === true && env.result) root.adoptSpeed(env.result.stdout)
-      if (root.speedExpectedStop) {
-        root.speedExpectedStop = false
-        if (root.speedRunning) root.finishSpeedPhase()
-        return
-      }
-      var speedExit = env && env.result ? Number(env.result.exit) : code
-      if (code !== 0 || speedExit !== 0) {
-        var speedErrText = env && env.result && env.result.stderr ? env.result.stderr : speedErr.text
-        root.speedError = String(speedErrText || "Speed test failed").replace(/^\s+|\s+$/g, "")
-        root.speedRunning = false
-        root.speedPhase = ""
-        return
-      }
-      root.finishSpeedPhase()
     }
   }
 

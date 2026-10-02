@@ -16,6 +16,6 @@ SettingRow {
   PrefsToggle {
     checked: Omarchy.touchscreenPresent && Omarchy.touchscreenEnabled
     enabled: Omarchy.touchscreenPresent
-    onToggled: Omarchy.setTouchscreen(!Omarchy.touchscreenEnabled)
+    onToggled: Omarchy.set("touchscreenEnabled", !Omarchy.touchscreenEnabled)
   }
 }

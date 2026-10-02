@@ -1,8 +1,9 @@
 pragma Singleton
 import QtQuick
-import Quickshell.Io
+import "Failure.js" as FailureJs
 import "LiveStats.js" as LiveStatsJs
 import "Monitor.js" as MonitorJs
+import "Requests.js" as Requests
 
 QtObject {
   id: root
@@ -15,9 +16,10 @@ QtObject {
   property string lastError: ""
   // When the sample in flight was started, so a wedged one can be noticed.
   property double startedAt: 0
-  // Set before clearing statsProc.running on a stall kill so onExited keeps the
-  // stall message instead of overwriting it with a SIGTERM / stderr failure.
-  property bool statsExpectedStop: false
+  property bool inFlight: false
+  // Each sample carries a number. A stalled sample is dropped by moving on to
+  // the next number, so its late answer cannot overwrite the stall message.
+  property int sampleToken: 0
   // A sample that outlives this many intervals is treated as wedged. Generous
   // on purpose: a loaded machine can take several times the interval to walk
   // /proc, and killing a slow-but-working sample would be worse than waiting.
@@ -33,9 +35,18 @@ QtObject {
     // Backpressure: a sample still in flight means the last one has not
     // landed, so skipping this tick is right. What is not right is skipping
     // forever -- see stallTimer.
-    if (statsProc.running) return
+    if (root.inFlight) return
+    root.inFlight = true
     root.startedAt = Date.now()
-    statsProc.running = true
+    root.sampleToken += 1
+    var token = root.sampleToken
+    Backend.request(Requests.displayGet("live"), function(env) {
+      if (token !== root.sampleToken) return
+      root.inFlight = false
+      root.startedAt = 0
+      if (env && env.ok === true && env.result) root.adoptSample(JSON.stringify(env.result))
+      else root.lastError = FailureJs.errorText(env && env.error) || "live-stats.py failed"
+    })
   }
 
   function adoptSample(text) {
@@ -73,23 +84,20 @@ QtObject {
   // Without this, one sample that never finishes stops the dashboard for good:
   // poll() returns early on every later tick, the charts hold the last good
   // numbers, and lastError stays empty because it is only written from
-  // onExited. The realistic causes are a blocking read under hwmon and
-  // Quickshell not always emitting exited() when a process fails to start,
-  // both of which leave running stuck true. Freezing is acceptable; freezing
-  // silently is not. Clearing running sends SIGTERM (same pattern as
-  // SpeedtestPage / DisksPage); statsExpectedStop keeps that exit from
-  // replacing the stall message.
+  // an answer lands. The realistic cause is a blocking read under hwmon.
+  // Freezing is acceptable; freezing silently is not. The backend gives the
+  // sampler its own time limit; this drops the request on our side and says so.
   property Timer stallTimer: Timer {
     interval: 1000
     running: !root.paused
     repeat: true
     onTriggered: {
-      if (!statsProc.running || root.startedAt <= 0) return
+      if (!root.inFlight || root.startedAt <= 0) return
       if (Date.now() - root.startedAt < root.stallAfterMs) return
       root.lastError = "A live sample stopped responding and was dropped."
       root.startedAt = 0
-      root.statsExpectedStop = true
-      statsProc.running = false
+      root.inFlight = false
+      root.sampleToken += 1
     }
   }
 
@@ -98,26 +106,5 @@ QtObject {
     running: !root.paused && FrameClock.holds > 0
     repeat: true
     onTriggered: root.poll()
-  }
-
-  property Process statsProc: Process {
-    command: Omarchy.backendCommand(["display", "live"])
-    stdout: StdioCollector {
-      id: statsOut
-      waitForEnd: true
-    }
-    stderr: StdioCollector {
-      id: statsErr
-      waitForEnd: true
-    }
-    onExited: function(code) {
-      root.startedAt = 0
-      if (root.statsExpectedStop) {
-        root.statsExpectedStop = false
-        return
-      }
-      if (code === 0) root.adoptSample(statsOut.text)
-      else root.lastError = String(statsErr.text || "live-stats.py failed").replace(/^\s+|\s+$/g, "")
-    }
   }
 }

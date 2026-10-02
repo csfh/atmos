@@ -379,7 +379,7 @@ PrefsPage {
       }
     }
 
-    SettingRow {
+    PrefsEmpty {
       available: root.topProcs.length === 0
       sectionHelp: false
       label: "No matching processes"

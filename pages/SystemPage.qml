@@ -271,7 +271,7 @@ PrefsPage {
       PrefsToggle {
         checked: Omarchy.ntp
         enabled: Omarchy.ntpAvailable
-        onToggled: Omarchy.setNtp(!Omarchy.ntp)
+        onToggled: Omarchy.set("ntp", !Omarchy.ntp)
       }
     }
   }
@@ -433,89 +433,6 @@ PrefsPage {
         danger: true
         enabled: !Omarchy.jobBusy
         onClicked: resetAtmosConfirm.ask()
-      }
-    }
-  }
-
-  PrefsGroup {
-    framed: true
-    title: "Advanced"
-    advanced: true
-    query: root.query
-    detail: "Leftover packages, the pacman download cache, and restore for Hyprland Lua or shell.json. Firmware updates are on Drivers."
-
-    SettingRow {
-      label: "Orphan packages"
-      description: "Remove packages that nothing else depends on."
-      hint: "omarchy update orphan pkgs"
-      query: root.query
-      keywords: ["orphan", "unused", "pacman"]
-
-      PrefsButton {
-        text: "Remove…"
-        danger: true
-        enabled: !Omarchy.jobBusy
-        onClicked: orphanConfirm.ask()
-      }
-    }
-
-    SettingRow {
-      label: "Package cache"
-      description: "Delete old downloaded packages to free disk."
-      hint: "omarchy update pkg prune"
-      query: root.query
-      keywords: ["prune", "cache", "pacman"]
-
-      PrefsButton {
-        text: "Prune…"
-        enabled: !Omarchy.jobBusy
-        onClicked: pruneConfirm.ask()
-      }
-    }
-
-    SettingRow {
-      label: "Restart shell"
-      description: "Reload the bar and notifications without touching shell.json."
-      hint: "omarchy restart shell"
-      query: root.query
-      keywords: ["restart", "reload", "bar", "quickshell"]
-
-      PrefsButton {
-        text: "Restart"
-        enabled: !Omarchy.jobBusy
-        onClicked: Omarchy.restartShell()
-      }
-    }
-
-    SettingRow {
-      label: "Restore Hyprland"
-      description: Omarchy.jobKind === "refresh-hyprland" && Omarchy.jobBusy
-        ? "Restoring Hyprland Lua…"
-        : "Put the shipped Hyprland Lua files back. Your copies are backed up."
-      hint: "omarchy refresh hyprland"
-      query: root.query
-      keywords: ["refresh", "hyprland", "restore", "defaults", "bindings", "monitors"]
-
-      PrefsButton {
-        text: "Restore…"
-        danger: true
-        enabled: !Omarchy.jobBusy
-        onClicked: refreshHyprConfirm.ask()
-      }
-    }
-
-    SettingRow {
-      label: "Restore shell"
-      description: "Put the shipped shell.json back. Your copy is backed up. The bar restarts."
-      hint: "omarchy refresh shell"
-      query: root.query
-      keywords: ["refresh", "shell", "restore", "defaults", "bar"]
-
-      PrefsButton {
-        text: "Restore…"
-        danger: true
-        enabled: !Omarchy.jobBusy
-        onClicked: refreshShellConfirm.ask()
       }
     }
   }
@@ -818,6 +735,89 @@ PrefsPage {
       PrefsButton {
         text: "Show error…"
         onClicked: Omarchy.showDebugError()
+      }
+    }
+  }
+
+  PrefsGroup {
+    framed: true
+    title: "Advanced"
+    advanced: true
+    query: root.query
+    detail: "Leftover packages, the pacman download cache, and restore for Hyprland Lua or shell.json. Firmware updates are on Drivers."
+
+    SettingRow {
+      label: "Orphan packages"
+      description: "Remove packages that nothing else depends on."
+      hint: "omarchy update orphan pkgs"
+      query: root.query
+      keywords: ["orphan", "unused", "pacman"]
+
+      PrefsButton {
+        text: "Remove…"
+        danger: true
+        enabled: !Omarchy.jobBusy
+        onClicked: orphanConfirm.ask()
+      }
+    }
+
+    SettingRow {
+      label: "Package cache"
+      description: "Delete old downloaded packages to free disk."
+      hint: "omarchy update pkg prune"
+      query: root.query
+      keywords: ["prune", "cache", "pacman"]
+
+      PrefsButton {
+        text: "Prune…"
+        enabled: !Omarchy.jobBusy
+        onClicked: pruneConfirm.ask()
+      }
+    }
+
+    SettingRow {
+      label: "Restart shell"
+      description: "Reload the bar and notifications without touching shell.json."
+      hint: "omarchy restart shell"
+      query: root.query
+      keywords: ["restart", "reload", "bar", "quickshell"]
+
+      PrefsButton {
+        text: "Restart"
+        enabled: !Omarchy.jobBusy
+        onClicked: Omarchy.restartShell()
+      }
+    }
+
+    SettingRow {
+      label: "Restore Hyprland"
+      description: Omarchy.jobKind === "refresh-hyprland" && Omarchy.jobBusy
+        ? "Restoring Hyprland Lua…"
+        : "Put the shipped Hyprland Lua files back. Your copies are backed up."
+      hint: "omarchy refresh hyprland"
+      query: root.query
+      keywords: ["refresh", "hyprland", "restore", "defaults", "bindings", "monitors"]
+
+      PrefsButton {
+        text: "Restore…"
+        danger: true
+        enabled: !Omarchy.jobBusy
+        onClicked: refreshHyprConfirm.ask()
+      }
+    }
+
+    SettingRow {
+      label: "Restore shell"
+      description: "Put the shipped shell.json back. Your copy is backed up. The bar restarts."
+      hint: "omarchy refresh shell"
+      query: root.query
+      keywords: ["refresh", "shell", "restore", "defaults", "bar"]
+
+      PrefsButton {
+        text: "Restore…"
+        danger: true
+        enabled: !Omarchy.jobBusy
+        onClicked: refreshShellConfirm.ask()
       }
     }
   }

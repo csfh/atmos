@@ -826,9 +826,49 @@ function adopt(currentRecord, patch, adapters) {
   return merged;
 }
 
+// A write's optimistic patch, corrected by the value the backend read back.
+// `apply` is what the page expects to see; `result` is the settings.set reply.
+// For a scalar domain the read-back is the truth (the backend may have clamped
+// or normalised it), so it replaces the guess at that key, and the rest of the
+// patch (managed flags and the like) is kept. Lists and objects stay as the
+// patch has them, because the backend's rows are not the page's rows. A reply
+// with no value (a live command domain reads back null) changes nothing.
+function applyWithResult(apply, domain, result) {
+  if (!isPlainObject(apply)) return apply;
+  var key = String(domain || "");
+  if (!key || !isPlainObject(result) || result.domain !== key) return apply;
+  var value = result.value;
+  var kind = typeof value;
+  if (value === null || (kind !== "string" && kind !== "number" && kind !== "boolean"))
+    return apply;
+  var out = {};
+  var name;
+  for (name in apply) {
+    if (Object.prototype.hasOwnProperty.call(apply, name)) out[name] = apply[name];
+  }
+  var dot = key.indexOf(".");
+  if (dot === -1) {
+    // Only correct a key the patch already carries a scalar for.
+    if (!hasOwn(out, key) || (typeof out[key] === "object" && out[key] !== null)) return apply;
+    out[key] = value;
+    return out;
+  }
+  var head = key.slice(0, dot);
+  var tail = key.slice(dot + 1);
+  if (!isPlainObject(out[head]) || !hasOwn(out[head], tail)) return apply;
+  var inner = {};
+  for (name in out[head]) {
+    if (Object.prototype.hasOwnProperty.call(out[head], name)) inner[name] = out[head][name];
+  }
+  inner[tail] = value;
+  out[head] = inner;
+  return out;
+}
+
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     mergeSnapshot: mergeSnapshot,
+    applyWithResult: applyWithResult,
     parseSnapshot: parseSnapshot,
     adopt: adopt,
     adoptValue: adoptValue,

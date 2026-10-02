@@ -127,8 +127,8 @@ assert(
   "headingHost grows with the title-plus-caption column",
 );
 assert(
-  headingHost.indexOf("reveal: headingHover.hovered") !== -1,
-  "section help hover stays on the heading block",
+  headingHost.indexOf("reveal: true") !== -1,
+  "section help stays visible on the heading block",
 );
 
 const inputSrc = fs.readFileSync(path.join(__dirname, "..", "pages", "InputPage.qml"), "utf8");

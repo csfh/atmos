@@ -245,7 +245,7 @@ PrefsPage {
       PrefsToggle {
         checked: Omarchy.wifiHw && Omarchy.wifiRadio
         enabled: Omarchy.wifiHw
-        onToggled: Omarchy.setWifiRadio(!Omarchy.wifiRadio)
+        onToggled: Omarchy.set("wifiRadio", !Omarchy.wifiRadio)
       }
     }
   }

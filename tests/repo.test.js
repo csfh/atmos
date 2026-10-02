@@ -24,9 +24,14 @@ assert(
   searchPageSrc.indexOf("root.navigator.go(modelData.hub, modelData.label)") !== -1,
   "SearchPage passes the hit label so Simple can pin the landing row",
 );
-const omarchyQml = fs.readFileSync(path.join(__dirname, "..", "services", "Omarchy.qml"), "utf8");
+// Omarchy.qml plus Paths.qml (file and script paths) IoQueue.qml (the job queue and its processes), and SnapshotStore.qml (what to read and watch).
+const omarchyQml =
+  fs.readFileSync(path.join(__dirname, "..", "services", "Omarchy.qml"), "utf8") +
+  fs.readFileSync(path.join(__dirname, "..", "services", "Paths.qml"), "utf8") +
+  fs.readFileSync(path.join(__dirname, "..", "services", "IoQueue.qml"), "utf8") +
+  fs.readFileSync(path.join(__dirname, "..", "services", "SnapshotStore.qml"), "utf8");
 assert(
-  omarchyQml.indexOf('enqueueRead(ioQueue, "rest")') !== -1,
+  omarchyQml.indexOf('enqueueRead(IoQueue.queue, "rest")') !== -1,
   "startSession follows look with rest",
 );
 assert(
@@ -211,8 +216,8 @@ assert(
 );
 assert(
   prefsGroupSrcEarly.indexOf("id: headingHost") !== -1 &&
-    prefsGroupSrcEarly.indexOf("reveal: headingHover.hovered") !== -1,
-  "section info reveals when the heading row is hovered",
+    prefsGroupSrcEarly.indexOf("reveal: true") !== -1,
+  "section info is always visible when it has content",
 );
 const snapshotSh = fs.readFileSync(path.join(__dirname, "..", "scripts", "snapshot.sh"), "utf8");
 assert(snapshotSh.indexOf("GROUP == rest") !== -1, "snapshot.sh strips look keys from rest");
@@ -350,7 +355,8 @@ assert(
     prefsButtonSrc.indexOf("mouse.containsMouse") !== -1 &&
     prefsButtonSrc.indexOf("root.activeFocus") !== -1 &&
     prefsButtonSrc.indexOf("Theme.fill(Theme.hoverFill)") !== -1 &&
-    prefsButtonSrc.indexOf("Theme.accentFill(Theme.primaryFill)") !== -1,
+    prefsButtonSrc.indexOf("Theme.accentFill(hot ? 1") !== -1 &&
+    prefsButtonSrc.indexOf("Theme.urgentFill(") !== -1,
   "PrefsButton still animates hover, focus, and primary fill on the chamfer",
 );
 assert(
@@ -567,10 +573,10 @@ assert(
 assert(
   settingRowSrc.indexOf("readonly property int favoriteGutter:") !== -1 &&
     settingRowSrc.indexOf("anchors.right: parent.right") !== -1 &&
-    settingRowSrc.indexOf("opacity: root.showFavoriteIcon ? 1 : 0") !== -1 &&
+    settingRowSrc.indexOf("opacity: root.showFavoriteIcon || root.favorited ? 1 : 0.25") !== -1 &&
     settingRowSrc.indexOf("id: favoriteHost") !== -1 &&
     settingRowSrc.indexOf("id: controlHost") < settingRowSrc.indexOf("id: favoriteHost"),
-  "the favorite star sits in a reserved gutter to the right of the control and only paints on hover",
+  "the favorite star sits in a reserved gutter to the right of the control and is dim until hover or favorited",
 );
 const favoriteHostSrc = settingRowSrc.slice(
   settingRowSrc.indexOf("id: favoriteHost"),
@@ -1143,9 +1149,9 @@ const prefsGroupSrc = fs.readFileSync(
 );
 assert(
   prefsGroupSrc.indexOf("root.title.toUpperCase()") !== -1 &&
-    prefsGroupSrc.indexOf("color: Theme.muted") !== -1 &&
-    prefsGroupSrc.indexOf("Theme.sectionSize") !== -1,
-  "section headings are uppercase muted labels, not setting-row titles",
+    prefsGroupSrc.indexOf("Theme.groupTitleSize") !== -1 &&
+    prefsGroupSrc.indexOf("font.bold: true") !== -1,
+  "section headings are uppercase bold labels sized by groupTitleSize",
 );
 assert(
   prefsGroupSrc.indexOf("property bool framed: false") !== -1,
@@ -1269,9 +1275,8 @@ assert(
 );
 assert(
   shellSrc.indexOf("readonly property bool listKeys:") !== -1 &&
-    shellSrc.indexOf("enabled: root.listKeys") !== -1 &&
-    shellSrc.indexOf("if (root.navBusy || searchField.activeFocus) return") !== -1,
-  "list keys and type-to-search stay off for another text field or a dialog",
+    shellSrc.indexOf("enabled: root.listKeys") !== -1,
+  "list keys stay off for another text field or a dialog",
 );
 assert(
   shellSrc.indexOf("function revealNavItem(") !== -1 &&
@@ -1280,7 +1285,7 @@ assert(
 );
 const searchFieldSrc = shellSrc.slice(
   shellSrc.indexOf("id: searchField"),
-  shellSrc.indexOf("id: navFlick"),
+  shellSrc.indexOf("id: statusChip"),
 );
 assert(
   searchFieldSrc.indexOf("Keys.onEscapePressed") !== -1 &&
@@ -1306,15 +1311,12 @@ assert(keysDialogSrc.indexOf("id: keysDialog") !== -1, "shortcut sheet is a Pref
 assert(
   keysDialogSrc.indexOf("Ctrl+F") !== -1 &&
     keysDialogSrc.indexOf("Ctrl+/") !== -1 &&
-    keysDialogSrc.indexOf("A letter") !== -1 &&
     keysDialogSrc.indexOf("Up  /  Down") !== -1,
-  "shortcut sheet lists type-to-search, movement, and Ctrl+/",
+  "shortcut sheet lists search, movement, and Ctrl+/",
 );
 assert(
-  shellSrc.indexOf("function startSearch(") !== -1 &&
-    shellSrc.indexOf("searchField.insert(") !== -1 &&
-    shellSrc.indexOf("Keys.BeforeItem") !== -1,
-  "a printable key focuses search and inserts itself",
+  shellSrc.indexOf("function startSearch(") === -1 && shellSrc.indexOf("Keys.BeforeItem") === -1,
+  "a printable key no longer hijacks the window into search",
 );
 assert(
   searchPageSrc.indexOf("property int hitIndex") !== -1 &&
@@ -1334,7 +1336,11 @@ assert(
   shellSrc.indexOf("Omarchy.askAgentAboutError()") !== -1,
   "error dialog asks the default agent",
 );
-const omarchySrc = fs.readFileSync(path.join(__dirname, "..", "services", "Omarchy.qml"), "utf8");
+const omarchySrc =
+  fs.readFileSync(path.join(__dirname, "..", "services", "Omarchy.qml"), "utf8") +
+  fs.readFileSync(path.join(__dirname, "..", "services", "Paths.qml"), "utf8") +
+  fs.readFileSync(path.join(__dirname, "..", "services", "IoQueue.qml"), "utf8") +
+  fs.readFileSync(path.join(__dirname, "..", "services", "SnapshotStore.qml"), "utf8");
 assert(
   omarchySrc.indexOf('if (key === "laptop" && !internalPresent) return') !== -1 &&
     omarchySrc.indexOf('if (key === "docked" && !externalPresent) return') !== -1,
@@ -1392,7 +1398,7 @@ assert(
     captureBody.indexOf('kind: "recording"') !== -1 &&
     captureBody.indexOf('kind: "capture-text"') !== -1 &&
     captureBody.indexOf('kind: "capture-qr"') !== -1 &&
-    captureBody.indexOf("interactiveProc.running = false") !== -1,
+    captureBody.indexOf("IoQueue.stopInteractive()") !== -1,
   "capture pickers stay off the mut queue; stop cancels a pending start",
 );
 assert(
@@ -1412,7 +1418,7 @@ assert(
 );
 assert(
   omarchySrc.indexOf("presentationMode = on") !== -1 &&
-    omarchySrc.indexOf("WorkQueue.hasQueuedKey(ioQueue, job.key)") !== -1,
+    omarchySrc.indexOf("WorkQueue.hasQueuedKey(IoQueue.queue, job.key)") !== -1,
   "Presentation Mode updates immediately and a later write skips a stale apply",
 );
 assert(
@@ -1803,9 +1809,10 @@ assert(
 
 const exportPage = fs.readFileSync(path.join(__dirname, "..", "pages", "ExportPage.qml"), "utf8");
 assert(
-  exportPage.indexOf("host.write") !== -1 &&
-    exportPage.indexOf("ioProc.stdinEnabled = true") !== -1,
-  "export writes through ratmos and re-arms stdin for the next request",
+  exportPage.indexOf("Requests.hostWrite") !== -1 &&
+    exportPage.indexOf("Backend.request") !== -1 &&
+    exportPage.indexOf("ioProc") === -1,
+  "export writes through ratmos on the shared connection, one request at a time",
 );
 assert(
   exportPage.indexOf("workspaceGestureUnmanaged: Omarchy.liveWorkspaceGestureUnmanaged()") !== -1,
@@ -1935,7 +1942,7 @@ const liveStoreSrc = fs.readFileSync(
   "utf8",
 );
 assert(
-  liveStoreSrc.indexOf('["display", "live"]') !== -1 &&
+  liveStoreSrc.indexOf('Requests.displayGet("live")') !== -1 &&
     liveStoreSrc.indexOf("liveStatsScript") === -1 &&
     liveStoreSrc.indexOf("interval: root.intervalMs") !== -1 &&
     liveStoreSrc.indexOf("pragma Singleton") !== -1 &&
@@ -1994,7 +2001,7 @@ assert(
   "LiveStatsStore times out a sample that never finishes",
 );
 assert(
-  /onExited:\s*function\s*\([^)]*\)\s*\{\s*root\.startedAt = 0/.test(liveStoreSrc),
+  /Backend\.request\([^)]*\)[^{]*\{[\s\S]{0,200}root\.startedAt = 0/.test(liveStoreSrc),
   "LiveStatsStore clears the in-flight stamp when a sample lands",
 );
 assert(
@@ -2002,10 +2009,10 @@ assert(
   "LiveStatsStore floors the stall timeout so a slow sample is not killed early",
 );
 assert(
-  liveStoreSrc.indexOf("statsExpectedStop") !== -1 &&
-    liveStoreSrc.indexOf("root.statsExpectedStop = true") !== -1 &&
-    /if \(root\.statsExpectedStop\)/.test(liveStoreSrc),
-  "LiveStatsStore keeps the stall message when the kill exit fires",
+  liveStoreSrc.indexOf("sampleToken") !== -1 &&
+    liveStoreSrc.indexOf("root.sampleToken += 1") !== -1 &&
+    /if \(token !== root\.sampleToken\) return/.test(liveStoreSrc),
+  "LiveStatsStore keeps the stall message when the dropped sample answers late",
 );
 const monitorPageSrc = fs.readFileSync(
   path.join(__dirname, "..", "pages", "MonitorPage.qml"),
@@ -2560,24 +2567,24 @@ assert(
 );
 const themeQmlSrc = fs.readFileSync(path.join(__dirname, "..", "services", "Theme.qml"), "utf8");
 assert(themeQmlSrc.indexOf("inotifywait") === -1, "inotifywait is not in Theme.qml");
-const watchStart = omarchySrc.indexOf("readonly property var watchSpecs:");
-const watchEnd = omarchySrc.indexOf("function applyThemeNameFromFile", watchStart);
+const watchStart = omarchySrc.indexOf("readonly property var specs:");
+const watchEnd = omarchySrc.indexOf("function scheduleRefresh", watchStart);
 const watchBody = omarchySrc.slice(watchStart, watchEnd);
 assert(watchBody.indexOf("extraThemesDir") === -1, "extraThemesDir is not in watchSpecs");
 assert(watchBody.indexOf("packagedThemesDir") !== -1, "packaged themes dir may stay FileView");
 assert(omarchySrc.indexOf("inotifywait") === -1, "Omarchy does not run inotifywait");
 assert(
-  omarchySrc.indexOf("host.stamp") !== -1 && omarchySrc.indexOf("extraThemesDir") !== -1,
-  "extraThemesDir is included in the ratmos stamp poll",
+  omarchySrc.indexOf("Backend.watch(") !== -1 && omarchySrc.indexOf("extraThemesDir") !== -1,
+  "extraThemesDir is included in the paths ratmos watches",
 );
-const jobProcStart = omarchySrc.indexOf("property Process jobProc:");
-assert(jobProcStart !== -1, "jobProc exists");
+const jobProcStart = omarchySrc.indexOf("function onJobExited(");
+assert(jobProcStart !== -1, "the job exit handler exists");
 const jobProcSrc = omarchySrc.slice(jobProcStart);
 const applyAt = jobProcSrc.indexOf("root.applyWritePatch(job)");
 const readAt = jobProcSrc.indexOf("enqueueRead", applyAt);
 assert(
   applyAt !== -1 && readAt !== -1 && applyAt < readAt,
-  "jobProc calls applyWritePatch before enqueueRead",
+  "a finished job calls applyWritePatch before enqueueRead",
 );
 
 assert(

@@ -411,7 +411,7 @@ PrefsPage {
 
       PrefsToggle {
         checked: Omarchy.crashCapture
-        onToggled: Omarchy.setCrashCapture(!Omarchy.crashCapture)
+        onToggled: Omarchy.set("crashCapture", !Omarchy.crashCapture)
       }
     }
   }

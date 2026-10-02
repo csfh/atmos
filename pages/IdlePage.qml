@@ -77,7 +77,7 @@ PrefsPage {
 
       PrefsToggle {
         checked: Omarchy.stayAwake
-        onToggled: Omarchy.setStayAwake(!Omarchy.stayAwake)
+        onToggled: Omarchy.set("stayAwake", !Omarchy.stayAwake)
       }
     }
 
@@ -90,7 +90,7 @@ PrefsPage {
 
       PrefsToggle {
         checked: Omarchy.screensaverEnabled
-        onToggled: Omarchy.setScreensaverEnabled(!Omarchy.screensaverEnabled)
+        onToggled: Omarchy.set("screensaverEnabled", !Omarchy.screensaverEnabled)
       }
     }
 
@@ -103,7 +103,7 @@ PrefsPage {
 
       PrefsToggle {
         checked: Omarchy.suspendEnabled
-        onToggled: Omarchy.setSuspendEnabled(!Omarchy.suspendEnabled)
+        onToggled: Omarchy.set("suspendEnabled", !Omarchy.suspendEnabled)
       }
     }
   }

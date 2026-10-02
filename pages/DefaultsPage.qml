@@ -74,7 +74,7 @@ PrefsPage {
       PrefsSelect {
         value: Omarchy.browser
         options: Omarchy.installedOptions(root.browserOptions, Omarchy.browsers)
-        onChanged: function(value) { if (value !== Omarchy.browser) Omarchy.setBrowser(value) }
+        onChanged: function(value) { if (value !== Omarchy.browser) Omarchy.set("browser", value) }
       }
     }
 
@@ -88,7 +88,7 @@ PrefsPage {
       PrefsSelect {
         value: Omarchy.terminal
         options: Omarchy.installedOptions(root.terminalOptions, Omarchy.terminals)
-        onChanged: function(value) { if (value !== Omarchy.terminal) Omarchy.setTerminal(value) }
+        onChanged: function(value) { if (value !== Omarchy.terminal) Omarchy.set("terminal", value) }
       }
     }
 
@@ -113,7 +113,7 @@ PrefsPage {
         })
         onChanged: function(value) {
           var current = Omarchy.editor === "zeditor" ? "zed" : Omarchy.editor
-          if (value !== current) Omarchy.setEditor(value)
+          if (value !== current) Omarchy.set("editor", value)
         }
       }
     }
@@ -134,7 +134,7 @@ PrefsPage {
       PrefsSelect {
         value: Omarchy.agent
         options: root.agentOptions
-        onChanged: function(value) { if (value !== Omarchy.agent) Omarchy.setAgent(value) }
+        onChanged: function(value) { if (value !== Omarchy.agent) Omarchy.set("agent", value) }
       }
     }
   }

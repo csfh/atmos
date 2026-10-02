@@ -37,7 +37,7 @@ Item {
 
   Rectangle {
     anchors.fill: parent
-    radius: height / 2
+    radius: Theme.radius
     color: root.shownChecked ? Theme.accentFill(root.highlight ? 1 : 0.85) : Theme.fill(root.highlight ? Theme.hoverFill : Theme.toggleOffFill)
     border.width: Theme.borderWidth
     border.color: root.shownChecked || root.highlight ? Theme.accent : Theme.borderColor()
@@ -52,7 +52,7 @@ Item {
     Rectangle {
       width: Theme.toggleThumb
       height: Theme.toggleThumb
-      radius: Theme.toggleThumb / 2
+      radius: Theme.radius
       anchors.verticalCenter: parent.verticalCenter
       x: root.shownChecked ? parent.width - width - 4 : 4
       color: Theme.foreground

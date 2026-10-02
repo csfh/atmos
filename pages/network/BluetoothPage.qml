@@ -96,7 +96,7 @@ PrefsPage {
 
       PrefsToggle {
         checked: Omarchy.bluetooth
-        onToggled: Omarchy.setBluetooth(!Omarchy.bluetooth)
+        onToggled: Omarchy.set("bluetooth", !Omarchy.bluetooth)
       }
     }
 

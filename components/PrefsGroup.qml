@@ -205,9 +205,9 @@ Column {
           anchors.rightMargin: groupHelp.visible ? Theme.space : root.titleInset
           anchors.verticalCenter: parent.verticalCenter
           text: root.title.toUpperCase()
-          color: Theme.muted
+          color: Theme.foreground
           font.family: Theme.fontFamily
-          font.pixelSize: Theme.sectionSize
+          font.pixelSize: Theme.groupTitleSize
           font.bold: true
           font.letterSpacing: Theme.sectionTracking
         }
@@ -218,7 +218,7 @@ Column {
           anchors.rightMargin: root.titleInset
           anchors.verticalCenter: parent.verticalCenter
           title: root.title
-          reveal: headingHover.hovered
+          reveal: true
           body: root.helpPayload && root.helpPayload.body ? root.helpPayload.body : ""
           command: root.helpPayload && root.helpPayload.command ? root.helpPayload.command : ""
           topics: root.showHelp && root.helpPayload ? root.helpPayload.topics : []

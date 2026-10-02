@@ -2,11 +2,25 @@
 
 Notable changes to Atmos. Each section is a git tag on `main` and `alpha`. Install and in-app Update follow the `alpha` branch.
 
-## [v0.1.0] - 2026-09-28
+## [v0.1.0] - Unreleased
 
 ### Added
 
-- Atmos 0.1.0 reads and writes settings through `ratmos`, a Rust process started by `bin/atmos`. The Quickshell window asks that process for settings and for the live, hardware, disk, service, software, and diagnostics data it shows. Writes update the Hyprland drop-ins, shell config, and the other files those settings already use. A `plain` backend answers the same requests with its own platform identity.
+- Atmos reads and writes settings through `ratmos`, a Rust process started by `bin/atmos`. One `ratmos serve` process runs per window instead of one process per poll and request, and the backend pushes file, theme, and account changes. That removes about two process starts a second while the window is idle. If the server stops, the window says so, restarts it, and keeps working on single requests meanwhile. A `plain` backend answers the same requests with its own platform identity.
+- The header always shows where you are as a breadcrumb, with the search field and a write status chip (Applying, Saved, Failed). Settings rows show the same status under their label after you change them.
+- Home opens with a Quick access group of your starred settings.
+
+### Changed
+
+- The sidebar shows a compact identity row, collapses groups, and drops to an icon rail in a narrow window. Search no longer filters the sidebar, and typing a letter no longer starts a search; press `/` or Ctrl+F. The keyboard sheet is a button at the bottom of the sidebar.
+- Primary buttons are solid, danger buttons use the urgent color, toggles are square, group headings are heavier, section help is always visible, and the favorite star shows dimly on every row. Dialogs share one footer, and empty states use one component. System puts Advanced last.
+- Every `ratmos` failure is a JSON envelope with a code and a message, so the error banner shows the real reason. Commands run through `ratmos apply` end with a summary line, so the banner no longer guesses which stderr lines matter.
+- `host.read`, `host.write`, and `host.open` refuse paths outside your home folder or containing `..`. Child processes have time limits, and file writes keep the mode of the file they replace. Settings snapshots arrive nested and only for the keys a page shows, and a write shows the value the backend read back.
+
+### Fixed
+
+- A theme click is no longer dropped while the theme poll is running, and Services status and Speed test requests no longer collide.
+- Two files with the same name and different extensions no longer share a temp file when written.
 
 ## [v0.0.1-alpha.24] - 2026-09-28
 

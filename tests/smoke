@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+# Launch the real app for a few seconds and check it came up clean. Opt-in:
+# it opens a window, so it needs a Wayland session and quickshell, and is not
+# part of ./tests/run. Run it before tagging a release.
+#
+#   ./tests/smoke [seconds]
+set -euo pipefail
+
+root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+wait_s=${1:-10}
+
+if ! command -v quickshell >/dev/null 2>&1; then
+  echo "skip - quickshell is not installed"
+  exit 0
+fi
+if [[ -z ${WAYLAND_DISPLAY:-} ]]; then
+  echo "skip - no Wayland session"
+  exit 0
+fi
+
+(cd "$root/backend" && cargo build --quiet)
+
+log=$(mktemp)
+trap 'rm -f "$log"' EXIT
+
+ATMOS_BACKEND="$root/backend/target/debug/ratmos" "$root/bin/atmos" >"$log" 2>&1 &
+app=$!
+cleanup() {
+  kill "$app" 2>/dev/null || true
+  wait "$app" 2>/dev/null || true
+}
+trap 'cleanup; rm -f "$log"' EXIT
+
+sleep "$wait_s"
+
+fail=0
+if ! kill -0 "$app" 2>/dev/null; then
+  echo "not ok - the app exited early"
+  fail=1
+else
+  echo "ok - the app is running after ${wait_s}s"
+fi
+
+if grep -E 'ERROR|WARN|ReferenceError|TypeError|is not a function|is not defined' "$log" >/dev/null; then
+  echo "not ok - the app logged errors:"
+  grep -E 'ERROR|WARN|ReferenceError|TypeError|is not a function|is not defined' "$log" | head -10
+  fail=1
+else
+  echo "ok - no errors or warnings in the log"
+fi
+
+# One serve per window, and no per-poll request processes. Count children of
+# this app only, so another running Atmos does not confuse the check.
+serves=$({ pgrep -P "$app" -f 'ratmos .*serve' || true; } | wc -l)
+if [[ $serves -eq 1 ]]; then
+  echo "ok - one ratmos serve process"
+else
+  echo "not ok - expected one ratmos serve process, found $serves"
+  fail=1
+fi
+
+requests=0
+for _ in 1 2 3 4 5; do
+  count=$({ pgrep -P "$app" -f 'ratmos .* request' || true; } | wc -l)
+  requests=$((requests + count))
+  sleep 1
+done
+if [[ $requests -eq 0 ]]; then
+  echo "ok - no one-shot ratmos requests while idle"
+else
+  echo "not ok - $requests one-shot ratmos requests while idle"
+  fail=1
+fi
+
+exit $fail

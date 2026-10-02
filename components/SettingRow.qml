@@ -355,17 +355,11 @@ Item {
         Item {
           id: valueHost
           visible: root.stack && root.shownValue.length > 0
+          // Sized from the Text itself, so it fits what is really drawn.
           width: visible
-            ? Math.min(valueMetrics.width, Math.max(48, Math.round(copyHost.width * 0.4)))
+            ? Math.min(Math.ceil(valueBit.implicitWidth), Math.max(48, Math.round(copyHost.width * 0.4)))
             : 0
-          height: valueMetrics.height
-
-          TextMetrics {
-            id: valueMetrics
-            font.family: Theme.fontFamily
-            font.pixelSize: Theme.labelSize
-            text: root.shownValue
-          }
+          height: valueBit.implicitHeight
 
           Text {
             id: valueBit
@@ -422,7 +416,7 @@ Item {
           anchors.centerIn: parent
           name: root.favorited ? Theme.iconStarOn : Theme.iconStar
           size: Theme.helpIcon
-          opacity: root.showFavoriteIcon || root.favorited ? 1 : 0.25
+          opacity: root.showFavoriteIcon || root.favorited ? 1 : 0.16
           color: root.favorited || favoriteMouse.containsMouse || favoriteHost.activeFocus
             ? Theme.accent
             : Theme.muted

@@ -291,14 +291,17 @@ function pageContentWidth(avail, opts) {
   return Math.max(floor, Math.min(wideCap, inner));
 }
 
-// Header trail: the hub, then the open subpage if there is one. Only the
-// hub crumb is a link, and only while a subpage covers it.
-function breadcrumb(hubTitle, subTitle) {
+// Header trail: the nav group, the hub, then the open subpage if there is
+// one. Only the hub is a link, and only while a subpage covers it. The group
+// is context, never a link.
+function breadcrumb(hubTitle, subTitle, groupTitle) {
   var hub = String(hubTitle || "");
   var sub = String(subTitle || "");
+  var group = String(groupTitle || "");
   var parts = [];
-  if (hub.length) parts.push({ label: hub, link: sub.length > 0 });
-  if (sub.length) parts.push({ label: sub, link: false });
+  if (group.length && hub.length) parts.push({ label: group, link: false, context: true });
+  if (hub.length) parts.push({ label: hub, link: sub.length > 0, context: false });
+  if (sub.length) parts.push({ label: sub, link: false, context: false });
   return parts;
 }
 
@@ -332,4 +335,27 @@ function toggleGroup(collapsed, title) {
   if (next[title] === true) delete next[title];
   else next[title] = true;
   return next;
+}
+
+// Which sidebar groups start collapsed. When every row fits, none do. When
+// they do not, every titled group except the one holding the current page
+// starts collapsed, so the sidebar opens short enough to see all its groups
+// at once. `rowHeight` is the height of one nav row and `available` the height
+// of the nav area; a group title costs about one row too.
+function defaultCollapsed(groups, currentId, available, rowHeight) {
+  var list = Array.isArray(groups) ? groups : [];
+  var rows = 0;
+  var i;
+  for (i = 0; i < list.length; i++) {
+    var pages = Array.isArray(list[i].pages) ? list[i].pages : [];
+    rows += pages.length + (list[i].title ? 1 : 0);
+  }
+  var row = Number(rowHeight) > 0 ? Number(rowHeight) : 30;
+  if (rows * row <= Number(available)) return {};
+  var out = {};
+  for (i = 0; i < list.length; i++) {
+    var title = list[i].title;
+    if (title && !groupHolds(list[i], currentId)) out[title] = true;
+  }
+  return out;
 }

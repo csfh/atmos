@@ -14,6 +14,15 @@ assertEqual(sub[1].link, false, "the last crumb is not a link");
 
 assertEqual(layout.breadcrumb("", "").length, 0, "an empty trail has no crumbs");
 
+const withGroup = layout.breadcrumb("Appearance", "Background", "Desktop");
+assertEqual(withGroup.length, 3, "a group adds a leading crumb");
+assertEqual(withGroup[0].label, "Desktop", "the group comes first");
+assertEqual(withGroup[0].link, false, "the group is never a link");
+assertEqual(withGroup[0].context, true, "the group is marked as context");
+assertEqual(withGroup[1].link, true, "the hub links back from a subpage");
+assertEqual(layout.breadcrumb("Home", "", "").length, 1, "a hub with no group has one crumb");
+assertEqual(layout.breadcrumb("", "", "Desktop").length, 0, "a group alone is not a trail");
+
 assertEqual(layout.railMode(800), true, "800px collapses the sidebar to a rail");
 assertEqual(layout.railMode(960), false, "960px keeps the full sidebar");
 assertEqual(layout.railMode(0), false, "an unknown width keeps the full sidebar");
@@ -39,3 +48,27 @@ assertEqual(
 const toggled = layout.toggleGroup({}, "Desktop");
 assertEqual(toggled.Desktop, true, "toggling collapses an open group");
 assertEqual(layout.toggleGroup(toggled, "Desktop").Desktop, undefined, "toggling again reopens it");
+
+const sidebar = [
+  { title: "", pages: [{ id: "home" }, { id: "monitor" }] },
+  { title: "Desktop", pages: [{ id: "appearance" }, { id: "displays" }] },
+  { title: "Controls", pages: [{ id: "input" }, { id: "sound" }] },
+];
+assertEqual(
+  Object.keys(layout.defaultCollapsed(sidebar, "appearance", 1000, 30)).length,
+  0,
+  "a sidebar that fits starts fully open",
+);
+const folded = layout.defaultCollapsed(sidebar, "appearance", 100, 30);
+assertEqual(folded.Controls, true, "a group that does not hold the page starts collapsed");
+assertEqual(folded.Desktop, undefined, "the group holding the page stays open");
+assertEqual(
+  Object.keys(layout.defaultCollapsed(sidebar, "home", 100, 30)).length,
+  2,
+  "an untitled group holds home and every titled group folds",
+);
+assertEqual(
+  Object.keys(layout.defaultCollapsed(null, "home", 100, 30)).length,
+  0,
+  "no groups means nothing to fold",
+);

@@ -573,7 +573,7 @@ assert(
 assert(
   settingRowSrc.indexOf("readonly property int favoriteGutter:") !== -1 &&
     settingRowSrc.indexOf("anchors.right: parent.right") !== -1 &&
-    settingRowSrc.indexOf("opacity: root.showFavoriteIcon || root.favorited ? 1 : 0.25") !== -1 &&
+    settingRowSrc.indexOf("opacity: root.showFavoriteIcon || root.favorited ? 1 : 0.16") !== -1 &&
     settingRowSrc.indexOf("id: favoriteHost") !== -1 &&
     settingRowSrc.indexOf("id: controlHost") < settingRowSrc.indexOf("id: favoriteHost"),
   "the favorite star sits in a reserved gutter to the right of the control and is dim until hover or favorited",
@@ -614,9 +614,8 @@ assert(
   "SettingRow shows a slider's current value on the label line when stacked",
 );
 assert(
-  settingRowSrc.indexOf("id: valueMetrics") !== -1 &&
-    settingRowSrc.indexOf("Math.min(valueMetrics.width") !== -1,
-  "SettingRow value text sizes from TextMetrics, not its own implicitWidth",
+  settingRowSrc.indexOf("Math.min(Math.ceil(valueBit.implicitWidth)") !== -1,
+  "SettingRow value text is sized from the Text that is drawn, so it is not cut short",
 );
 assert(
   settingRowSrc.indexOf("informational booleans") !== -1,

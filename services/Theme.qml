@@ -108,6 +108,8 @@ QtObject {
   readonly property int sidebarItemSpacing: 2
   readonly property int sidebarGroupSpacing: spaceMd
 
+  // One sidebar row. Tighter than a settings row so more hubs fit.
+  readonly property int navRowHeight: Math.max(28, Math.round(fontSize * 2.4))
   readonly property int rowHeight: Math.max(36, fontSize + spaceMd * 2)
   readonly property int controlHeight: Math.max(28, rowHeight - 8)
   readonly property int toggleWidth: 44
@@ -138,7 +140,7 @@ QtObject {
 
   // Shell chrome. The sidebar collapses to an icon rail on narrow windows.
   readonly property real sidebarFillAlpha: 0.03
-  readonly property int headerHeight: Math.max(44, rowHeight + 8)
+  readonly property int headerHeight: Math.max(40, rowHeight + 4)
   readonly property int avatarSize: 44
   readonly property int sidebarRailWidth: navIconSize + spaceLg * 2
   readonly property int pageSlideOffset: 36

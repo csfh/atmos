@@ -190,7 +190,17 @@ ShellRoot {
     Qt.callLater(function() { root.revealCurrentNav() })
   }
 
+  // The nav item that is selected, so the rail can find it again when the
+  // layout settles after startup or a group opens.
+  property var navSelected: null
+
+  function replaceNavHighlight() {
+    var item = root.navSelected
+    if (item && item.selected) root.placeNavHighlight(item)
+  }
+
   function placeNavHighlight(item) {
+    root.navSelected = item
     if (!item || root.query.length > 0) {
       navHighlight.visible = false
       return
@@ -596,7 +606,7 @@ ShellRoot {
             Rectangle {
               id: navHighlight
               width: Theme.railWidth
-              height: Theme.rowHeight
+              height: Theme.navRowHeight
               x: 0
               y: 0
               z: 2
@@ -615,6 +625,7 @@ ShellRoot {
             width: parent.width
             z: 1
             spacing: 0
+            onImplicitHeightChanged: Qt.callLater(root.replaceNavHighlight)
 
             Repeater {
               model: root.groupedPages
@@ -627,7 +638,8 @@ ShellRoot {
                 topPadding: index > 0 ? Theme.sidebarGroupSpacing : 0
 
                 readonly property string groupTitle: navGroup.modelData && navGroup.modelData.title ? navGroup.modelData.title : ""
-                readonly property bool open: LayoutJs.groupOpen(
+                // The icon rail has no group headers to open, so it shows everything.
+                readonly property bool open: root.railMode || LayoutJs.groupOpen(
                   root.collapsedGroups, navGroup.groupTitle,
                   LayoutJs.groupHolds(navGroup.modelData, root.currentPage))
 
@@ -694,7 +706,7 @@ ShellRoot {
                     id: navItem
                     required property var modelData
                     width: navColumn.width
-                    height: Theme.rowHeight
+                    height: Theme.navRowHeight
                     radius: Theme.radius
                     readonly property bool selected: root.query.length === 0 && root.currentPage === modelData.id
                     readonly property bool hovered: navMouse.containsMouse
@@ -715,8 +727,11 @@ ShellRoot {
                       else root.loadHub(modelData.id)
                     }
 
-                    onSelectedChanged: if (selected) root.placeNavHighlight(navItem)
-                    Component.onCompleted: if (selected) Qt.callLater(function() { root.placeNavHighlight(navItem) })
+                    onSelectedChanged: if (selected) {
+                      root.placeNavHighlight(navItem)
+                      Qt.callLater(function() { if (navItem.selected) root.placeNavHighlight(navItem) })
+                    }
+                    Component.onCompleted: if (selected) Qt.callLater(function() { if (navItem.selected) root.placeNavHighlight(navItem) })
 
                     PrefsIcon {
                       id: navIcon
@@ -765,6 +780,11 @@ ShellRoot {
                       Accessible.role: Accessible.StaticText
                       Accessible.name: badge ? badge.title : ""
                     }
+
+                    // The rail shows only icons, so the name appears on hover.
+                    ToolTip.visible: root.railMode && navMouse.containsMouse
+                    ToolTip.text: modelData && modelData.title ? modelData.title : ""
+                    ToolTip.delay: 350
 
                     MouseArea {
                       id: navMouse
@@ -870,7 +890,17 @@ ShellRoot {
         readonly property string hubName: root.query.length > 0 ? "Search" : HubsJs.hubTitle(root.hubId(root.currentPage))
         readonly property string subName: canGoBack && pageStack.currentItem && pageStack.currentItem.title !== undefined
           ? String(pageStack.currentItem.title) : ""
-        readonly property var crumbs: LayoutJs.breadcrumb(hubName, subName)
+        readonly property string groupName: {
+          if (root.query.length > 0) return ""
+          var hub = root.hubId(root.currentPage)
+          var list = root.pages
+          for (var i = 0; i < list.length; i++) {
+            if (list[i] && list[i].id === hub) return LayoutJs.navGroupLabel(list[i].group)
+          }
+          return ""
+        }
+        readonly property var crumbs: LayoutJs.breadcrumb(hubName, subName, groupName)
+        readonly property bool hasModeToggle: !!(pageStack.currentItem && pageStack.currentItem.showDisclosure === true)
 
         Item {
           id: backSlot
@@ -914,7 +944,7 @@ ShellRoot {
           id: crumbRow
           anchors.left: backSlot.right
           anchors.leftMargin: header.canGoBack ? Theme.space : Theme.pad * 1.5
-          anchors.right: searchBox.left
+          anchors.right: modeToggle.left
           anchors.rightMargin: Theme.space
           anchors.verticalCenter: parent.verticalCenter
           spacing: Theme.space
@@ -938,10 +968,13 @@ ShellRoot {
                 id: crumbText
                 anchors.verticalCenter: parent.verticalCenter
                 text: modelData.label
-                color: modelData.link ? (crumbMouse.containsMouse ? Theme.accent : Theme.muted) : Theme.foreground
+                color: modelData.link ? (crumbMouse.containsMouse ? Theme.accent : Theme.muted)
+                  : (modelData.context ? Theme.muted : Theme.foreground)
                 font.family: Theme.fontFamily
-                font.pixelSize: Theme.titleSize
-                font.bold: !modelData.link
+                font.pixelSize: modelData.context ? Theme.captionSize : Theme.fontSize
+                font.bold: !modelData.link && !modelData.context
+                font.letterSpacing: modelData.context ? Theme.sectionTracking : 0
+                font.capitalization: modelData.context ? Font.AllUppercase : Font.MixedCase
                 elide: Text.ElideRight
 
                 MouseArea {
@@ -1015,6 +1048,33 @@ ShellRoot {
           }
         }
 
+        // Simple / Everything, for pages that have advanced rows.
+        Row {
+          id: modeToggle
+          visible: header.hasModeToggle
+          anchors.right: searchBox.left
+          anchors.rightMargin: Theme.space
+          anchors.verticalCenter: parent.verticalCenter
+          spacing: 0
+
+          Accessible.role: Accessible.Grouping
+          Accessible.name: "Which options to show"
+
+          PrefsButton {
+            text: "Simple"
+            primary: Disclosure.simple
+            Accessible.description: "Fold the advanced rows. Search still finds them."
+            onClicked: Disclosure.simple = true
+          }
+
+          PrefsButton {
+            text: "Everything"
+            primary: !Disclosure.simple
+            Accessible.description: "Show every option."
+            onClicked: Disclosure.simple = false
+          }
+        }
+
         // Applying / Saved / Failed. A failure stays until dismissed; click it.
         Item {
           id: statusChip
@@ -1080,6 +1140,11 @@ ShellRoot {
           var hub = root.hubId(launched)
           if (!hub) hub = "appearance"
           root.currentPage = hub
+          // Open short: fold the groups that are not the one in use when the
+          // whole list would not fit. The identity row and footer take about
+          // 150px of the sidebar.
+          root.collapsedGroups = LayoutJs.defaultCollapsed(
+            root.groupedPages, hub, window.height - 150, Theme.navRowHeight)
           pageStack.push(root.pageComponent(hub), {}, StackView.Immediate)
           Qt.callLater(function() { root.revealCurrentNav() })
           var sub = launched === root.launchPath ? root.subId(root.launchPath) : ""

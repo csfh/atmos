@@ -11,7 +11,7 @@ PrefsPage {
   id: root
   hubId: "appearance"
   title: "Appearance"
-  description: "How the desktop looks. The theme sets colors for the shell and themed apps. Wallpaper and the boot screen open their own pages from the Wallpaper and boot section. Type size is on this page."
+  description: "How the desktop looks. The theme sets colors for the shell and themed apps. Wallpaper and the boot screen open from Wallpaper and boot."
 
   property var stack: null
   property var navigator: null

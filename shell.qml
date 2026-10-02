@@ -886,6 +886,12 @@ ShellRoot {
         clip: true
 
         readonly property bool canGoBack: pageStack.depth > 1
+        // The header lines up with the page under it: its text starts where
+        // the page title starts, and the search box ends where the rows end.
+        readonly property int columnWidth: pageStack.currentItem && pageStack.currentItem.pageColumnWidth !== undefined
+          ? pageStack.currentItem.pageColumnWidth : Theme.contentColumnWidth(width)
+        readonly property int columnX: Theme.contentColumnX(width, columnWidth)
+        readonly property int textInset: columnX + Theme.copyInset
         readonly property int backSlotWidth: Math.max(22, Theme.titleSize)
         readonly property string hubName: root.query.length > 0 ? "Search" : HubsJs.hubTitle(root.hubId(root.currentPage))
         readonly property string subName: canGoBack && pageStack.currentItem && pageStack.currentItem.title !== undefined
@@ -904,10 +910,12 @@ ShellRoot {
 
         Item {
           id: backSlot
+          // The back chevron sits in the gutter left of the text inset, so the
+          // crumbs start at the same x on every page.
           anchors.left: parent.left
-          anchors.leftMargin: Theme.pad * 1.5
+          anchors.leftMargin: Math.max(4, header.textInset - header.backSlotWidth - 6)
           anchors.verticalCenter: parent.verticalCenter
-          width: header.canGoBack ? header.backSlotWidth : 0
+          width: header.backSlotWidth
           height: header.backSlotWidth
           visible: header.canGoBack
 
@@ -942,8 +950,8 @@ ShellRoot {
 
         Row {
           id: crumbRow
-          anchors.left: backSlot.right
-          anchors.leftMargin: header.canGoBack ? Theme.space : Theme.pad * 1.5
+          anchors.left: parent.left
+          anchors.leftMargin: header.textInset
           anchors.right: modeToggle.left
           anchors.rightMargin: Theme.space
           anchors.verticalCenter: parent.verticalCenter
@@ -993,9 +1001,9 @@ ShellRoot {
         Rectangle {
           id: searchBox
           anchors.right: statusChip.left
-          anchors.rightMargin: Theme.space
+          anchors.rightMargin: Feedback.chip.length > 0 ? Theme.space : 0
           anchors.verticalCenter: parent.verticalCenter
-          width: Math.min(Theme.fieldWidth + Theme.spaceLg * 2, Math.max(0, header.width / 2.4))
+          width: header.width < 760 ? Theme.fieldWidth * 0.8 : Math.min(Theme.fieldWidth + Theme.spaceLg * 2, Math.max(0, header.width / 2.4))
           height: Theme.controlHeight
           radius: Theme.radius
           color: searchField.activeFocus || searchHover.hovered ? Theme.fill(Theme.hoverFill) : Theme.fill(Theme.normalFill)
@@ -1079,7 +1087,7 @@ ShellRoot {
         Item {
           id: statusChip
           anchors.right: parent.right
-          anchors.rightMargin: Theme.pad * 1.5
+          anchors.rightMargin: header.columnX
           anchors.verticalCenter: parent.verticalCenter
           width: Feedback.chip.length > 0 ? chipText.implicitWidth : 0
           height: chipText.implicitHeight

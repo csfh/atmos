@@ -892,7 +892,7 @@ ShellRoot {
           ? pageStack.currentItem.pageColumnWidth : Theme.contentColumnWidth(width)
         readonly property int columnX: Theme.contentColumnX(width, columnWidth)
         readonly property int textInset: columnX + Theme.copyInset
-        readonly property int backSlotWidth: Math.max(22, Theme.titleSize)
+        readonly property int backSlotWidth: Math.max(16, Theme.fontSize + 4)
         readonly property string hubName: root.query.length > 0 ? "Search" : HubsJs.hubTitle(root.hubId(root.currentPage))
         readonly property string subName: canGoBack && pageStack.currentItem && pageStack.currentItem.title !== undefined
           ? String(pageStack.currentItem.title) : ""
@@ -923,16 +923,15 @@ ShellRoot {
           Accessible.name: "Back"
           Accessible.onPressAction: pageStack.pop()
 
-          PrefsIcon {
+          // A plain "<", set like the crumbs, so it centers on the same line.
+          Text {
             anchors.centerIn: parent
-            name: Theme.iconChevronLeft
-            size: Theme.titleSize
+            text: "<"
             color: backMouse.containsMouse ? Theme.foreground : Theme.accent
-            scale: backMouse.containsMouse ? 1.08 : 1
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.fontSize
+            font.bold: true
 
-            Behavior on scale {
-              NumberAnimation { duration: Theme.motionMed; easing.type: Easing.OutCubic }
-            }
             Behavior on color {
               ColorAnimation { duration: Theme.motionMed }
             }
@@ -964,12 +963,13 @@ ShellRoot {
             Row {
               spacing: Theme.space
 
-              PrefsIcon {
+              Text {
                 visible: index > 0
                 anchors.verticalCenter: parent.verticalCenter
-                name: Theme.iconChevronRight
-                size: Theme.fontSize
+                text: "/"
                 color: Theme.muted
+                font.family: Theme.fontFamily
+                font.pixelSize: Theme.fontSize
               }
 
               Text {

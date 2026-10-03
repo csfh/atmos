@@ -3,10 +3,11 @@
 # it opens a window, so it needs a Wayland session and quickshell, and is not
 # part of ./tests/run. Run it before tagging a release.
 #
-#   ./tests/smoke [seconds]
+#   ./tests/smoke [seconds] [app-root]
+#   ./tests/smoke 3 ~/.local/share/atmos
 set -euo pipefail
 
-root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+root=${2:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}
 wait_s=${1:-10}
 
 if ! command -v quickshell >/dev/null 2>&1; then
@@ -18,12 +19,17 @@ if [[ -z ${WAYLAND_DISPLAY:-} ]]; then
   exit 0
 fi
 
-(cd "$root/backend" && cargo build --quiet)
+if [[ -x $root/bin/ratmos ]]; then
+  backend=$root/bin/ratmos
+else
+  (cd "$root/backend" && cargo build --quiet)
+  backend=$root/backend/target/debug/ratmos
+fi
 
 log=$(mktemp)
 trap 'rm -f "$log"' EXIT
 
-ATMOS_BACKEND="$root/backend/target/debug/ratmos" "$root/bin/atmos" >"$log" 2>&1 &
+ATMOS_BACKEND="$backend" "$root/bin/atmos" >"$log" 2>&1 &
 app=$!
 cleanup() {
   kill "$app" 2>/dev/null || true

@@ -51,14 +51,19 @@ else
   local_sha=""
 fi
 
-if [[ -n $local_sha && $local_sha == "$remote_sha" ]]; then
+if [[ -n $local_sha && $local_sha == "$remote_sha" &&
+      -x $dest/bin/atmos && -x $dest/bin/ratmos && -f $dest/shell.qml ]]; then
   say status current
   say summary "Atmos is up to date."
   exit 0
 fi
 
 say status behind
-say summary "A newer Atmos is on alpha."
+if [[ $local_sha == "$remote_sha" ]]; then
+  say summary "Atmos installation is incomplete. Update to repair it."
+else
+  say summary "A newer Atmos is on alpha."
+fi
 
 if [[ $ACTION != apply ]]; then
   exit 0

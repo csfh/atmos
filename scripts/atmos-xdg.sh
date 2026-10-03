@@ -61,25 +61,33 @@ atmos_build_backend() {
     return 1
   }
   cargo build --release --manifest-path "$src/backend/Cargo.toml" || return 1
-  mkdir -p "$dest/bin"
-  cp -a "$src/backend/target/release/ratmos" "$dest/bin/ratmos"
+  mkdir -p "$dest/bin" || return 1
+  cp -a "$src/backend/target/release/ratmos" "$dest/bin/ratmos" || return 1
   chmod +x "$dest/bin/ratmos"
 }
 
-atmos_stage() {
+atmos_stage() (
   local src=$1
   local dest=$2
   [[ -d $src && -x $src/bin/atmos && -f $src/shell.qml ]] || return 1
-  mkdir -p "$dest"
+  # Prepare the whole app before touching the installed copy. A failed Rust
+  # build must leave the existing launcher, backend and QML together.
+  local stage
+  stage=$(mktemp -d) || return 1
+  trap 'rm -rf -- "$stage"' EXIT
   local item
   for item in bin components pages services scripts packaging icons shell.qml; do
-    rm -rf "$dest/$item"
-    cp -a "$src/$item" "$dest/$item"
+    cp -a "$src/$item" "$stage/$item" || return 1
   done
-  chmod +x "$dest/bin/atmos"
-  find "$dest/scripts" -maxdepth 1 -type f -name '*.sh' -exec chmod +x {} +
-  atmos_build_backend "$src" "$dest"
-}
+  chmod +x "$stage/bin/atmos" || return 1
+  find "$stage/scripts" -maxdepth 1 -type f -name '*.sh' -exec chmod +x {} + || return 1
+  atmos_build_backend "$src" "$stage" || return 1
+  mkdir -p "$dest" || return 1
+  for item in bin components pages services scripts packaging icons shell.qml; do
+    rm -rf "$dest/$item" || return 1
+    cp -a "$stage/$item" "$dest/$item" || return 1
+  done
+)
 
 atmos_write_revision() {
   local dest=$1

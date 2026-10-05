@@ -357,10 +357,10 @@ function hubs() {
       icon: "links-line",
       file: "DefaultsPage.qml",
       keywords: keywordList(
-        "browser terminal editor agent chrome firefox nvim pdf mime image video",
-        ["browser", "terminal"],
+        "browser terminal editor agent chrome firefox nvim pdf mime image video mcp claude codex grok cursor tools",
+        ["browser", "terminal", "mcp"],
       ),
-      children: [],
+      children: [child("defaults/agents", "Agent tools", "defaults/AgentsPage.qml")],
     },
     {
       id: "applications",

@@ -137,6 +137,7 @@ const pageFiles = [
   "system/EnvironmentPage.qml",
   "system/KernelPage.qml",
   "applications/StartupPage.qml",
+  "defaults/AgentsPage.qml",
   "WorkspacesPage.qml",
   "TweaksPage.qml",
   "ServicesPage.qml",

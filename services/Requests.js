@@ -22,6 +22,9 @@ var OPS = [
   "speedtest.disk",
   "speedtest.net",
   "unit.output",
+  "agents.mcp.list",
+  "agents.mcp.set",
+  "agents.mcp.check",
 ];
 
 function settingsSnapshot(group, keys) {
@@ -93,4 +96,18 @@ function unitOutput(kind, scope, unit) {
     scope: String(scope || "system"),
     unit: String(unit),
   };
+}
+
+function agentsMcpList() {
+  return { op: "agents.mcp.list" };
+}
+
+function agentsMcpSet(agent, on, replace) {
+  var body = { op: "agents.mcp.set", agent: String(agent || ""), on: on === true };
+  if (replace === true) body.replace = true;
+  return body;
+}
+
+function agentsMcpCheck() {
+  return { op: "agents.mcp.check" };
 }

@@ -5,6 +5,7 @@
 //! files those settings already use. The plain backend stores the same keys
 //! in its own config tree.
 
+mod agents;
 mod apply;
 mod display;
 pub mod domain;
@@ -271,6 +272,13 @@ pub(crate) fn handle(
         Request::SpeedtestDisk(args) => host::speed_disk(backend, root, &args)?,
         Request::SpeedtestNet(args) => host::speed_net(backend, root, &args)?,
         Request::UnitOutput(args) => host::unit_output(backend, root, &args)?,
+        Request::AgentsMcpList => agents::list(root)?,
+        Request::AgentsMcpSet {
+            agent,
+            on,
+            replace,
+        } => agents::set(root, &agent, on, replace)?,
+        Request::AgentsMcpCheck => agents::check(root)?,
     };
     Ok(ok_envelope(backend, result))
 }

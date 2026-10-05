@@ -17,6 +17,40 @@ if [[ ${ATMOS_PRINT_ROOT:-0} == 1 ]]; then
   exit 0
 fi
 
+resolve_backend() {
+  if [[ -n ${ATMOS_BACKEND:-} && -x ${ATMOS_BACKEND} ]]; then
+    printf '%s\n' "$ATMOS_BACKEND"
+    return 0
+  fi
+  local candidate
+  for candidate in \
+    "$ROOT/bin/ratmos" \
+    "$ROOT/backend/target/release/ratmos" \
+    "$ROOT/backend/target/debug/ratmos"
+  do
+    if [[ -x $candidate ]]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+  return 1
+}
+
+# Agents speak MCP on stdin and stdout. This does not open a window.
+if [[ ${1:-} == mcp ]]; then
+  BACKEND=$(resolve_backend) || {
+    echo "atmos: missing ratmos. Build it with: cargo build --manifest-path \"$ROOT/backend/Cargo.toml\"" >&2
+    exit 1
+  }
+  if ! command -v node >/dev/null 2>&1; then
+    echo "atmos: node is not installed" >&2
+    exit 1
+  fi
+  export ATMOS_BACKEND=$BACKEND
+  shift
+  exec node "$ROOT/services/McpServer.js" "$@"
+fi
+
 if [[ ! -f $ROOT/shell.qml ]]; then
   echo "atmos: missing $ROOT/shell.qml" >&2
   exit 1
@@ -38,32 +72,13 @@ fi
 
 HUB=${PAGE%%/*}
 if [[ -n $PAGE && $HUB != home && $HUB != monitor && $HUB != favorites && $HUB != appearance && $HUB != display && $HUB != windows && $HUB != workspaces && $HUB != bar && $HUB != notifications && $HUB != profiles && $HUB != input && $HUB != keybindings && $HUB != accessibility && $HUB != sound && $HUB != capture && $HUB != hardware && $HUB != drivers && $HUB != disks && $HUB != network && $HUB != bluetooth && $HUB != power && $HUB != idle && $HUB != defaults && $HUB != applications && $HUB != software && $HUB != hooks && $HUB != system && $HUB != tweaks && $HUB != export && $HUB != accounts && $HUB != security && $HUB != services ]]; then
-  echo "Usage: atmos [home|monitor|favorites|appearance|display|hardware|drivers|windows|workspaces|input|keybindings|accessibility|sound|capture|disks|bar|notifications|profiles|defaults|applications|software|network|bluetooth|power|idle|security|accounts|hooks|tweaks|services|system|export][/theme|background|boot|gpu|cpu|npu|speedtest|wifi|bindings|rules|startup|environment|kernel|diagnostics|history|processes|memory|disk|traffic|sensors]" >&2
+  echo "Usage: atmos [home|monitor|favorites|appearance|display|hardware|drivers|windows|workspaces|input|keybindings|accessibility|sound|capture|disks|bar|notifications|profiles|defaults|applications|software|network|bluetooth|power|idle|security|accounts|hooks|tweaks|services|system|export][/theme|background|boot|gpu|cpu|npu|speedtest|wifi|bindings|rules|startup|environment|kernel|diagnostics|history|processes|memory|disk|traffic|sensors|agents]" >&2
   exit 1
 fi
 
 if [[ -n $PAGE ]]; then
   export ATMOS_PAGE=$PAGE
 fi
-
-resolve_backend() {
-  if [[ -n ${ATMOS_BACKEND:-} && -x ${ATMOS_BACKEND} ]]; then
-    printf '%s\n' "$ATMOS_BACKEND"
-    return 0
-  fi
-  local candidate
-  for candidate in \
-    "$ROOT/bin/ratmos" \
-    "$ROOT/backend/target/release/ratmos" \
-    "$ROOT/backend/target/debug/ratmos"
-  do
-    if [[ -x $candidate ]]; then
-      printf '%s\n' "$candidate"
-      return 0
-    fi
-  done
-  return 1
-}
 
 BACKEND=$(resolve_backend) || {
   echo "atmos: missing ratmos. Build it with: cargo build --manifest-path \"$ROOT/backend/Cargo.toml\"" >&2

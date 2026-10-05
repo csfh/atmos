@@ -54,6 +54,17 @@ pub enum Request {
     SpeedtestNet(SpeedNet),
     #[serde(rename = "unit.output")]
     UnitOutput(UnitOutput),
+    #[serde(rename = "agents.mcp.list")]
+    AgentsMcpList,
+    #[serde(rename = "agents.mcp.set")]
+    AgentsMcpSet {
+        agent: String,
+        on: bool,
+        #[serde(default)]
+        replace: bool,
+    },
+    #[serde(rename = "agents.mcp.check")]
+    AgentsMcpCheck,
 }
 
 fn all_groups() -> String {

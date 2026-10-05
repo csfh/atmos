@@ -295,7 +295,7 @@ fn acquire(file: fs::File, mode: i32, lock_path: &Path) -> Result<Locked> {
 }
 
 /// Writers serialise on a sidecar lock next to the file.
-fn with_lock<T>(path: &Path, body: impl FnOnce() -> Result<T>) -> Result<T> {
+pub(crate) fn with_lock<T>(path: &Path, body: impl FnOnce() -> Result<T>) -> Result<T> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
     }

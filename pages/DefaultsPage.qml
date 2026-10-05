@@ -1,12 +1,27 @@
 import QtQuick
 import "../components"
 import "../services"
+import "defaults" as AgentPages
 
 PrefsPage {
   id: root
   hubId: "defaults"
   title: "Defaults"
   description: "The programs Omarchy opens when something asks for a default. The coding agent is a separate pick."
+
+  property var stack: null
+  property var navigator: null
+
+  function openSubpage(id) {
+    if (stack) {
+      if (id === "agents") stack.push(agentsPage)
+      return
+    }
+    if (root.navigator && root.navigator.go)
+      root.navigator.go("defaults/" + id)
+  }
+
+  Component { id: agentsPage; AgentPages.AgentsPage {} }
 
   readonly property var browserOptions: [
     { value: "chromium", label: "Chromium" },
@@ -135,6 +150,19 @@ PrefsPage {
         value: Omarchy.agent
         options: root.agentOptions
         onChanged: function(value) { if (value !== Omarchy.agent) Omarchy.set("agent", value) }
+      }
+    }
+
+    SettingRow {
+      label: "Omarchy tools"
+      description: "Install the Atmos tools for the coding agents on this machine."
+      hint: "atmos mcp"
+      query: root.query
+      keywords: ["mcp", "claude", "codex", "grok", "cursor", "agent"]
+
+      PrefsButton {
+        text: "Open…"
+        onClicked: root.openSubpage("agents")
       }
     }
   }

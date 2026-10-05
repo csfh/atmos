@@ -60,3 +60,35 @@ assert(
   src.indexOf("quickshell-mirror/quickshell#1010") !== -1,
   "bin/atmos cites the upstream crash the swap works around",
 );
+
+function runMcp() {
+  const stub = fs.mkdtempSync(path.join(os.tmpdir(), "atmos-mcp-"));
+  fs.writeFileSync(
+    path.join(stub, "node"),
+    '#!/bin/bash\nprintf "NODE %s\\n" "$*"\nprintf "BACKEND=%s\\n" "$ATMOS_BACKEND"\n',
+    { mode: 0o755 },
+  );
+  fs.writeFileSync(path.join(stub, "quickshell"), "#!/bin/bash\nprintf 'QUICKSHELL\\n'\n", {
+    mode: 0o755,
+  });
+  const backend = path.join(stub, "ratmos");
+  fs.writeFileSync(backend, "#!/bin/bash\nexit 0\n", { mode: 0o755 });
+  const result = spawnSync("bash", [launcher, "mcp"], {
+    encoding: "utf8",
+    env: Object.assign({}, process.env, {
+      PATH: stub + ":" + process.env.PATH,
+      ATMOS_BACKEND: backend,
+    }),
+  });
+  fs.rmSync(stub, { recursive: true, force: true });
+  return { result: result, backend: backend };
+}
+
+const mcp = runMcp();
+assertEqual(mcp.result.status, 0, "atmos mcp exits through the node tunnel");
+assert(mcp.result.stdout.indexOf("McpServer.js") !== -1, "atmos mcp execs the MCP server");
+assert(
+  mcp.result.stdout.indexOf("BACKEND=" + mcp.backend) !== -1,
+  "atmos mcp exports the resolved backend",
+);
+assert(mcp.result.stdout.indexOf("QUICKSHELL") === -1, "atmos mcp does not open a window");

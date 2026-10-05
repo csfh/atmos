@@ -356,11 +356,25 @@ function hubs() {
       snapshotGroup: "all",
       icon: "links-line",
       file: "DefaultsPage.qml",
+      keywords: keywordList("browser terminal editor chrome firefox nvim pdf mime image video", [
+        "browser",
+        "terminal",
+      ]),
+      children: [],
+    },
+    {
+      id: "agentic",
+      title: "Agentic",
+      description: "Installed coding agents, the default Omarchy opens, and MCP.",
+      navGroup: "apps",
+      snapshotGroup: "all",
+      icon: "robot-2-line",
+      file: "AgenticPage.qml",
       keywords: keywordList(
-        "browser terminal editor agent chrome firefox nvim pdf mime image video mcp claude codex grok cursor tools",
-        ["browser", "terminal", "mcp"],
+        "agent agentic coding mcp claude codex grok cursor pi omp opencode gemini hermes openclaw muse copilot crush install default tools",
+        ["agent", "mcp"],
       ),
-      children: [child("defaults/agents", "Agent tools", "defaults/AgentsPage.qml")],
+      children: [child("agentic/mcp", "MCP", "agentic/McpPage.qml")],
     },
     {
       id: "applications",
@@ -548,6 +562,7 @@ function fileHub(rel) {
   if (base.indexOf("network/") === 0) return "network";
   if (base.indexOf("windows/") === 0) return "windows";
   if (base.indexOf("applications/") === 0) return "applications";
+  if (base.indexOf("agentic/") === 0) return "agentic";
   if (base.indexOf("system/") === 0) return "system";
   if (base.indexOf("monitor/") === 0) return "monitor";
   return "";

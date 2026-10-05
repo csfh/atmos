@@ -6,8 +6,8 @@ import "../../services/Requests.js" as Requests
 
 PrefsPage {
   id: root
-  hubId: "defaults/agents"
-  title: "Agent tools"
+  hubId: "agentic/mcp"
+  title: "MCP"
   description: "Let installed coding agents read this machine and change settings through Atmos."
 
   property var agents: []
@@ -188,7 +188,7 @@ PrefsPage {
     SettingRow {
       visible: root.installed.length === 0 && root.loadError.length === 0
       label: "No agents"
-      description: "Install a coding agent with omarchy default agent, then come back."
+      description: "Install a coding agent on the Agentic page, then come back."
       valueText: "None"
       query: root.query
     }

@@ -334,6 +334,7 @@ ShellRoot {
   Component { id: barPage; BarPage { query: root.query } }
   Component { id: notificationsPage; NotificationsPage { query: root.query } }
   Component { id: defaultsPage; DefaultsPage { query: root.query } }
+  Component { id: agenticPage; AgenticPage { query: root.query; stack: pageStack; navigator: prefsNavigator } }
   Component { id: applicationsPage; ApplicationsPage { query: root.query; stack: pageStack; navigator: prefsNavigator } }
   Component { id: softwarePage; SoftwarePage { query: root.query } }
   Component { id: networkPage; NetworkPage { query: root.query; stack: pageStack; navigator: prefsNavigator } }
@@ -369,6 +370,7 @@ ShellRoot {
     notifications: notificationsPage,
     profiles: profilesPage,
     defaults: defaultsPage,
+    agentic: agenticPage,
     applications: applicationsPage,
     software: softwarePage,
     network: networkPage,

@@ -1,27 +1,12 @@
 import QtQuick
 import "../components"
 import "../services"
-import "defaults" as AgentPages
 
 PrefsPage {
   id: root
   hubId: "defaults"
   title: "Defaults"
-  description: "The programs Omarchy opens when something asks for a default. The coding agent is a separate pick."
-
-  property var stack: null
-  property var navigator: null
-
-  function openSubpage(id) {
-    if (stack) {
-      if (id === "agents") stack.push(agentsPage)
-      return
-    }
-    if (root.navigator && root.navigator.go)
-      root.navigator.go("defaults/" + id)
-  }
-
-  Component { id: agentsPage; AgentPages.AgentsPage {} }
+  description: "The programs Omarchy opens when something asks for a default."
 
   readonly property var browserOptions: [
     { value: "chromium", label: "Chromium" },
@@ -61,18 +46,6 @@ PrefsPage {
     out.push({ value: id, label: id })
     return out
   }
-
-  readonly property var agentOptions: [
-    { value: "claude", label: "Claude" },
-    { value: "codex", label: "Codex" },
-    { value: "copilot", label: "Copilot" },
-    { value: "crush", label: "Crush" },
-    { value: "gemini", label: "Gemini" },
-    { value: "grok", label: "Grok" },
-    { value: "omp", label: "omp" },
-    { value: "opencode", label: "OpenCode" },
-    { value: "pi", label: "Pi" }
-  ]
 
   PrefsGroup {
     title: "Applications"
@@ -130,39 +103,6 @@ PrefsPage {
           var current = Omarchy.editor === "zeditor" ? "zed" : Omarchy.editor
           if (value !== current) Omarchy.set("editor", value)
         }
-      }
-    }
-  }
-
-  PrefsGroup {
-    title: "Agent"
-    query: root.query
-    detail: "The coding agent Omarchy treats as the default. If it is missing, Omarchy offers to install it."
-
-    SettingRow {
-      label: "Coding agent"
-      description: "Which coding agent Omarchy opens. If it is missing, it offers to install it."
-      hint: "omarchy default agent"
-      query: root.query
-      keywords: ["ai", "claude", "codex", "grok"]
-
-      PrefsSelect {
-        value: Omarchy.agent
-        options: root.agentOptions
-        onChanged: function(value) { if (value !== Omarchy.agent) Omarchy.set("agent", value) }
-      }
-    }
-
-    SettingRow {
-      label: "Omarchy tools"
-      description: "Install the Atmos tools for the coding agents on this machine."
-      hint: "atmos mcp"
-      query: root.query
-      keywords: ["mcp", "claude", "codex", "grok", "cursor", "agent"]
-
-      PrefsButton {
-        text: "Open…"
-        onClicked: root.openSubpage("agents")
       }
     }
   }

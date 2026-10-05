@@ -6,7 +6,7 @@ Notable changes to Atmos. Each section is a git tag on `main` and `alpha`. Insta
 
 ### Added
 
-- `atmos mcp` lets installed agents read and change this machine, and Defaults → Agent tools installs it for Grok, Claude Code, and Cursor.
+- `atmos mcp` lets installed agents read and change this machine. Agentic lists the agents on this machine and chooses which one Omarchy opens. Agentic → MCP installs the command for Grok, Claude Code, and Cursor.
 
 ## [v0.1.0-rc.1] - 2026-10-02
 

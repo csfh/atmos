@@ -2,11 +2,15 @@
 
 Notable changes to Atmos. Each section is a git tag on `main` and `alpha`. Install and in-app Update follow the `alpha` branch.
 
-## [Unreleased]
+## [v0.1.0-rc.2] - 2026-10-05
 
 ### Added
 
 - `atmos mcp` lets installed agents read and change this machine. Agentic lists the agents on this machine and chooses which one Omarchy opens. Agentic → MCP installs the command for Grok, Claude Code, and Cursor.
+
+### Fixed
+
+- An alpha install keeps the running copy until ratmos is built, and Update repairs an install that is missing the launcher, backend, or shell.
 
 ## [v0.1.0-rc.1] - 2026-10-02
 
@@ -399,6 +403,8 @@ First public alpha. Standalone [Quickshell](https://quickshell.org) preferences 
 - Keyboard use on controls (tab focus and activation). File watching of Omarchy/Hyprland paths so outside changes can refresh the snapshot. Shared page routing and content-column layout.
 - MIT license. Contributions assign copyright to Christoffer Hallas ([CLA](CLA.md)).
 
+[v0.1.0-rc.2]: https://github.com/csfh/atmos/compare/v0.1.0-rc.1...v0.1.0-rc.2
+[v0.1.0-rc.1]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.24...v0.1.0-rc.1
 [v0.0.1-alpha.24]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.23...v0.0.1-alpha.24
 [v0.0.1-alpha.23]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.22...v0.0.1-alpha.23
 [v0.0.1-alpha.22]: https://github.com/csfh/atmos/compare/v0.0.1-alpha.21...v0.0.1-alpha.22

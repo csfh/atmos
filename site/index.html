@@ -3,27 +3,67 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Atmos — Quickshell preferences for Omarchy</title>
+    <title>Atmos — Preferences for Omarchy</title>
     <meta
       name="description"
-      content="Atmos is a Quickshell preferences window for Omarchy. It follows the active theme and writes through omarchy commands and Hyprland drop-ins."
+      content="A standalone Quickshell preferences window for Omarchy. Follows the active theme. Writes through omarchy commands and Hyprland drop-ins. Settings live in ~/.config."
     />
     <link rel="canonical" href="https://atmos.csfh.dev/" />
-    <meta property="og:title" content="Atmos — Quickshell preferences for Omarchy" />
+    <meta property="og:title" content="Atmos — Preferences for Omarchy" />
     <meta
       property="og:description"
-      content="A preferences window for Omarchy. Follows the active theme. Writes through omarchy and Hyprland."
+      content="A standalone Quickshell preferences window for Omarchy. Follows the active theme. Writes through omarchy and Hyprland."
     />
     <meta property="og:url" content="https://atmos.csfh.dev/" />
     <meta property="og:type" content="website" />
-    <meta name="theme-color" content="#0c0d11" />
-    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Instrument+Serif&display=swap"
-      rel="stylesheet"
+    <meta property="og:site_name" content="Atmos" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:image" content="https://atmos.csfh.dev/og.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="Atmos wordmark beside the Home hub: live processor, memory, and network."
     />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Atmos — Preferences for Omarchy" />
+    <meta
+      name="twitter:description"
+      content="A standalone Quickshell preferences window for Omarchy. Follows the active theme. Writes through omarchy and Hyprland."
+    />
+    <meta name="twitter:image" content="https://atmos.csfh.dev/og.png" />
+    <meta name="theme-color" content="#0c0d11" />
+    <meta name="color-scheme" content="dark" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link
+      rel="preload"
+      href="/fonts/instrument-serif-latin-400.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "Atmos",
+        "applicationCategory": "UtilitiesApplication",
+        "operatingSystem": "Linux",
+        "url": "https://atmos.csfh.dev/",
+        "downloadUrl": "https://github.com/csfh/atmos/releases",
+        "codeRepository": "https://github.com/csfh/atmos",
+        "license": "https://github.com/csfh/atmos/blob/main/LICENSE",
+        "description": "A standalone Quickshell preferences window for Omarchy. It follows the active theme and writes through omarchy commands and Hyprland drop-ins.",
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+        "author": {
+          "@type": "Person",
+          "name": "Christoffer Hallas",
+          "email": "oss@christofferhallas.com"
+        }
+      }
+    </script>
   </head>
   <body>
     <a class="skip" href="#main">Skip to content</a>
@@ -39,6 +79,7 @@
         Atmos
       </a>
       <nav class="nav" aria-label="Primary">
+        <a href="#features">Features</a>
         <a href="#preview">Preview</a>
         <a href="#install">Install</a>
         <a href="https://github.com/csfh/atmos">GitHub</a>
@@ -47,112 +88,329 @@
 
     <main id="main">
       <section class="hero">
-        <p class="eyebrow">Alpha · MIT · for Omarchy</p>
-        <h1>Atmos</h1>
-        <p class="lede">
-          A Quickshell preferences window for
-          <a href="https://omarchy.org">Omarchy</a>. It follows the active theme
-          and writes through <code>omarchy</code> commands and Hyprland drop-ins.
-        </p>
-        <div class="actions">
-          <a class="btn btn-primary" href="#install">Install</a>
-          <a class="btn" href="https://github.com/csfh/atmos">Source</a>
+        <div class="hero-copy">
+          <p class="eyebrow">Alpha · MIT · for Omarchy</p>
+          <h1>Atmos</h1>
+          <p class="lede">
+            Preferences for
+            <a href="https://omarchy.org">Omarchy</a> — themes, the bar,
+            network, power, and the rest of this machine.
+          </p>
+          <p class="why">
+            A standalone
+            <a href="https://quickshell.org">Quickshell</a> window that follows
+            the active theme and writes through <code>omarchy</code> commands
+            and Hyprland drop-ins. There is no private prefs store. Settings
+            live in <code>~/.config</code>.
+          </p>
+          <div class="term hero-term">
+            <code id="install-cmd"
+              >curl -fsSL https://raw.githubusercontent.com/csfh/atmos/alpha/install.sh | bash</code
+            >
+            <button
+              type="button"
+              class="copy"
+              data-copy="#install-cmd"
+              aria-label="Copy install command"
+              aria-live="polite"
+            >
+              Copy
+            </button>
+          </div>
+          <div class="actions">
+            <a class="btn btn-primary" href="#install">Getting started</a>
+            <a class="btn" href="https://github.com/csfh/atmos">Source</a>
+            <a class="btn" href="https://github.com/csfh/atmos/releases">Releases</a>
+          </div>
         </div>
+
+        <figure class="hero-shot">
+          <picture>
+            <source
+              type="image/webp"
+              srcset="/screenshots/home-800.webp 800w, /screenshots/home.webp 1280w"
+              sizes="(max-width: 800px) 100vw, 38rem"
+            />
+            <img
+              src="/screenshots/home.png"
+              width="1280"
+              height="1538"
+              alt="Atmos Home hub showing live processor, memory, network, and temperature charts for this machine."
+              fetchpriority="high"
+              decoding="async"
+            />
+          </picture>
+          <figcaption>
+            Home — live load in this window.
+            <a href="#preview">More pages</a>
+          </figcaption>
+        </figure>
       </section>
 
-      <section id="preview" class="preview" aria-labelledby="preview-heading">
-        <div class="preview-copy">
-          <h2 id="preview-heading">How it sits on the desktop</h2>
+      <section id="features" class="features" aria-labelledby="features-heading">
+        <h2 id="features-heading">What it does</h2>
+        <ul class="cards">
+          <li>
+            <h3>Follows the theme</h3>
+            <p>
+              Chrome comes from the current Omarchy theme. Hover a theme card
+              to preview it in this window before you commit.
+            </p>
+          </li>
+          <li>
+            <h3>Writes where Omarchy already does</h3>
+            <p>
+              Mutations go through <code>omarchy</code> and Hyprland sentinel
+              blocks. Atmos does not keep a second prefs store.
+            </p>
+          </li>
+          <li>
+            <h3>Live Monitor</h3>
+            <p>
+              Cores, memory, disk I/O, traffic, sensors, and a process table.
+              Samples stay in this window. Nothing is written to disk.
+            </p>
+          </li>
+          <li>
+            <h3>Search and a keyboard</h3>
+            <p>
+              Press <kbd>/</kbd> or <kbd>Ctrl</kbd>+<kbd>F</kbd> to find a
+              setting. <kbd>Ctrl</kbd>+<kbd>/</kbd> opens the shortcut sheet.
+            </p>
+          </li>
+          <li>
+            <h3>Several windows at once</h3>
+            <p>
+              Each launch is its own window. They stay in sync through the
+              files they share. Concurrent writes serialize on disk.
+            </p>
+          </li>
+          <li>
+            <h3>Diagnostics, Omafile, agents</h3>
+            <p>
+              Copy a machine report, share settings as Markdown, and install
+              <code>atmos mcp</code> for agents on this machine.
+            </p>
+          </li>
+        </ul>
+      </section>
+
+      <section id="preview" class="gallery" aria-labelledby="preview-heading">
+        <div class="gallery-copy">
+          <h2 id="preview-heading">A look inside</h2>
           <p>
-            Sidebar hubs, a search field, and settings pages that match the
-            running theme. Settings live in <code>~/.config</code>.
-          </p>
-          <p class="note">
-            This is an illustrative placeholder, not a product screenshot.
-            Real shots are still pending
-            (<a href="https://github.com/csfh/atmos/issues/82">csfh/atmos#82</a>).
+            Real shots of the running app. The window follows whatever Omarchy
+            theme is active — here, a dark palette.
           </p>
         </div>
-
-        <figure class="stage">
-          <figcaption class="badge">Illustrative placeholder</figcaption>
-          <div class="window" role="img" aria-label="Stylized illustration of the Atmos preferences window, not a real screenshot.">
-            <div class="chrome">
-              <span class="dots" aria-hidden="true"></span>
-              <span class="chrome-title">Atmos</span>
-            </div>
-            <div class="prefs">
-              <aside class="rail">
-                <div class="face" aria-hidden="true"></div>
-                <div class="who">
-                  <strong>you</strong>
-                  <span>omarchy</span>
-                </div>
-                <div class="find">Find a setting</div>
-                <ul>
-                  <li>Home</li>
-                  <li>Monitor</li>
-                </ul>
-                <p class="group">Look</p>
-                <ul>
-                  <li>Favorites</li>
-                  <li class="on">Appearance</li>
-                  <li>Displays</li>
-                  <li>Windows</li>
-                  <li>Bar</li>
-                </ul>
-                <p class="group">Input</p>
-                <ul>
-                  <li>Input</li>
-                  <li>Keybindings</li>
-                </ul>
-              </aside>
-              <div class="pane">
-                <h3>Appearance</h3>
-                <p class="hint">Theme, wallpaper, fonts, and how the desktop looks.</p>
-                <div class="row">
-                  <span>Theme</span>
-                  <em>Follows Omarchy</em>
-                </div>
-                <div class="row">
-                  <span>Background</span>
-                  <em>Wallpaper</em>
-                </div>
-                <div class="row">
-                  <span>Font</span>
-                  <em>System</em>
-                </div>
-                <div class="row">
-                  <span>Night light</span>
-                  <em>Schedule</em>
-                </div>
-                <div class="row">
-                  <span>Boot screen</span>
-                  <em>Plymouth</em>
-                </div>
-              </div>
-            </div>
-          </div>
-        </figure>
+        <ul class="shots">
+          <li>
+            <figure>
+              <a href="/screenshots/monitor.png">
+                <picture>
+                  <source
+                    type="image/webp"
+                    srcset="/screenshots/monitor-800.webp 800w, /screenshots/monitor.webp 1280w"
+                    sizes="(max-width: 800px) 100vw, 34rem"
+                  />
+                  <img
+                    src="/screenshots/monitor.png"
+                    width="1280"
+                    height="1538"
+                    alt="Atmos Monitor hub with live processor, memory, traffic, disk I/O, temperature, and load meters."
+                    loading="lazy"
+                    decoding="async"
+                  />
+                </picture>
+              </a>
+              <figcaption>Monitor — live cores, I/O, and sensors</figcaption>
+            </figure>
+          </li>
+          <li>
+            <figure>
+              <a href="/screenshots/appearance.png">
+                <picture>
+                  <source
+                    type="image/webp"
+                    srcset="/screenshots/appearance-800.webp 800w, /screenshots/appearance.webp 1280w"
+                    sizes="(max-width: 800px) 100vw, 34rem"
+                  />
+                  <img
+                    src="/screenshots/appearance.png"
+                    width="1280"
+                    height="1538"
+                    alt="Atmos Appearance page with the installed Omarchy theme grid and additional theme controls."
+                    loading="lazy"
+                    decoding="async"
+                  />
+                </picture>
+              </a>
+              <figcaption>Appearance — theme, wallpaper, fonts</figcaption>
+            </figure>
+          </li>
+          <li>
+            <figure>
+              <a href="/screenshots/displays.png">
+                <picture>
+                  <source
+                    type="image/webp"
+                    srcset="/screenshots/displays-800.webp 800w, /screenshots/displays.webp 1280w"
+                    sizes="(max-width: 800px) 100vw, 34rem"
+                  />
+                  <img
+                    src="/screenshots/displays.png"
+                    width="1280"
+                    height="1538"
+                    alt="Atmos Displays page with resolution, refresh rate, scale, and brightness for a connected monitor."
+                    loading="lazy"
+                    decoding="async"
+                  />
+                </picture>
+              </a>
+              <figcaption>Displays — scale, refresh, brightness</figcaption>
+            </figure>
+          </li>
+          <li>
+            <figure>
+              <a href="/screenshots/windows.png">
+                <picture>
+                  <source
+                    type="image/webp"
+                    srcset="/screenshots/windows-800.webp 800w, /screenshots/windows.webp 1280w"
+                    sizes="(max-width: 800px) 100vw, 34rem"
+                  />
+                  <img
+                    src="/screenshots/windows.png"
+                    width="1280"
+                    height="1538"
+                    alt="Atmos Windows page with gap, border, corner, blur, shadow, and tiling controls."
+                    loading="lazy"
+                    decoding="async"
+                  />
+                </picture>
+              </a>
+              <figcaption>Windows — gaps, borders, tiling</figcaption>
+            </figure>
+          </li>
+          <li>
+            <figure>
+              <a href="/screenshots/favorites.png">
+                <picture>
+                  <source
+                    type="image/webp"
+                    srcset="/screenshots/favorites-800.webp 800w, /screenshots/favorites.webp 1280w"
+                    sizes="(max-width: 800px) 100vw, 34rem"
+                  />
+                  <img
+                    src="/screenshots/favorites.png"
+                    width="1280"
+                    height="1538"
+                    alt="Atmos Favorites page listing starred settings for brightness, updates, and the current theme."
+                    loading="lazy"
+                    decoding="async"
+                  />
+                </picture>
+              </a>
+              <figcaption>Favorites — starred settings in one place</figcaption>
+            </figure>
+          </li>
+        </ul>
       </section>
 
       <section id="install" class="install" aria-labelledby="install-heading">
         <h2 id="install-heading">Install</h2>
-        <p>Alpha. Copies the launcher, QML app, desktop file, and Hypr drop-in.</p>
-        <div class="term">
-          <code id="install-cmd">curl -fsSL https://raw.githubusercontent.com/csfh/atmos/alpha/install.sh | bash</code>
-          <button type="button" id="copy-btn" class="copy" aria-live="polite">Copy</button>
-        </div>
-        <p class="fine">
-          Then run <code>atmos</code>. From a clone, <code>./install.sh</code> does the same thing.
+        <p>
+          Alpha. Needs an Omarchy session (Hyprland), plus
+          <code>git</code>, <code>python3</code>, <code>cargo</code>, and
+          <code>quickshell</code>. Put <code>~/.local/bin</code> on your
+          <code>PATH</code>.
         </p>
+        <div class="term">
+          <code id="install-cmd-again"
+            >curl -fsSL https://raw.githubusercontent.com/csfh/atmos/alpha/install.sh | bash</code
+          >
+            <button
+              type="button"
+              class="copy"
+              data-copy="#install-cmd-again"
+              aria-label="Copy install command"
+              aria-live="polite"
+            >
+              Copy
+            </button>
+        </div>
+        <ol class="steps">
+          <li>
+            That copies the launcher to <code>~/.local/bin</code>, the app to
+            <code>~/.local/share/atmos</code>, a desktop file, and the Hyprland
+            drop-in. From a clone, <code>./install.sh</code> does the same
+            thing.
+          </li>
+          <li>Run <code>atmos</code>, or open Atmos from the app launcher.</li>
+          <li>
+            Optional: land on a page —
+            <code>atmos appearance</code>, <code>atmos windows/bindings</code>,
+            <code>atmos network/wifi</code>.
+          </li>
+        </ol>
+        <p class="fine">
+          Update from <strong>System → Atmos</strong> (Check / Update follows
+          the <code>alpha</code> branch), or run the install command again. If
+          the window looks the same after an update, quit Atmos and open it
+          again.
+        </p>
+      </section>
+
+      <section id="faq" class="faq" aria-labelledby="faq-heading">
+        <h2 id="faq-heading">Notes</h2>
+        <dl>
+          <dt>A Hyprland reload warning after I change look, input, or displays</dt>
+          <dd>
+            Atmos writes the file, then runs <code>hyprctl reload</code>. A
+            failed reload does not undo the write. If Hyprland already has
+            config errors, look / input / monitor / workspace writers print
+            <code>hyprctl configerrors</code> and the apply can look failed
+            even though the file changed. Open
+            <strong>System → Diagnostics</strong> for those errors. A dirty
+            config still runs; the errors are why a bind or monitor rule did
+            not apply.
+          </dd>
+          <dt><code>atmos</code> is not found</dt>
+          <dd>
+            The installer puts a wrapper in <code>~/.local/bin</code>. Add that
+            directory to <code>PATH</code>, or run
+            <code>~/.local/share/atmos/bin/atmos</code>.
+          </dd>
+          <dt>The window does not tile, or Hypr says <code>hypr.atmos</code> is missing</dt>
+          <dd>
+            Install writes <code>~/.config/hypr/atmos.lua</code> and requires
+            it from <code>hyprland.lua</code> next to
+            <code>hypr.omafetch</code>, before
+            <code>default.hypr.toggles</code>. Diagnostics reports when that
+            require is missing. Re-run <code>install.sh</code> or restore
+            Hyprland defaults from System (the Atmos require is written back).
+          </dd>
+          <dt>Display or input changes snap back</dt>
+          <dd>
+            Mode, scale, rotation, refresh, keyboard layout, and turning the
+            touchpad off apply immediately and revert after 12 seconds unless
+            you press Keep. Escape reverts too. Quitting Atmos during those 12
+            seconds leaves the new setting in place.
+          </dd>
+        </dl>
       </section>
 
       <section class="links" aria-labelledby="links-heading">
         <h2 id="links-heading">Links</h2>
         <ul>
-          <li><a href="https://github.com/csfh/atmos">GitHub · csfh/atmos</a></li>
-          <li><a href="https://github.com/csfh/atmos/blob/main/CHANGELOG.md">Changelog</a></li>
+          <li><a href="https://github.com/csfh/atmos">GitHub</a></li>
+          <li><a href="https://github.com/csfh/atmos/issues">Issues</a></li>
+          <li><a href="https://github.com/csfh/atmos/releases">Releases</a></li>
+          <li>
+            <a href="https://github.com/csfh/atmos/blob/main/CHANGELOG.md"
+              >Changelog</a
+            >
+          </li>
           <li><a href="https://omarchy.org">Omarchy</a></li>
           <li><a href="https://quickshell.org">Quickshell</a></li>
         </ul>
@@ -160,7 +418,10 @@
     </main>
 
     <footer class="foot">
-      <p>MIT License · © 2026 Christoffer Hallas</p>
+      <p>
+        MIT License · © 2026 Christoffer Hallas ·
+        <a href="mailto:oss@christofferhallas.com">oss@christofferhallas.com</a>
+      </p>
     </footer>
 
     <script type="module" src="/src/main.js"></script>

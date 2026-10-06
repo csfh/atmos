@@ -423,7 +423,8 @@ main {
   overflow-x: auto;
   color: var(--fg);
   font-size: 0.82rem;
-  white-space: nowrap;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .copy {
@@ -540,11 +541,6 @@ main {
 
   .term {
     flex-direction: column;
-  }
-
-  .term code {
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
   }
 }
 

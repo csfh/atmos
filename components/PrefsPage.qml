@@ -141,7 +141,7 @@ Item {
         PrefsText {
           width: parent.width
           visible: root.title.length > 0
-          text: root.title
+          text: I18n.tr(root.title)
           color: Theme.foreground
           font.family: Theme.fontFamily
           font.pixelSize: root.embed ? Theme.embedTitleSize : Theme.pageTitleSize
@@ -151,7 +151,7 @@ Item {
         PrefsText {
           width: parent.width
           visible: root.description.length > 0 && root.query.length === 0
-          text: root.description
+          text: I18n.tr(root.description)
           color: Theme.muted
           font.family: Theme.fontFamily
           font.pixelSize: Theme.pageDescriptionSize

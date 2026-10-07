@@ -35,5 +35,5 @@ Rectangle {
   }
 
   Accessible.role: Accessible.StaticText
-  Accessible.name: "Loading"
+  Accessible.name: I18n.tr("Loading")
 }

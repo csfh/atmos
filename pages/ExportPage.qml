@@ -11,8 +11,8 @@ import "../services/RichUi.js" as RichUi
 PrefsPage {
   id: root
   hubId: "export"
-  title: "Omafile"
-  description: "An Omafile is this Omarchy system's configuration as a Markdown file. Write one to share the desktop, or apply one from another machine. Review every change before anything happens."
+  title: I18n.tr("Omafile")
+  description: I18n.tr("An Omafile is this Omarchy system's configuration as a Markdown file. Write one to share the desktop, or apply one from another machine. Review every change before anything happens.")
 
   readonly property string home: Quickshell.env("HOME")
   readonly property string applyScript: Omarchy.shellDir + "/scripts/apply-settings.sh"
@@ -303,13 +303,13 @@ PrefsPage {
 
   PrefsGroup {
     framed: true
-    title: "Export"
+    title: I18n.tr("Export")
     query: root.query
     detail: "Writes an Omafile of this Omarchy system. Settings live in fenced blocks you can read and edit. Security settings are written as prose and never applied."
 
     SettingRow {
       label: "Sections"
-      description: root.chosenKeys.length + " settings across " + root.chosenSectionCount + " sections."
+      description: I18n.tr("{settings} settings across {sections} sections.", { settings: root.chosenKeys.length, sections: root.chosenSectionCount })
       query: root.query
       keywords: ["all", "none", "select", "sections", "choose"]
 
@@ -317,13 +317,13 @@ PrefsPage {
         spacing: Theme.space
 
         PrefsButton {
-          text: "All"
+          text: I18n.tr("All")
           enabled: !root.working
           onClicked: root.setAllSections(true)
         }
 
         PrefsButton {
-          text: "None"
+          text: I18n.tr("None")
           enabled: !root.working
           onClicked: root.setAllSections(false)
         }
@@ -338,7 +338,7 @@ PrefsPage {
         interactive: !root.working
         label: modelData.title
         description: modelData.note
-        caption: modelData.count + " settings"
+        caption: I18n.tr("{count} settings", { count: modelData.count })
         query: root.query
         keywords: [modelData.id, "section", "include", "export"]
         onActivated: root.setSection(modelData.id, !root.sections[modelData.id])
@@ -358,7 +358,7 @@ PrefsPage {
       keywords: ["path", "file", "folder", "directory", "markdown", "md", "save", "choose"]
 
       PrefsButton {
-        text: "Choose…"
+        text: I18n.tr("Choose…")
         enabled: !root.working
         onClicked: root.chooseExportFile()
       }
@@ -376,14 +376,14 @@ PrefsPage {
         spacing: Theme.space
 
         PrefsButton {
-          text: "Export"
+          text: I18n.tr("Export")
           primary: true
           enabled: !root.working && root.chosenKeys.length > 0
           onClicked: root.doExport()
         }
 
         PrefsButton {
-          text: "Open file"
+          text: I18n.tr("Open file")
           enabled: !root.working && root.writtenPath.length > 0
           onClicked: root.openFile(root.writtenPath)
         }
@@ -395,7 +395,7 @@ PrefsPage {
 
   PrefsGroup {
     framed: true
-    title: "Import"
+    title: I18n.tr("Import")
     query: root.query
     detail: "Apply an Omafile from another Omarchy machine. Nothing is written until you have read the plan. Atmos shows every change and keeps a way back."
 
@@ -408,7 +408,7 @@ PrefsPage {
       keywords: ["path", "file", "import", "load", "browse", "open"]
 
       PrefsButton {
-        text: "Choose…"
+        text: I18n.tr("Choose…")
         enabled: !root.working
         onClicked: importFileDialog.open()
       }
@@ -423,7 +423,7 @@ PrefsPage {
       keywords: ["review", "dry run", "preview", "plan", "diff"]
 
       PrefsButton {
-        text: "Review"
+        text: I18n.tr("Review")
         enabled: !root.working && root.importPath.length > 0
         onClicked: root.doReview()
       }
@@ -431,7 +431,7 @@ PrefsPage {
 
     SettingRow {
       label: "This file"
-      description: "Where it came from."
+      description: I18n.tr("Where it came from.")
       query: root.query
       available: !!root.lastDoc && SettingsJs.fileSummary(root.lastDoc, root.plan).length > 0
       stretchControl: true
@@ -467,7 +467,7 @@ PrefsPage {
 
     SettingRow {
       label: "Worth knowing"
-      description: "These still happen."
+      description: I18n.tr("These still happen.")
       query: root.query
       available: !!root.plan && root.plan.warnings.length > 0
       stretchControl: true
@@ -485,7 +485,7 @@ PrefsPage {
 
     SettingRow {
       label: "Blocked"
-      description: "Atmos will not do these."
+      description: I18n.tr("Atmos will not do these.")
       query: root.query
       available: !!root.plan && root.plan.blocked.length > 0
       stretchControl: true
@@ -509,7 +509,7 @@ PrefsPage {
       keywords: ["apply", "import", "run", "password"]
 
       PrefsButton {
-        text: "Apply…"
+        text: I18n.tr("Apply…")
         danger: true
         enabled: !root.working
         onClicked: applyConfirm.ask()
@@ -546,7 +546,7 @@ PrefsPage {
       keywords: ["undo", "revert", "restore", "back", "put back"]
 
       PrefsButton {
-        text: "Put it back…"
+        text: I18n.tr("Put it back…")
         primary: root.appliedCount > 0
         enabled: !root.working && root.lastBackupDir.length > 0
         onClicked: undoConfirm.ask()
@@ -558,7 +558,7 @@ PrefsPage {
 
   FileDialog {
     id: exportFileDialog
-    title: "Write an Omafile"
+    title: I18n.tr("Write an Omafile")
     fileMode: FileDialog.SaveFile
     nameFilters: ["Omafile (*.md)", "All files (*)"]
     onAccepted: root.exportPath = root.withMarkdownSuffix(RichUi.pathFromUrl(selectedFile))
@@ -566,7 +566,7 @@ PrefsPage {
 
   FileDialog {
     id: importFileDialog
-    title: "Open an Omafile"
+    title: I18n.tr("Open an Omafile")
     fileMode: FileDialog.OpenFile
     nameFilters: ["Omafile (*.md)", "All files (*)"]
     currentFolder: root.folderUrl(root.importPath)
@@ -575,7 +575,7 @@ PrefsPage {
 
   PrefsConfirm {
     id: applyConfirm
-    title: "Apply this Omafile?"
+    title: I18n.tr("Apply this Omafile?")
     message: root.plan ? SettingsJs.applyConfirmMessage(root.plan) : ""
     confirmText: "Apply"
     onConfirmed: {
@@ -586,7 +586,7 @@ PrefsPage {
 
   PrefsConfirm {
     id: commandConfirm
-    title: "These commands will run"
+    title: I18n.tr("These commands will run")
     message: root.plan ? SettingsJs.commandConfirmMessage(root.plan) : ""
     confirmText: "Apply commands"
     onConfirmed: root.doApply()
@@ -594,7 +594,7 @@ PrefsPage {
 
   PrefsConfirm {
     id: undoConfirm
-    title: "Undo the last import?"
+    title: I18n.tr("Undo the last import?")
     message: "Puts back the values the last import replaced."
     confirmText: "Undo"
     onConfirmed: root.doUndo()

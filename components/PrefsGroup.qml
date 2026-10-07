@@ -132,7 +132,8 @@ Column {
       if (kid.sectionHelp === false) continue
       out.push({
         label: kid.label || "",
-        description: kid.description || "",
+        displayLabel: I18n.tr(kid.label || ""),
+        description: I18n.tr(kid.description || ""),
         detail: kid.detail || "",
         hint: kid.hint || ""
       })
@@ -204,7 +205,7 @@ Column {
           anchors.right: groupHelp.visible ? groupHelp.left : parent.right
           anchors.rightMargin: groupHelp.visible ? Theme.space : root.titleInset
           anchors.verticalCenter: parent.verticalCenter
-          text: root.title.toUpperCase()
+          text: I18n.tr(root.title).toUpperCase()
           color: Theme.foreground
           font.family: Theme.fontFamily
           font.pixelSize: Theme.groupTitleSize
@@ -230,7 +231,7 @@ Column {
         visible: root.lede.length > 0
         x: root.titleInset
         width: parent.width - root.titleInset * 2
-        text: root.lede
+        text: I18n.tr(root.lede)
         color: Theme.muted
         font.family: Theme.fontFamily
         font.pixelSize: Theme.descriptionSize

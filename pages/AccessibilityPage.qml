@@ -6,11 +6,11 @@ import "rows"
 PrefsPage {
   id: root
   hubId: "accessibility"
-  title: "Accessibility"
-  description: "Motion, type size, the pointer, and touch. These use the same writers as Windows, Appearance, and Displays."
+  title: I18n.tr("Accessibility")
+  description: I18n.tr("Motion, type size, the pointer, and touch. These use the same writers as Windows, Appearance, and Displays.")
 
   PrefsGroup {
-    title: "Motion and type"
+    title: I18n.tr("Motion and type")
     query: root.query
     detail: "Animations write the look sentinel. Text size is the same slider as Appearance."
 
@@ -20,7 +20,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Pointer"
+    title: I18n.tr("Pointer")
     query: root.query
     detail: "Cursor hide is the same look key as Windows. Size is a new look-sentinel field."
 
@@ -30,7 +30,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Touch"
+    title: I18n.tr("Touch")
     query: root.query
     detail: "This is the same touchscreen switch as Displays."
 
@@ -38,7 +38,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Tools"
+    title: I18n.tr("Tools")
     query: root.query
     detail: "Herdr is a screen reader Omarchy can launch in a terminal when the package is present."
 
@@ -52,7 +52,7 @@ PrefsPage {
       keywords: ["herdr", "screen reader", "a11y", "tts"]
 
       PrefsButton {
-        text: "Launch"
+        text: I18n.tr("Launch")
         enabled: Omarchy.extras && Omarchy.extras.herdr === true
         onClicked: Omarchy.launchHerdr()
       }

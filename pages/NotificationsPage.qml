@@ -6,20 +6,20 @@ import "../services/RichUi.js" as RichUi
 PrefsPage {
   id: root
   hubId: "notifications"
-  title: "Notifications"
-  description: "Do not disturb, a test toast, and reminders that already live in Omarchy."
+  title: I18n.tr("Notifications")
+  description: I18n.tr("Do not disturb, a test toast, and reminders that already live in Omarchy.")
 
   property int reminderMinutes: 5
   property string reminderMessage: ""
 
   PrefsGroup {
-    title: "Quiet"
+    title: I18n.tr("Quiet")
     query: root.query
     detail: "Do not disturb hides ordinary toasts. Critical alerts still get through."
 
     SettingRow {
       label: "Do not disturb"
-      description: "Hide ordinary notification toasts. Critical alerts still get through."
+      description: I18n.tr("Hide ordinary notification toasts. Critical alerts still get through.")
       hint: "omarchy toggle notification silencing"
       query: root.query
       keywords: ["dnd", "silent", "mute", "quiet"]
@@ -32,32 +32,32 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Send"
+    title: I18n.tr("Send")
     query: root.query
     detail: "These fire an Omarchy toast right now. Use Test if you want to see that notifications still land."
 
     SettingRow {
       label: "Test toast"
-      description: "Send a sample notification from Atmos."
+      description: I18n.tr("Send a sample notification from Atmos.")
       hint: "omarchy notification send"
       query: root.query
       keywords: ["test", "toast", "notify", "send"]
 
       PrefsButton {
-        text: "Send test"
+        text: I18n.tr("Send test")
         onClicked: Omarchy.sendTestNotification()
       }
     }
 
     SettingRow {
       label: "Time"
-      description: "Show the current time and date as a toast."
+      description: I18n.tr("Show the current time and date as a toast.")
       hint: "omarchy notification time"
       query: root.query
       keywords: ["time", "clock", "date", "toast"]
 
       PrefsButton {
-        text: "Show time"
+        text: I18n.tr("Show time")
         onClicked: Omarchy.sendTimeNotification()
       }
     }
@@ -65,13 +65,13 @@ PrefsPage {
     SettingRow {
       available: Omarchy.batteryPresent
       label: "Battery"
-      description: "Show the current battery toast."
+      description: I18n.tr("Show the current battery toast.")
       hint: "omarchy notification battery"
       query: root.query
       keywords: ["battery", "charge", "toast"]
 
       PrefsButton {
-        text: "Show battery"
+        text: I18n.tr("Show battery")
         enabled: Omarchy.batteryPresent
         onClicked: Omarchy.showBatteryNotification()
       }
@@ -80,13 +80,13 @@ PrefsPage {
     SettingRow {
       available: Omarchy.weatherPresent
       label: "Weather"
-      description: "Show the current forecast toast."
+      description: I18n.tr("Show the current forecast toast.")
       hint: "omarchy notification weather"
       query: root.query
       keywords: ["weather", "forecast", "toast"]
 
       PrefsButton {
-        text: "Show weather"
+        text: I18n.tr("Show weather")
         enabled: Omarchy.weatherPresent
         onClicked: Omarchy.sendWeatherNotification()
       }
@@ -95,14 +95,14 @@ PrefsPage {
 
   PrefsGroup {
     framed: true
-    title: "Reminders"
+    title: I18n.tr("Reminders")
     query: root.query
     detail: "A reminder is a systemd timer that sends an Omarchy toast. Clear drops every outstanding one."
     hint: "omarchy reminder"
 
     SettingRow {
       label: "New reminder"
-      description: "Minutes from now, and an optional message."
+      description: I18n.tr("Minutes from now, and an optional message.")
       hint: "omarchy reminder"
       query: root.query
       keywords: ["reminder", "timer", "later", "minutes"]
@@ -125,7 +125,7 @@ PrefsPage {
           }
         }
         PrefsButton {
-          text: "Set"
+          text: I18n.tr("Set")
           primary: true
           onClicked: Omarchy.setReminder(String(root.reminderMinutes), root.reminderMessage)
         }
@@ -145,12 +145,12 @@ PrefsPage {
       Row {
         spacing: Theme.space
         PrefsButton {
-          text: "Show"
+          text: I18n.tr("Show")
           enabled: Omarchy.reminderActive
           onClicked: Omarchy.showReminders()
         }
         PrefsButton {
-          text: "Clear"
+          text: I18n.tr("Clear")
           danger: true
           enabled: Omarchy.reminderActive
           onClicked: Omarchy.clearReminders()
@@ -162,7 +162,7 @@ PrefsPage {
       available: !Omarchy.reminderActive
       sectionHelp: false
       label: "Reminders"
-      description: "No reminders waiting."
+      description: I18n.tr("No reminders waiting.")
       query: root.query
       keywords: ["reminder", "empty"]
     }
@@ -184,12 +184,12 @@ PrefsPage {
         Row {
           spacing: Theme.space
           PrefsButton {
-            text: "Copy"
+            text: I18n.tr("Copy")
             enabled: RichUi.reminderCopyText(modelData).length > 0
             onClicked: Omarchy.copyText(RichUi.reminderCopyText(modelData))
           }
           PrefsButton {
-            text: "Show"
+            text: I18n.tr("Show")
             onClicked: Omarchy.showReminders()
           }
         }

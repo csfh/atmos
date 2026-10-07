@@ -5,8 +5,8 @@ import "../services"
 PrefsPage {
   id: root
   hubId: "sound"
-  title: "Sound"
-  description: "Speaker and microphone levels. You can pick devices here too. If USB audio hangs, restart PipeWire from the bottom of the page."
+  title: I18n.tr("Sound")
+  description: I18n.tr("Speaker and microphone levels. You can pick devices here too. If USB audio hangs, restart PipeWire from the bottom of the page.")
 
   function deviceOptions(list) {
     var out = []
@@ -20,7 +20,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Output"
+    title: I18n.tr("Output")
     query: root.query
     detail: "These talk to PipeWire through omarchy audio. Volume is the default sink. Switching the output moves playing streams with it."
 
@@ -51,7 +51,7 @@ PrefsPage {
 
     SettingRow {
       label: "Mute output"
-      description: "Silence speakers and headphones while this is on."
+      description: I18n.tr("Silence speakers and headphones while this is on.")
       hint: "omarchy audio output volume mute-toggle"
       query: root.query
       keywords: ["mute", "silent"]
@@ -65,7 +65,7 @@ PrefsPage {
 
     SettingRow {
       label: "Output device"
-      description: "Where sound comes out. Playing audio follows this device."
+      description: I18n.tr("Where sound comes out. Playing audio follows this device.")
       hint: "omarchy audio output set default"
       query: root.query
       keywords: ["sink", "speaker", "hdmi", "headphone", "usb"]
@@ -84,13 +84,13 @@ PrefsPage {
     SettingRow {
       available: Omarchy.audioSinks.length > 1
       label: "Next output"
-      description: "Jump to the next output, the same way the bar audio control does."
+      description: I18n.tr("Jump to the next output, the same way the bar audio control does.")
       hint: "omarchy audio output switch"
       query: root.query
       keywords: ["cycle", "switch"]
 
       PrefsButton {
-        text: "Switch"
+        text: I18n.tr("Switch")
         enabled: Omarchy.audioSinks.length > 1
         onClicked: Omarchy.switchAudioOutput()
       }
@@ -98,7 +98,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Input"
+    title: I18n.tr("Input")
     query: root.query
     detail: "Capture level and mute for the default microphone. Laptops with a mic-mute LED follow the mute toggle."
 
@@ -129,7 +129,7 @@ PrefsPage {
 
     SettingRow {
       label: "Mute microphone"
-      description: "Cut microphone input while this is on."
+      description: I18n.tr("Cut microphone input while this is on.")
       hint: "omarchy audio input mute"
       query: root.query
       keywords: ["mic", "mute", "led"]
@@ -143,7 +143,7 @@ PrefsPage {
 
     SettingRow {
       label: "Input device"
-      description: "Which microphone or other capture device is the default."
+      description: I18n.tr("Which microphone or other capture device is the default.")
       hint: "omarchy audio input set default"
       query: root.query
       keywords: ["source", "mic", "webcam", "seiren"]
@@ -161,14 +161,14 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Tuning"
+    title: I18n.tr("Tuning")
     query: Omarchy.audioTuningMatch ? root.query : "."
     detail: "A filter Omarchy ships for this laptop's speakers when the built-in sound is thin or tinny."
 
     SettingRow {
       available: Omarchy.audioTuningMatch
       label: "Speaker tuning"
-      description: "A filter Omarchy ships for this laptop's speakers."
+      description: I18n.tr("A filter Omarchy ships for this laptop's speakers.")
       hint: "omarchy audio tuning"
       query: root.query
       keywords: ["eq", "dsp", "easyeffects", "laptop"]
@@ -182,26 +182,26 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Recovery"
+    title: I18n.tr("Recovery")
     query: root.query
     detail: "Restarts PipeWire and WirePlumber. Use this when a USB headset or DAC stops showing up."
 
     SettingRow {
       label: "Restart audio"
-      description: "Restart PipeWire. That often brings a stuck USB headset or DAC back."
+      description: I18n.tr("Restart PipeWire. That often brings a stuck USB headset or DAC back.")
       hint: "omarchy restart audio"
       query: root.query
       keywords: ["pipewire", "wireplumber", "usb"]
 
       PrefsButton {
-        text: "Restart"
+        text: I18n.tr("Restart")
         onClicked: Omarchy.restartAudio()
       }
     }
   }
 
   PrefsGroup {
-    title: "Advanced"
+    title: I18n.tr("Advanced")
     advanced: true
     query: root.query
     detail: "Voxtype is Omarchy's dictation tool. Install pulls the package and a model. Hold F9 after it is ready."
@@ -219,14 +219,14 @@ PrefsPage {
         spacing: Theme.space
         PrefsButton {
           visible: !Omarchy.voxtypeInstalled
-          text: "Install…"
+          text: I18n.tr("Install…")
           primary: true
           enabled: !Omarchy.jobBusy && !Omarchy.voxtypeInstalled
           onClicked: voxtypeInstallConfirm.ask()
         }
         PrefsButton {
           visible: Omarchy.voxtypeInstalled
-          text: "Remove…"
+          text: I18n.tr("Remove…")
           danger: true
           enabled: !Omarchy.jobBusy && Omarchy.voxtypeInstalled
           onClicked: voxtypeRemoveConfirm.ask()
@@ -237,7 +237,7 @@ PrefsPage {
 
   PrefsConfirm {
     id: voxtypeInstallConfirm
-    title: "Install dictation"
+    title: I18n.tr("Install dictation")
     message: "Install Voxtype and a speech model, about 150 MB. You will be asked for a password."
     confirmText: "Install"
     onConfirmed: Omarchy.installVoxtype()
@@ -245,7 +245,7 @@ PrefsPage {
 
   PrefsConfirm {
     id: voxtypeRemoveConfirm
-    title: "Remove dictation"
+    title: I18n.tr("Remove dictation")
     message: "Remove Voxtype from this machine."
     confirmText: "Remove"
     onConfirmed: Omarchy.removeVoxtype()

@@ -1,8 +1,8 @@
-const fs = require("fs");
+const qmlSource = require("./qml-source");
 const path = require("path");
 const { load, assert, assertEqual } = require("./harness");
 
-const themeQml = fs.readFileSync(path.join(__dirname, "..", "services", "Theme.qml"), "utf8");
+const themeQml = qmlSource.read(path.join(__dirname, "..", "services", "Theme.qml"), "utf8");
 assert(
   themeQml.indexOf("inotifywait") === -1,
   "Theme.qml does not watch the host with inotifywait",
@@ -246,7 +246,7 @@ assert(
   "haystackMatches rejects unrelated rows",
 );
 
-const bgPageSrc = fs.readFileSync(
+const bgPageSrc = qmlSource.read(
   path.join(__dirname, "..", "pages", "appearance", "BackgroundPage.qml"),
   "utf8",
 );
@@ -257,7 +257,7 @@ assert(
     bgPageSrc.indexOf("openBackgroundSwitcher") === -1,
   "Background Choose… is a Qt FileDialog, not the native switcher helpers",
 );
-const bgOmarchySrc = fs.readFileSync(path.join(__dirname, "..", "services", "Omarchy.qml"), "utf8");
+const bgOmarchySrc = qmlSource.read(path.join(__dirname, "..", "services", "Omarchy.qml"), "utf8");
 const bgChooseStart = bgOmarchySrc.indexOf("function setBackgroundPath(");
 const bgChooseEnd = bgOmarchySrc.indexOf("function cacheBackgrounds(", bgChooseStart);
 const bgChooseBody = bgOmarchySrc.slice(bgChooseStart, bgChooseEnd);
@@ -392,7 +392,7 @@ assert(
   "setTheme drops a hover snapshot instead of restoring it",
 );
 
-const selectSrc = fs.readFileSync(
+const selectSrc = qmlSource.read(
   path.join(__dirname, "..", "components", "PrefsSelect.qml"),
   "utf8",
 );
@@ -421,7 +421,7 @@ assert(
   "PrefsSelect previews keyboard highlight moves",
 );
 
-const appearanceSrc = fs.readFileSync(
+const appearanceSrc = qmlSource.read(
   path.join(__dirname, "..", "pages", "AppearancePage.qml"),
   "utf8",
 );

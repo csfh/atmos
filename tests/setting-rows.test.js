@@ -1,4 +1,5 @@
 const fs = require("fs");
+const qmlSource = require("./qml-source");
 const path = require("path");
 const { assert } = require("./harness");
 
@@ -50,7 +51,7 @@ const pages = walk(path.join(__dirname, "..", "pages"));
 const resetGated = [];
 
 pages.forEach(function (file) {
-  const src = fs.readFileSync(file, "utf8");
+  const src = qmlSource.read(file, "utf8");
   const rel = path.relative(path.join(__dirname, ".."), file);
   namedBlocks(src, "SettingRow").forEach(function (block) {
     const label = stringProp(block, "label");
@@ -66,7 +67,7 @@ assert(
   resetGated.join("\n"),
 );
 
-const appearanceSrc = fs.readFileSync(
+const appearanceSrc = qmlSource.read(
   path.join(__dirname, "..", "pages", "AppearancePage.qml"),
   "utf8",
 );
@@ -77,33 +78,33 @@ assert(
   "Night light schedule is the times; Use schedule is the on switch",
 );
 
-const networkSrc = fs.readFileSync(path.join(__dirname, "..", "pages", "NetworkPage.qml"), "utf8");
+const networkSrc = qmlSource.read(path.join(__dirname, "..", "pages", "NetworkPage.qml"), "utf8");
 assert(
   /label: "Gateway"[\s\S]*text: "Copy"/.test(networkSrc) &&
     /label: "DNS"[\s\S]*text: "Copy"/.test(networkSrc),
   "Gateway and DNS copy like Address",
 );
 
-const powerSrc = fs.readFileSync(path.join(__dirname, "..", "pages", "PowerPage.qml"), "utf8");
+const powerSrc = qmlSource.read(path.join(__dirname, "..", "pages", "PowerPage.qml"), "utf8");
 assert(
   /label: "CPU governor"[\s\S]*valueText:/.test(powerSrc) &&
     /label: "Energy preference"[\s\S]*valueText:/.test(powerSrc),
   "CPU governor and energy preference show the value on the right",
 );
 
-const envSrc = fs.readFileSync(
+const envSrc = qmlSource.read(
   path.join(__dirname, "..", "pages", "system", "EnvironmentPage.qml"),
   "utf8",
 );
 assert(/label: "PATH prepend"[\s\S]*text: "Set"/.test(envSrc), "PATH prepend has a Set button");
 
-const windowsSrc = fs.readFileSync(path.join(__dirname, "..", "pages", "WindowsPage.qml"), "utf8");
+const windowsSrc = qmlSource.read(path.join(__dirname, "..", "pages", "WindowsPage.qml"), "utf8");
 assert(
   /label: "Swallow regex"[\s\S]*text: "Set"/.test(windowsSrc),
   "Swallow regex has a Set button",
 );
 
-const workspacesSrc = fs.readFileSync(
+const workspacesSrc = qmlSource.read(
   path.join(__dirname, "..", "pages", "WorkspacesPage.qml"),
   "utf8",
 );
@@ -112,13 +113,13 @@ assert(
   "Workspace bar name has a Set button",
 );
 
-const inputSrc = fs.readFileSync(path.join(__dirname, "..", "pages", "InputPage.qml"), "utf8");
+const inputSrc = qmlSource.read(path.join(__dirname, "..", "pages", "InputPage.qml"), "utf8");
 assert(
   inputSrc.indexOf("available: Omarchy.hyprInputManaged") === -1,
   "Reset input is not gated off the layout",
 );
 
-const bootSrc = fs.readFileSync(
+const bootSrc = qmlSource.read(
   path.join(__dirname, "..", "pages", "appearance", "BootPage.qml"),
   "utf8",
 );
@@ -127,7 +128,7 @@ assert(
   "Reset boot screen is not gated off the layout",
 );
 
-const lookSrc = fs.readFileSync(path.join(__dirname, "..", "pages", "WindowsPage.qml"), "utf8");
+const lookSrc = qmlSource.read(path.join(__dirname, "..", "pages", "WindowsPage.qml"), "utf8");
 assert(
   lookSrc.indexOf("available: Omarchy.hyprLookManaged") === -1,
   "Reset look is not gated off the layout",

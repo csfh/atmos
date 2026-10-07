@@ -9,8 +9,8 @@ import "../services/RichUi.js" as RichUi
 PrefsPage {
   id: root
   hubId: "disks"
-  title: "Disks"
-  description: "Space on each drive, plus encryption if the disk is locked. Snapper snapshots and hibernation are further down."
+  title: I18n.tr("Disks")
+  description: I18n.tr("Space on each drive, plus encryption if the disk is locked. Snapper snapshots and hibernation are further down.")
 
   property bool diskRunning: false
   property int diskToken: 0
@@ -148,7 +148,7 @@ PrefsPage {
 
   PrefsConfirm {
     id: createConfirm
-    title: "Create snapshot"
+    title: I18n.tr("Create snapshot")
     message: "Take a numbered Snapper snapshot of each config, then run cleanup. You can roll back to it later."
     confirmText: "Create"
     onConfirmed: Omarchy.createSnapshot()
@@ -156,7 +156,7 @@ PrefsPage {
 
   PrefsConfirm {
     id: rollbackConfirm
-    title: "Roll back"
+    title: I18n.tr("Roll back")
     message: "Snapper will make this snapshot the new default. Reboot after it finishes so the machine boots into it."
     confirmText: "Roll back"
     onConfirmed: Omarchy.restoreSnapshot(root.pendingRollbackConfig, String(root.pendingRollbackId))
@@ -164,7 +164,7 @@ PrefsPage {
 
   PrefsConfirm {
     id: hibernateSetupConfirm
-    title: "Set up hibernation"
+    title: I18n.tr("Set up hibernation")
     message: "Write a RAM-sized swap file on the boot drive and set up resume. This uses sudo."
     confirmText: "Set up"
     onConfirmed: Omarchy.setupHibernation()
@@ -172,7 +172,7 @@ PrefsPage {
 
   PrefsConfirm {
     id: hibernateRemoveConfirm
-    title: "Remove hibernation"
+    title: I18n.tr("Remove hibernation")
     message: "Remove the hibernation swap file and the boot resume settings that go with it."
     confirmText: "Remove"
     onConfirmed: Omarchy.removeHibernation()
@@ -180,11 +180,11 @@ PrefsPage {
 
   PrefsDialog {
     id: luksDialog
-    title: "Change encryption password"
+    title: I18n.tr("Change encryption password")
 
     PrefsText {
       width: parent.width
-      text: "New passphrase for " + root.pendingLuksDevice + ". You will need the current one."
+      text: I18n.tr("New passphrase for {device}. You will need the current one.", { device: root.pendingLuksDevice })
       color: Theme.muted
       font.family: Theme.fontFamily
       font.pixelSize: Theme.captionSize
@@ -210,7 +210,7 @@ PrefsPage {
       id: luksHint
       width: parent.width
       visible: text.length > 0
-      text: ""
+      text: I18n.tr("")
       color: Theme.urgent
       font.family: Theme.fontFamily
       font.pixelSize: Theme.captionSize
@@ -219,11 +219,11 @@ PrefsPage {
     Row {
       spacing: Theme.space
       PrefsButton {
-        text: "Cancel"
+        text: I18n.tr("Cancel")
         onClicked: luksDialog.close()
       }
       PrefsButton {
-        text: "Change"
+        text: I18n.tr("Change")
         primary: true
         enabled: !Omarchy.jobBusy
         onClicked: {
@@ -267,7 +267,7 @@ PrefsPage {
         keywords: ["nvme", "ssd", "sata", "lsblk", "model"]
 
         PrefsButton {
-          text: "Copy"
+          text: I18n.tr("Copy")
           enabled: !!(modelData && modelData.info)
           onClicked: Omarchy.copyText(String(modelData.info || ""))
         }
@@ -281,7 +281,7 @@ PrefsPage {
           stretchControl: true
           sectionHelp: false
           label: modelData && modelData.target ? modelData.target : "Mount"
-          description: ""
+          description: I18n.tr("")
           hint: "df"
           query: root.query
           keywords: ["usage", "capacity", "btrfs", "ext4", "vfat", "home", "boot"]
@@ -378,7 +378,7 @@ PrefsPage {
 
   PrefsGroup {
     framed: true
-    title: "Encryption"
+    title: I18n.tr("Encryption")
     query: Omarchy.luksDevices.length > 0 ? root.query : "."
     detail: "LUKS volumes on this machine. Change the passphrase here. You will need the current one."
 
@@ -389,13 +389,13 @@ PrefsPage {
         required property var modelData
         available: true
         label: String(modelData || "LUKS")
-        description: "This volume is encrypted with LUKS. Change the passphrase here. You will need the current one."
+        description: I18n.tr("This volume is encrypted with LUKS. Change the passphrase here. You will need the current one.")
         hint: "cryptsetup luksChangeKey"
         query: root.query
         keywords: ["luks", "cryptsetup", "encryption", "passphrase"]
 
         PrefsButton {
-          text: "Change…"
+          text: I18n.tr("Change…")
           enabled: !Omarchy.jobBusy
           onClicked: {
             root.pendingLuksDevice = String(modelData || "")
@@ -408,7 +408,7 @@ PrefsPage {
 
   PrefsGroup {
     framed: true
-    title: "Snapshots"
+    title: I18n.tr("Snapshots")
     query: Omarchy.snapperPresent ? root.query : "."
     detail: "Each listed snapshot can become the new Snapper default. Rollback asks first. Reboot after it finishes."
     hint: "snapper rollback"
@@ -422,7 +422,7 @@ PrefsPage {
       keywords: ["btrfs", "limine", "restore", "rollback"]
 
       PrefsButton {
-        text: "Copy"
+        text: I18n.tr("Copy")
         enabled: root.snapperSummary().length > 0
         onClicked: Omarchy.copyText(root.snapperSummary())
       }
@@ -439,7 +439,7 @@ PrefsPage {
       keywords: ["snapper", "create"]
 
       PrefsButton {
-        text: "Create…"
+        text: I18n.tr("Create…")
         primary: true
         enabled: !Omarchy.jobBusy && Omarchy.snapperPresent
         onClicked: createConfirm.ask()
@@ -450,7 +450,7 @@ PrefsPage {
       available: Omarchy.snapperPresent && Omarchy.snapshots.length === 0
       sectionHelp: false
       label: "Snapshots"
-      description: "No snapshots."
+      description: I18n.tr("No snapshots.")
       query: root.query
       keywords: ["empty", "snapshot"]
     }
@@ -463,13 +463,13 @@ PrefsPage {
         available: Omarchy.snapperPresent
         sectionHelp: false
         label: root.snapshotLabel(modelData)
-        description: "Make this snapshot the new Snapper default, then reboot into it."
+        description: I18n.tr("Make this snapshot the new Snapper default, then reboot into it.")
         hint: "snapper rollback"
         query: root.query
         keywords: ["rollback", "restore", "limine"]
 
         PrefsButton {
-          text: "Roll back…"
+          text: I18n.tr("Roll back…")
           danger: true
           enabled: !Omarchy.jobBusy && modelData && modelData.id
           onClicked: {
@@ -483,7 +483,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Hibernation"
+    title: I18n.tr("Hibernation")
     query: root.query
     detail: "Hibernation writes RAM to a swap file and resumes from it on the next boot. Set up needs sudo."
 
@@ -516,7 +516,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Advanced"
+    title: I18n.tr("Advanced")
     advanced: true
     query: root.query
     detail: "How many Snapper snapshots to keep, whether hourly snapshots run, and weekly SSD TRIM."
@@ -524,7 +524,7 @@ PrefsPage {
     SettingRow {
       available: Omarchy.snapperPresent
       label: "Keep snapshots"
-      description: "How many numbered Snapper snapshots the root config keeps before cleanup."
+      description: I18n.tr("How many numbered Snapper snapshots the root config keeps before cleanup.")
       hint: "/etc/snapper/configs/root · NUMBER_LIMIT"
       query: root.query
       keywords: ["snapper", "retention", "limit", "number"]
@@ -547,7 +547,7 @@ PrefsPage {
     SettingRow {
       available: Omarchy.snapperPresent
       label: "Timeline snapshots"
-      description: "Hourly snapshots, cleaned on a timer. That uses disk quickly."
+      description: I18n.tr("Hourly snapshots, cleaned on a timer. That uses disk quickly.")
       hint: "/etc/snapper/configs/root · TIMELINE_CREATE"
       query: root.query
       keywords: ["snapper", "timeline", "hourly", "timer"]
@@ -561,7 +561,7 @@ PrefsPage {
 
     SettingRow {
       label: "Weekly TRIM"
-      description: "The SSD reclaims unused blocks once a week."
+      description: I18n.tr("The SSD reclaims unused blocks once a week.")
       hint: "systemctl enable fstrim.timer"
       query: root.query
       keywords: ["fstrim", "trim", "ssd", "discard"]
@@ -575,7 +575,7 @@ PrefsPage {
 
   PrefsGroup {
     framed: true
-    title: "Swap"
+    title: I18n.tr("Swap")
     query: Omarchy.swapDevices.length > 0 ? root.query : "."
     detail: "Swap devices this machine is using, including zram when the kernel has it loaded."
 
@@ -593,7 +593,7 @@ PrefsPage {
         keywords: ["zram", "swap"]
 
         PrefsButton {
-          text: "Copy"
+          text: I18n.tr("Copy")
           enabled: !!(modelData && (modelData.path || modelData.name || modelData.label))
           onClicked: Omarchy.copyText(String((modelData && (modelData.path || modelData.name || modelData.label)) || ""))
         }

@@ -8,8 +8,8 @@ import "../services/RichUi.js" as RichUi
 PrefsPage {
   id: root
   hubId: "accounts"
-  title: "Accounts"
-  description: "This login's name and face, other local users, and groups. Fingerprint, SSH, and sudoless Docker stay on Security."
+  title: I18n.tr("Accounts")
+  description: I18n.tr("This login's name and face, other local users, and groups. Fingerprint, SSH, and sudoless Docker stay on Security.")
 
   property string selectedGroup: ""
   property string pendingUser: ""
@@ -196,14 +196,14 @@ PrefsPage {
 
   FileDialog {
     id: avatarDialog
-    title: "Choose a face"
+    title: I18n.tr("Choose a face")
     nameFilters: ["Images (*.png *.jpg *.jpeg)"]
     onAccepted: Omarchy.setAvatarPath(RichUi.pathFromUrl(selectedFile))
   }
 
   PrefsConfirm {
     id: clearAvatarConfirm
-    title: "Clear face"
+    title: I18n.tr("Clear face")
     message: "Remove the face icon for this login."
     confirmText: "Clear"
     onConfirmed: Omarchy.clearAvatar()
@@ -211,23 +211,23 @@ PrefsPage {
 
   PrefsConfirm {
     id: removeUserConfirm
-    title: "Remove user"
-    message: "Remove " + root.pendingUser + " and their home directory."
+    title: I18n.tr("Remove user")
+    message: I18n.tr("Remove {user} and their home directory.", { user: root.pendingUser })
     confirmText: "Remove"
     onConfirmed: Omarchy.removeAccountUser(root.pendingUser)
   }
 
   PrefsConfirm {
     id: removeGroupConfirm
-    title: "Remove group"
-    message: "Remove the " + root.pendingGroup + " group. Logins stay."
+    title: I18n.tr("Remove group")
+    message: I18n.tr("Remove the {group} group. Logins stay.", { group: root.pendingGroup })
     confirmText: "Remove"
     onConfirmed: Omarchy.removeAccountGroup(root.pendingGroup)
   }
 
   PrefsDialog {
     id: addUserDialog
-    title: "Add a user"
+    title: I18n.tr("Add a user")
 
     PrefsText {
       width: parent.width
@@ -281,7 +281,7 @@ PrefsPage {
         y: Math.round((parent.height - height) / 2)
         checked: root.addUserAdmin
         enabled: !Omarchy.jobBusy
-        Accessible.name: "Admin"
+        Accessible.name: I18n.tr("Admin")
         onToggled: root.addUserAdmin = !root.addUserAdmin
       }
 
@@ -294,7 +294,7 @@ PrefsPage {
 
         PrefsText {
           width: parent.width
-          text: "Admin"
+          text: I18n.tr("Admin")
           color: Theme.foreground
           font.family: Theme.fontFamily
           font.pixelSize: Theme.labelSize
@@ -303,7 +303,7 @@ PrefsPage {
 
         PrefsText {
           width: parent.width
-          text: "Puts this login in wheel."
+          text: I18n.tr("Puts this login in wheel.")
           color: Theme.muted
           font.family: Theme.fontFamily
           font.pixelSize: Theme.descriptionSize
@@ -325,12 +325,12 @@ PrefsPage {
       spacing: Theme.space
 
       PrefsButton {
-        text: "Cancel"
+        text: I18n.tr("Cancel")
         onClicked: addUserDialog.close()
       }
 
       PrefsButton {
-        text: "Add"
+        text: I18n.tr("Add")
         primary: true
         enabled: !Omarchy.jobBusy
         onClicked: root.submitAddUser()
@@ -340,11 +340,11 @@ PrefsPage {
 
   PrefsDialog {
     id: addGroupDialog
-    title: "Add a group"
+    title: I18n.tr("Add a group")
 
     PrefsText {
       width: parent.width
-      text: "A local group. You can add logins to it after it exists."
+      text: I18n.tr("A local group. You can add logins to it after it exists.")
       color: Theme.muted
       font.family: Theme.fontFamily
       font.pixelSize: Theme.captionSize
@@ -372,12 +372,12 @@ PrefsPage {
       spacing: Theme.space
 
       PrefsButton {
-        text: "Cancel"
+        text: I18n.tr("Cancel")
         onClicked: addGroupDialog.close()
       }
 
       PrefsButton {
-        text: "Add"
+        text: I18n.tr("Add")
         primary: true
         enabled: !Omarchy.jobBusy
         onClicked: root.submitAddGroup()
@@ -387,7 +387,7 @@ PrefsPage {
 
   PrefsDialog {
     id: passwordDialog
-    title: "Set password"
+    title: I18n.tr("Set password")
 
     PrefsText {
       width: parent.width
@@ -427,12 +427,12 @@ PrefsPage {
       spacing: Theme.space
 
       PrefsButton {
-        text: "Cancel"
+        text: I18n.tr("Cancel")
         onClicked: passwordDialog.close()
       }
 
       PrefsButton {
-        text: "Set"
+        text: I18n.tr("Set")
         primary: true
         enabled: !Omarchy.jobBusy
         onClicked: root.submitPassword()
@@ -458,7 +458,7 @@ PrefsPage {
     PrefsText {
       width: parent.width
       visible: Omarchy.accountUsers.length === 0
-      text: "No human logins to add."
+      text: I18n.tr("No human logins to add.")
       color: Theme.muted
       font.family: Theme.fontFamily
       font.pixelSize: Theme.captionSize
@@ -543,7 +543,7 @@ PrefsPage {
       spacing: Theme.space
 
       PrefsButton {
-        text: "Done"
+        text: I18n.tr("Done")
         primary: true
         onClicked: manageGroupDialog.close()
       }
@@ -551,7 +551,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "This account"
+    title: I18n.tr("This account")
     query: root.query
     detail: "Face is a PNG or JPEG copied to ~/.face.icon and AccountsService. Full name is the GECOS real name. Password changes this login."
 
@@ -575,7 +575,7 @@ PrefsPage {
         }
 
         PrefsButton {
-          text: "Choose…"
+          text: I18n.tr("Choose…")
           primary: true
           enabled: !Omarchy.jobBusy && Omarchy.currentUser.length > 0
           onClicked: avatarDialog.open()
@@ -583,7 +583,7 @@ PrefsPage {
 
         PrefsButton {
           visible: Omarchy.avatarPath.length > 0
-          text: "Clear…"
+          text: I18n.tr("Clear…")
           danger: true
           enabled: !Omarchy.jobBusy && Omarchy.avatarPath.length > 0
           onClicked: clearAvatarConfirm.ask()
@@ -621,7 +621,7 @@ PrefsPage {
 
         PrefsButton {
           id: fullNameSetBtn
-          text: "Set"
+          text: I18n.tr("Set")
           primary: true
           enabled: root.fullNameValid && root.fullNameParsed !== Omarchy.fullName
           onClicked: Omarchy.setFullName(root.fullNameParsed)
@@ -631,13 +631,13 @@ PrefsPage {
 
     SettingRow {
       label: "Password"
-      description: "Change the password for this login."
+      description: I18n.tr("Change the password for this login.")
       hint: "chpasswd"
       query: root.query
       keywords: ["password", "passwd", "login", "chpasswd"]
 
       PrefsButton {
-        text: "Change…"
+        text: I18n.tr("Change…")
         enabled: !Omarchy.jobBusy && Omarchy.currentUser.length > 0
         onClicked: root.openPassword(Omarchy.currentUser)
       }
@@ -646,19 +646,19 @@ PrefsPage {
 
   PrefsGroup {
     framed: true
-    title: "Users"
+    title: I18n.tr("Users")
     query: root.query
     detail: "Human logins (UID 1000 and up) plus this session. Add copies /etc/skel. Remove deletes the home directory. You cannot remove the login you are using."
 
     SettingRow {
       label: "Add a user"
-      description: "Create a local login. Admin adds them to wheel."
+      description: I18n.tr("Create a local login. Admin adds them to wheel.")
       hint: "useradd -m"
       query: root.query
       keywords: ["useradd", "add", "create", "login", "wheel", "admin"]
 
       PrefsButton {
-        text: "Add…"
+        text: I18n.tr("Add…")
         primary: true
         enabled: !Omarchy.jobBusy
         onClicked: root.openAddUser()
@@ -669,7 +669,7 @@ PrefsPage {
       available: Omarchy.accountUsers.length === 0
       sectionHelp: false
       label: "Logins"
-      description: "No human logins."
+      description: I18n.tr("No human logins.")
       query: root.query
       keywords: ["user", "empty"]
     }
@@ -696,19 +696,19 @@ PrefsPage {
 
   PrefsGroup {
     framed: true
-    title: "Groups"
+    title: I18n.tr("Groups")
     query: root.query
     detail: "wheel and docker always show. Extra groups are ones with a human member or a GID of 1000 or more. Manage opens a group so you can add or remove logins. You cannot drop this session from wheel or remove wheel and docker."
 
     SettingRow {
       label: "Add a group"
-      description: "Create a local group, then add members from Manage…"
+      description: I18n.tr("Create a local group, then add members from Manage…")
       hint: "groupadd"
       query: root.query
       keywords: ["groupadd", "add", "create", "group"]
 
       PrefsButton {
-        text: "Add…"
+        text: I18n.tr("Add…")
         primary: true
         enabled: !Omarchy.jobBusy
         onClicked: root.openAddGroup()
@@ -719,7 +719,7 @@ PrefsPage {
       available: Omarchy.accountGroups.length === 0
       sectionHelp: false
       label: "Groups"
-      description: "No groups."
+      description: I18n.tr("No groups.")
       query: root.query
       keywords: ["group", "empty"]
     }

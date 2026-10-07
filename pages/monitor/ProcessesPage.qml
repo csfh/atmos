@@ -8,8 +8,8 @@ import "../../services/Processes.js" as ProcessesJs
 PrefsPage {
   id: root
   hubId: "monitor/processes"
-  title: "Processes"
-  description: "Search, filter, sort, and signal tasks. End sends SIGTERM. Force quit sends SIGKILL. Pid 1 and Atmos itself are refused."
+  title: I18n.tr("Processes")
+  description: I18n.tr("Search, filter, sort, and signal tasks. End sends SIGTERM. Force quit sends SIGKILL. Pid 1 and Atmos itself are refused.")
 
   property string procQuery: ""
   property string procSort: "cpu"
@@ -87,7 +87,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Parallel coordinates"
+    title: I18n.tr("Parallel coordinates")
     query: root.query
     wide: true
     lede: ChartCopy.blurb("parallel")
@@ -114,7 +114,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: ""
+    title: I18n.tr("")
     query: root.query
     framed: false
     catalog: false
@@ -128,7 +128,7 @@ PrefsPage {
 
       Text {
         width: parent.width
-        text: root.processes.length + " shown  ·  " + root.rawCount + " sampled"
+        text: I18n.tr("{shown} shown  ·  {sampled} sampled", { shown: root.processes.length, sampled: root.rawCount })
           + (LiveStatsStore.paused ? "  ·  paused" : "")
         color: Theme.muted
         font.family: Theme.fontFamily
@@ -241,7 +241,7 @@ PrefsPage {
 
           PrefsButton {
             required property var modelData
-            text: (modelData && modelData.label ? modelData.label : "") + " rows"
+            text: I18n.tr("{count} rows", { count: modelData && modelData.label ? modelData.label : "" })
             primary: root.procCap === (modelData && modelData.value ? modelData.value : 0)
             onClicked: root.procCap = modelData.value
           }

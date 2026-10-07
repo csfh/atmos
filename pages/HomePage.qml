@@ -10,8 +10,8 @@ import "../services/RichUi.js" as RichUi
 PrefsPage {
   id: root
   hubId: "home"
-  title: "Home"
-  description: "How this machine is doing right now. Monitor is the full process-manager. Machine under System is the identity page."
+  title: I18n.tr("Home")
+  description: I18n.tr("How this machine is doing right now. Monitor is the full process-manager. Machine under System is the identity page.")
 
   property var navigator: null
   property string procQuery: ""
@@ -155,7 +155,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Quick access"
+    title: I18n.tr("Quick access")
     query: root.query
     lede: "Star a setting on any page and it appears here."
 
@@ -175,7 +175,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Activity"
+    title: I18n.tr("Activity")
     query: root.query
     detail: "Samples stay in this window. Monitor keeps the same poller and adds per-core, disk, traffic, and sensors. Nothing is written to disk."
 
@@ -202,7 +202,7 @@ PrefsPage {
 
     SettingRow {
       label: "Processor"
-      description: "Share of time the CPUs were busy, from /proc/stat."
+      description: I18n.tr("Share of time the CPUs were busy, from /proc/stat.")
       hint: "/proc/stat"
       query: root.query
       keywords: ["cpu", "load", "sparkline"]
@@ -223,7 +223,7 @@ PrefsPage {
 
     SettingRow {
       label: "Memory"
-      description: "In use against what is fitted."
+      description: I18n.tr("In use against what is fitted.")
       hint: "/proc/meminfo"
       query: root.query
       keywords: ["memory", "ram"]
@@ -257,7 +257,7 @@ PrefsPage {
 
     SettingRow {
       label: "Network"
-      description: "Receive and transmit on non-loopback interfaces."
+      description: I18n.tr("Receive and transmit on non-loopback interfaces.")
       hint: "/proc/net/dev"
       query: root.query
       keywords: ["network", "bandwidth", "rx", "tx"]
@@ -278,13 +278,13 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Thermal"
+    title: I18n.tr("Thermal")
     query: root.query
     detail: "Package and GPU sensors. GPU names come from Hardware. A missing reading stays unknown."
 
     SettingRow {
       label: "Processor"
-      description: "CPU package temperature."
+      description: I18n.tr("CPU package temperature.")
       hint: "/sys/class/hwmon · /sys/class/thermal"
       query: root.query
       keywords: ["temperature", "cpu", "heat", "thermal", "package"]
@@ -329,7 +329,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Processes"
+    title: I18n.tr("Processes")
     query: root.query
     wide: true
     detail: "This user's processes. End sends SIGTERM. Force quit sends SIGKILL. Pid 1 and Atmos itself are refused."
@@ -386,12 +386,12 @@ PrefsPage {
     SettingRow {
       available: !!(root.navigator && root.navigator.go)
       label: "Monitor"
-      description: "Per-core load, memory composition, disk I/O, traffic, sensors, and a full process table."
+      description: I18n.tr("Per-core load, memory composition, disk I/O, traffic, sensors, and a full process table.")
       query: root.query
       keywords: ["monitor", "htop", "btop", "process"]
 
       PrefsButton {
-        text: "Configure…"
+        text: I18n.tr("Configure…")
         primary: true
         onClicked: root.navigator.go("monitor")
       }

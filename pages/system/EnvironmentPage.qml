@@ -6,8 +6,8 @@ import "../../services/EnvPrefs.js" as EnvJs
 PrefsPage {
   id: root
   hubId: "system/environment"
-  title: "Environment"
-  description: "Detected session values are read-only. Extra variables and a PATH prepend write ~/.config/environment.d/10-atmos.conf and apply on the next login."
+  title: I18n.tr("Environment")
+  description: I18n.tr("Detected session values are read-only. Extra variables and a PATH prepend write ~/.config/environment.d/10-atmos.conf and apply on the next login.")
 
   property string varKeyDraft: ""
   property string varValueDraft: ""
@@ -40,13 +40,13 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Detected"
+    title: I18n.tr("Detected")
     query: root.query
     detail: "What this session is already using. Defaults for browser, terminal, and editor are on Defaults."
 
     SettingRow {
       label: "Session"
-      description: "This login's session type and desktop."
+      description: I18n.tr("This login's session type and desktop.")
       query: root.query
       keywords: ["wayland", "session", "desktop"]
       valueText: (root.detected.sessionType || "unknown") + (root.detected.desktop ? " · " + root.detected.desktop : "")
@@ -54,7 +54,7 @@ PrefsPage {
 
     SettingRow {
       label: "Shell"
-      description: "The login shell for this account."
+      description: I18n.tr("The login shell for this account.")
       query: root.query
       keywords: ["shell", "zsh", "bash"]
       valueText: root.detected.shell || "not set"
@@ -62,7 +62,7 @@ PrefsPage {
 
     SettingRow {
       label: "Editor / terminal / browser"
-      description: "Environment values for those tools. Defaults still live on Defaults."
+      description: I18n.tr("Environment values for those tools. Defaults still live on Defaults.")
       query: root.query
       keywords: ["editor", "terminal", "browser"]
       valueText: [root.detected.editor, root.detected.terminal, root.detected.browser].filter(function (v) { return v }).join(" · ") || "not set"
@@ -79,7 +79,7 @@ PrefsPage {
 
   PrefsGroup {
     framed: true
-    title: "Overlay"
+    title: I18n.tr("Overlay")
     query: root.query
     detail: "Written to ~/.config/environment.d/10-atmos.conf. systemd user sessions pick it up on the next login."
     hint: "~/.config/environment.d/10-atmos.conf"
@@ -87,7 +87,7 @@ PrefsPage {
     SettingRow {
       stretchControl: true
       label: "PATH prepend"
-      description: "Absolute directories, colon-separated, added in front of PATH."
+      description: I18n.tr("Absolute directories, colon-separated, added in front of PATH.")
       hint: "PATH=…:$PATH"
       query: root.query
       keywords: ["path", "prepend"]
@@ -110,7 +110,7 @@ PrefsPage {
 
         PrefsButton {
           id: pathPrependSetBtn
-          text: "Set"
+          text: I18n.tr("Set")
           primary: true
           enabled: root.pathPrependDraft !== Omarchy.envPathPrepend
           onClicked: Omarchy.setEnvVars(Omarchy.envVars, root.pathPrependDraft)
@@ -137,7 +137,7 @@ PrefsPage {
           onEdited: function(value) { root.varValueDraft = value }
         }
         PrefsButton {
-          text: "Add"
+          text: I18n.tr("Add")
           primary: true
           onClicked: root.addVar()
         }
@@ -155,7 +155,7 @@ PrefsPage {
         keywords: ["environment"]
 
         PrefsButton {
-          text: "Remove"
+          text: I18n.tr("Remove")
           danger: true
           onClicked: {
             var vars = []

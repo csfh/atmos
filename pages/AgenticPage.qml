@@ -8,8 +8,8 @@ import "agentic" as AgentPages
 PrefsPage {
   id: root
   hubId: "agentic"
-  title: "Agentic"
-  description: "The coding agents on this machine, and which one Omarchy opens."
+  title: I18n.tr("Agentic")
+  description: I18n.tr("The coding agents on this machine, and which one Omarchy opens.")
 
   property var stack: null
   property var navigator: null
@@ -82,7 +82,7 @@ PrefsPage {
   Component { id: mcpPage; AgentPages.McpPage {} }
 
   PrefsGroup {
-    title: "Agents"
+    title: I18n.tr("Agents")
     query: root.query
     detail: root.loadError.length
       ? root.loadError
@@ -93,7 +93,7 @@ PrefsPage {
     SettingRow {
       visible: Omarchy.agent.length > 0 && !root.knownAgent
       label: Omarchy.agent
-      description: "Omarchy opens this agent."
+      description: I18n.tr("Omarchy opens this agent.")
       valueText: "Default"
       query: root.query
       keywords: ["agent", "default"]
@@ -119,19 +119,19 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Tools"
+    title: I18n.tr("Tools")
     query: root.query
     detail: "MCP lets an installed agent read this machine and change settings through Atmos."
 
     SettingRow {
       label: "MCP"
-      description: "Install the Atmos command into Grok, Claude Code, and Cursor."
+      description: I18n.tr("Install the Atmos command into Grok, Claude Code, and Cursor.")
       hint: "atmos mcp"
       query: root.query
       keywords: ["mcp", "claude", "grok", "cursor"]
 
       PrefsButton {
-        text: "Open…"
+        text: I18n.tr("Open…")
         onClicked: root.openSubpage("mcp")
       }
     }

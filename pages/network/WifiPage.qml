@@ -8,8 +8,8 @@ import "../../services/NetworkPrefs.js" as NetPrefs
 PrefsPage {
   id: root
   hubId: "network/wifi"
-  title: "Wi-Fi"
-  description: "Join a nearby network, pin the band, or share the one you are on with a QR code."
+  title: I18n.tr("Wi-Fi")
+  description: I18n.tr("Join a nearby network, pin the band, or share the one you are on with a QR code.")
 
   readonly property var bandLabels: ({
     "auto": "Auto",
@@ -216,7 +216,7 @@ PrefsPage {
 
   PrefsConfirm {
     id: forgetWifiConfirm
-    title: "Forget network"
+    title: I18n.tr("Forget network")
     message: "Forget this saved Wi-Fi network? You will need the password again the next time you join."
     confirmText: "Forget"
     onConfirmed: Omarchy.forgetWifiSsid(forgetWifiConfirm.payload)
@@ -224,7 +224,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Adapter"
+    title: I18n.tr("Adapter")
     query: root.query
     detail: "The radio NetworkManager uses to scan and join. Off is like airplane mode for Wi-Fi only."
     hint: "nmcli radio wifi"
@@ -252,7 +252,7 @@ PrefsPage {
 
   PrefsGroup {
     framed: true
-    title: "Networks"
+    title: I18n.tr("Networks")
     query: root.query
     detail: "Nearby and saved access points from a NetworkManager scan. The list refreshes while this page is open. Join a known network, or type a password. Enterprise networks also ask for an identity. Forget drops a saved connection."
     hint: "nmcli"
@@ -270,7 +270,7 @@ PrefsPage {
       keywords: ["scan", "ssid", "empty"]
 
       PrefsButton {
-        text: "Refresh"
+        text: I18n.tr("Refresh")
         enabled: Omarchy.wifiHw && Omarchy.wifiRadio
         onClicked: {
           Omarchy.refresh()
@@ -316,7 +316,7 @@ PrefsPage {
             }
             PrefsButton {
               visible: !!(modelData && modelData.known && !modelData.connected)
-              text: "Forget…"
+              text: I18n.tr("Forget…")
               danger: true
               enabled: modelData
               onClicked: {
@@ -347,7 +347,7 @@ PrefsPage {
             }
 
             PrefsButton {
-              text: "Connect"
+              text: I18n.tr("Connect")
               enabled: root.actionKind === ""
               onClicked: root.submitWifiSecrets(modelData, rowPassword.currentText(), identityField.currentText())
             }
@@ -365,7 +365,7 @@ PrefsPage {
       keywords: ["failed"]
 
       PrefsButton {
-        text: "Dismiss"
+        text: I18n.tr("Dismiss")
         enabled: root.wifiError.length > 0
         onClicked: root.wifiError = ""
       }
@@ -373,7 +373,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Connection"
+    title: I18n.tr("Connection")
     query: root.query
     detail: "Band pins the active network to 2.4, 5, or 6 GHz. The QR code is a scannable copy of the network you are on."
 
@@ -401,7 +401,9 @@ PrefsPage {
       available: Omarchy.wifiConnected
       stretchControl: true
       label: "QR code"
-      description: root.qrSsid.length ? ("A scannable code for " + root.qrSsid + ".") : "A scannable code for the network you are on, so someone nearby can join."
+      description: root.qrSsid.length
+        ? I18n.tr("A scannable code for {ssid}.", { ssid: root.qrSsid })
+        : I18n.tr("A scannable code for the network you are on, so someone nearby can join.")
       hint: "omarchy network qr --meta"
       query: root.query
       keywords: ["share", "ssid", "password", "qrcode", "wifi-qr"]
@@ -418,7 +420,7 @@ PrefsPage {
             onClicked: root.startQr()
           }
           PrefsButton {
-            text: "Copy password"
+            text: I18n.tr("Copy password")
             enabled: Omarchy.wifiIface.length > 0
             onClicked: Omarchy.copyWifiPassword()
           }
@@ -457,13 +459,13 @@ PrefsPage {
 
     SettingRow {
       label: "Restart Wi-Fi"
-      description: "Unblock rfkill and restart NetworkManager's Wi-Fi. Try this if the radio looks stuck."
+      description: I18n.tr("Unblock rfkill and restart NetworkManager's Wi-Fi. Try this if the radio looks stuck.")
       hint: "omarchy restart wifi"
       query: root.query
       keywords: ["rfkill", "reload", "wlan"]
 
       PrefsButton {
-        text: "Restart"
+        text: I18n.tr("Restart")
         enabled: Omarchy.wifiHw
         onClicked: Omarchy.restartWifi()
       }
@@ -472,11 +474,11 @@ PrefsPage {
 
   PrefsDialog {
     id: staticDialog
-    title: "Static IPv4"
+    title: I18n.tr("Static IPv4")
 
     PrefsText {
       width: parent.width
-      text: root.staticError.length ? root.staticError : "Address and prefix are required. Leave gateway or DNS blank to skip them."
+      text: root.staticError.length ? I18n.tr(root.staticError) : I18n.tr("Address and prefix are required. Leave gateway or DNS blank to skip them.")
       color: root.staticError.length ? Theme.urgent : Theme.muted
       font.family: Theme.fontFamily
       font.pixelSize: Theme.captionSize
@@ -491,11 +493,11 @@ PrefsPage {
       anchors.right: parent.right
       spacing: Theme.space
       PrefsButton {
-        text: "Cancel"
+        text: I18n.tr("Cancel")
         onClicked: staticDialog.close()
       }
       PrefsButton {
-        text: "Apply"
+        text: I18n.tr("Apply")
         primary: true
         onClicked: {
           var spec = {
@@ -519,7 +521,7 @@ PrefsPage {
 
   PrefsGroup {
     framed: true
-    title: "Saved connections"
+    title: I18n.tr("Saved connections")
     query: root.query
     detail: "Metered, priority, MAC randomization, and static IPv4 write through nmcli. Forget is still on the scan list."
     hint: "nmcli connection modify"
@@ -527,7 +529,7 @@ PrefsPage {
     SettingRow {
       available: Omarchy.wifiConnections.length === 0
       label: "Saved networks"
-      description: "No saved connections."
+      description: I18n.tr("No saved connections.")
       query: root.query
       keywords: ["saved", "empty"]
     }
@@ -580,13 +582,13 @@ PrefsPage {
           Row {
             spacing: Theme.space
             PrefsButton {
-              text: "DHCP"
+              text: I18n.tr("DHCP")
               onClicked: {
                 if (modelData && modelData.uuid) Omarchy.setConnectionIpv4(modelData.uuid, { method: "auto" })
               }
             }
             PrefsButton {
-              text: "Static…"
+              text: I18n.tr("Static…")
               onClicked: {
                 root.staticUuid = modelData.uuid
                 root.staticError = ""

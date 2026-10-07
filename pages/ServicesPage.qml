@@ -9,8 +9,8 @@ import "../services/Systemd.js" as SystemdJs
 PrefsPage {
   id: root
   hubId: "services"
-  title: "Services"
-  description: "Start, stop, and enable stay on the allowlist. Other units are status and logs."
+  title: I18n.tr("Services")
+  description: I18n.tr("Start, stop, and enable stay on the allowlist. Other units are status and logs.")
 
   property string unitFilter: ""
   property string stateFilter: "all"
@@ -76,7 +76,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: ""
+    title: I18n.tr("")
     query: root.query
     framed: false
     catalog: false
@@ -201,7 +201,7 @@ PrefsPage {
     }
 
     PrefsButton {
-      text: "Close"
+      text: I18n.tr("Close")
       onClicked: outputDialog.close()
     }
   }

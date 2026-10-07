@@ -390,6 +390,10 @@ ShellRoot {
     target: "prefs"
 
     function ping(): string { return "ok" }
+    function language(): string {
+      return JSON.stringify({ locale: I18n.locale, systemLocale: Omarchy.locale,
+        catalogs: Object.keys(I18n.catalog), sample: I18n.tr("Appearance") })
+    }
     function show(): string { return root.showWindow() }
     function hide(): string {
       window.visible = false
@@ -400,12 +404,23 @@ ShellRoot {
 
   FloatingWindow {
     id: window
-    title: "Atmos"
+    title: I18n.tr("Atmos")
     color: Theme.background
     implicitWidth: 960
     implicitHeight: 680
     minimumSize: Qt.size(800, 560)
     visible: true
+
+    Binding {
+      target: window.contentItem.LayoutMirroring
+      property: "enabled"
+      value: I18n.rtl
+    }
+    Binding {
+      target: window.contentItem.LayoutMirroring
+      property: "childrenInherit"
+      value: true
+    }
 
     onClosed: Qt.quit()
     onVisibleChanged: {
@@ -426,7 +441,7 @@ ShellRoot {
 
         FileDialog {
           id: sidebarAvatarDialog
-          title: "Choose a face"
+          title: I18n.tr("Choose a face")
           nameFilters: ["Images (*.png *.jpg *.jpeg)"]
           onAccepted: Omarchy.setAvatarPath(RichUi.pathFromUrl(selectedFile))
         }
@@ -574,7 +589,7 @@ ShellRoot {
             }
 
             Accessible.role: Accessible.Button
-            Accessible.name: "Accounts"
+            Accessible.name: I18n.tr("Accounts")
             Accessible.onPressAction: root.openPage("accounts")
           }
         }
@@ -629,6 +644,7 @@ ShellRoot {
                 spacing: Theme.sidebarItemSpacing
                 topPadding: index > 0 ? Theme.sidebarGroupSpacing : 0
 
+                // Collapse state is keyed by the stable source title, not its translation.
                 readonly property string groupTitle: navGroup.modelData && navGroup.modelData.title ? navGroup.modelData.title : ""
                 // The icon rail has no group headers to open, so it shows everything.
                 readonly property bool open: root.railMode || LayoutJs.groupOpen(
@@ -657,7 +673,7 @@ ShellRoot {
                     anchors.bottom: parent.bottom
                     anchors.leftMargin: Theme.pad
                     anchors.rightMargin: Theme.space
-                    text: navGroup.groupTitle.toUpperCase()
+                    text: I18n.tr(navGroup.groupTitle).toUpperCase()
                     color: groupMouse.containsMouse ? Theme.foreground : Theme.muted
                     font.family: Theme.fontFamily
                     font.pixelSize: Theme.sectionSize
@@ -688,7 +704,7 @@ ShellRoot {
                   }
 
                   Accessible.role: Accessible.Button
-                  Accessible.name: navGroup.groupTitle + (navGroup.open ? ", expanded" : ", collapsed")
+                  Accessible.name: I18n.tr(navGroup.groupTitle) + I18n.tr(navGroup.open ? ", expanded" : ", collapsed")
                   Accessible.onPressAction: groupMouse.clicked(null)
                 }
 
@@ -706,7 +722,7 @@ ShellRoot {
                     color: (navItem.hovered || navItem.activeFocus) ? Theme.fill(Theme.hoverFill) : "transparent"
 
                     Accessible.role: Accessible.Button
-                    Accessible.name: modelData && modelData.title ? modelData.title : ""
+                    Accessible.name: modelData && modelData.title ? I18n.tr(modelData.title) : ""
                     Accessible.checkable: true
                     Accessible.checked: navItem.selected
                     Accessible.onPressAction: navItem.activate()
@@ -747,7 +763,7 @@ ShellRoot {
                       anchors.verticalCenter: parent.verticalCenter
                       anchors.leftMargin: Theme.space
                       anchors.rightMargin: navBadge.visible ? Theme.space : Theme.pad
-                      text: modelData.title
+                      text: I18n.tr(modelData.title)
                       color: Theme.foreground
                       font.family: Theme.fontFamily
                       font.pixelSize: Theme.labelSize
@@ -775,7 +791,7 @@ ShellRoot {
 
                     // The rail shows only icons, so the name appears on hover.
                     ToolTip.visible: root.railMode && navMouse.containsMouse
-                    ToolTip.text: modelData && modelData.title ? modelData.title : ""
+                    ToolTip.text: modelData && modelData.title ? I18n.tr(modelData.title) : ""
                     ToolTip.delay: 350
 
                     MouseArea {
@@ -826,7 +842,7 @@ ShellRoot {
             anchors.right: parent.right
             anchors.rightMargin: Theme.pad
             anchors.verticalCenter: parent.verticalCenter
-            text: "Keyboard  Ctrl+/"
+            text: I18n.tr("Keyboard  Ctrl+/")
             color: footerMouse.containsMouse ? Theme.foreground : Theme.muted
             font.family: Theme.fontFamily
             font.pixelSize: Theme.captionSize
@@ -842,7 +858,7 @@ ShellRoot {
           }
 
           Accessible.role: Accessible.Button
-          Accessible.name: "Keyboard shortcuts"
+          Accessible.name: I18n.tr("Keyboard shortcuts")
           Accessible.onPressAction: keysDialog.open()
         }
       }
@@ -885,7 +901,7 @@ ShellRoot {
         readonly property int columnX: Theme.contentColumnX(width, columnWidth)
         readonly property int textInset: columnX + Theme.copyInset
         readonly property int backSlotWidth: Math.max(16, Theme.fontSize + 4)
-        readonly property string hubName: root.query.length > 0 ? "Search" : HubsJs.hubTitle(root.hubId(root.currentPage))
+        readonly property string hubName: I18n.tr(root.query.length > 0 ? "Search" : HubsJs.hubTitle(root.hubId(root.currentPage)))
         readonly property string subName: canGoBack && pageStack.currentItem && pageStack.currentItem.title !== undefined
           ? String(pageStack.currentItem.title) : ""
         readonly property string groupName: {
@@ -897,7 +913,7 @@ ShellRoot {
           }
           return ""
         }
-        readonly property var crumbs: LayoutJs.breadcrumb(hubName, subName, groupName)
+        readonly property var crumbs: LayoutJs.breadcrumb(hubName, I18n.tr(subName), I18n.tr(groupName))
         readonly property bool hasModeToggle: !!(pageStack.currentItem && pageStack.currentItem.showDisclosure === true)
 
         Item {
@@ -912,7 +928,7 @@ ShellRoot {
           visible: header.canGoBack
 
           Accessible.role: Accessible.Button
-          Accessible.name: "Back"
+          Accessible.name: I18n.tr("Back")
           Accessible.onPressAction: pageStack.pop()
 
           // A plain "<", set like the crumbs, so it centers on the same line.
@@ -967,7 +983,7 @@ ShellRoot {
               Text {
                 id: crumbText
                 anchors.verticalCenter: parent.verticalCenter
-                text: modelData.label
+                text: I18n.tr(modelData.label)
                 color: modelData.link ? (crumbMouse.containsMouse ? Theme.accent : Theme.muted)
                   : (modelData.context ? Theme.muted : Theme.foreground)
                 font.family: Theme.fontFamily
@@ -1054,7 +1070,7 @@ ShellRoot {
             Text {
               anchors.fill: parent
               visible: searchField.text.length === 0 && !searchField.activeFocus
-              text: "Search settings  /"
+              text: I18n.tr("Search settings  /")
               color: Theme.muted
               font.family: Theme.fontFamily
               font.pixelSize: Theme.fontSize
@@ -1073,19 +1089,19 @@ ShellRoot {
           spacing: Theme.space
 
           Accessible.role: Accessible.Grouping
-          Accessible.name: "Which options to show"
+          Accessible.name: I18n.tr("Which options to show")
 
           PrefsButton {
-            text: "Simple"
+            text: I18n.tr("Simple")
             primary: Disclosure.simple
-            Accessible.description: "Fold the advanced rows. Search still finds them."
+            Accessible.description: I18n.tr("Fold the advanced rows. Search still finds them.")
             onClicked: Disclosure.simple = true
           }
 
           PrefsButton {
-            text: "Everything"
+            text: I18n.tr("Everything")
             primary: !Disclosure.simple
-            Accessible.description: "Show every option."
+            Accessible.description: I18n.tr("Show every option.")
             onClicked: Disclosure.simple = false
           }
         }
@@ -1175,7 +1191,7 @@ ShellRoot {
 
     PrefsDialog {
       id: errorDialog
-      title: "Error"
+      title: I18n.tr("Error")
       primaryText: "Ask my Agent to work on this"
       cancelText: "Dismiss"
       closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
@@ -1191,7 +1207,7 @@ ShellRoot {
       }
 
       PrefsButton {
-        text: "Copy"
+        text: I18n.tr("Copy")
         onClicked: Omarchy.copyLastError()
       }
 
@@ -1216,7 +1232,7 @@ ShellRoot {
     // to a README.
     PrefsDialog {
       id: keysDialog
-      title: "Keyboard"
+      title: I18n.tr("Keyboard")
       closePolicy: Popup.CloseOnEscape
 
       Repeater {
@@ -1250,7 +1266,7 @@ ShellRoot {
             anchors.leftMargin: Theme.spinWidth + Theme.spaceLg
             anchors.right: parent.right
             anchors.verticalCenter: parent.verticalCenter
-            text: modelData.what
+            text: I18n.tr(modelData.what)
             color: Theme.foreground
             font.family: Theme.fontFamily
             font.pixelSize: Theme.labelSize
@@ -1261,7 +1277,7 @@ ShellRoot {
       Row {
         anchors.right: parent.right
         PrefsButton {
-          text: "Close"
+          text: I18n.tr("Close")
           primary: true
           onClicked: keysDialog.close()
         }
@@ -1270,7 +1286,7 @@ ShellRoot {
 
     PrefsDialog {
       id: sudoModeDialog
-      title: "Administrator password"
+      title: I18n.tr("Administrator password")
       closePolicy: Popup.CloseOnEscape
 
       PrefsText {
@@ -1305,7 +1321,7 @@ ShellRoot {
         spacing: Theme.space
 
         PrefsButton {
-          text: "Cancel"
+          text: I18n.tr("Cancel")
           enabled: !Omarchy.sudoEnabling
           onClicked: {
             sudoModeDialog.close()
@@ -1314,7 +1330,7 @@ ShellRoot {
         }
 
         PrefsButton {
-          text: "Continue"
+          text: I18n.tr("Continue")
           primary: true
           enabled: !Omarchy.sudoEnabling
           onClicked: root.submitSudoPassword()

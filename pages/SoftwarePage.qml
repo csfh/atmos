@@ -6,8 +6,8 @@ import "../services/Software.js" as Soft
 PrefsPage {
   id: root
   hubId: "software"
-  title: "Software"
-  description: "Optional stacks Omarchy can install. Remove asks first. Gaming remove also deletes libraries those launchers keep."
+  title: I18n.tr("Software")
+  description: I18n.tr("Optional stacks Omarchy can install. Remove asks first. Gaming remove also deletes libraries those launchers keep.")
 
   property var pendingItem: null
   property string pendingKind: ""
@@ -101,7 +101,7 @@ PrefsPage {
 
   PrefsGroup {
     framed: true
-    title: "Browsers"
+    title: I18n.tr("Browsers")
     query: root.query
     detail: "Install an extra browser, then set the default on Defaults if you want Omarchy to open it."
     hint: "omarchy install browser"
@@ -114,7 +114,7 @@ PrefsPage {
 
   PrefsGroup {
     framed: true
-    title: "Terminals"
+    title: I18n.tr("Terminals")
     query: root.query
     detail: "Omarchy can install another terminal. There is no matching remove command, so these rows only install."
     hint: "omarchy install terminal"
@@ -127,7 +127,7 @@ PrefsPage {
 
   PrefsGroup {
     framed: true
-    title: "Editors"
+    title: I18n.tr("Editors")
     query: root.query
     detail: "Optional editors with Omarchy theme wiring. Remove is not a separate Omarchy command here."
     hint: "omarchy install editor"
@@ -140,7 +140,7 @@ PrefsPage {
 
   PrefsGroup {
     framed: true
-    title: "Services"
+    title: I18n.tr("Services")
     query: root.query
     detail: "Optional apps Omarchy packages as services. Tailscale also has a shortcut on Network."
     hint: "omarchy install service"
@@ -153,7 +153,7 @@ PrefsPage {
 
   PrefsGroup {
     framed: true
-    title: "Gaming"
+    title: I18n.tr("Gaming")
     query: root.query
     detail: "Launchers and a couple of cloud clients. Remove for Steam and the others wipes their libraries."
     hint: "omarchy install gaming"
@@ -166,13 +166,13 @@ PrefsPage {
 
   PrefsGroup {
     framed: true
-    title: "Development"
+    title: I18n.tr("Development")
     query: root.query
     detail: "Language toolchains through mise, a Docker database, and the ChatGPT desktop app."
 
     SettingRow {
       label: "Language toolchain"
-      description: "Install or remove a dev environment Omarchy knows."
+      description: I18n.tr("Install or remove a dev environment Omarchy knows.")
       hint: "omarchy install dev env"
       query: root.query
       keywords: ["dev", "mise", "ruby", "node", "python", "rust"]
@@ -188,13 +188,13 @@ PrefsPage {
           onChanged: function(value) { root.devLang = value }
         }
         PrefsButton {
-          text: "Install…"
+          text: I18n.tr("Install…")
           primary: true
           enabled: !Omarchy.jobBusy
           onClicked: root.askDev("install")
         }
         PrefsButton {
-          text: "Remove…"
+          text: I18n.tr("Remove…")
           danger: true
           enabled: !Omarchy.jobBusy
           onClicked: root.askDev("remove")
@@ -205,7 +205,7 @@ PrefsPage {
     SettingRow {
       available: Omarchy.extras && Omarchy.extras.docker === true
       label: "Docker database"
-      description: "Start a supported database in Docker."
+      description: I18n.tr("Start a supported database in Docker.")
       hint: "omarchy install docker dbs"
       query: root.query
       keywords: ["docker", "postgres", "mysql", "redis", "mongo"]
@@ -221,7 +221,7 @@ PrefsPage {
           onChanged: function(value) { root.dockerDb = value }
         }
         PrefsButton {
-          text: "Install"
+          text: I18n.tr("Install")
           primary: true
           enabled: !Omarchy.jobBusy
           onClicked: Omarchy.installDockerDb(root.dockerDb)

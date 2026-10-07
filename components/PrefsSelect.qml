@@ -56,21 +56,24 @@ Item {
   Accessible.onPressAction: root.togglePopup()
 
   property string filter: ""
-  property string displayLabel: ""
+  readonly property string displayLabel: {
+    // Bind both the selected value and catalog revision. Raw string options
+    // are runtime values; only object labels are authored UI copy.
+    var revision = I18n.revision
+    var list = options || []
+    for (var i = 0; i < list.length; i++) {
+      if (optionValue(list[i]) === shownValue) return optionLabel(list[i])
+    }
+    return shownValue
+  }
   property var shownOptions: []
 
   function optionValue(item) { return RichUi.optionValue(item) }
-  function optionLabel(item) { return RichUi.optionLabel(item) }
-
-  function refreshDisplayLabel() {
-    var list = options || []
-    for (var i = 0; i < list.length; i++) {
-      if (optionValue(list[i]) === shownValue) {
-        displayLabel = optionLabel(list[i])
-        return
-      }
-    }
-    displayLabel = shownValue
+  function optionLabel(item) {
+    var raw = RichUi.optionLabel(item)
+    // Object labels are authored UI copy; bare strings commonly represent
+    // device names, usernames, or other runtime values and stay literal.
+    return item && typeof item === "object" ? I18n.tr(raw) : raw
   }
 
   function refreshShownOptions() {
@@ -79,17 +82,13 @@ Item {
 
   onValueChanged: {
     if (_holding && value === _heldValue) _holding = false
-    refreshDisplayLabel()
   }
-  onShownValueChanged: refreshDisplayLabel()
   onOptionsChanged: {
-    refreshDisplayLabel()
     refreshShownOptions()
   }
   onFilterChanged: refreshShownOptions()
   onUseSearchChanged: refreshShownOptions()
   Component.onCompleted: {
-    refreshDisplayLabel()
     refreshShownOptions()
   }
 
@@ -106,7 +105,6 @@ Item {
     _holding = true
     changed(next)
     if (value === next) _holding = false
-    refreshDisplayLabel()
     root.clearHover()
     popup.close()
   }
@@ -274,7 +272,7 @@ Item {
           Text {
             anchors.fill: parent
             visible: searchField.text.length === 0 && !searchField.activeFocus
-            text: "Find an option"
+            text: I18n.tr("Find an option")
             color: Theme.muted
             font.family: Theme.fontFamily
             font.pixelSize: Theme.fontSize
@@ -363,7 +361,7 @@ Item {
         Text {
           visible: list.count === 0
           anchors.centerIn: parent
-          text: "Nothing matches that."
+          text: I18n.tr("Nothing matches that.")
           color: Theme.muted
           font.family: Theme.fontFamily
           font.pixelSize: Theme.captionSize

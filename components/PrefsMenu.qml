@@ -21,7 +21,7 @@ Item {
   readonly property bool overlayOpen: popup.opened
 
   Accessible.role: Accessible.Button
-  Accessible.name: root.accessibleName
+  Accessible.name: I18n.tr(root.accessibleName)
   Accessible.onPressAction: root.togglePopup()
 
   function itemId(item) {

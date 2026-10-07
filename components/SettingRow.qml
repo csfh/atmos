@@ -44,9 +44,9 @@ Item {
   default property alias extra: controlSlot.data
 
   readonly property string searchHaystack: {
-    var parts = [label, description, hint, detail, valueText, caption]
+    var parts = [label, I18n.tr(label), I18n.tr(description), I18n.tr(hint), I18n.tr(detail), valueText, caption]
     var list = keywords || []
-    for (var i = 0; i < list.length; i++) parts.push(list[i])
+    for (var i = 0; i < list.length; i++) parts.push(I18n.tr(list[i]))
     return ShellConfigJs.joinSearchHaystack(parts)
   }
 
@@ -306,7 +306,7 @@ Item {
             id: labelText
             width: parent.width
             visible: root.label.length > 0
-            text: root.label
+            text: I18n.tr(root.label)
             color: Theme.foreground
             font.family: Theme.fontFamily
             font.pixelSize: Theme.labelSize
@@ -318,7 +318,7 @@ Item {
             id: descText
             width: parent.width
             visible: root.description.length > 0
-            text: root.description
+            text: I18n.tr(root.description)
             color: Theme.muted
             font.family: Theme.fontFamily
             font.pixelSize: Theme.descriptionSize
@@ -329,9 +329,9 @@ Item {
             id: writeText
             width: parent.width
             visible: root.writeStatus.phase !== "idle"
-            text: root.writeStatus.phase === "pending" ? "Applying…"
-              : root.writeStatus.phase === "saved" ? "Saved"
-              : "Failed: " + root.writeStatus.message
+            text: root.writeStatus.phase === "pending" ? I18n.tr("Applying…")
+              : root.writeStatus.phase === "saved" ? I18n.tr("Saved")
+              : I18n.tr("Failed: {error}", { error: root.writeStatus.message })
             color: root.writeStatus.phase === "failed" ? Theme.urgent
               : root.writeStatus.phase === "saved" ? Theme.accent : Theme.muted
             font.family: Theme.fontFamily
@@ -343,7 +343,7 @@ Item {
             id: captionText
             width: parent.width
             visible: root.caption.length > 0
-            text: root.caption
+            text: I18n.tr(root.caption)
             color: Theme.muted
             font.family: Theme.fontFamily
             font.pixelSize: Theme.metaSize

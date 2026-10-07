@@ -7,12 +7,12 @@ import "../services/RichUi.js" as RichUi
 PrefsPage {
   id: root
   hubId: "bar"
-  title: "Bar"
-  description: "Where the bar sits and what it shows."
+  title: I18n.tr("Bar")
+  description: I18n.tr("Where the bar sits and what it shows.")
 
   FolderDialog {
     id: syncDirDialog
-    title: "Agent usage sync folder"
+    title: I18n.tr("Agent usage sync folder")
     onAccepted: Omarchy.setAgentsSyncDir(RichUi.pathFromUrl(selectedFolder))
   }
 
@@ -129,13 +129,13 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Layout"
+    title: I18n.tr("Layout")
     query: root.query
     detail: "The bar can sit on any edge. Transparent lets wallpaper show through. Hiding the bar leaves the rest of the shell running."
 
     SettingRow {
       label: "Position"
-      description: "Which edge of the screen the bar sits on. Top is the usual place."
+      description: I18n.tr("Which edge of the screen the bar sits on. Top is the usual place.")
       hint: "omarchy bar position"
       query: root.query
       keywords: ["top", "bottom", "left", "right", "menu bar"]
@@ -156,7 +156,7 @@ PrefsPage {
 
     SettingRow {
       label: "Transparent bar"
-      description: "The wallpaper shows through the bar."
+      description: I18n.tr("The wallpaper shows through the bar.")
       hint: "omarchy bar transparent"
       query: root.query
       keywords: ["opacity", "see-through"]
@@ -169,7 +169,7 @@ PrefsPage {
 
     SettingRow {
       label: "Show bar"
-      description: "Keep the bar visible. Turn this off to hide it."
+      description: I18n.tr("Keep the bar visible. Turn this off to hide it.")
       hint: "omarchy toggle bar"
       query: root.query
       keywords: ["hide", "visible", "autohide"]
@@ -182,20 +182,20 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Spacer"
+    title: I18n.tr("Spacer")
     query: root.query
     detail: "A blank gap you can put between widgets. Add inserts omarchy.spacer. Remove takes it off the bar. Width is in pixels."
 
     SettingRow {
       available: !Omarchy.spacerPresent
       label: "Spacer"
-      description: "Put a blank gap between widgets. You can set the width after it is there."
+      description: I18n.tr("Put a blank gap between widgets. You can set the width after it is there.")
       hint: "omarchy bar put omarchy.spacer"
       query: root.query
       keywords: ["gap", "space", "padding", "layout", "missing", "add"]
 
       PrefsButton {
-        text: "Add"
+        text: I18n.tr("Add")
         primary: true
         onClicked: Omarchy.addSpacer()
       }
@@ -205,7 +205,7 @@ PrefsPage {
       available: Omarchy.spacerPresent
       stretchControl: true
       label: "Width"
-      description: "How wide the blank gap is between the widgets on either side."
+      description: I18n.tr("How wide the blank gap is between the widgets on either side.")
       hint: "omarchy bar set omarchy.spacer size"
       query: root.query
       keywords: ["gap", "space", "padding", "layout"]
@@ -229,13 +229,13 @@ PrefsPage {
     SettingRow {
       available: Omarchy.spacerPresent
       label: "Remove"
-      description: "Take the blank gap off the bar."
+      description: I18n.tr("Take the blank gap off the bar.")
       hint: "omarchy plugin disable omarchy.spacer"
       query: root.query
       keywords: ["gap", "space", "padding", "layout", "delete", "remove"]
 
       PrefsButton {
-        text: "Remove"
+        text: I18n.tr("Remove")
         enabled: Omarchy.spacerPresent
         onClicked: Omarchy.removeSpacer()
       }
@@ -243,14 +243,14 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Tray"
+    title: I18n.tr("Tray")
     query: root.query
     detail: "Hidden icons stay listed so you can show them again. Pinned icons stay visible even when the tray tucks extras away."
 
     SettingRow {
       available: Omarchy.trayPresent && Omarchy.trayHidden.length === 0
       label: "Hidden icons"
-      description: "No hidden tray icons."
+      description: I18n.tr("No hidden tray icons.")
       hint: "omarchy bar set omarchy.tray hidden"
       query: root.query
       keywords: ["system tray", "sni", "unhide", "show", "icons", "empty"]
@@ -259,13 +259,13 @@ PrefsPage {
     SettingRow {
       available: Omarchy.trayPresent && Omarchy.trayHidden.length > 0
       label: "Hidden icons"
-      description: "Hidden right now: " + root.trayHiddenLabels().join(", ") + ". Show all brings them back."
+      description: I18n.tr("Hidden right now: {items}. Show all brings them back.", { items: root.trayHiddenLabels().join(", ") })
       hint: "omarchy bar set omarchy.tray hidden"
       query: root.query
       keywords: ["system tray", "sni", "unhide", "show", "icons"]
 
       PrefsButton {
-        text: "Show all"
+        text: I18n.tr("Show all")
         enabled: Omarchy.trayPresent
         onClicked: Omarchy.clearTrayHidden()
       }
@@ -274,7 +274,7 @@ PrefsPage {
     SettingRow {
       available: Omarchy.trayPresent && Omarchy.trayPinned.length === 0
       label: "Pinned icons"
-      description: "No pinned tray icons."
+      description: I18n.tr("No pinned tray icons.")
       hint: "omarchy bar set omarchy.tray pinned"
       query: root.query
       keywords: ["system tray", "sni", "pin", "unpin", "always visible", "empty"]
@@ -283,13 +283,13 @@ PrefsPage {
     SettingRow {
       available: Omarchy.trayPresent && Omarchy.trayPinned.length > 0
       label: "Pinned icons"
-      description: "Always visible: " + root.trayPinnedLabels().join(", ") + ". Unpin all lets the tray manage them again."
+      description: I18n.tr("Always visible: {items}. Unpin all lets the tray manage them again.", { items: root.trayPinnedLabels().join(", ") })
       hint: "omarchy bar set omarchy.tray pinned"
       query: root.query
       keywords: ["system tray", "sni", "pin", "unpin", "always visible"]
 
       PrefsButton {
-        text: "Unpin all"
+        text: I18n.tr("Unpin all")
         enabled: Omarchy.trayPresent
         onClicked: Omarchy.clearTrayPinned()
       }
@@ -298,14 +298,14 @@ PrefsPage {
 
   PrefsGroup {
     framed: true
-    title: "Indicators"
+    title: I18n.tr("Indicators")
     query: root.query
     detail: "Little status icons for things like dictation, recording, night light, and stay awake. Always show keeps them visible when they are idle."
 
     SettingRow {
       available: Omarchy.indicatorsPresent
       label: "Always show"
-      description: "Keep these status icons on the bar even when they are idle."
+      description: I18n.tr("Keep these status icons on the bar even when they are idle.")
       hint: "omarchy bar set omarchy.indicators alwaysShow"
       query: root.query
       keywords: ["status", "icons", "stay awake", "night light", "dnd"]
@@ -321,7 +321,7 @@ PrefsPage {
       available: Omarchy.indicatorsPresent
       stretchControl: true
       label: "Shown indicators"
-      description: "Which status icons this widget may show. Leave them all on if you want the full set."
+      description: I18n.tr("Which status icons this widget may show. Leave them all on if you want the full set.")
       hint: "omarchy bar set omarchy.indicators items"
       query: root.query
       keywords: ["dictation", "recording", "reminder", "night light", "dnd", "stay awake"]
@@ -359,7 +359,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Agents"
+    title: I18n.tr("Agents")
     query: root.query
     detail: "Usage for coding agents on this machine. Sync writes a snapshot into a folder you share with other machines."
 
@@ -367,7 +367,7 @@ PrefsPage {
       available: Omarchy.agentsPresent
       stretchControl: true
       label: "Usage refresh"
-      description: "How often the widget rebuilds usage numbers for the agents on this machine."
+      description: I18n.tr("How often the widget rebuilds usage numbers for the agents on this machine.")
       hint: "omarchy bar set omarchy.agents refreshIntervalSec"
       query: root.query
       keywords: ["claude", "codex", "grok", "interval", "usage"]
@@ -392,7 +392,7 @@ PrefsPage {
     SettingRow {
       available: Omarchy.agentsPresent
       label: "Sync usage"
-      description: "This machine's usage goes into the sync folder, and snapshots from other machines fold in."
+      description: I18n.tr("This machine's usage goes into the sync folder, and snapshots from other machines fold in.")
       hint: "omarchy bar set omarchy.agents syncMode"
       query: root.query
       keywords: ["syncthing", "dropbox", "aggregate", "share"]
@@ -407,7 +407,7 @@ PrefsPage {
     SettingRow {
       available: Omarchy.agentsPresent
       label: "Sync folder"
-      description: "A folder you already sync with Syncthing, Dropbox, or rsync. Needed when usage sync is on."
+      description: I18n.tr("A folder you already sync with Syncthing, Dropbox, or rsync. Needed when usage sync is on.")
       hint: "omarchy bar set omarchy.agents syncDir"
       query: root.query
       keywords: ["syncthing", "dropbox", "rsync", "folder", "path"]
@@ -424,20 +424,20 @@ PrefsPage {
         }
 
         PrefsButton {
-          text: "Choose…"
+          text: I18n.tr("Choose…")
           enabled: Omarchy.agentsPresent
           onClicked: syncDirDialog.open()
         }
 
         PrefsButton {
-          text: "Set"
+          text: I18n.tr("Set")
           enabled: Omarchy.agentsPresent
           onClicked: Omarchy.setAgentsSyncDir(agentsSyncDirField.currentText())
         }
 
         PrefsButton {
           visible: Omarchy.agentsSyncDir.length > 0
-          text: "Clear"
+          text: I18n.tr("Clear")
           enabled: Omarchy.agentsPresent && Omarchy.agentsSyncDir.length > 0
           onClicked: Omarchy.setAgentsSyncDir("")
         }
@@ -447,7 +447,7 @@ PrefsPage {
     SettingRow {
       available: Omarchy.agentsPresent
       label: "Snapshot file"
-      description: "The filename this machine writes in the sync folder. Leave it blank to use hostname.json."
+      description: I18n.tr("The filename this machine writes in the sync folder. Leave it blank to use hostname.json.")
       hint: "omarchy bar set omarchy.agents syncFileName"
       query: root.query
       keywords: ["snapshot", "filename", "hostname", "json"]
@@ -465,14 +465,14 @@ PrefsPage {
         }
 
         PrefsButton {
-          text: "Set"
+          text: I18n.tr("Set")
           enabled: Omarchy.agentsPresent
           onClicked: Omarchy.setAgentsSyncFileName(agentsSyncFileField.currentText())
         }
 
         PrefsButton {
           visible: Omarchy.agentsSyncFileName.length > 0
-          text: "Clear"
+          text: I18n.tr("Clear")
           enabled: Omarchy.agentsPresent && Omarchy.agentsSyncFileName.length > 0
           onClicked: Omarchy.setAgentsSyncFileName("")
         }
@@ -482,7 +482,7 @@ PrefsPage {
     SettingRow {
       available: Omarchy.agentsPresent
       label: "Device id"
-      description: "How this machine is named inside the synced snapshots. Leave it blank to use the hostname."
+      description: I18n.tr("How this machine is named inside the synced snapshots. Leave it blank to use the hostname.")
       hint: "omarchy bar set omarchy.agents syncDeviceId"
       query: root.query
       keywords: ["device", "hostname", "machine", "id"]
@@ -500,14 +500,14 @@ PrefsPage {
         }
 
         PrefsButton {
-          text: "Set"
+          text: I18n.tr("Set")
           enabled: Omarchy.agentsPresent
           onClicked: Omarchy.setAgentsSyncDeviceId(agentsSyncDeviceField.currentText())
         }
 
         PrefsButton {
           visible: Omarchy.agentsSyncDeviceId.length > 0
-          text: "Clear"
+          text: I18n.tr("Clear")
           enabled: Omarchy.agentsPresent && Omarchy.agentsSyncDeviceId.length > 0
           onClicked: Omarchy.setAgentsSyncDeviceId("")
         }
@@ -516,14 +516,14 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Clock"
+    title: I18n.tr("Clock")
     query: root.query
     detail: "How the bar clock looks. Right-click cycles the same formats. Birth year is optional and draws a life bar in the calendar popup."
 
     SettingRow {
       available: Omarchy.clockPresent
       label: "Clock format"
-      description: "How the clock reads on the bar. Right-clicking the clock walks through these same presets."
+      description: I18n.tr("How the clock reads on the bar. Right-clicking the clock walks through these same presets.")
       hint: "omarchy bar set omarchy.clock format"
       query: root.query
       keywords: ["time", "24-hour", "am pm", "date"]
@@ -542,7 +542,7 @@ PrefsPage {
     SettingRow {
       available: Omarchy.clockPresent
       label: "Alternate format"
-      description: "A second style in the clock's right-click cycle. Handy if you sometimes want the date too."
+      description: I18n.tr("A second style in the clock's right-click cycle. Handy if you sometimes want the date too.")
       hint: "omarchy bar set omarchy.clock formatAlt"
       query: root.query
       keywords: ["date", "week", "cycle", "secondary"]
@@ -561,7 +561,7 @@ PrefsPage {
     SettingRow {
       available: Omarchy.clockPresent
       label: "Week starts on"
-      description: "First day of the week in the calendar popup. Locale default follows the system language."
+      description: I18n.tr("First day of the week in the calendar popup. Locale default follows the system language.")
       hint: "omarchy bar set omarchy.clock weekStartDay"
       query: root.query
       keywords: ["calendar", "week", "sunday", "monday", "start"]
@@ -601,7 +601,7 @@ PrefsPage {
 
         PrefsButton {
           visible: Omarchy.clockBirthYear > 0
-          text: "Clear"
+          text: I18n.tr("Clear")
           enabled: Omarchy.clockPresent && Omarchy.clockBirthYear > 0
           onClicked: Omarchy.setClockBirthYear("")
         }
@@ -611,7 +611,7 @@ PrefsPage {
     SettingRow {
       available: Omarchy.clockPresent
       label: "Life expectancy"
-      description: "How far the calendar life bar runs. Leave it blank to use 90 years."
+      description: I18n.tr("How far the calendar life bar runs. Leave it blank to use 90 years.")
       hint: "omarchy bar set omarchy.clock lifeExpectancy"
       query: root.query
       keywords: ["age", "life", "span", "memento", "years"]
@@ -631,7 +631,7 @@ PrefsPage {
 
         PrefsButton {
           visible: Omarchy.clockLifeExpectancy > 0
-          text: "Clear"
+          text: I18n.tr("Clear")
           enabled: Omarchy.clockPresent && Omarchy.clockLifeExpectancy > 0
           onClicked: Omarchy.setClockLifeExpectancy("")
         }
@@ -640,7 +640,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Advanced"
+    title: I18n.tr("Advanced")
     advanced: true
     query: root.query
     detail: "Shell plugins Omarchy discovered. The bar itself cannot be disabled. Other widgets and services can."
@@ -648,13 +648,13 @@ PrefsPage {
     SettingRow {
       available: Omarchy.plugins.length === 0
       label: "Plugins"
-      description: "No plugins listed."
+      description: I18n.tr("No plugins listed.")
       hint: "omarchy plugin list"
       query: root.query
       keywords: ["plugin", "widget", "shell", "empty"]
 
       PrefsButton {
-        text: "Refresh"
+        text: I18n.tr("Refresh")
         onClicked: Omarchy.refresh()
       }
     }

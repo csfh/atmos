@@ -47,11 +47,34 @@ function hubRows() {
     });
 }
 
+function localeFrom(env) {
+  return require("./I18n").resolveLocale(env || process.env);
+}
+
 function indexPath(env) {
   const e = env || process.env;
   if (e.ATMOS_SEARCH_INDEX) return e.ATMOS_SEARCH_INDEX;
   const cacheHome = e.XDG_CACHE_HOME || path.join(e.HOME || os.homedir(), ".cache");
-  return path.join(cacheHome, "atmos", "search.sqlite");
+  return path.join(cacheHome, "atmos", "search-" + localeFrom(e) + ".sqlite");
+}
+
+function localizedRows(rows, locale, catalog) {
+  let translations = catalog;
+  if (!translations) {
+    try {
+      translations = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "i18n.json"), "utf8"));
+    } catch (e) {
+      translations = {};
+    }
+  }
+  const translate = require("./I18n").translate;
+  return (rows || []).map((row) =>
+    Object.assign({}, row, {
+      _searchLabel: translate(translations, locale, row.label || ""),
+      _searchDescription: translate(translations, locale, row.description || ""),
+      _searchDetail: translate(translations, locale, row.detail || ""),
+    }),
+  );
 }
 
 function openIndex(file) {
@@ -79,7 +102,15 @@ function openIndex(file) {
 }
 
 function rowHaystack(row) {
-  const parts = [row.label, row.description, row.hint, row.detail];
+  const parts = [
+    row.label,
+    row._searchLabel,
+    row.description,
+    row._searchDescription,
+    row.hint,
+    row.detail,
+    row._searchDetail,
+  ];
   const list = row.keywords || [];
   for (let i = 0; i < list.length; i++) parts.push(list[i]);
   return shellConfig().joinSearchHaystack(parts);
@@ -120,9 +151,12 @@ function ingestRows(db, rows) {
       JSON.stringify(keywords),
       rowHaystack({
         label: row.label,
+        _searchLabel: row._searchLabel,
         description: row.description,
+        _searchDescription: row._searchDescription,
         hint: row.hint,
         detail: row.detail,
+        _searchDetail: row._searchDetail,
         keywords: keywords,
       }),
     );
@@ -212,7 +246,7 @@ function queryRows(db, query) {
 }
 
 function stringProp(block, name) {
-  const re = new RegExp(name + ':\\s*"((?:\\\\.|[^"\\\\])*)"');
+  const re = new RegExp(name + ':\\s*(?:I18n\\.tr\\(\\s*)?"((?:\\\\.|[^"\\\\])*)"');
   const m = String(block || "").match(re);
   if (!m) return "";
   try {
@@ -377,6 +411,7 @@ function parseArgs(argv) {
     if (flag === "--rows") out.rows = rest.shift() || "";
     else if (flag === "--snapshot") out.snapshot = rest.shift() || "";
     else if (flag === "--root") out.root = rest.shift() || out.root;
+    else if (flag === "--locale") out.locale = rest.shift() || "";
   }
   return out;
 }
@@ -396,9 +431,10 @@ function handleServeLine(db, line) {
 }
 
 function serve(args) {
-  const db = openIndex(indexPath());
-  if (args.rows) replaceRows(db, readJsonFile(args.rows));
-  else replaceRows(db, defaultCatalog(args.root));
+  const locale = args.locale || localeFrom();
+  const db = openIndex(indexPath(Object.assign({}, process.env, { ATMOS_LANG: locale })));
+  if (args.rows) replaceRows(db, localizedRows(readJsonFile(args.rows), locale));
+  else replaceRows(db, localizedRows(defaultCatalog(args.root), locale));
   if (args.snapshot) ingestSnapshot(db, readJsonFile(args.snapshot));
   const readline = require("readline");
   const rl = readline.createInterface({ input: process.stdin, crlfDelay: Infinity });
@@ -427,10 +463,11 @@ function main(argv) {
     serve(args);
     return null;
   }
-  const db = openIndex(indexPath());
+  const locale = args.locale || localeFrom();
+  const db = openIndex(indexPath(Object.assign({}, process.env, { ATMOS_LANG: locale })));
   try {
-    if (args.rows) replaceRows(db, readJsonFile(args.rows));
-    else replaceRows(db, defaultCatalog(args.root));
+    if (args.rows) replaceRows(db, localizedRows(readJsonFile(args.rows), locale));
+    else replaceRows(db, localizedRows(defaultCatalog(args.root), locale));
     if (args.snapshot) ingestSnapshot(db, readJsonFile(args.snapshot));
     if (args.cmd === "query") {
       process.stdout.write(JSON.stringify(queryRows(db, args.query)) + "\n");
@@ -456,6 +493,9 @@ module.exports = {
   expandSharedRows,
   hubRows,
   rowHaystack,
+  rowsFromQml,
+  localizedRows,
+  localeFrom,
   parseArgs,
   handleServeLine,
   main,

@@ -9,8 +9,8 @@ import "network" as Net
 PrefsPage {
   id: root
   hubId: "network"
-  title: "Network"
-  description: "What you are connected to, plus DNS. Nearby networks and a speed test open their own pages."
+  title: I18n.tr("Network")
+  description: I18n.tr("What you are connected to, plus DNS. Nearby networks and a speed test open their own pages.")
 
   property var stack: null
   property var navigator: null
@@ -100,7 +100,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Connection"
+    title: I18n.tr("Connection")
     query: root.query
     detail: "What the machine is using to reach the internet right now. Ethernet shows the interface and link speed. Wi-Fi shows the network name and signal."
     hint: "omarchy network status"
@@ -113,7 +113,7 @@ PrefsPage {
       keywords: ["ethernet", "wifi", "online", "offline", "ip", "iface", "status"]
 
       PrefsButton {
-        text: "Refresh"
+        text: I18n.tr("Refresh")
         onClicked: Omarchy.refresh()
       }
     }
@@ -127,7 +127,7 @@ PrefsPage {
       keywords: ["ip", "ipv4", "address", "copy"]
 
       PrefsButton {
-        text: "Copy"
+        text: I18n.tr("Copy")
         enabled: Omarchy.netIp.length > 0
         onClicked: Omarchy.copyText(Omarchy.netIp)
       }
@@ -142,7 +142,7 @@ PrefsPage {
       keywords: ["gateway", "route", "copy"]
 
       PrefsButton {
-        text: "Copy"
+        text: I18n.tr("Copy")
         enabled: Omarchy.netGateway.length > 0
         onClicked: Omarchy.copyText(Omarchy.netGateway)
       }
@@ -157,7 +157,7 @@ PrefsPage {
       keywords: ["dns", "resolver", "copy"]
 
       PrefsButton {
-        text: "Copy"
+        text: I18n.tr("Copy")
         enabled: Omarchy.netDnsServers.length > 0
         onClicked: Omarchy.copyText(Omarchy.netDnsServers.join(", "))
       }
@@ -165,7 +165,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Connectivity"
+    title: I18n.tr("Connectivity")
     query: root.query
     detail: "Wi-Fi radio sits here. Nearby networks and the speed test open their own pages."
     hint: "omarchy network"
@@ -185,7 +185,7 @@ PrefsPage {
           onToggled: Omarchy.set("wifiRadio", !Omarchy.wifiRadio)
         }
         PrefsButton {
-          text: "Manage…"
+          text: I18n.tr("Manage…")
           enabled: Omarchy.wifiHw
           onClicked: root.openSubpage("wifi")
         }
@@ -200,20 +200,20 @@ PrefsPage {
       keywords: ["bt", "pair", "headset", "scan", "forget", "radio"]
 
       PrefsButton {
-        text: "Open…"
+        text: I18n.tr("Open…")
         onClicked: root.openSubpage("bluetooth")
       }
     }
 
     SettingRow {
       label: "Speed test"
-      description: "A short download, then an upload, on whatever you are connected to now."
+      description: I18n.tr("A short download, then an upload, on whatever you are connected to now.")
       hint: "omarchy network speedtest"
       query: root.query
       keywords: ["bandwidth", "ping", "speedtest"]
 
       PrefsButton {
-        text: "Test…"
+        text: I18n.tr("Test…")
         onClicked: root.openSubpage("speedtest")
       }
     }
@@ -221,7 +221,7 @@ PrefsPage {
 
   FileDialog {
     id: wgDialog
-    title: "Import WireGuard"
+    title: I18n.tr("Import WireGuard")
     nameFilters: ["WireGuard configs (*.conf *.nmconnection)"]
     onAccepted: {
       var path = RichUi.pathFromUrl(selectedFile)
@@ -235,7 +235,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "VPN and hotspot"
+    title: I18n.tr("VPN and hotspot")
     query: Omarchy.wifiHw ? root.query : "."
     detail: "WireGuard import uses nmcli. Hotspot needs a Wi-Fi adapter that can AP."
     hint: "nmcli connection import · nmcli device wifi hotspot"
@@ -248,7 +248,7 @@ PrefsPage {
       keywords: ["vpn", "wireguard", "import"]
 
       PrefsButton {
-        text: "Import…"
+        text: I18n.tr("Import…")
         onClicked: wgDialog.open()
       }
     }
@@ -277,7 +277,7 @@ PrefsPage {
         Row {
           spacing: Theme.space
           PrefsButton {
-            text: "Start"
+            text: I18n.tr("Start")
             primary: true
             onClicked: {
               if (!NetPrefs.argvFor("hotspot", { on: true, ssid: root.hotspotSsid, password: root.hotspotPassword })) {
@@ -289,7 +289,7 @@ PrefsPage {
             }
           }
           PrefsButton {
-            text: "Stop"
+            text: I18n.tr("Stop")
             onClicked: Omarchy.setHotspot(false)
           }
         }
@@ -298,14 +298,14 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "DNS"
+    title: I18n.tr("DNS")
     query: root.query
     detail: "This writes NetworkManager and systemd-resolved so lookups go through the same resolvers. Cloudflare is 1.1.1.1 and 1.0.0.1. Google is 8.8.8.8 and 8.8.4.4. DHCP keeps whatever the link already handed out. Custom uses the servers field below. A VPN or a per-connection DNS setting in NetworkManager can still win for that connection."
     hint: "omarchy dns"
 
     SettingRow {
       label: "DNS provider"
-      description: "Who answers name lookups for this machine."
+      description: I18n.tr("Who answers name lookups for this machine.")
       hint: "omarchy dns"
       detail: "This writes NetworkManager and systemd-resolved so lookups go through the same resolvers. Cloudflare is 1.1.1.1 and 1.0.0.1. Google is 8.8.8.8 and 8.8.4.4. DHCP keeps whatever the link already handed out. Custom uses the servers field below. Picking a named provider replaces that list. A VPN or a per-connection DNS setting in NetworkManager can still win for that connection."
       query: root.query
@@ -352,7 +352,7 @@ PrefsPage {
         }
         PrefsButton {
           id: dnsSetBtn
-          text: "Set"
+          text: I18n.tr("Set")
           primary: true
           enabled: !Omarchy.jobBusy && root.dnsReady
           onClicked: root.applyCustomDns(dnsField.currentText())
@@ -362,7 +362,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Advanced"
+    title: I18n.tr("Advanced")
     advanced: true
     query: root.query
     detail: "Tailscale is a mesh VPN Omarchy can install. LocalSend and Taildrop are actions, not extra config."
@@ -382,14 +382,14 @@ PrefsPage {
         spacing: Theme.space
         PrefsButton {
           visible: !Omarchy.tailscaleInstalled
-          text: "Install…"
+          text: I18n.tr("Install…")
           primary: true
           enabled: !Omarchy.jobBusy && !Omarchy.tailscaleInstalled
           onClicked: tailscaleInstallConfirm.ask()
         }
         PrefsButton {
           visible: Omarchy.tailscaleInstalled
-          text: "Remove…"
+          text: I18n.tr("Remove…")
           danger: true
           enabled: !Omarchy.jobBusy && Omarchy.tailscaleInstalled
           onClicked: tailscaleRemoveConfirm.ask()
@@ -400,13 +400,13 @@ PrefsPage {
     SettingRow {
       available: Omarchy.extras && Omarchy.extras.localsend === true
       label: "LocalSend clipboard"
-      description: "Send whatever is on the clipboard to a nearby machine."
+      description: I18n.tr("Send whatever is on the clipboard to a nearby machine.")
       hint: "omarchy share clipboard"
       query: root.query
       keywords: ["localsend", "share", "clipboard"]
 
       PrefsButton {
-        text: "Share clipboard"
+        text: I18n.tr("Share clipboard")
         enabled: Omarchy.extras && Omarchy.extras.localsend === true
         onClicked: Omarchy.shareClipboard()
       }
@@ -415,13 +415,13 @@ PrefsPage {
     SettingRow {
       available: Omarchy.extras && Omarchy.extras.localsend === true
       label: "LocalSend file"
-      description: "Pick a file and send it with LocalSend."
+      description: I18n.tr("Pick a file and send it with LocalSend.")
       hint: "omarchy share file"
       query: root.query
       keywords: ["localsend", "share", "file"]
 
       PrefsButton {
-        text: "Share file…"
+        text: I18n.tr("Share file…")
         enabled: Omarchy.extras && Omarchy.extras.localsend === true
         onClicked: {
           root.shareFileMode = true
@@ -433,13 +433,13 @@ PrefsPage {
     SettingRow {
       available: Omarchy.extras && Omarchy.extras.localsend === true
       label: "LocalSend folder"
-      description: "Pick a folder and send it with LocalSend."
+      description: I18n.tr("Pick a folder and send it with LocalSend.")
       hint: "omarchy share folder"
       query: root.query
       keywords: ["localsend", "share", "folder"]
 
       PrefsButton {
-        text: "Share folder…"
+        text: I18n.tr("Share folder…")
         enabled: Omarchy.extras && Omarchy.extras.localsend === true
         onClicked: shareFolderDialog.open()
       }
@@ -448,7 +448,7 @@ PrefsPage {
     SettingRow {
       available: Omarchy.tailscaleInstalled
       label: "Taildrop send"
-      description: "Send a file to a machine on your tailnet. Type the short name, then pick a file."
+      description: I18n.tr("Send a file to a machine on your tailnet. Type the short name, then pick a file.")
       hint: "omarchy tailscale send"
       query: root.query
       keywords: ["taildrop", "tailscale", "send", "share"]
@@ -463,7 +463,7 @@ PrefsPage {
           onSubmitted: function(value) { root.tailscaleMachine = value }
         }
         PrefsButton {
-          text: "Send file…"
+          text: I18n.tr("Send file…")
           enabled: Omarchy.tailscaleInstalled && root.tailscaleMachine.length > 0
           onClicked: {
             root.shareFileMode = false
@@ -476,13 +476,13 @@ PrefsPage {
     SettingRow {
       available: Omarchy.tailscaleInstalled
       label: "Taildrop receive"
-      description: "Wait for one incoming file and drop it in Downloads."
+      description: I18n.tr("Wait for one incoming file and drop it in Downloads.")
       hint: "omarchy tailscale receive --once"
       query: root.query
       keywords: ["taildrop", "tailscale", "receive"]
 
       PrefsButton {
-        text: "Receive once"
+        text: I18n.tr("Receive once")
         enabled: Omarchy.tailscaleInstalled
         onClicked: Omarchy.tailscaleReceive()
       }
@@ -501,13 +501,13 @@ PrefsPage {
 
   FolderDialog {
     id: shareFolderDialog
-    title: "Share a folder"
+    title: I18n.tr("Share a folder")
     onAccepted: Omarchy.shareFolder(RichUi.pathFromUrl(selectedFolder))
   }
 
   PrefsConfirm {
     id: tailscaleInstallConfirm
-    title: "Install Tailscale"
+    title: I18n.tr("Install Tailscale")
     message: "Install Tailscale and start the daemon. You will still need to log in with tailscale up."
     confirmText: "Install"
     onConfirmed: Omarchy.installTailscale()
@@ -515,7 +515,7 @@ PrefsPage {
 
   PrefsConfirm {
     id: tailscaleRemoveConfirm
-    title: "Remove Tailscale"
+    title: I18n.tr("Remove Tailscale")
     message: "Remove Tailscale and its bar plugin."
     confirmText: "Remove"
     onConfirmed: Omarchy.removeTailscale()

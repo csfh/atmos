@@ -7,8 +7,8 @@ import "../../services/RichUi.js" as RichUi
 PrefsPage {
   id: root
   hubId: "bluetooth"
-  title: "Bluetooth"
-  description: "Paired devices, a scan for new ones, and the adapter power switch."
+  title: I18n.tr("Bluetooth")
+  description: I18n.tr("Paired devices, a scan for new ones, and the adapter power switch.")
 
   property bool scanningBt: false
   property var discoveredBt: []
@@ -69,7 +69,7 @@ PrefsPage {
 
   PrefsConfirm {
     id: forgetBtConfirm
-    title: "Forget device"
+    title: I18n.tr("Forget device")
     message: "Forget this pairing? You will need to pair the device again the next time you want it."
     confirmText: "Forget"
     onConfirmed: {
@@ -80,7 +80,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Adapter"
+    title: I18n.tr("Adapter")
     query: root.query
     detail: "Powers the adapter and remembers the choice across reboots. Restart unblocks rfkill and brings BlueZ back up."
     hint: "omarchy bluetooth power"
@@ -103,7 +103,7 @@ PrefsPage {
     SettingRow {
       available: !!root.adapter
       label: "Discoverable"
-      description: "Other devices can see this adapter while this is on."
+      description: I18n.tr("Other devices can see this adapter while this is on.")
       hint: "adapter.discoverable"
       query: root.query
       keywords: ["discoverable", "visible", "pair"]
@@ -119,13 +119,13 @@ PrefsPage {
 
     SettingRow {
       label: "Restart Bluetooth"
-      description: "Unblock rfkill and restart BlueZ. Try this if the adapter looks stuck."
+      description: I18n.tr("Unblock rfkill and restart BlueZ. Try this if the adapter looks stuck.")
       hint: "omarchy restart bluetooth"
       query: root.query
       keywords: ["rfkill", "bluez", "adapter"]
 
       PrefsButton {
-        text: "Restart"
+        text: I18n.tr("Restart")
         onClicked: Omarchy.restartBluetooth()
       }
     }
@@ -133,7 +133,7 @@ PrefsPage {
 
   PrefsGroup {
     framed: true
-    title: "Paired"
+    title: I18n.tr("Paired")
     query: root.query
     detail: "Connect, disconnect, or forget a paired device. The adapter stays on until you turn it off above."
     hint: "omarchy bluetooth device"
@@ -142,7 +142,7 @@ PrefsPage {
       available: root.pairedBt.length === 0
       sectionHelp: false
       label: "Paired devices"
-      description: "No paired devices."
+      description: I18n.tr("No paired devices.")
       query: root.query
       keywords: ["empty"]
     }
@@ -155,7 +155,9 @@ PrefsPage {
         available: true
         sectionHelp: false
         label: modelData && modelData.name ? modelData.name : "Bluetooth device"
-        description: (modelData && modelData.connected ? "Connected. " : "Paired. ") + (modelData && modelData.battery != null && modelData.battery !== "" ? ("Battery " + modelData.battery + ". ") : "") + "Trust keeps it auto-connecting."
+        description: (modelData && modelData.connected ? I18n.tr("Connected. ") : I18n.tr("Paired. "))
+        + (modelData && modelData.battery != null && modelData.battery !== "" ? I18n.tr("Battery {battery}. ", { battery: modelData.battery }) : "")
+        + I18n.tr("Trust keeps it auto-connecting.")
         hint: "omarchy bluetooth device"
         query: root.query
         keywords: ["bt", "headset", "mouse", "keyboard", "forget"]
@@ -172,12 +174,12 @@ PrefsPage {
             }
           }
           PrefsButton {
-            text: "Trust"
+            text: I18n.tr("Trust")
             enabled: modelData && modelData.address
             onClicked: Omarchy.trustBluetoothDevice(modelData.address)
           }
           PrefsButton {
-            text: "Forget…"
+            text: I18n.tr("Forget…")
             danger: true
             enabled: modelData && modelData.address
             onClicked: {
@@ -192,7 +194,7 @@ PrefsPage {
 
   PrefsGroup {
     framed: true
-    title: "Nearby"
+    title: I18n.tr("Nearby")
     query: root.query
     detail: "Scan looks for unpaired devices around you. Pair adds one to the list above."
 
@@ -218,7 +220,7 @@ PrefsPage {
       available: Omarchy.bluetooth && root.scanningBt && root.discoveredBt.length === 0
       sectionHelp: false
       label: "Nearby devices"
-      description: "No unpaired devices nearby."
+      description: I18n.tr("No unpaired devices nearby.")
       query: root.query
       keywords: ["empty", "discover"]
     }
@@ -237,7 +239,7 @@ PrefsPage {
         keywords: ["pair", "discover"]
 
         PrefsButton {
-          text: "Pair"
+          text: I18n.tr("Pair")
           primary: true
           enabled: modelData && modelData.address
           onClicked: Omarchy.pairBluetoothDevice(modelData.address)

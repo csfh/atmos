@@ -1,20 +1,18 @@
 const fs = require("fs");
+const qmlSource = require("./qml-source");
 const path = require("path");
 const { load, assert, assertEqual } = require("./harness");
 
-const compilePython = fs.readFileSync(path.join(__dirname, "compile-python"), "utf8");
+const compilePython = qmlSource.read(path.join(__dirname, "compile-python"), "utf8");
 assert(compilePython.indexOf("ast.parse") !== -1, "compile-python parses scripts/*.py");
 assert(compilePython.indexOf("tabnanny.check") !== -1, "compile-python runs tabnanny");
-const preCommit = fs.readFileSync(path.join(__dirname, "..", ".githooks", "pre-commit"), "utf8");
+const preCommit = qmlSource.read(path.join(__dirname, "..", ".githooks", "pre-commit"), "utf8");
 assert(preCommit.indexOf("tests/compile-python") !== -1, "pre-commit runs compile-python");
-const testsRun = fs.readFileSync(path.join(__dirname, "run"), "utf8");
+const testsRun = qmlSource.read(path.join(__dirname, "run"), "utf8");
 assert(testsRun.indexOf("tests/compile-python") !== -1, "tests/run runs compile-python");
 assert(testsRun.indexOf("tests/*.test.js") !== -1, "tests/run runs each tests/*.test.js file");
 assert(testsRun.indexOf("parse.test.js") === -1, "tests/run no longer calls parse.test.js");
-const searchPageSrc = fs.readFileSync(
-  path.join(__dirname, "..", "pages", "SearchPage.qml"),
-  "utf8",
-);
+const searchPageSrc = qmlSource.read(path.join(__dirname, "..", "pages", "SearchPage.qml"), "utf8");
 assert(searchPageSrc.indexOf('"serve"') !== -1, "SearchPage keeps a SearchIndex serve process");
 assert(
   searchPageSrc.indexOf('SearchIndex.js", "query"') === -1,
@@ -26,10 +24,10 @@ assert(
 );
 // Omarchy.qml plus Paths.qml (file and script paths) IoQueue.qml (the job queue and its processes), and SnapshotStore.qml (what to read and watch).
 const omarchyQml =
-  fs.readFileSync(path.join(__dirname, "..", "services", "Omarchy.qml"), "utf8") +
-  fs.readFileSync(path.join(__dirname, "..", "services", "Paths.qml"), "utf8") +
-  fs.readFileSync(path.join(__dirname, "..", "services", "IoQueue.qml"), "utf8") +
-  fs.readFileSync(path.join(__dirname, "..", "services", "SnapshotStore.qml"), "utf8");
+  qmlSource.read(path.join(__dirname, "..", "services", "Omarchy.qml"), "utf8") +
+  qmlSource.read(path.join(__dirname, "..", "services", "Paths.qml"), "utf8") +
+  qmlSource.read(path.join(__dirname, "..", "services", "IoQueue.qml"), "utf8") +
+  qmlSource.read(path.join(__dirname, "..", "services", "SnapshotStore.qml"), "utf8");
 assert(
   omarchyQml.indexOf('enqueueRead(IoQueue.queue, "rest")') !== -1,
   "startSession follows look with rest",
@@ -63,7 +61,7 @@ assert(
   omarchyQml.indexOf("windowsLuaFile") !== -1 && omarchyQml.indexOf("atmos.lua") !== -1,
   "Omarchy watches atmos.lua for window rules",
 );
-const spinSrc = fs.readFileSync(
+const spinSrc = qmlSource.read(
   path.join(__dirname, "..", "components", "PrefsSpinBox.qml"),
   "utf8",
 );
@@ -75,7 +73,7 @@ assert(
   /changed\(value\)[\s\S]*root\._holding = false/.test(spinSrc),
   "PrefsSpinBox releases its hold after every write so a rejected number can snap back",
 );
-const flickSrc = fs.readFileSync(
+const flickSrc = qmlSource.read(
   path.join(__dirname, "..", "components", "PrefsFlickable.qml"),
   "utf8",
 );
@@ -87,7 +85,7 @@ assert(
   flickSrc.indexOf("width: root.width") !== -1,
   "PrefsFlickable sizes the wheel area from the viewport",
 );
-const selectSrc = fs.readFileSync(
+const selectSrc = qmlSource.read(
   path.join(__dirname, "..", "components", "PrefsSelect.qml"),
   "utf8",
 );
@@ -104,7 +102,7 @@ assert(
     selectSrc.indexOf("overlayOpen: popup.opened") !== -1,
   "PrefsSelect exposes overlayOpen so SettingRow can keep the row rail",
 );
-const menuSrc = fs.readFileSync(path.join(__dirname, "..", "components", "PrefsMenu.qml"), "utf8");
+const menuSrc = qmlSource.read(path.join(__dirname, "..", "components", "PrefsMenu.qml"), "utf8");
 assert(
   menuSrc.indexOf("readonly property bool overlayOpen:") !== -1 &&
     menuSrc.indexOf("overlayOpen: popup.opened") !== -1,
@@ -119,7 +117,7 @@ assert(
   selectSrc.indexOf("wheel.accepted = true") !== -1,
   "PrefsSelect consumes wheel events so the page behind an open popup does not move",
 );
-const confirmSrc = fs.readFileSync(
+const confirmSrc = qmlSource.read(
   path.join(__dirname, "..", "components", "PrefsConfirm.qml"),
   "utf8",
 );
@@ -136,7 +134,7 @@ assert(
     confirmSrc.indexOf("parent = overlay") !== -1,
   "PrefsConfirm reparents onto Overlay so the pane clip cannot crop it",
 );
-const dialogSrc = fs.readFileSync(
+const dialogSrc = qmlSource.read(
   path.join(__dirname, "..", "components", "PrefsDialog.qml"),
   "utf8",
 );
@@ -145,7 +143,7 @@ assert(
     dialogSrc.indexOf("parent = overlay") !== -1,
   "PrefsDialog reparents onto Overlay so the pane clip cannot crop it",
 );
-const helpSrc = fs.readFileSync(path.join(__dirname, "..", "components", "PrefsHelp.qml"), "utf8");
+const helpSrc = qmlSource.read(path.join(__dirname, "..", "components", "PrefsHelp.qml"), "utf8");
 assert(
   helpSrc.indexOf("onAboutToShow:") !== -1 && helpSrc.indexOf("parent = overlay") !== -1,
   "PrefsHelp reparents the modal onto Overlay so the pane clip cannot crop it",
@@ -164,7 +162,7 @@ assert(
   helpSrc.indexOf("ToolTip") !== -1 && helpSrc.indexOf("helpMouse.containsMouse") !== -1,
   "PrefsHelp exposes the extra copy on hover",
 );
-const prefsGroupSrcEarly = fs.readFileSync(
+const prefsGroupSrcEarly = qmlSource.read(
   path.join(__dirname, "..", "components", "PrefsGroup.qml"),
   "utf8",
 );
@@ -219,7 +217,7 @@ assert(
     prefsGroupSrcEarly.indexOf("reveal: true") !== -1,
   "section info is always visible when it has content",
 );
-const snapshotSh = fs.readFileSync(path.join(__dirname, "..", "scripts", "snapshot.sh"), "utf8");
+const snapshotSh = qmlSource.read(path.join(__dirname, "..", "scripts", "snapshot.sh"), "utf8");
 assert(snapshotSh.indexOf("GROUP == rest") !== -1, "snapshot.sh strips look keys from rest");
 assert(
   snapshotSh.indexOf('line.split("#", 1)[0]') !== -1,
@@ -271,7 +269,7 @@ assert(
   snapshotSh.indexOf("^ATMOS_XWAYLAND_ZERO_SCALING=0") !== -1,
   "snapshot.sh reads the XWayland zero-scaling opt-out from the env file",
 );
-const workflow = fs.readFileSync(
+const workflow = qmlSource.read(
   path.join(__dirname, "..", ".github", "workflows", "tests.yml"),
   "utf8",
 );
@@ -279,7 +277,7 @@ assert(workflow.indexOf("./tests/run") !== -1, "GitHub Actions runs ./tests/run"
 assert(workflow.indexOf("npm ci") !== -1, "GitHub Actions installs with npm ci");
 assert(workflow.indexOf("ubuntu-latest") !== -1, "GitHub Actions uses ubuntu-latest");
 
-const themeQml = fs.readFileSync(path.join(__dirname, "..", "services", "Theme.qml"), "utf8");
+const themeQml = qmlSource.read(path.join(__dirname, "..", "services", "Theme.qml"), "utf8");
 assert(
   themeQml.indexOf("readonly property int pageTitleSize:") !== -1,
   "Theme names page title size",
@@ -328,7 +326,7 @@ assert(
   themeQml.indexOf("function controlOpacity(on)") !== -1,
   "Theme owns enabled/disabled opacity",
 );
-const prefsButtonSrc = fs.readFileSync(
+const prefsButtonSrc = qmlSource.read(
   path.join(__dirname, "..", "components", "PrefsButton.qml"),
   "utf8",
 );
@@ -364,7 +362,7 @@ assert(
     prefsButtonSrc.indexOf("hoverEnabled: true") !== -1,
   "PrefsButton keeps a full-rect MouseArea so a transparent root still clicks",
 );
-const prefsSliderSrc = fs.readFileSync(
+const prefsSliderSrc = qmlSource.read(
   path.join(__dirname, "..", "components", "PrefsSlider.qml"),
   "utf8",
 );
@@ -390,7 +388,7 @@ assert(
   prefsSliderSrc.indexOf("Accessible.role: Accessible.Slider") !== -1,
   "PrefsSlider stays keyboard-accessible",
 );
-const prefsStepperSrc = fs.readFileSync(
+const prefsStepperSrc = qmlSource.read(
   path.join(__dirname, "..", "components", "PrefsSliderStepper.qml"),
   "utf8",
 );
@@ -400,11 +398,11 @@ assert(
     prefsStepperSrc.indexOf("showTicks: false") !== -1,
   "PrefsSliderStepper is a compact slider plus numeric stepper",
 );
-const textSizeRowSrc = fs.readFileSync(
+const textSizeRowSrc = qmlSource.read(
   path.join(__dirname, "..", "pages", "rows", "TextSizeRow.qml"),
   "utf8",
 );
-const cursorSizeRowSrc = fs.readFileSync(
+const cursorSizeRowSrc = qmlSource.read(
   path.join(__dirname, "..", "pages", "rows", "CursorSizeRow.qml"),
   "utf8",
 );
@@ -414,7 +412,7 @@ assert(
     cursorSizeRowSrc.indexOf("stretchControl") === -1,
   "text size and cursor size use the compact slider plus stepper",
 );
-const windowsPageSrc = fs.readFileSync(
+const windowsPageSrc = qmlSource.read(
   path.join(__dirname, "..", "pages", "WindowsPage.qml"),
   "utf8",
 );
@@ -430,16 +428,13 @@ assert(
     windowsPageSrc.indexOf('label: "Window rules"') !== -1,
   "keybindings and window rules open with Configure…",
 );
-const soundSliderSrc = fs.readFileSync(
-  path.join(__dirname, "..", "pages", "SoundPage.qml"),
-  "utf8",
-);
+const soundSliderSrc = qmlSource.read(path.join(__dirname, "..", "pages", "SoundPage.qml"), "utf8");
 assert(
   soundSliderSrc.indexOf('label: "Volume"') !== -1 &&
     soundSliderSrc.indexOf("stretchControl: true") !== -1,
   "volume keeps a full-width slider",
 );
-const prefsToggleSrc = fs.readFileSync(
+const prefsToggleSrc = qmlSource.read(
   path.join(__dirname, "..", "components", "PrefsToggle.qml"),
   "utf8",
 );
@@ -453,13 +448,13 @@ assert(
     prefsToggleSrc.indexOf("root.toggled(next)") !== -1,
   "PrefsToggle tells the handler the next checked value",
 );
-const powerPageSrc = fs.readFileSync(path.join(__dirname, "..", "pages", "PowerPage.qml"), "utf8");
+const powerPageSrc = qmlSource.read(path.join(__dirname, "..", "pages", "PowerPage.qml"), "utf8");
 assert(
   powerPageSrc.indexOf("onToggled: function(next) { Omarchy.setPresentationMode(next) }") !== -1 &&
     powerPageSrc.indexOf("setPresentationMode(!Omarchy.presentationMode)") === -1,
   "Presentation Mode uses the toggle next value, not a stale invert",
 );
-const presentationSh = fs.readFileSync(
+const presentationSh = qmlSource.read(
   path.join(__dirname, "..", "scripts", "set-presentation.sh"),
   "utf8",
 );
@@ -469,7 +464,7 @@ assert(
     presentationSh.indexOf("omarchy toggle idle on") === -1,
   "presentation script uses stay-awake and allow-idle",
 );
-const prefsPageSrc = fs.readFileSync(
+const prefsPageSrc = qmlSource.read(
   path.join(__dirname, "..", "components", "PrefsPage.qml"),
   "utf8",
 );
@@ -523,7 +518,7 @@ assert(
   "PrefsPage stops scrolling while a chart is expanded",
 );
 
-const disclosureQml = fs.readFileSync(
+const disclosureQml = qmlSource.read(
   path.join(__dirname, "..", "services", "Disclosure.qml"),
   "utf8",
 );
@@ -534,12 +529,12 @@ assert(
     disclosureQml.indexOf("store") === -1,
   "Disclosure is a session singleton and is not persisted",
 );
-const qmldir = fs.readFileSync(path.join(__dirname, "..", "services", "qmldir"), "utf8");
+const qmldir = qmlSource.read(path.join(__dirname, "..", "services", "qmldir"), "utf8");
 assert(
   qmldir.indexOf("singleton Disclosure 1.0 Disclosure.qml") !== -1,
   "qmldir registers the Disclosure singleton",
 );
-const chromeSrc = fs.readFileSync(path.join(__dirname, "..", "shell.qml"), "utf8");
+const chromeSrc = qmlSource.read(path.join(__dirname, "..", "shell.qml"), "utf8");
 assert(
   chromeSrc.indexOf("function go(path, label)") !== -1 &&
     chromeSrc.indexOf("Disclosure.revealFromSearch(path, label)") !== -1 &&
@@ -548,7 +543,7 @@ assert(
   "chrome search pins the landing row and drops the pin when leaving the hub",
 );
 
-const settingRowSrc = fs.readFileSync(
+const settingRowSrc = qmlSource.read(
   path.join(__dirname, "..", "components", "SettingRow.qml"),
   "utf8",
 );
@@ -699,7 +694,7 @@ assert(
     settingRowSrc.indexOf("readonly property bool childOverlayOpen:") !== -1,
   "SettingRow keeps the rail while a descendant overlay is open",
 );
-const collectionRowSrc = fs.readFileSync(
+const collectionRowSrc = qmlSource.read(
   path.join(__dirname, "..", "components", "CollectionRow.qml"),
   "utf8",
 );
@@ -729,10 +724,7 @@ assert(
       .indexOf("CollectionRow") !== -1,
   "Software, Applications, Accounts, and Hooks use CollectionRow for object lists",
 );
-const softwareSrc = fs.readFileSync(
-  path.join(__dirname, "..", "pages", "SoftwarePage.qml"),
-  "utf8",
-);
+const softwareSrc = qmlSource.read(path.join(__dirname, "..", "pages", "SoftwarePage.qml"), "utf8");
 assert(
   softwareSrc.indexOf('text: "Installed"') === -1,
   "installed software without a remove action does not keep a blank or status button",
@@ -741,10 +733,7 @@ assert(
   softwareSrc.indexOf("action:") !== -1 && softwareSrc.indexOf('"Install…"') !== -1,
   "software list Install opens a confirm, so the action uses an ellipsis",
 );
-const accountsSrc = fs.readFileSync(
-  path.join(__dirname, "..", "pages", "AccountsPage.qml"),
-  "utf8",
-);
+const accountsSrc = qmlSource.read(path.join(__dirname, "..", "pages", "AccountsPage.qml"), "utf8");
 assert(
   accountsSrc.indexOf('"Manage…"') !== -1 &&
     accountsSrc.indexOf("id: manageGroupDialog") !== -1 &&
@@ -759,27 +748,24 @@ assert(
     accountsSrc.indexOf("Admin (wheel)") === -1,
   "Add a user names the wheel toggle Admin",
 );
-const hooksSrc = fs.readFileSync(path.join(__dirname, "..", "pages", "HooksPage.qml"), "utf8");
+const hooksSrc = qmlSource.read(path.join(__dirname, "..", "pages", "HooksPage.qml"), "utf8");
 assert(hooksSrc.indexOf('text: "Open folder"') !== -1, "Hooks opens a directory with Open folder");
 assert(hooksSrc.indexOf("Choose file") === -1, "hook file pickers use Choose…");
-const disksSrc = fs.readFileSync(path.join(__dirname, "..", "pages", "DisksPage.qml"), "utf8");
+const disksSrc = qmlSource.read(path.join(__dirname, "..", "pages", "DisksPage.qml"), "utf8");
 assert(disksSrc.indexOf('"Set up…"') !== -1, "hibernation setup uses Set up…");
 assert(disksSrc.indexOf("Setup…") === -1, "Set up is two words");
 assert(disksSrc.indexOf('"Run now"') !== -1, "disk speed tests use Run now");
-const securitySrc = fs.readFileSync(
-  path.join(__dirname, "..", "pages", "SecurityPage.qml"),
-  "utf8",
-);
+const securitySrc = qmlSource.read(path.join(__dirname, "..", "pages", "SecurityPage.qml"), "utf8");
 assert(
   securitySrc.indexOf('text: "Turn on…"') !== -1 && securitySrc.indexOf("Enable…") === -1,
   "passwordless sudo pairs Turn on… with Turn off…",
 );
-const captureSrc = fs.readFileSync(path.join(__dirname, "..", "pages", "CapturePage.qml"), "utf8");
+const captureSrc = qmlSource.read(path.join(__dirname, "..", "pages", "CapturePage.qml"), "utf8");
 assert(
   captureSrc.indexOf('text: "Open folder"') !== -1,
   "Capture opens Pictures and Videos with Open folder",
 );
-const networkPageSrc = fs.readFileSync(
+const networkPageSrc = qmlSource.read(
   path.join(__dirname, "..", "pages", "NetworkPage.qml"),
   "utf8",
 );
@@ -801,7 +787,7 @@ const hubsForSubpages = load("services/Hubs.js");
 hubsForSubpages.hubs().forEach(function (hub) {
   const kids = hub.children || [];
   if (!kids.length) return;
-  const src = fs.readFileSync(path.join(__dirname, "..", "pages", hub.file), "utf8");
+  const src = qmlSource.read(path.join(__dirname, "..", "pages", hub.file), "utf8");
   const start = src.indexOf("function openSubpage(id)");
   assert(start !== -1, hub.file + " implements openSubpage for catalog children");
   const body = src.slice(start);
@@ -816,7 +802,7 @@ hubsForSubpages.hubs().forEach(function (hub) {
 const pagesDirForSubpages = path.join(__dirname, "..", "pages");
 fs.readdirSync(pagesDirForSubpages).forEach(function (name) {
   if (!name.endsWith(".qml")) return;
-  const src = fs.readFileSync(path.join(pagesDirForSubpages, name), "utf8");
+  const src = qmlSource.read(path.join(pagesDirForSubpages, name), "utf8");
   const start = src.indexOf("function openSubpage(id)");
   if (start === -1) return;
   const body = src.slice(start);
@@ -830,7 +816,7 @@ fs.readdirSync(pagesDirForSubpages).forEach(function (name) {
       " opens its own subpages on the stack before navigator.go, so a deep link does not reload the hub forever",
   );
 });
-const a11ySrc = fs.readFileSync(
+const a11ySrc = qmlSource.read(
   path.join(__dirname, "..", "pages", "AccessibilityPage.qml"),
   "utf8",
 );
@@ -863,7 +849,7 @@ const bannedAction = [
   ['text: "Open"', "name the destination: Configure…, Manage…, Choose…, Test…, Open folder"],
 ];
 qmlFiles.forEach(function (file) {
-  const src = fs.readFileSync(file, "utf8");
+  const src = qmlSource.read(file, "utf8");
   bannedAction.forEach(function (pair) {
     assert(
       src.indexOf(pair[0]) === -1,
@@ -876,7 +862,7 @@ qmlFiles.forEach(function (file) {
       ": a switch with enabled: false looks like a broken control; use SettingRow valueText for read-only state",
   );
 });
-const hardwarePageSrc = fs.readFileSync(
+const hardwarePageSrc = qmlSource.read(
   path.join(__dirname, "..", "pages", "HardwarePage.qml"),
   "utf8",
 );
@@ -892,7 +878,7 @@ assert(
     hardwarePageSrc.indexOf('navigator.go("drivers")') !== -1,
   "Hardware links to Drivers with Open…",
 );
-const driversPageSrc = fs.readFileSync(
+const driversPageSrc = qmlSource.read(
   path.join(__dirname, "..", "pages", "DriversPage.qml"),
   "utf8",
 );
@@ -911,14 +897,14 @@ assert(
     hardwarePageSrc.indexOf("Change this in UEFI setup, not here.") !== -1,
   "Secure Boot is On/Off status copy, not a switch",
 );
-const idlePageSrc = fs.readFileSync(path.join(__dirname, "..", "pages", "IdlePage.qml"), "utf8");
+const idlePageSrc = qmlSource.read(path.join(__dirname, "..", "pages", "IdlePage.qml"), "utf8");
 assert(
   idlePageSrc.indexOf('label: "Lid close"') !== -1 &&
     idlePageSrc.indexOf('valueText: "On"') !== -1 &&
     idlePageSrc.indexOf("omarchy-system-lid-close") !== -1,
   "Lid close is On status copy, not a switch",
 );
-const barPageSrc = fs.readFileSync(path.join(__dirname, "..", "pages", "BarPage.qml"), "utf8");
+const barPageSrc = qmlSource.read(path.join(__dirname, "..", "pages", "BarPage.qml"), "utf8");
 assert(
   barPageSrc.indexOf('valueText: modelData && modelData.canDisable === false ? "On" : ""') !== -1 &&
     barPageSrc.indexOf("visible: !(modelData && modelData.canDisable === false)") !== -1,
@@ -940,7 +926,7 @@ assert(
     barPageSrc.indexOf("Hide the bar.") === -1,
   "Show bar describes the on state, not hide",
 );
-const idleToggleSrc = fs.readFileSync(path.join(__dirname, "..", "pages", "IdlePage.qml"), "utf8");
+const idleToggleSrc = qmlSource.read(path.join(__dirname, "..", "pages", "IdlePage.qml"), "utf8");
 assert(
   idleToggleSrc.indexOf('label: "Screensaver"') !== -1 &&
     idleToggleSrc.indexOf('description: "The screensaver runs after the idle timeout."') !== -1 &&
@@ -953,7 +939,7 @@ assert(
     idleToggleSrc.indexOf("Off hides that action") === -1,
   "Suspend menu describes the on state",
 );
-const soundPageSrc = fs.readFileSync(path.join(__dirname, "..", "pages", "SoundPage.qml"), "utf8");
+const soundPageSrc = qmlSource.read(path.join(__dirname, "..", "pages", "SoundPage.qml"), "utf8");
 assert(
   soundPageSrc.indexOf('description: "Cut microphone input while this is on."') !== -1 &&
     soundPageSrc.indexOf('description: "Silence speakers and headphones while this is on."') !== -1,
@@ -967,7 +953,7 @@ function emptyStateHasNoCreate(src, description, label) {
   );
   assert(!re.test(src), label + " empty state does not repeat a create action");
 }
-const notificationsSrc = fs.readFileSync(
+const notificationsSrc = qmlSource.read(
   path.join(__dirname, "..", "pages", "NotificationsPage.qml"),
   "utf8",
 );
@@ -983,7 +969,7 @@ assert(
   "Do not disturb describes the on state",
 );
 emptyStateHasNoCreate(notificationsSrc, "No reminders waiting.", "Reminders");
-const applicationsSrc = fs.readFileSync(
+const applicationsSrc = qmlSource.read(
   path.join(__dirname, "..", "pages", "ApplicationsPage.qml"),
   "utf8",
 );
@@ -999,13 +985,13 @@ emptyStateHasNoCreate(applicationsSrc, "No launch-on-start commands.", "Autostar
 emptyStateHasNoCreate(applicationsSrc, "No desktop launchers.", "Desktop launchers");
 emptyStateHasNoCreate(applicationsSrc, "No terminal launchers.", "Terminal launchers");
 emptyStateHasNoCreate(applicationsSrc, "No web apps.", "Web apps");
-const hooksPageSrc = fs.readFileSync(path.join(__dirname, "..", "pages", "HooksPage.qml"), "utf8");
+const hooksPageSrc = qmlSource.read(path.join(__dirname, "..", "pages", "HooksPage.qml"), "utf8");
 assert(
   hooksPageSrc.indexOf('description: "No scripts."') !== -1,
   "empty hook lists say No scripts",
 );
 emptyStateHasNoCreate(hooksPageSrc, "No scripts.", "Hooks");
-const bindingsPageSrc = fs.readFileSync(
+const bindingsPageSrc = qmlSource.read(
   path.join(__dirname, "..", "pages", "windows", "BindingsPage.qml"),
   "utf8",
 );
@@ -1022,7 +1008,7 @@ assert(
     bindingsPageSrc.indexOf('"Show all"') !== -1,
   "bindings catalog renders a capped window with a show-all escape",
 );
-const rulesPageSrc = fs.readFileSync(
+const rulesPageSrc = qmlSource.read(
   path.join(__dirname, "..", "pages", "windows", "RulesPage.qml"),
   "utf8",
 );
@@ -1031,7 +1017,7 @@ assert(
   "an empty window-rule list says so directly",
 );
 emptyStateHasNoCreate(rulesPageSrc, "No personal window rules.", "Rules");
-const bluetoothPageSrc = fs.readFileSync(
+const bluetoothPageSrc = qmlSource.read(
   path.join(__dirname, "..", "pages", "network", "BluetoothPage.qml"),
   "utf8",
 );
@@ -1041,7 +1027,7 @@ assert(
   "empty Bluetooth lists say so directly",
 );
 emptyStateHasNoCreate(bluetoothPageSrc, "No paired devices.", "Paired devices");
-const wifiPageSrc = fs.readFileSync(
+const wifiPageSrc = qmlSource.read(
   path.join(__dirname, "..", "pages", "network", "WifiPage.qml"),
   "utf8",
 );
@@ -1055,7 +1041,7 @@ assert(
     wifiPageSrc.indexOf("Refresh stays disabled") === -1,
   "empty Wi-Fi list says No networks nearby",
 );
-const accountsPageEmptySrc = fs.readFileSync(
+const accountsPageEmptySrc = qmlSource.read(
   path.join(__dirname, "..", "pages", "AccountsPage.qml"),
   "utf8",
 );
@@ -1064,10 +1050,10 @@ assert(
     accountsPageEmptySrc.indexOf('description: "No groups."') !== -1,
   "empty account lists say so directly",
 );
-const disksPageSrc = fs.readFileSync(path.join(__dirname, "..", "pages", "DisksPage.qml"), "utf8");
+const disksPageSrc = qmlSource.read(path.join(__dirname, "..", "pages", "DisksPage.qml"), "utf8");
 assert(disksPageSrc.indexOf('description: "No snapshots."') !== -1, "empty snapshot list says so");
 emptyStateHasNoCreate(disksPageSrc, "No snapshots.", "Snapshots");
-const displaysPageSrc = fs.readFileSync(
+const displaysPageSrc = qmlSource.read(
   path.join(__dirname, "..", "pages", "DisplaysPage.qml"),
   "utf8",
 );
@@ -1097,7 +1083,7 @@ assert(
     displaysPageSrc.indexOf("RichUi.monitorModeCopyText(modelData)") !== -1,
   "resolution lists sizes only with refresh rate in its own row behind it",
 );
-const richUiSrc = fs.readFileSync(path.join(__dirname, "..", "services", "RichUi.js"), "utf8");
+const richUiSrc = qmlSource.read(path.join(__dirname, "..", "services", "RichUi.js"), "utf8");
 assert(
   richUiSrc.indexOf("function monitorModeOptions") === -1 &&
     richUiSrc.indexOf("function monitorResolutions") !== -1 &&
@@ -1107,7 +1093,7 @@ assert(
     richUiSrc.indexOf("function monitorModeCopyText") !== -1,
   "RichUi splits size and refresh and drops the combined mode picker",
 );
-const prefsCheckSrc = fs.readFileSync(
+const prefsCheckSrc = qmlSource.read(
   path.join(__dirname, "..", "components", "PrefsCheck.qml"),
   "utf8",
 );
@@ -1116,10 +1102,7 @@ assert(
     prefsCheckSrc.indexOf("Keys.onSpacePressed") !== -1,
   "PrefsCheck is a keyboard-accessible checkbox",
 );
-const exportPageSrc = fs.readFileSync(
-  path.join(__dirname, "..", "pages", "ExportPage.qml"),
-  "utf8",
-);
+const exportPageSrc = qmlSource.read(path.join(__dirname, "..", "pages", "ExportPage.qml"), "utf8");
 assert(exportPageSrc.indexOf("PrefsCheck") !== -1, "export sections use PrefsCheck");
 assert(exportPageSrc.indexOf("PrefsToggle") === -1, "export sections do not use switches");
 assert(
@@ -1127,14 +1110,16 @@ assert(
   "export keeps All and None actions",
 );
 assert(
-  exportPageSrc.indexOf('caption: modelData.count + " settings"') !== -1,
+  /caption:\s*I18n\.tr\("\{count\} settings",\s*\{\s*count:\s*modelData\.count\s*\}\)/.test(
+    exportPageSrc,
+  ),
   "export keeps the setting count as secondary copy",
 );
 assert(
   exportPageSrc.indexOf('text: "Open file"') !== -1,
   "export opens the written file with Open file",
 );
-const prefsRowSrc = fs.readFileSync(
+const prefsRowSrc = qmlSource.read(
   path.join(__dirname, "..", "components", "PrefsRow.qml"),
   "utf8",
 );
@@ -1142,12 +1127,12 @@ assert(
   /^\s*SettingRow\s*\{/m.test(prefsRowSrc),
   "PrefsRow is a SettingRow alias so existing rows keep working",
 );
-const prefsGroupSrc = fs.readFileSync(
+const prefsGroupSrc = qmlSource.read(
   path.join(__dirname, "..", "components", "PrefsGroup.qml"),
   "utf8",
 );
 assert(
-  prefsGroupSrc.indexOf("root.title.toUpperCase()") !== -1 &&
+  /(?:root\.title|I18n\.tr\(root\.title\))\.toUpperCase\(\)/.test(prefsGroupSrc) &&
     prefsGroupSrc.indexOf("Theme.groupTitleSize") !== -1 &&
     prefsGroupSrc.indexOf("font.bold: true") !== -1,
   "section headings are uppercase bold labels sized by groupTitleSize",
@@ -1187,7 +1172,7 @@ assert(
   "framed split walks Repeater delegates and skips a hidden empty row",
 );
 
-const shellSrc = fs.readFileSync(path.join(__dirname, "..", "shell.qml"), "utf8");
+const shellSrc = qmlSource.read(path.join(__dirname, "..", "shell.qml"), "utf8");
 const navItemSrc = shellSrc.slice(
   shellSrc.indexOf("id: navItem"),
   shellSrc.indexOf("id: navMouse"),
@@ -1336,10 +1321,10 @@ assert(
   "error dialog asks the default agent",
 );
 const omarchySrc =
-  fs.readFileSync(path.join(__dirname, "..", "services", "Omarchy.qml"), "utf8") +
-  fs.readFileSync(path.join(__dirname, "..", "services", "Paths.qml"), "utf8") +
-  fs.readFileSync(path.join(__dirname, "..", "services", "IoQueue.qml"), "utf8") +
-  fs.readFileSync(path.join(__dirname, "..", "services", "SnapshotStore.qml"), "utf8");
+  qmlSource.read(path.join(__dirname, "..", "services", "Omarchy.qml"), "utf8") +
+  qmlSource.read(path.join(__dirname, "..", "services", "Paths.qml"), "utf8") +
+  qmlSource.read(path.join(__dirname, "..", "services", "IoQueue.qml"), "utf8") +
+  qmlSource.read(path.join(__dirname, "..", "services", "SnapshotStore.qml"), "utf8");
 assert(
   omarchySrc.indexOf('if (key === "laptop" && !internalPresent) return') !== -1 &&
     omarchySrc.indexOf('if (key === "docked" && !externalPresent) return') !== -1,
@@ -1426,7 +1411,7 @@ assert(
     omarchySrc.indexOf("set-favorites.sh") !== -1,
   "Omarchy writes favorites through set-favorites.sh",
 );
-const favoritesPageSrc = fs.readFileSync(
+const favoritesPageSrc = qmlSource.read(
   path.join(__dirname, "..", "pages", "FavoritesPage.qml"),
   "utf8",
 );
@@ -1435,12 +1420,12 @@ assert(
     favoritesPageSrc.indexOf('text: "Open…"') !== -1,
   "Favorites names an empty list and opens the source hub",
 );
-const favoritesSh = fs.readFileSync(
+const favoritesSh = qmlSource.read(
   path.join(__dirname, "..", "scripts", "set-favorites.sh"),
   "utf8",
 );
 assert(favoritesSh.indexOf("os.replace") !== -1, "set-favorites.sh replaces the file atomically");
-const resetAtmosSh = fs.readFileSync(
+const resetAtmosSh = qmlSource.read(
   path.join(__dirname, "..", "scripts", "reset-atmos.sh"),
   "utf8",
 );
@@ -1451,22 +1436,22 @@ assert(
   "Theme names favorite star icons",
 );
 
-const idleSh = fs.readFileSync(path.join(__dirname, "..", "scripts", "set-idle.sh"), "utf8");
+const idleSh = qmlSource.read(path.join(__dirname, "..", "scripts", "set-idle.sh"), "utf8");
 assert(
   idleSh.indexOf("OMARCHY_PATH:=/usr/share/omarchy") !== -1,
   "set-idle.sh defaults OMARCHY_PATH before sourcing omarchy-shell-config",
 );
-const barSh = fs.readFileSync(path.join(__dirname, "..", "scripts", "set-bar-widget.sh"), "utf8");
+const barSh = qmlSource.read(path.join(__dirname, "..", "scripts", "set-bar-widget.sh"), "utf8");
 assert(
   barSh.indexOf("OMARCHY_PATH:=/usr/share/omarchy") !== -1,
   "set-bar-widget.sh defaults OMARCHY_PATH before sourcing omarchy-shell-config",
 );
-const envSh = fs.readFileSync(path.join(__dirname, "..", "scripts", "atmos-env.sh"), "utf8");
+const envSh = qmlSource.read(path.join(__dirname, "..", "scripts", "atmos-env.sh"), "utf8");
 assert(
   envSh.indexOf("hyprctl reload >/dev/null || true") !== -1,
   "atmos_hypr_reload does not fail the write when reload fails",
 );
-const appearanceSrc = fs.readFileSync(
+const appearanceSrc = qmlSource.read(
   path.join(__dirname, "..", "pages", "AppearancePage.qml"),
   "utf8",
 );
@@ -1535,8 +1520,8 @@ assert(
   omarchyQml.indexOf("url = RichUi.parseGitUrl(url)") !== -1,
   "Omarchy validates theme URLs with RichUi.parseGitUrl",
 );
-const systemSrc = fs.readFileSync(path.join(__dirname, "..", "pages", "SystemPage.qml"), "utf8");
-const diagPageSrc = fs.readFileSync(
+const systemSrc = qmlSource.read(path.join(__dirname, "..", "pages", "SystemPage.qml"), "utf8");
+const diagPageSrc = qmlSource.read(
   path.join(__dirname, "..", "pages", "system", "DiagnosticsPage.qml"),
   "utf8",
 );
@@ -1559,7 +1544,7 @@ assert(
     systemSrc.indexOf("stack.push(historyPage)") !== -1,
   "System opens the History child page when stack is set",
 );
-const historyPageSrc = fs.readFileSync(
+const historyPageSrc = qmlSource.read(
   path.join(__dirname, "..", "pages", "system", "HistoryPage.qml"),
   "utf8",
 );
@@ -1635,7 +1620,7 @@ assert(
   omarchySrc.indexOf("name = RichUi.parseWeatherLocation(name)") !== -1,
   "Omarchy validates weather location with RichUi.parseWeatherLocation",
 );
-const settingsSrc = fs.readFileSync(path.join(__dirname, "..", "services", "Settings.js"), "utf8");
+const settingsSrc = qmlSource.read(path.join(__dirname, "..", "services", "Settings.js"), "utf8");
 assert(
   settingsSrc.indexOf('weatherAuto: false, weatherCoords: ""') !== -1 ||
     settingsSrc.indexOf("weatherAuto: false") !== -1,
@@ -1677,7 +1662,7 @@ assert(
   omarchySrc.indexOf("key = RichUi.parseSshPublicKey(key)") !== -1,
   "Omarchy validates SSH keys with RichUi.parseSshPublicKey",
 );
-const inputPageSrc = fs.readFileSync(path.join(__dirname, "..", "pages", "InputPage.qml"), "utf8");
+const inputPageSrc = qmlSource.read(path.join(__dirname, "..", "pages", "InputPage.qml"), "utf8");
 assert(
   inputPageSrc.indexOf("HyprPrefs.sanitizeLayoutList") !== -1 &&
     inputPageSrc.indexOf("kbLayoutValid") !== -1,
@@ -1733,7 +1718,7 @@ assert(
   omarchySrc.indexOf("/^[a-z0-9]{1,8}(,[a-z0-9]{1,8})*$/") === -1,
   "Omarchy does not keep a space-intolerant Hyprland layout regex",
 );
-const accountsPageSrc = fs.readFileSync(
+const accountsPageSrc = qmlSource.read(
   path.join(__dirname, "..", "pages", "AccountsPage.qml"),
   "utf8",
 );
@@ -1768,7 +1753,7 @@ assert(
   "jobProc closes stdin after writing",
 );
 
-const applySh = fs.readFileSync(path.join(__dirname, "..", "scripts", "apply-settings.sh"), "utf8");
+const applySh = qmlSource.read(path.join(__dirname, "..", "scripts", "apply-settings.sh"), "utf8");
 assert(
   applySh.indexOf("while IFS= read -r key; do") === -1,
   "apply-settings.sh no longer dispatches by key",
@@ -1806,7 +1791,7 @@ assert(
   "apply-settings.sh reports a no-op workspace gesture as skipped after a live re-scan",
 );
 
-const exportPage = fs.readFileSync(path.join(__dirname, "..", "pages", "ExportPage.qml"), "utf8");
+const exportPage = qmlSource.read(path.join(__dirname, "..", "pages", "ExportPage.qml"), "utf8");
 assert(
   exportPage.indexOf("Requests.hostWrite") !== -1 &&
     exportPage.indexOf("Backend.request") !== -1 &&
@@ -1893,7 +1878,7 @@ assert(
 assert(settingsSrc.indexOf("var APPLY_GROUP = {") === -1, "Settings.js does not keep APPLY_GROUP");
 
 const hubsJs = load("services/Hubs.js");
-const atmosSrc = fs.readFileSync(path.join(__dirname, "..", "bin", "atmos"), "utf8");
+const atmosSrc = qmlSource.read(path.join(__dirname, "..", "bin", "atmos"), "utf8");
 const atmosAllow = atmosSrc.split("\n").find(function (row) {
   return /\$HUB != appearance/.test(row);
 });
@@ -1923,7 +1908,7 @@ assert(
     shellSrc.indexOf("monitor: monitorPage") !== -1,
   "shell lands on Home, registers Monitor, and sends dashboard to it",
 );
-const homePageSrc = fs.readFileSync(path.join(__dirname, "..", "pages", "HomePage.qml"), "utf8");
+const homePageSrc = qmlSource.read(path.join(__dirname, "..", "pages", "HomePage.qml"), "utf8");
 assert(
   homePageSrc.indexOf('hubId: "home"') !== -1 &&
     homePageSrc.indexOf("LiveStatsStore") !== -1 &&
@@ -1936,7 +1921,7 @@ assert(
   /title: "Processes"[\s\S]{0,80}wide: true/.test(homePageSrc),
   "Home process table spans the full row in a two-column page",
 );
-const liveStoreSrc = fs.readFileSync(
+const liveStoreSrc = qmlSource.read(
   path.join(__dirname, "..", "services", "LiveStatsStore.qml"),
   "utf8",
 );
@@ -1948,11 +1933,11 @@ assert(
     liveStoreSrc.indexOf("syncIntervalHolds") !== -1,
   "LiveStatsStore polls live-stats.py on an interval",
 );
-const frameClockSrc = fs.readFileSync(
+const frameClockSrc = qmlSource.read(
   path.join(__dirname, "..", "services", "FrameClock.qml"),
   "utf8",
 );
-const qmldirSrc = fs.readFileSync(path.join(__dirname, "..", "services", "qmldir"), "utf8");
+const qmldirSrc = qmlSource.read(path.join(__dirname, "..", "services", "qmldir"), "utf8");
 assert(
   frameClockSrc.indexOf("pragma Singleton") !== -1 &&
     frameClockSrc.indexOf("FrameAnimation") !== -1 &&
@@ -1965,7 +1950,7 @@ assert(
   liveStoreSrc.indexOf("FrameClock.holds > 0") !== -1,
   "LiveStatsStore only polls while a chart in view is holding the frame clock",
 );
-const chartViewportSrc = fs.readFileSync(
+const chartViewportSrc = qmlSource.read(
   path.join(__dirname, "..", "components", "ChartViewport.qml"),
   "utf8",
 );
@@ -1980,7 +1965,7 @@ assert(
     chartViewportSrc.indexOf("readonly property bool inView:") === -1,
   "ChartViewport retains the frame clock only while the chart is in the pane",
 );
-const progressSrc = fs.readFileSync(
+const progressSrc = qmlSource.read(
   path.join(__dirname, "..", "components", "PrefsProgress.qml"),
   "utf8",
 );
@@ -2013,7 +1998,7 @@ assert(
     /if \(token !== root\.sampleToken\) return/.test(liveStoreSrc),
   "LiveStatsStore keeps the stall message when the dropped sample answers late",
 );
-const monitorPageSrc = fs.readFileSync(
+const monitorPageSrc = qmlSource.read(
   path.join(__dirname, "..", "pages", "MonitorPage.qml"),
   "utf8",
 );
@@ -2045,7 +2030,7 @@ const chartHomeSrc = {};
 Object.keys(chartHomes).forEach(function (kind) {
   const rel = chartHomes[kind];
   if (!chartHomeSrc[rel])
-    chartHomeSrc[rel] = fs.readFileSync(path.join(__dirname, "..", "pages", rel), "utf8");
+    chartHomeSrc[rel] = qmlSource.read(path.join(__dirname, "..", "pages", rel), "utf8");
   assert(
     chartHomeSrc[rel].indexOf('kind: "' + kind + '"') !== -1,
     rel + " paints a " + kind + " chart",
@@ -2080,7 +2065,7 @@ assert(
     homePageSrc.indexOf("0 °C") === -1,
   "Home lists GPUs from hardware inventory and keeps missing temps unknown",
 );
-const sparkSrc = fs.readFileSync(
+const sparkSrc = qmlSource.read(
   path.join(__dirname, "..", "components", "PrefsSparkline.qml"),
   "utf8",
 );
@@ -2090,32 +2075,32 @@ assert(
   "PrefsSparkline does not round cards or add shadows",
 );
 assert(sparkSrc.indexOf("valuesB") !== -1, "PrefsSparkline can stroke a second series");
-const chartsSrc = fs.readFileSync(path.join(__dirname, "..", "services", "Charts.js"), "utf8");
-const prefsChartSrc = fs.readFileSync(
+const chartsSrc = qmlSource.read(path.join(__dirname, "..", "services", "Charts.js"), "utf8");
+const prefsChartSrc = qmlSource.read(
   path.join(__dirname, "..", "components", "PrefsChart.qml"),
   "utf8",
 );
-const cpuPageSrc = fs.readFileSync(
+const cpuPageSrc = qmlSource.read(
   path.join(__dirname, "..", "pages", "monitor", "CpuPage.qml"),
   "utf8",
 );
-const memPageSrc = fs.readFileSync(
+const memPageSrc = qmlSource.read(
   path.join(__dirname, "..", "pages", "monitor", "MemoryPage.qml"),
   "utf8",
 );
-const diskPageSrc = fs.readFileSync(
+const diskPageSrc = qmlSource.read(
   path.join(__dirname, "..", "pages", "monitor", "DiskPage.qml"),
   "utf8",
 );
-const trafficPageSrc = fs.readFileSync(
+const trafficPageSrc = qmlSource.read(
   path.join(__dirname, "..", "pages", "monitor", "TrafficPage.qml"),
   "utf8",
 );
-const sensorsPageSrc = fs.readFileSync(
+const sensorsPageSrc = qmlSource.read(
   path.join(__dirname, "..", "pages", "monitor", "SensorsPage.qml"),
   "utf8",
 );
-const processesPageSrc = fs.readFileSync(
+const processesPageSrc = qmlSource.read(
   path.join(__dirname, "..", "pages", "monitor", "ProcessesPage.qml"),
   "utf8",
 );
@@ -2141,7 +2126,7 @@ assert(
     gatesOffscreenModel(processesPageSrc, "parallelChart"),
   "Monitor pages skip chart models while those charts are off screen",
 );
-const liveStatsPy = fs.readFileSync(path.join(__dirname, "..", "scripts", "live-stats.py"), "utf8");
+const liveStatsPy = qmlSource.read(path.join(__dirname, "..", "scripts", "live-stats.py"), "utf8");
 assert(prefsChartSrc.indexOf("qs.Ui") === -1, "PrefsChart does not import qs.Ui");
 assert(
   prefsChartSrc.indexOf("resolvedExplainer") !== -1 &&
@@ -2210,15 +2195,15 @@ function skipsIdleClock(src) {
     src.indexOf("function onFrameChanged()") !== -1
   );
 }
-const histSrc = fs.readFileSync(
+const histSrc = qmlSource.read(
   path.join(__dirname, "..", "components", "PrefsHistogram.qml"),
   "utf8",
 );
-const coreBarsSrc = fs.readFileSync(
+const coreBarsSrc = qmlSource.read(
   path.join(__dirname, "..", "components", "PrefsCoreBars.qml"),
   "utf8",
 );
-const stackedBarSrc = fs.readFileSync(
+const stackedBarSrc = qmlSource.read(
   path.join(__dirname, "..", "components", "PrefsStackedBar.qml"),
   "utf8",
 );
@@ -2417,10 +2402,7 @@ assert(
     chartsSrc.indexOf("function waterfallBars") !== -1,
   "Charts.js ships Nightingale and waterfall geometry",
 );
-const meterSrc = fs.readFileSync(
-  path.join(__dirname, "..", "components", "PrefsMeter.qml"),
-  "utf8",
-);
+const meterSrc = qmlSource.read(path.join(__dirname, "..", "components", "PrefsMeter.qml"), "utf8");
 assert(
   meterSrc.indexOf("Chamfer") === -1 &&
     meterSrc.indexOf("radius: Theme.radius") !== -1 &&
@@ -2477,7 +2459,7 @@ assert(
   shellSrc.indexOf('id: "appearance", title: "Appearance"') === -1,
   "shell does not inline hub titles",
 );
-const searchSrc = fs.readFileSync(path.join(__dirname, "..", "services", "SearchIndex.js"), "utf8");
+const searchSrc = qmlSource.read(path.join(__dirname, "..", "services", "SearchIndex.js"), "utf8");
 assert(searchSrc.indexOf("const HUBS") === -1, "SearchIndex does not own HUBS");
 assert(searchSrc.indexOf("FILE_HUB") === -1, "SearchIndex does not own FILE_HUB");
 assert(searchSrc.indexOf("PAGE_TITLE") === -1, "SearchIndex does not own PAGE_TITLE");
@@ -2551,7 +2533,7 @@ assert(
     runCommandBody.indexOf("opts.sudo") !== -1,
   "runCommand still forwards key, apply, refresh, sudo, and stdin",
 );
-const previewQml = fs.readFileSync(path.join(__dirname, "..", "services", "Preview.qml"), "utf8");
+const previewQml = qmlSource.read(path.join(__dirname, "..", "services", "Preview.qml"), "utf8");
 assert(
   previewQml.indexOf("property bool active: false") !== -1 &&
     previewQml.indexOf("FileView") === -1 &&
@@ -2564,7 +2546,7 @@ assert(
     omarchySrc.indexOf("function syncThemeFromDisk(") === -1,
   "syncThemeFromDiskIfStale is gone",
 );
-const themeQmlSrc = fs.readFileSync(path.join(__dirname, "..", "services", "Theme.qml"), "utf8");
+const themeQmlSrc = qmlSource.read(path.join(__dirname, "..", "services", "Theme.qml"), "utf8");
 assert(themeQmlSrc.indexOf("inotifywait") === -1, "inotifywait is not in Theme.qml");
 const watchStart = omarchySrc.indexOf("readonly property var specs:");
 const watchEnd = omarchySrc.indexOf("function scheduleRefresh", watchStart);

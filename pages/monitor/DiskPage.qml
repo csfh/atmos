@@ -9,8 +9,8 @@ import "../../services/Processes.js" as ProcessesJs
 PrefsPage {
   id: root
   hubId: "monitor/disk"
-  title: "Disk I/O"
-  description: "Read and write rates from /proc/diskstats. Partitions are skipped. Capacity lives on Disks."
+  title: I18n.tr("Disk I/O")
+  description: I18n.tr("Read and write rates from /proc/diskstats. Partitions are skipped. Capacity lives on Disks.")
 
   property string diskFilter: ""
   property string diskSort: "io"
@@ -58,7 +58,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "I/O streamgraph"
+    title: I18n.tr("I/O streamgraph")
     query: root.query
     wide: true
     lede: ChartCopy.blurb("streamgraph")
@@ -84,13 +84,13 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Pressure"
+    title: I18n.tr("Pressure")
     query: root.query
     detail: "Share of time some tasks stalled on I/O."
 
     SettingRow {
       label: "I/O stall"
-      description: "PSI some avg10 for io."
+      description: I18n.tr("PSI some avg10 for io.")
       hint: "/proc/pressure/io"
       query: root.query
       keywords: ["psi", "stall", "io"]
@@ -99,7 +99,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Devices"
+    title: I18n.tr("Devices")
     query: root.query
     wide: true
     detail: "Whole disks only. Dual sparkline is read over write."
@@ -179,7 +179,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Busiest tasks"
+    title: I18n.tr("Busiest tasks")
     query: root.query
     wide: true
     detail: "Process read and write bytes from /proc/pid/io when that file is readable."
@@ -202,7 +202,7 @@ PrefsPage {
       available: root.ioProcs.length === 0
       sectionHelp: false
       label: "No I/O samples"
-      description: "Process I/O waits for a second sample, and some tasks hide /proc/pid/io."
+      description: I18n.tr("Process I/O waits for a second sample, and some tasks hide /proc/pid/io.")
       query: root.query
       keywords: ["empty", "io"]
     }

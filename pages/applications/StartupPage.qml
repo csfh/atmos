@@ -5,8 +5,8 @@ import "../../services"
 PrefsPage {
   id: root
   hubId: "applications/startup"
-  title: "Startup"
-  description: "Programs Hyprland launches at login. Disable comments the line out. Delay prefixes sleep N &&. Remove only deletes a row Atmos added."
+  title: I18n.tr("Startup")
+  description: I18n.tr("Programs Hyprland launches at login. Disable comments the line out. Delay prefixes sleep N &&. Remove only deletes a row Atmos added.")
 
   property string autostartDraft: ""
   property int delayDraft: 0
@@ -36,22 +36,22 @@ PrefsPage {
 
   PrefsConfirm {
     id: removeAutostartConfirm
-    title: "Remove startup command"
-    message: "Remove " + root.pendingAutostart + " from the Atmos autostart block?"
+    title: I18n.tr("Remove startup command")
+    message: I18n.tr("Remove {command} from the Atmos autostart block?", { command: root.pendingAutostart })
     confirmText: "Remove"
     onConfirmed: Omarchy.removeAutostart(root.pendingAutostart)
   }
 
   PrefsGroup {
     framed: true
-    title: "Launch on start"
+    title: I18n.tr("Launch on start")
     query: root.query
     detail: "Writes o.launch_on_start in ~/.config/hypr/autostart.lua. Lines you typed yourself stay."
     hint: "~/.config/hypr/autostart.lua"
 
     SettingRow {
       label: "Add a command"
-      description: "A program name or command. Delay waits that many seconds after login."
+      description: I18n.tr("A program name or command. Delay waits that many seconds after login.")
       hint: "o.launch_on_start"
       query: root.query
       keywords: ["autostart", "startup", "delay"]
@@ -73,7 +73,7 @@ PrefsPage {
           onChanged: function(value) { root.delayDraft = Math.round(value) }
         }
         PrefsButton {
-          text: "Add"
+          text: I18n.tr("Add")
           primary: true
           onClicked: Omarchy.addAutostart(root.autostartDraft, root.delayDraft)
         }
@@ -86,7 +86,9 @@ PrefsPage {
       SettingRow {
         required property var modelData
         label: modelData && modelData.command ? modelData.command : "command"
-        description: (modelData && modelData.enabled === false ? "Disabled. " : "") + (modelData && modelData.delay ? ("Starts after " + modelData.delay + "s. ") : "") + (modelData && modelData.managed ? "Atmos manages this line." : "You wrote this line.")
+        description: (modelData && modelData.enabled === false ? I18n.tr("Disabled. ") : "")
+        + (modelData && modelData.delay ? I18n.tr("Starts after {seconds}s. ", { seconds: modelData.delay }) : "")
+        + (modelData && modelData.managed ? I18n.tr("Atmos manages this line.") : I18n.tr("You wrote this line."))
         hint: "~/.config/hypr/autostart.lua"
         query: root.query
         keywords: ["autostart", "enable", "delay"]
@@ -99,7 +101,7 @@ PrefsPage {
             onToggled: Omarchy.setAutostartEnabled(modelData.command, !(modelData && modelData.enabled !== false))
           }
           PrefsButton {
-            text: "Remove…"
+            text: I18n.tr("Remove…")
             danger: true
             enabled: modelData && modelData.managed
             onClicked: {
@@ -113,14 +115,14 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Failures"
+    title: I18n.tr("Failures")
     query: root.failed.length ? root.query : "."
     detail: "User or system units that failed this boot. Startup commands that never launched often show up here."
 
     SettingRow {
       available: root.failed.length === 0
       label: "Startup failures"
-      description: "No failed units reported."
+      description: I18n.tr("No failed units reported.")
       query: root.query
       keywords: ["failed", "empty"]
     }

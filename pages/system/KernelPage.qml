@@ -6,8 +6,8 @@ import "../../services/Diagnostics.js" as DiagJs
 PrefsPage {
   id: root
   hubId: "system/kernel"
-  title: "Kernel"
-  description: "The running image, how firmware starts it, and a couple of knobs that change kernel behavior."
+  title: I18n.tr("Kernel")
+  description: I18n.tr("The running image, how firmware starts it, and a couple of knobs that change kernel behavior.")
 
   readonly property var diag: DiagJs.normalize(Omarchy.diagnostics)
 
@@ -26,7 +26,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "This boot"
+    title: I18n.tr("This boot")
     query: root.query
     detail: "uname as the kernel reports it. Hardware has firmware and DMI."
 
@@ -38,7 +38,7 @@ PrefsPage {
       keywords: ["kernel", "uname", "linux", "arch", "release"]
 
       PrefsButton {
-        text: "Copy"
+        text: I18n.tr("Copy")
         enabled: DiagJs.kernelSummary(root.diag).length > 0
         onClicked: Omarchy.copyText(DiagJs.kernelSummary(root.diag))
       }
@@ -46,7 +46,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Direct EFI boot"
+    title: I18n.tr("Direct EFI boot")
     query: Omarchy.directBootAvailable ? root.query : "."
     detail: "A normal start opens Limine, Omarchy's bootloader. That menu is how you pick this install or an older Snapper snapshot after a bad update. Direct EFI boot writes a firmware entry named Omarchy that loads the Unified Kernel Image, a single EFI file under /boot/EFI/Linux that already contains the kernel, initramfs, and command line. Firmware starts that file. Limine never appears, and you go straight to disk unlock. Do this when you never choose a snapshot at power-on and want that pause gone. Snapshots stay on disk. To boot one afterward, open the firmware boot menu (often F12, F10, or Esc), choose Limine, then the snapshot by date. Run this setup again to delete the firmware entry and return to Limine on every start."
 
@@ -70,7 +70,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Memory"
+    title: I18n.tr("Memory")
     query: root.query
     detail: "vm.swappiness. Lower values keep more file cache in RAM and wait longer before using swap."
 
@@ -90,7 +90,7 @@ PrefsPage {
           onToggled: Omarchy.setTweak("swappiness", !(Omarchy.tweaks && Omarchy.tweaks.swappiness))
         }
         PrefsButton {
-          text: "Reset"
+          text: I18n.tr("Reset")
           onClicked: Omarchy.setTweak("swappiness", false)
         }
       }

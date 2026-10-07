@@ -8,8 +8,8 @@ import "system" as Sys
 PrefsPage {
   id: root
   hubId: "system"
-  title: "System"
-  description: "This machine's name, language, and clock. Account name and face are on Accounts. Printers, weather, diagnostics, and Omarchy updates are further down."
+  title: I18n.tr("System")
+  description: I18n.tr("This machine's name, language, and clock. Account name and face are on Accounts. Printers, weather, diagnostics, and Omarchy updates are further down.")
 
   property var stack: null
   property var navigator: null
@@ -46,7 +46,7 @@ PrefsPage {
 
   PrefsConfirm {
     id: channelConfirm
-    title: "Switch channel"
+    title: I18n.tr("Switch channel")
     message: root.pendingChannel === "dev"
       ? "Dev links Omarchy to a source checkout. That is for people working on Omarchy itself. The machine then upgrades against that tree."
       : "Switch the package channel to " + root.pendingChannel + ". That rewrites pacman mirrors and upgrades the system."
@@ -56,7 +56,7 @@ PrefsPage {
 
   PrefsConfirm {
     id: atmosUpdateConfirm
-    title: "Update Atmos"
+    title: I18n.tr("Update Atmos")
     message: "Fetch the alpha branch and replace the installed Atmos files under ~/.local/share/atmos. If the window does not reload, quit Atmos and open it again."
     confirmText: "Update"
     onConfirmed: Omarchy.runAtmosUpdate()
@@ -64,7 +64,7 @@ PrefsPage {
 
   PrefsConfirm {
     id: updateConfirm
-    title: "Update Omarchy"
+    title: I18n.tr("Update Omarchy")
     message: "Download and install Omarchy and system package updates. This can take a while and may ask for a password."
     confirmText: "Update"
     onConfirmed: Omarchy.runOmarchyUpdate()
@@ -72,7 +72,7 @@ PrefsPage {
 
   PrefsConfirm {
     id: orphanConfirm
-    title: "Remove orphans"
+    title: I18n.tr("Remove orphans")
     message: "Remove packages that nothing else depends on."
     confirmText: "Remove"
     onConfirmed: Omarchy.updateOrphanPkgs()
@@ -80,7 +80,7 @@ PrefsPage {
 
   PrefsConfirm {
     id: pruneConfirm
-    title: "Prune package cache"
+    title: I18n.tr("Prune package cache")
     message: "Delete old downloaded packages from the pacman cache."
     confirmText: "Prune"
     onConfirmed: Omarchy.prunePkgCache()
@@ -88,7 +88,7 @@ PrefsPage {
 
   PrefsConfirm {
     id: refreshHyprConfirm
-    title: "Restore Hyprland defaults"
+    title: I18n.tr("Restore Hyprland defaults")
     message: "Replace the Hyprland Lua files in ~/.config/hypr with the shipped Omarchy copies. Your current files are backed up first. The Atmos drop-in require is written back so this window still floats."
     confirmText: "Restore"
     onConfirmed: Omarchy.refreshHyprland()
@@ -96,7 +96,7 @@ PrefsPage {
 
   PrefsConfirm {
     id: refreshShellConfirm
-    title: "Restore shell defaults"
+    title: I18n.tr("Restore shell defaults")
     message: "Replace ~/.config/omarchy/shell.json with the shipped Omarchy copy. Your current file is backed up first. The bar restarts afterward."
     confirmText: "Restore"
     onConfirmed: Omarchy.refreshShell()
@@ -104,7 +104,7 @@ PrefsPage {
 
   PrefsConfirm {
     id: resetAtmosConfirm
-    title: "Reset Atmos"
+    title: I18n.tr("Reset Atmos")
     message: "Remove Atmos-managed Hyprland overrides (look, input, autostart, bindings, extra window rules) and the search index cache. The Atmos window still floats. Theme, wallpaper, and shell.json stay as they are."
     confirmText: "Reset"
     onConfirmed: Omarchy.resetAtmos()
@@ -145,7 +145,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Machine"
+    title: I18n.tr("Machine")
     query: root.query
     detail: "Hostname is how this computer shows up on the network and in prompts."
 
@@ -178,7 +178,7 @@ PrefsPage {
 
         PrefsButton {
           id: hostnameSetBtn
-          text: "Set"
+          text: I18n.tr("Set")
           primary: true
           enabled: root.hostnameValid && root.hostnameParsed !== Omarchy.hostname
           onClicked: Omarchy.setHostname(root.hostnameParsed)
@@ -188,13 +188,13 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Keyboard"
+    title: I18n.tr("Keyboard")
     query: root.query
     detail: "XKB layout for typing. Hyprland reads it from vconsole.conf after you change it."
 
     SettingRow {
       label: "Layout"
-      description: "Key positions for typing. Hyprland picks this up from vconsole.conf."
+      description: I18n.tr("Key positions for typing. Hyprland picks this up from vconsole.conf.")
       hint: "localectl set-x11-keymap"
       query: root.query
       keywords: ["keyboard", "layout", "keymap", "xkb", "qwerty", "language", "input"]
@@ -212,13 +212,13 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Language"
+    title: I18n.tr("Language")
     query: root.query
     detail: "The locale apps and the system use for language, dates, and number formats. New sessions pick this up."
 
     SettingRow {
       label: "Locale"
-      description: "Language for the system and apps. Open a new session after you change it."
+      description: I18n.tr("Language for the system and apps. Open a new session after you change it.")
       hint: "localectl set-locale"
       query: root.query
       keywords: ["locale", "lang", "language", "utf-8", "i18n", "translation"]
@@ -236,13 +236,13 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Date and time"
+    title: I18n.tr("Date and time")
     query: root.query
     detail: "Timezone is what the clock, logs, and timestamps use. Network time keeps that clock honest over NTP."
 
     SettingRow {
       label: "Timezone"
-      description: "The zone the clock, logs, and timestamps use."
+      description: I18n.tr("The zone the clock, logs, and timestamps use.")
       hint: "timedatectl set-timezone"
       query: root.query
       keywords: ["timezone", "tz", "utc", "region", "city", "date", "time", "zoneinfo"]
@@ -277,7 +277,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Updates"
+    title: I18n.tr("Updates")
     query: root.query
     detail: "Channel picks which Omarchy package stream you follow. Update runs the usual omarchy update job."
 
@@ -293,7 +293,7 @@ PrefsPage {
       keywords: ["version", "release", "omarchy"]
 
       PrefsButton {
-        text: "Copy"
+        text: I18n.tr("Copy")
         enabled: Omarchy.omarchyVersion.length > 0
         onClicked: Omarchy.copyText("Omarchy " + Omarchy.omarchyVersion + (Omarchy.omarchyChannel ? (" (" + Omarchy.omarchyChannel + ")") : ""))
       }
@@ -301,7 +301,7 @@ PrefsPage {
 
     SettingRow {
       label: "Channel"
-      description: "Stable is the usual stream. rc and edge move faster. Dev is a source checkout."
+      description: I18n.tr("Stable is the usual stream. rc and edge move faster. Dev is a source checkout.")
       hint: "omarchy channel set"
       query: root.query
       keywords: ["channel", "stable", "rc", "edge", "dev", "mirror"]
@@ -337,12 +337,12 @@ PrefsPage {
       Row {
         spacing: Theme.space
         PrefsButton {
-          text: "Check"
+          text: I18n.tr("Check")
           enabled: !Omarchy.jobBusy
           onClicked: Omarchy.checkOmarchyUpdate()
         }
         PrefsButton {
-          text: "Update…"
+          text: I18n.tr("Update…")
           primary: true
           enabled: !Omarchy.jobBusy
           onClicked: updateConfirm.ask()
@@ -352,7 +352,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Atmos"
+    title: I18n.tr("Atmos")
     query: root.query
     detail: "Installed files live under ~/.local/share/atmos. Channel is the git branch Check and Update follow. Only alpha exists yet."
 
@@ -368,7 +368,7 @@ PrefsPage {
       keywords: ["atmos", "version", "revision", "git"]
 
       PrefsButton {
-        text: "Copy"
+        text: I18n.tr("Copy")
         enabled: Omarchy.atmosRevision.length > 0
         onClicked: Omarchy.copyText(Omarchy.atmosRevision)
       }
@@ -376,7 +376,7 @@ PrefsPage {
 
     SettingRow {
       label: "Channel"
-      description: "Alpha tracks the alpha branch. Other channels are not available yet."
+      description: I18n.tr("Alpha tracks the alpha branch. Other channels are not available yet.")
       hint: "~/.config/atmos/channel"
       query: root.query
       keywords: ["atmos", "channel", "alpha", "branch"]
@@ -406,12 +406,12 @@ PrefsPage {
       Row {
         spacing: Theme.space
         PrefsButton {
-          text: "Check"
+          text: I18n.tr("Check")
           enabled: !Omarchy.jobBusy
           onClicked: Omarchy.checkAtmosUpdate()
         }
         PrefsButton {
-          text: "Update…"
+          text: I18n.tr("Update…")
           primary: true
           enabled: !Omarchy.jobBusy && Omarchy.atmosUpdateAvailable
           onClicked: atmosUpdateConfirm.ask()
@@ -429,7 +429,7 @@ PrefsPage {
       keywords: ["reset", "clear", "sentinel", "overrides", "atmos", "search", "index", "sqlite", "cache"]
 
       PrefsButton {
-        text: "Reset…"
+        text: I18n.tr("Reset…")
         danger: true
         enabled: !Omarchy.jobBusy
         onClicked: resetAtmosConfirm.ask()
@@ -438,7 +438,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Printers"
+    title: I18n.tr("Printers")
     query: root.query
     detail: "CUPS is the print service on this machine. Set up opens the usual printer window. The web UI is the CUPS admin page on this computer."
 
@@ -454,12 +454,12 @@ PrefsPage {
       Row {
         spacing: Theme.space
         PrefsButton {
-          text: "Set up…"
+          text: I18n.tr("Set up…")
           primary: true
           onClicked: Omarchy.openPrinters()
         }
         PrefsButton {
-          text: "Open CUPS"
+          text: I18n.tr("Open CUPS")
           onClicked: Omarchy.openCupsAdmin()
         }
       }
@@ -467,13 +467,13 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Packages"
+    title: I18n.tr("Packages")
     query: root.query
     detail: "How many packages pacman fetches at once. Higher can finish a big upgrade sooner on a fast link."
 
     SettingRow {
       label: "Parallel downloads"
-      description: "How many packages pacman fetches at once. Bump this if updates feel slow on a good connection."
+      description: I18n.tr("How many packages pacman fetches at once. Bump this if updates feel slow on a good connection.")
       hint: "/etc/pacman.conf · ParallelDownloads"
       query: root.query
       keywords: ["pacman", "downloads", "parallel", "mirrors", "aur", "speed"]
@@ -490,7 +490,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Branding"
+    title: I18n.tr("Branding")
     query: root.query
     detail: "ASCII art on the About screen. Choose a picture to turn into that art. Edit opens the text file if you want to write it yourself. Reset puts the Omarchy icon back."
 
@@ -506,16 +506,16 @@ PrefsPage {
       Row {
         spacing: Theme.space
         PrefsButton {
-          text: "Choose…"
+          text: I18n.tr("Choose…")
           onClicked: Omarchy.setAboutBranding("image")
         }
         PrefsButton {
-          text: "Edit"
+          text: I18n.tr("Edit")
           onClicked: Omarchy.setAboutBranding("text")
         }
         PrefsButton {
           visible: Omarchy.aboutBranded
-          text: "Reset"
+          text: I18n.tr("Reset")
           danger: true
           enabled: Omarchy.aboutBranded
           onClicked: Omarchy.setAboutBranding("reset")
@@ -525,7 +525,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Weather"
+    title: I18n.tr("Weather")
     query: root.query
     detail: "The city the weather widget and notifications use. Auto guesses from your IP. Coordinates pin the forecast when a city name is ambiguous."
 
@@ -560,7 +560,7 @@ PrefsPage {
 
         PrefsButton {
           id: weatherSetBtn
-          text: "Set"
+          text: I18n.tr("Set")
           primary: true
           enabled: root.weatherLocationValid && (Omarchy.weatherAuto || root.weatherLocationParsed !== Omarchy.weatherLocation)
           onClicked: Omarchy.setWeatherLocation(root.weatherLocationParsed)
@@ -568,7 +568,7 @@ PrefsPage {
 
         PrefsButton {
           id: weatherAutoBtn
-          text: "Auto"
+          text: I18n.tr("Auto")
           enabled: !Omarchy.weatherAuto
           onClicked: Omarchy.clearWeatherLocation()
         }
@@ -605,7 +605,7 @@ PrefsPage {
 
         PrefsButton {
           id: weatherCoordsSetBtn
-          text: "Set"
+          text: I18n.tr("Set")
           primary: true
           enabled: root.weatherCoordsValid && root.weatherCoordsParsed !== Omarchy.weatherCoords
           onClicked: Omarchy.setWeatherCoordinates(root.weatherCoordsParsed)
@@ -616,7 +616,7 @@ PrefsPage {
     SettingRow {
       available: Omarchy.weatherPresent
       label: "Units"
-      description: "Temperature and wind in the weather widget. Auto follows the location you set above."
+      description: I18n.tr("Temperature and wind in the weather widget. Auto follows the location you set above.")
       hint: "omarchy bar set omarchy.weather unit"
       query: root.query
       keywords: ["celsius", "fahrenheit", "metric", "imperial", "temperature"]
@@ -639,7 +639,7 @@ PrefsPage {
       available: Omarchy.weatherPresent
       stretchControl: true
       label: "Refresh"
-      description: "How often the bar pulls a new forecast. Five minutes is chatty. An hour is plenty for most days."
+      description: I18n.tr("How often the bar pulls a new forecast. Five minutes is chatty. An hour is plenty for most days.")
       hint: "omarchy bar set omarchy.weather refreshMinutes"
       query: root.query
       keywords: ["interval", "update", "minutes", "forecast"]
@@ -663,44 +663,44 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Diagnostics"
+    title: I18n.tr("Diagnostics")
     query: root.query
     detail: "Health, failed units, Hyprland errors, and a copyable report. Crash capture lives on that page."
 
     SettingRow {
       label: "Environment"
-      description: "Detected session values and a user overlay for extra variables."
+      description: I18n.tr("Detected session values and a user overlay for extra variables.")
       hint: "~/.config/environment.d/10-atmos.conf"
       query: root.query
       keywords: ["environment", "path", "shell", "xdg"]
 
       PrefsButton {
-        text: "Open…"
+        text: I18n.tr("Open…")
         onClicked: root.openSubpage("environment")
       }
     }
 
     SettingRow {
       label: "Kernel"
-      description: "Running image, direct EFI boot, and swappiness."
+      description: I18n.tr("Running image, direct EFI boot, and swappiness.")
       hint: "omarchy setup direct boot"
       query: root.query
       keywords: ["kernel", "uki", "efi", "swappiness", "limine"]
 
       PrefsButton {
-        text: "Open…"
+        text: I18n.tr("Open…")
         onClicked: root.openSubpage("kernel")
       }
     }
 
     SettingRow {
       label: "History"
-      description: "Every change this window made, and a preview mode that shows a change before it happens. In memory for this session, not a disk log."
+      description: I18n.tr("Every change this window made, and a preview mode that shows a change before it happens. In memory for this session, not a disk log.")
       query: root.query
       keywords: ["history", "undo", "changes", "preview", "audit"]
 
       PrefsButton {
-        text: "Open…"
+        text: I18n.tr("Open…")
         onClicked: root.openSubpage("history")
       }
     }
@@ -713,14 +713,14 @@ PrefsPage {
       keywords: ["diagnostics", "report", "discord", "journal", "systemd", "hyprland", "crash"]
 
       PrefsButton {
-        text: "Open…"
+        text: I18n.tr("Open…")
         onClicked: root.openSubpage("diagnostics")
       }
     }
   }
 
   PrefsGroup {
-    title: "Debug"
+    title: I18n.tr("Debug")
     catalog: false
     query: root.query
     detail: "Not in Find a setting. Show error opens the error dialog so you can try Copy and Dismiss without failing a real command."
@@ -728,12 +728,12 @@ PrefsPage {
     SettingRow {
       catalog: false
       label: "Error dialog"
-      description: "Set lastError without running a failing command. Copy and Dismiss are on the dialog."
+      description: I18n.tr("Set lastError without running a failing command. Copy and Dismiss are on the dialog.")
       query: root.query
       sectionHelp: false
 
       PrefsButton {
-        text: "Show error…"
+        text: I18n.tr("Show error…")
         onClicked: Omarchy.showDebugError()
       }
     }
@@ -741,20 +741,20 @@ PrefsPage {
 
   PrefsGroup {
     framed: true
-    title: "Advanced"
+    title: I18n.tr("Advanced")
     advanced: true
     query: root.query
     detail: "Leftover packages, the pacman download cache, and restore for Hyprland Lua or shell.json. Firmware updates are on Drivers."
 
     SettingRow {
       label: "Orphan packages"
-      description: "Remove packages that nothing else depends on."
+      description: I18n.tr("Remove packages that nothing else depends on.")
       hint: "omarchy update orphan pkgs"
       query: root.query
       keywords: ["orphan", "unused", "pacman"]
 
       PrefsButton {
-        text: "Remove…"
+        text: I18n.tr("Remove…")
         danger: true
         enabled: !Omarchy.jobBusy
         onClicked: orphanConfirm.ask()
@@ -763,13 +763,13 @@ PrefsPage {
 
     SettingRow {
       label: "Package cache"
-      description: "Delete old downloaded packages to free disk."
+      description: I18n.tr("Delete old downloaded packages to free disk.")
       hint: "omarchy update pkg prune"
       query: root.query
       keywords: ["prune", "cache", "pacman"]
 
       PrefsButton {
-        text: "Prune…"
+        text: I18n.tr("Prune…")
         enabled: !Omarchy.jobBusy
         onClicked: pruneConfirm.ask()
       }
@@ -777,13 +777,13 @@ PrefsPage {
 
     SettingRow {
       label: "Restart shell"
-      description: "Reload the bar and notifications without touching shell.json."
+      description: I18n.tr("Reload the bar and notifications without touching shell.json.")
       hint: "omarchy restart shell"
       query: root.query
       keywords: ["restart", "reload", "bar", "quickshell"]
 
       PrefsButton {
-        text: "Restart"
+        text: I18n.tr("Restart")
         enabled: !Omarchy.jobBusy
         onClicked: Omarchy.restartShell()
       }
@@ -799,7 +799,7 @@ PrefsPage {
       keywords: ["refresh", "hyprland", "restore", "defaults", "bindings", "monitors"]
 
       PrefsButton {
-        text: "Restore…"
+        text: I18n.tr("Restore…")
         danger: true
         enabled: !Omarchy.jobBusy
         onClicked: refreshHyprConfirm.ask()
@@ -808,13 +808,13 @@ PrefsPage {
 
     SettingRow {
       label: "Restore shell"
-      description: "Put the shipped shell.json back. Your copy is backed up. The bar restarts."
+      description: I18n.tr("Put the shipped shell.json back. Your copy is backed up. The bar restarts.")
       hint: "omarchy refresh shell"
       query: root.query
       keywords: ["refresh", "shell", "restore", "defaults", "bar"]
 
       PrefsButton {
-        text: "Restore…"
+        text: I18n.tr("Restore…")
         danger: true
         enabled: !Omarchy.jobBusy
         onClicked: refreshShellConfirm.ask()

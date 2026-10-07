@@ -5,7 +5,7 @@ import "../services"
 PrefsPage {
   id: root
   hubId: "power"
-  title: "Power"
+  title: I18n.tr("Power")
   description: Omarchy.isLaptop
     ? "How hard the machine works, and what the battery is doing."
     : "How hard the machine works while it is plugged in."
@@ -27,7 +27,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Profile"
+    title: I18n.tr("Profile")
     query: root.query
     detail: "These are power-profiles-daemon modes. Performance uses more power. Power saver stretches battery. On a laptop, AC and battery each remember their own pick."
 
@@ -53,7 +53,7 @@ PrefsPage {
     SettingRow {
       available: Omarchy.isLaptop
       label: "On AC"
-      description: "The profile to use while the charger is plugged in."
+      description: I18n.tr("The profile to use while the charger is plugged in.")
       hint: "omarchy powerprofiles set ac"
       query: root.query
       keywords: ["plugged", "mains", "adapter", "charger"]
@@ -71,7 +71,7 @@ PrefsPage {
     SettingRow {
       available: Omarchy.isLaptop
       label: "On battery"
-      description: "The profile to use while you are on battery."
+      description: I18n.tr("The profile to use while you are on battery.")
       hint: "omarchy powerprofiles set battery"
       query: root.query
       keywords: ["unplugged", "discharging", "laptop"]
@@ -89,7 +89,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Presentation"
+    title: I18n.tr("Presentation")
     query: root.query
     detail: "Stay awake, silence notifications, and stop the screensaver. This is session state, not a saved prefs file."
 
@@ -110,14 +110,14 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Hardware"
+    title: I18n.tr("Hardware")
     query: (Omarchy.powerGovernor || Omarchy.amdPstate || Omarchy.chargeLimitAvailable) ? root.query : "."
     detail: "Governor and energy preference are what power-profiles-daemon is using. Atmos does not write CPU sysfs while PPD is running."
 
     SettingRow {
       available: Omarchy.powerGovernor.length > 0
       label: "CPU governor"
-      description: "What power-profiles-daemon selected. Atmos does not write this."
+      description: I18n.tr("What power-profiles-daemon selected. Atmos does not write this.")
       hint: "scaling_governor"
       query: root.query
       keywords: ["governor", "cpu", "schedutil"]
@@ -127,7 +127,7 @@ PrefsPage {
     SettingRow {
       available: Omarchy.amdPstate.length > 0
       label: "Energy preference"
-      description: "The energy_performance_preference power-profiles-daemon selected."
+      description: I18n.tr("The energy_performance_preference power-profiles-daemon selected.")
       hint: "energy_performance_preference"
       query: root.query
       keywords: ["amd", "pstate", "epp"]
@@ -138,7 +138,7 @@ PrefsPage {
       available: Omarchy.chargeLimitAvailable
       stretchControl: true
       label: "Charge limit"
-      description: "Stop charging past this percent. Only on hardware that exposes a threshold."
+      description: I18n.tr("Stop charging past this percent. Only on hardware that exposes a threshold.")
       hint: "charge_control_end_threshold"
       query: root.query
       keywords: ["charge", "limit", "battery"]
@@ -159,20 +159,20 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Battery"
+    title: I18n.tr("Battery")
     query: (Omarchy.batteryPresent || (Omarchy.powerPresent && Omarchy.isLaptop)) ? root.query : "."
     detail: "A one-shot notification with charge and draw. The percentage toggle is the number next to the bar's power icon."
 
     SettingRow {
       available: Omarchy.batteryPresent
       label: "Battery status"
-      description: "Pop a notification with the current charge and how much power you are drawing."
+      description: I18n.tr("Pop a notification with the current charge and how much power you are drawing.")
       hint: "omarchy notification battery"
       query: root.query
       keywords: ["charge", "notify", "draw", "capacity"]
 
       PrefsButton {
-        text: "Show battery"
+        text: I18n.tr("Show battery")
         enabled: Omarchy.batteryPresent
         onClicked: Omarchy.showBatteryNotification()
       }
@@ -181,7 +181,7 @@ PrefsPage {
     SettingRow {
       available: Omarchy.powerPresent && Omarchy.isLaptop
       label: "Battery percentage"
-      description: "The charge number next to the power icon on the bar."
+      description: I18n.tr("The charge number next to the power icon on the bar.")
       hint: "omarchy bar set omarchy.power showPercentage"
       query: root.query
       keywords: ["battery", "percent", "charge", "laptop"]

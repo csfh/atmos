@@ -5,8 +5,8 @@ import "../services"
 PrefsPage {
   id: root
   hubId: "defaults"
-  title: "Defaults"
-  description: "The programs Omarchy opens when something asks for a default."
+  title: I18n.tr("Defaults")
+  description: I18n.tr("The programs Omarchy opens when something asks for a default.")
 
   readonly property var browserOptions: [
     { value: "chromium", label: "Chromium" },
@@ -48,13 +48,13 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Applications"
+    title: I18n.tr("Applications")
     query: root.query
     detail: "Omarchy writes these as the XDG defaults. Only programs that are installed show up in the lists."
 
     SettingRow {
       label: "Browser"
-      description: "The browser that opens links and web apps. Only installed browsers show up."
+      description: I18n.tr("The browser that opens links and web apps. Only installed browsers show up.")
       hint: "omarchy default browser"
       query: root.query
       keywords: ["web", "chrome", "firefox"]
@@ -68,7 +68,7 @@ PrefsPage {
 
     SettingRow {
       label: "Terminal"
-      description: "The terminal other apps launch when they need a console. Only installed terminals show up."
+      description: I18n.tr("The terminal other apps launch when they need a console. Only installed terminals show up.")
       hint: "omarchy default terminal"
       query: root.query
       keywords: ["shell", "console"]
@@ -82,7 +82,7 @@ PrefsPage {
 
     SettingRow {
       label: "Editor"
-      description: "The editor Omarchy opens when you ask to edit a file. Only installed editors show up."
+      description: I18n.tr("The editor Omarchy opens when you ask to edit a file. Only installed editors show up.")
       hint: "omarchy default editor"
       query: root.query
       keywords: ["nvim", "code", "zed"]
@@ -108,14 +108,14 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Advanced"
+    title: I18n.tr("Advanced")
     advanced: true
     query: root.query
     detail: "XDG defaults for PDFs, images, and video. Browser, terminal, and editor stay in the group above."
 
     SettingRow {
       label: "PDF"
-      description: "The program that opens PDF files."
+      description: I18n.tr("The program that opens PDF files.")
       hint: "xdg-mime default application/pdf"
       query: root.query
       keywords: ["pdf", "mime", "document", "evince", "zathura"]
@@ -132,7 +132,7 @@ PrefsPage {
 
     SettingRow {
       label: "Images"
-      description: "The program that opens pictures."
+      description: I18n.tr("The program that opens pictures.")
       hint: "xdg-mime default image/png"
       query: root.query
       keywords: ["image", "png", "jpeg", "mime", "imv"]
@@ -149,7 +149,7 @@ PrefsPage {
 
     SettingRow {
       label: "Video"
-      description: "The program that opens videos."
+      description: I18n.tr("The program that opens videos.")
       hint: "xdg-mime default video/mp4"
       query: root.query
       keywords: ["video", "mp4", "mime", "mpv", "vlc"]

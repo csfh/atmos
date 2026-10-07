@@ -9,8 +9,8 @@ import "../../services/Monitor.js" as MonitorJs
 PrefsPage {
   id: root
   hubId: "monitor/traffic"
-  title: "Traffic"
-  description: "Per-interface rates from /proc/net/dev and TCP socket counts. Loopback is skipped. Wi-Fi lives on Network."
+  title: I18n.tr("Traffic")
+  description: I18n.tr("Per-interface rates from /proc/net/dev and TCP socket counts. Loopback is skipped. Wi-Fi lives on Network.")
 
   property string ifaceFilter: ""
   property string ifaceSort: "io"
@@ -59,13 +59,13 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Total"
+    title: I18n.tr("Total")
     query: root.query
     detail: "Receive and transmit across every non-loopback interface."
 
     SettingRow {
       label: "Bandwidth"
-      description: "Aggregate of /proc/net/dev, skipping lo."
+      description: I18n.tr("Aggregate of /proc/net/dev, skipping lo.")
       hint: "/proc/net/dev"
       query: root.query
       keywords: ["bandwidth", "rx", "tx"]
@@ -90,7 +90,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "TCP beeswarm"
+    title: I18n.tr("TCP beeswarm")
     query: root.query
     wide: true
     lede: ChartCopy.blurb("beeswarm")
@@ -116,7 +116,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Netdev radar"
+    title: I18n.tr("Netdev radar")
     query: root.query
     wide: true
     lede: ChartCopy.blurb("radar")
@@ -143,7 +143,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Sockets"
+    title: I18n.tr("Sockets")
     query: root.query
     detail: "IPv4 and IPv6 TCP from /proc/net/tcp and tcp6."
 
@@ -164,7 +164,7 @@ PrefsPage {
 
     SettingRow {
       label: "Established"
-      description: "Active TCP connections."
+      description: I18n.tr("Active TCP connections.")
       hint: "/proc/net/tcp"
       query: root.query
       keywords: ["tcp", "established"]
@@ -173,7 +173,7 @@ PrefsPage {
 
     SettingRow {
       label: "Listen"
-      description: "Sockets waiting for a client."
+      description: I18n.tr("Sockets waiting for a client.")
       hint: "st 0A"
       query: root.query
       keywords: ["listen", "port"]
@@ -182,7 +182,7 @@ PrefsPage {
 
     SettingRow {
       label: "Time-wait"
-      description: "Sockets in TIME_WAIT."
+      description: I18n.tr("Sockets in TIME_WAIT.")
       hint: "st 06"
       query: root.query
       keywords: ["time-wait", "tcp"]
@@ -191,7 +191,7 @@ PrefsPage {
 
     SettingRow {
       label: "Close-wait"
-      description: "Sockets in CLOSE_WAIT."
+      description: I18n.tr("Sockets in CLOSE_WAIT.")
       hint: "st 08"
       query: root.query
       keywords: ["close-wait"]
@@ -200,7 +200,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Interfaces"
+    title: I18n.tr("Interfaces")
     query: root.query
     wide: true
     detail: "One dual sparkline per interface. Receive is the accent stroke. Transmit is muted."

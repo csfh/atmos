@@ -1,4 +1,4 @@
-const fs = require("fs");
+const qmlSource = require("./qml-source");
 const path = require("path");
 const { load, assert, assertEqual } = require("./harness");
 
@@ -65,7 +65,7 @@ assert(
   "unmanaged-gesture note still does not claim the whole file",
 );
 
-const prefsGroupSrc = fs.readFileSync(
+const prefsGroupSrc = qmlSource.read(
   path.join(__dirname, "..", "components", "PrefsGroup.qml"),
   "utf8",
 );
@@ -131,7 +131,7 @@ assert(
   "section help stays visible on the heading block",
 );
 
-const inputSrc = fs.readFileSync(path.join(__dirname, "..", "pages", "InputPage.qml"), "utf8");
+const inputSrc = qmlSource.read(path.join(__dirname, "..", "pages", "InputPage.qml"), "utf8");
 ["Pointer", "Touchpad", "Keyboard", "Advanced"].forEach(function (title) {
   const needle = 'title: "' + title + '"';
   const start = inputSrc.indexOf(needle);

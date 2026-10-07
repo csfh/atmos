@@ -10,8 +10,8 @@ import "../../services/Processes.js" as ProcessesJs
 PrefsPage {
   id: root
   hubId: "monitor/cpu"
-  title: "CPU"
-  description: "Per-core busy time, frequency, load averages, and pressure stall from /proc."
+  title: I18n.tr("CPU")
+  description: I18n.tr("Per-core busy time, frequency, load averages, and pressure stall from /proc.")
 
   readonly property var latest: LiveStatsStore.latest
   readonly property var history: LiveStatsStore.history
@@ -28,13 +28,13 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Package"
+    title: I18n.tr("Package")
     query: root.query
     detail: "Aggregate busy percent from /proc/stat. Load is runnable tasks over 1, 5, and 15 minutes."
 
     SettingRow {
       label: "Busy"
-      description: "Share of time every CPU was not idle or in iowait."
+      description: I18n.tr("Share of time every CPU was not idle or in iowait.")
       hint: "/proc/stat"
       query: root.query
       keywords: ["cpu", "load", "busy"]
@@ -55,7 +55,7 @@ PrefsPage {
 
     SettingRow {
       label: "Load"
-      description: "1, 5, and 15 minute load averages."
+      description: I18n.tr("1, 5, and 15 minute load averages.")
       hint: "/proc/loadavg"
       query: root.query
       keywords: ["loadavg", "runnable"]
@@ -75,7 +75,7 @@ PrefsPage {
 
     SettingRow {
       label: "Pressure"
-      description: "Share of time some tasks stalled on CPU. From PSI when the kernel publishes it."
+      description: I18n.tr("Share of time some tasks stalled on CPU. From PSI when the kernel publishes it.")
       hint: "/proc/pressure/cpu"
       query: root.query
       keywords: ["psi", "stall", "pressure"]
@@ -84,7 +84,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "IRQ land"
+    title: I18n.tr("IRQ land")
     query: root.query
     wide: true
     lede: ChartCopy.blurb("heatmap")
@@ -112,7 +112,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "PSI ridgeline"
+    title: I18n.tr("PSI ridgeline")
     query: root.query
     wide: true
     lede: ChartCopy.blurb("ridgeline")
@@ -138,7 +138,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Cores"
+    title: I18n.tr("Cores")
     query: root.query
     wide: true
     lede: ChartCopy.blurb("corebars")
@@ -194,7 +194,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Core frequency"
+    title: I18n.tr("Core frequency")
     query: root.query
     wide: true
     lede: ChartCopy.blurb("violin")
@@ -220,7 +220,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Softirq rose"
+    title: I18n.tr("Softirq rose")
     query: root.query
     wide: true
     lede: ChartCopy.blurb("rose")
@@ -248,7 +248,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Histogram"
+    title: I18n.tr("Histogram")
     query: root.query
     wide: true
     lede: ChartCopy.blurb("histogram")
@@ -272,7 +272,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Hottest"
+    title: I18n.tr("Hottest")
     query: root.query
     wide: true
     detail: "Tasks using at least 1% of a core in the last interval."
@@ -295,7 +295,7 @@ PrefsPage {
       available: root.hotProcs.length === 0
       sectionHelp: false
       label: "No hot tasks"
-      description: "Nothing is using at least 1% of a core right now."
+      description: I18n.tr("Nothing is using at least 1% of a core right now.")
       query: root.query
       keywords: ["empty", "cpu"]
     }

@@ -4,7 +4,7 @@ import "../../services"
 
 SettingRow {
   label: "Text size"
-  description: "How large type is in the shell, GTK apps, and terminals. You can pick 9 to 20 pixels."
+  description: I18n.tr("How large type is in the shell, GTK apps, and terminals. You can pick 9 to 20 pixels.")
   hint: "omarchy display text size"
   keywords: ["scale", "size", "type", "font", "a11y"]
 

@@ -11,8 +11,8 @@ import "../../services/RichUi.js" as RichUi
 PrefsPage {
   id: root
   hubId: "monitor/memory"
-  title: "Memory"
-  description: "Used, cache, buffers, swap, and pressure. Values come from /proc/meminfo."
+  title: I18n.tr("Memory")
+  description: I18n.tr("Used, cache, buffers, swap, and pressure. Values come from /proc/meminfo.")
 
   readonly property var latest: LiveStatsStore.latest
   readonly property var history: LiveStatsStore.history
@@ -33,7 +33,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Composition"
+    title: I18n.tr("Composition")
     query: root.query
     lede: ChartCopy.blurb("stackedbar")
     detail: "Used is total minus free, buffers, and cached. Available is what the kernel will still give to apps."
@@ -67,7 +67,7 @@ PrefsPage {
 
     SettingRow {
       label: "Used"
-      description: "Total minus MemAvailable."
+      description: I18n.tr("Total minus MemAvailable.")
       hint: "/proc/meminfo"
       query: root.query
       keywords: ["used", "rss"]
@@ -76,7 +76,7 @@ PrefsPage {
 
     SettingRow {
       label: "Available"
-      description: "What can still be given to userspace without reclaiming too hard."
+      description: I18n.tr("What can still be given to userspace without reclaiming too hard.")
       hint: "MemAvailable"
       query: root.query
       keywords: ["available", "free"]
@@ -85,7 +85,7 @@ PrefsPage {
 
     SettingRow {
       label: "Free"
-      description: "Completely unused pages."
+      description: I18n.tr("Completely unused pages.")
       hint: "MemFree"
       query: root.query
       keywords: ["free"]
@@ -94,7 +94,7 @@ PrefsPage {
 
     SettingRow {
       label: "Buffers"
-      description: "Block device buffers."
+      description: I18n.tr("Block device buffers.")
       hint: "Buffers"
       query: root.query
       keywords: ["buffers"]
@@ -103,7 +103,7 @@ PrefsPage {
 
     SettingRow {
       label: "Cached"
-      description: "Page cache. Reclaimable under pressure."
+      description: I18n.tr("Page cache. Reclaimable under pressure.")
       hint: "Cached"
       query: root.query
       keywords: ["cache", "cached"]
@@ -112,7 +112,7 @@ PrefsPage {
 
     SettingRow {
       label: "Anonymous"
-      description: "Anonymous pages, mostly process heap and stack."
+      description: I18n.tr("Anonymous pages, mostly process heap and stack.")
       hint: "AnonPages"
       query: root.query
       keywords: ["anon", "heap"]
@@ -121,7 +121,7 @@ PrefsPage {
 
     SettingRow {
       label: "Shared"
-      description: "tmpfs and shared memory."
+      description: I18n.tr("tmpfs and shared memory.")
       hint: "Shmem"
       query: root.query
       keywords: ["shared", "tmpfs", "shmem"]
@@ -130,7 +130,7 @@ PrefsPage {
 
     SettingRow {
       label: "Dirty"
-      description: "Pages waiting to be written back."
+      description: I18n.tr("Pages waiting to be written back.")
       hint: "Dirty"
       query: root.query
       keywords: ["dirty", "writeback"]
@@ -139,7 +139,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Buddy horizon"
+    title: I18n.tr("Buddy horizon")
     query: root.query
     wide: true
     lede: ChartCopy.blurb("horizon")
@@ -165,7 +165,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "RSS treemap"
+    title: I18n.tr("RSS treemap")
     query: root.query
     wide: true
     lede: ChartCopy.blurb("treemap")
@@ -191,7 +191,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Meminfo Sankey"
+    title: I18n.tr("Meminfo Sankey")
     query: root.query
     wide: true
     lede: ChartCopy.blurb("sankey")
@@ -217,7 +217,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Cgroup sunburst"
+    title: I18n.tr("Cgroup sunburst")
     query: root.query
     wide: true
     lede: ChartCopy.blurb("sunburst")
@@ -243,7 +243,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Slab icicle"
+    title: I18n.tr("Slab icicle")
     query: root.query
     wide: true
     lede: ChartCopy.blurb("icicle")
@@ -269,13 +269,13 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Swap"
+    title: I18n.tr("Swap")
     query: root.query
     detail: "Swap used against SwapTotal. Zero total means swap is off."
 
     SettingRow {
       label: "Used"
-      description: "Pages currently on swap."
+      description: I18n.tr("Pages currently on swap.")
       hint: "SwapTotal SwapFree"
       query: root.query
       keywords: ["swap"]
@@ -303,7 +303,7 @@ PrefsPage {
 
     SettingRow {
       label: "Pressure"
-      description: "Share of time some tasks stalled on memory."
+      description: I18n.tr("Share of time some tasks stalled on memory.")
       hint: "/proc/pressure/memory"
       query: root.query
       keywords: ["psi", "stall"]
@@ -312,7 +312,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Largest"
+    title: I18n.tr("Largest")
     query: root.query
     wide: true
     detail: "Resident set of at least 10 MB in the current sample."
@@ -335,7 +335,7 @@ PrefsPage {
       available: root.fatProcs.length === 0
       sectionHelp: false
       label: "No large tasks"
-      description: "Nothing is holding 10 MB of RSS right now."
+      description: I18n.tr("Nothing is holding 10 MB of RSS right now.")
       query: root.query
       keywords: ["empty", "memory"]
     }

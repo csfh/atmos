@@ -127,13 +127,13 @@ assertEqual(
 );
 assertEqual(
   search.indexPath({ XDG_CACHE_HOME: "/tmp/xdg-cache", HOME: "/tmp/home" }),
-  "/tmp/xdg-cache/atmos/search.sqlite",
+  "/tmp/xdg-cache/atmos/search-en.sqlite",
   "indexPath uses XDG_CACHE_HOME when ATMOS_SEARCH_INDEX is unset",
 );
 assertEqual(
   search.indexPath({ HOME: "/tmp/home" }),
-  "/tmp/home/.cache/atmos/search.sqlite",
-  "indexPath falls back to HOME/.cache/atmos/search.sqlite",
+  "/tmp/home/.cache/atmos/search-en.sqlite",
+  "indexPath falls back to a locale-specific file under HOME/.cache/atmos",
 );
 
 const cacheDir = fs.mkdtempSync(path.join(require("os").tmpdir(), "atmos-search-"));

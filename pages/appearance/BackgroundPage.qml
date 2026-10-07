@@ -7,18 +7,18 @@ import "../../services/RichUi.js" as RichUi
 PrefsPage {
   id: root
   hubId: "appearance/background"
-  title: "Background"
-  description: "The picture behind your windows. These controls apply to the current theme."
+  title: I18n.tr("Background")
+  description: I18n.tr("The picture behind your windows. These controls apply to the current theme.")
 
   FileDialog {
     id: wallpaperDialog
-    title: "Set background"
+    title: I18n.tr("Set background")
     nameFilters: ["Images (*.jpg *.jpeg *.png *.gif *.webp *.bmp)"]
     onAccepted: Omarchy.setBackgroundPath(RichUi.pathFromUrl(selectedFile))
   }
 
   PrefsGroup {
-    title: "Wallpaper"
+    title: I18n.tr("Wallpaper")
     query: root.query
     detail: "These pictures belong to the current theme. Next walks the set. Choose an image if you want a file from disk. Extra files in the theme folder join the cycle."
 
@@ -44,7 +44,7 @@ PrefsPage {
         }
 
         PrefsButton {
-          text: "Copy path"
+          text: I18n.tr("Copy path")
           enabled: Omarchy.background.length > 0
           onClicked: Omarchy.copyText(Omarchy.background)
         }
@@ -53,52 +53,52 @@ PrefsPage {
 
     SettingRow {
       label: "Next wallpaper"
-      description: "Move to the next image this theme ships. Keep pressing if you want to browse the set."
+      description: I18n.tr("Move to the next image this theme ships. Keep pressing if you want to browse the set.")
       hint: "omarchy theme bg next"
       query: root.query
       keywords: ["wallpaper", "cycle"]
 
       PrefsButton {
-        text: "Next"
+        text: I18n.tr("Next")
         onClicked: Omarchy.nextBackground()
       }
     }
 
     SettingRow {
       label: "Choose an image"
-      description: "Use a JPG, PNG, WebP, or similar file from disk as the wallpaper."
+      description: I18n.tr("Use a JPG, PNG, WebP, or similar file from disk as the wallpaper.")
       hint: "omarchy theme bg set"
       query: root.query
       keywords: ["wallpaper", "file", "image", "path"]
 
       PrefsButton {
-        text: "Choose…"
+        text: I18n.tr("Choose…")
         onClicked: wallpaperDialog.open()
       }
     }
 
     SettingRow {
       label: "Theme wallpaper folder"
-      description: "Drop extra images in this theme's folder if you want them in the cycle."
+      description: I18n.tr("Drop extra images in this theme's folder if you want them in the cycle.")
       hint: "omarchy theme bg install"
       query: root.query
       keywords: ["wallpaper", "folder", "add", "user"]
 
       PrefsButton {
-        text: "Open folder"
+        text: I18n.tr("Open folder")
         onClicked: Omarchy.openBackgroundFolder()
       }
     }
 
     SettingRow {
       label: "Rebuild thumbnails"
-      description: "Regenerate the small previews the wallpaper switcher shows for this theme."
+      description: I18n.tr("Regenerate the small previews the wallpaper switcher shows for this theme.")
       hint: "omarchy theme bg cache"
       query: root.query
       keywords: ["cache", "thumbnail", "preview", "wallpaper"]
 
       PrefsButton {
-        text: "Rebuild"
+        text: I18n.tr("Rebuild")
         onClicked: Omarchy.cacheBackgrounds()
       }
     }
@@ -106,13 +106,13 @@ PrefsPage {
     SettingRow {
       available: Omarchy.hasAether
       label: "Aether"
-      description: "Open Aether if you want to pull a palette from the current wallpaper."
+      description: I18n.tr("Open Aether if you want to pull a palette from the current wallpaper.")
       hint: "aether"
       query: root.query
       keywords: ["palette", "extract"]
 
       PrefsButton {
-        text: "Open Aether"
+        text: I18n.tr("Open Aether")
         onClicked: Omarchy.openAether()
       }
     }

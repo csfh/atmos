@@ -6,8 +6,8 @@ import "../services/Hubs.js" as HubsJs
 
 PrefsPage {
   id: root
-  title: "Favorites"
-  description: "Settings you starred. Open jumps to the hub. The star on a row adds or removes it."
+  title: I18n.tr("Favorites")
+  description: I18n.tr("Settings you starred. Open jumps to the hub. The star on a row adds or removes it.")
   hubId: "favorites"
 
   property var navigator: null
@@ -38,7 +38,7 @@ PrefsPage {
           keywords: ["favorite", "star", "pin"]
 
           PrefsButton {
-            text: "Open…"
+            text: I18n.tr("Open…")
             onClicked: {
               if (root.navigator && root.navigator.go)
                 root.navigator.go((modelData && modelData.hub) || "")
@@ -50,14 +50,14 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Favorites"
+    title: I18n.tr("Favorites")
     query: root.hasFavorites ? "." : root.query
     detail: "Star a setting on any hub. It shows up here."
 
     SettingRow {
       catalog: false
       label: "Favorites"
-      description: "No favorites yet. Star a setting on any page."
+      description: I18n.tr("No favorites yet. Star a setting on any page.")
       query: root.query
       keywords: ["favorite", "star", "empty"]
     }

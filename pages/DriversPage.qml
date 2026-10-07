@@ -6,15 +6,15 @@ import "../services/Hardware.js" as HardwareJs
 PrefsPage {
   id: root
   hubId: "drivers"
-  title: "Drivers"
-  description: "Bound GPU drivers, hybrid switching, and firmware updates through fwupd."
+  title: I18n.tr("Drivers")
+  description: I18n.tr("Bound GPU drivers, hybrid switching, and firmware updates through fwupd.")
 
   readonly property var hw: HardwareJs.normalize(Omarchy.hardware)
   readonly property bool hasGraphics: !!(root.hw.gpus.length || Omarchy.hwNvidia || Omarchy.hwVulkan || Omarchy.hybridGpuAvailable)
 
   PrefsConfirm {
     id: hybridGpuConfirm
-    title: "Switch GPU mode"
+    title: I18n.tr("Switch GPU mode")
     message: Omarchy.hybridGpuMode === "Integrated"
       ? "Turn the dedicated GPU on (hybrid) and reboot."
       : "Use only the integrated GPU and reboot."
@@ -24,7 +24,7 @@ PrefsPage {
 
   PrefsConfirm {
     id: firmwareConfirm
-    title: "Firmware update"
+    title: I18n.tr("Firmware update")
     message: "Ask fwupd to install available firmware. You may need to reboot afterward."
     confirmText: "Update"
     onConfirmed: Omarchy.updateFirmware()
@@ -41,7 +41,7 @@ PrefsPage {
 
   PrefsGroup {
     framed: true
-    title: "Graphics"
+    title: I18n.tr("Graphics")
     query: root.query
     detail: "PCI display devices, plus the DRM driver when the kernel bound one. Active is NVIDIA when that GPU is present, otherwise Vulkan. Hybrid switching reboots."
 
@@ -57,7 +57,7 @@ PrefsPage {
         keywords: ["gpu", "graphics", "vga", "nvidia", "amd", "intel", "drm"]
 
         PrefsButton {
-          text: "Copy"
+          text: I18n.tr("Copy")
           enabled: !!(modelData && (modelData.name || HardwareJs.gpuSummary(modelData)))
           onClicked: root.copyField(HardwareJs.gpuSummary(modelData) || (modelData && modelData.name) || "")
         }
@@ -67,7 +67,7 @@ PrefsPage {
     SettingRow {
       available: !root.hasGraphics
       label: "Graphics"
-      description: "No GPUs reported."
+      description: I18n.tr("No GPUs reported.")
       hint: "lspci"
       query: root.query
       keywords: ["gpu", "graphics", "vga", "drm"]
@@ -88,7 +88,7 @@ PrefsPage {
       keywords: ["vulkan", "nvidia", "gsp", "turing", "cuda", "api"]
 
       PrefsButton {
-        text: "Copy"
+        text: I18n.tr("Copy")
         onClicked: root.copyField(Omarchy.hwNvidia
           ? (Omarchy.hwNvidiaGsp ? "NVIDIA GSP" : (Omarchy.hwNvidiaWithoutGsp ? "NVIDIA without GSP" : "NVIDIA"))
           : "Vulkan")
@@ -108,7 +108,7 @@ PrefsPage {
       keywords: ["hybrid", "supergfx", "igpu"]
 
       PrefsButton {
-        text: "Switch…"
+        text: I18n.tr("Switch…")
         enabled: !Omarchy.jobBusy && Omarchy.hybridGpuAvailable
         onClicked: hybridGpuConfirm.ask()
       }
@@ -116,7 +116,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Firmware"
+    title: I18n.tr("Firmware")
     query: root.query
     detail: "Identity is on Hardware. Update asks fwupd to install vendor firmware."
 
@@ -130,7 +130,7 @@ PrefsPage {
       keywords: ["firmware", "fwupd", "bios", "update"]
 
       PrefsButton {
-        text: "Update…"
+        text: I18n.tr("Update…")
         enabled: !Omarchy.jobBusy
         onClicked: firmwareConfirm.ask()
       }
@@ -138,13 +138,13 @@ PrefsPage {
 
     SettingRow {
       label: "Refresh"
-      description: "Read the units again after a firmware or GPU change."
+      description: I18n.tr("Read the units again after a firmware or GPU change.")
       hint: "snapshot"
       query: root.query
       keywords: ["reload", "rescan"]
 
       PrefsButton {
-        text: "Refresh"
+        text: I18n.tr("Refresh")
         onClicked: Omarchy.refresh()
       }
     }

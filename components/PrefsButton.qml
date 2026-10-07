@@ -15,7 +15,7 @@ Rectangle {
     id: labelMetrics
     font.family: Theme.fontFamily
     font.pixelSize: Theme.labelSize
-    text: root.text
+    text: I18n.tr(root.text)
   }
 
   implicitWidth: Math.ceil(labelMetrics.width) + Theme.pad * 2
@@ -59,7 +59,7 @@ Rectangle {
   }
 
   Accessible.role: Accessible.Button
-  Accessible.name: text
+  Accessible.name: I18n.tr(text)
   Accessible.onPressAction: if (enabled) root.clicked()
 
   Chamfer {
@@ -72,7 +72,7 @@ Rectangle {
   Text {
     id: label
     anchors.centerIn: parent
-    text: root.text
+    text: I18n.tr(root.text)
     color: root.primary ? Theme.background : (root.danger ? Theme.urgent : Theme.foreground)
     font.family: Theme.fontFamily
     font.pixelSize: Theme.labelSize

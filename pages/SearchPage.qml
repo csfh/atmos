@@ -16,6 +16,17 @@ Item {
 
   property int hitIndex: 0
   property string pendingQuery: ""
+  property bool restartForLocale: false
+
+  Connections {
+    target: I18n
+    function onLocaleChanged() {
+      if (searchProc.running) {
+        root.restartForLocale = true
+        searchProc.running = false
+      } else root.runQuery()
+    }
+  }
 
   onHitsChanged: {
     if (root.hitIndex >= root.hits.length)
@@ -93,7 +104,7 @@ Item {
 
   Process {
     id: searchProc
-    command: ["node", Omarchy.shellDir + "/services/SearchIndex.js", "serve", "--root", Omarchy.shellDir]
+    command: ["node", Omarchy.shellDir + "/services/SearchIndex.js", "serve", "--root", Omarchy.shellDir, "--locale", I18n.locale]
     stdinEnabled: true
     stdout: SplitParser {
       onRead: function(line) {
@@ -104,7 +115,7 @@ Item {
           root.hits = Array.isArray(parsed.hits) ? parsed.hits : []
         } catch (e) {
           root.hits = []
-          root.searchError = "Search returned invalid JSON"
+          root.searchError = I18n.tr("Search returned invalid JSON")
         }
       }
     }
@@ -116,6 +127,11 @@ Item {
       if (root.pendingQuery.length > 0) root.sendQuery(root.pendingQuery)
     }
     onExited: function(code) {
+      if (root.restartForLocale) {
+        root.restartForLocale = false
+        Qt.callLater(root.runQuery)
+        return
+      }
       if (code !== 0 && root.query.length > 0) {
         root.hits = []
         root.searchError = String(searchErr.text || "Search failed").replace(/^\s+|\s+$/g, "")
@@ -142,7 +158,7 @@ Item {
 
         PrefsText {
           width: parent.width
-          text: "Search"
+          text: I18n.tr("Search")
           color: Theme.foreground
           font.family: Theme.fontFamily
           font.pixelSize: Theme.titleSize
@@ -154,8 +170,8 @@ Item {
           text: root.searchError.length > 0
             ? root.searchError
             : (root.hasHits
-              ? "Matching settings across every page for “" + root.query + "”."
-              : "Nothing on any page mentions “" + root.query + "”. Try another word — ? shows keyboard shortcuts.")
+              ? I18n.tr("Matching settings across every page for “{query}”.", { query: root.query })
+              : I18n.tr("Nothing on any page mentions “{query}”. Try another word — ? shows keyboard shortcuts.", { query: root.query }))
           color: Theme.muted
           font.family: Theme.fontFamily
           font.pixelSize: Theme.fontSize
@@ -175,7 +191,7 @@ Item {
           description: modelData.description || ""
           hint: modelData.hint || ""
           detail: modelData.detail || ""
-          valueText: modelData.hubTitle || modelData.hub || ""
+          valueText: I18n.tr(modelData.hubTitle || modelData.hub || "")
           onPickedChanged: if (picked) root.revealHit(hitLink)
           Component.onCompleted: if (picked) Qt.callLater(function() { root.revealHit(hitLink) })
           onClicked: {

@@ -21,13 +21,13 @@ import "../../services/History.js" as HistoryJs
 PrefsPage {
   id: root
   hubId: "system/history"
-  title: "History"
-  description: "Every change this window made, newest first, in memory for the session. Turn on Preview to see a change before it happens instead of after."
+  title: I18n.tr("History")
+  description: I18n.tr("Every change this window made, newest first, in memory for the session. Turn on Preview to see a change before it happens instead of after.")
 
   readonly property var counts: HistoryJs.countsBySource(Omarchy.changeHistory)
 
   PrefsGroup {
-    title: "Preview"
+    title: I18n.tr("Preview")
     query: root.query
     detail: "While Preview is on, Atmos shows you what a control would run and does not run it. Apply releases everything held; Discard throws it away. Nothing held runs on its own. The flag is not saved across a restart."
 
@@ -60,12 +60,12 @@ PrefsPage {
       Row {
         spacing: Theme.space
         PrefsButton {
-          text: "Apply"
+          text: I18n.tr("Apply")
           primary: true
           onClicked: Omarchy.applyHeld()
         }
         PrefsButton {
-          text: "Discard"
+          text: I18n.tr("Discard")
           onClicked: Omarchy.discardHeld()
         }
       }
@@ -85,20 +85,20 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Changes"
+    title: I18n.tr("Changes")
     query: root.query
     detail: "Recorded in memory for this window. Atmos keeps the most recent 200. Another window has its own list; nothing is written to disk."
 
     SettingRow {
       label: "Nothing yet"
-      description: "Change something and it will show up here with the command it ran."
+      description: I18n.tr("Change something and it will show up here with the command it ran.")
       query: root.query
       available: Omarchy.changeHistory.length === 0
     }
 
     SettingRow {
       label: "By you"
-      description: "Changes made from a control in this window."
+      description: I18n.tr("Changes made from a control in this window.")
       query: root.query
       available: Omarchy.changeHistory.length > 0
       valueText: String(HistoryJs.countFor(root.counts, "you"))

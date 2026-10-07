@@ -9,8 +9,8 @@ import "../../services/RichUi.js" as RichUi
 PrefsPage {
   id: root
   hubId: "system/diagnostics"
-  title: "Diagnostics"
-  description: "What this machine is doing, in one place. Copy report is the text to paste on Discord instead of twelve shell commands."
+  title: I18n.tr("Diagnostics")
+  description: I18n.tr("What this machine is doing, in one place. Copy report is the text to paste on Discord instead of twelve shell commands.")
 
   readonly property var diag: DiagJs.normalize(Omarchy.diagnostics)
   readonly property bool reportBusy: Omarchy.jobKind === "diag-report" && Omarchy.jobBusy
@@ -35,7 +35,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Report"
+    title: I18n.tr("Report")
     query: root.query
     detail: "Copy puts an Atmos summary plus omarchy debug --no-sudo --print on the clipboard. Save writes the same file. Ask my Agent copies it, then opens the default coding agent with the path."
 
@@ -71,7 +71,7 @@ PrefsPage {
       keywords: ["save", "file", "export", "txt"]
 
       PrefsButton {
-        text: "Save…"
+        text: I18n.tr("Save…")
         enabled: !root.reportBusy
         onClicked: root.openSave()
       }
@@ -79,13 +79,13 @@ PrefsPage {
 
     SettingRow {
       label: "Ask my Agent"
-      description: "Copy the report, then open the default coding agent with that file."
+      description: I18n.tr("Copy the report, then open the default coding agent with that file.")
       hint: "omarchy agent prompt"
       query: root.query
       keywords: ["agent", "diagnose", "help", "grok", "claude"]
 
       PrefsButton {
-        text: "Ask…"
+        text: I18n.tr("Ask…")
         enabled: !root.reportBusy
         onClicked: {
           root.reportStatus = ""
@@ -96,20 +96,20 @@ PrefsPage {
 
     SettingRow {
       label: "Refresh"
-      description: "Read the machine again. Failed units and Hyprland errors change while it runs."
+      description: I18n.tr("Read the machine again. Failed units and Hyprland errors change while it runs.")
       hint: "snapshot"
       query: root.query
       keywords: ["reload", "rescan"]
 
       PrefsButton {
-        text: "Refresh"
+        text: I18n.tr("Refresh")
         onClicked: Omarchy.refresh()
       }
     }
   }
 
   PrefsGroup {
-    title: "Omarchy"
+    title: I18n.tr("Omarchy")
     query: root.query
     detail: "Package version and channel. Copy on System still copies the version string alone."
 
@@ -124,7 +124,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Atmos"
+    title: I18n.tr("Atmos")
     query: root.query
     detail: "The drop-in require in hyprland.lua is what keeps this window floating. Sentinels are the blocks Atmos wrote."
 
@@ -139,7 +139,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Hyprland"
+    title: I18n.tr("Hyprland")
     query: root.query
     detail: "hyprctl version and configerrors. A dirty config still runs; errors here are why a bind or monitor rule did not apply."
 
@@ -169,7 +169,7 @@ PrefsPage {
 
   PrefsGroup {
     framed: true
-    title: "Failed units"
+    title: I18n.tr("Failed units")
     query: root.query
     detail: "systemctl --failed and the same list for the user session. Start and stop stay on a later Services page. This list is read-only."
 
@@ -177,7 +177,7 @@ PrefsPage {
       available: DiagJs.failedCount(root.diag) === 0
       sectionHelp: false
       label: "Failed units"
-      description: "No failed units."
+      description: I18n.tr("No failed units.")
       hint: "systemctl --failed"
       query: root.query
       keywords: ["systemd", "failed", "empty"]
@@ -201,7 +201,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Disk"
+    title: I18n.tr("Disk")
     query: root.diag.disk.total > 0 ? root.query : "."
     detail: "Use on the root filesystem, from statvfs. The Disks hub has per-drive detail."
 
@@ -225,7 +225,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Memory"
+    title: I18n.tr("Memory")
     query: root.diag.memory.total > 0 ? root.query : "."
     detail: "RAM and swap from /proc/meminfo. Hardware has the DIMM list."
 
@@ -233,7 +233,7 @@ PrefsPage {
       available: root.diag.memory.total > 0
       stretchControl: true
       label: "RAM"
-      description: ""
+      description: I18n.tr("")
       hint: "/proc/meminfo"
       query: root.query
       keywords: ["memory", "ram", "pressure"]
@@ -251,7 +251,7 @@ PrefsPage {
       available: root.diag.memory.swapTotal > 0
       stretchControl: true
       label: "Swap"
-      description: ""
+      description: I18n.tr("")
       hint: "/proc/meminfo"
       query: root.query
       keywords: ["swap", "zram"]
@@ -266,7 +266,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Kernel"
+    title: I18n.tr("Kernel")
     query: root.query
     detail: "uname. The Hardware hub has firmware and DMI."
 
@@ -278,7 +278,7 @@ PrefsPage {
       keywords: ["kernel", "uname", "linux", "arch"]
 
       PrefsButton {
-        text: "Copy"
+        text: I18n.tr("Copy")
         enabled: DiagJs.kernelSummary(root.diag).length > 0
         onClicked: Omarchy.copyText(DiagJs.kernelSummary(root.diag))
       }
@@ -286,7 +286,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "GPU"
+    title: I18n.tr("GPU")
     query: root.query
     detail: "The DRM driver name. Drivers has the PCI device list and hybrid GPU switching."
 
@@ -298,7 +298,7 @@ PrefsPage {
       keywords: ["gpu", "drm", "amdgpu", "nvidia", "i915", "xe"]
 
       PrefsButton {
-        text: "Copy"
+        text: I18n.tr("Copy")
         enabled: DiagJs.gpuSummary(root.diag).length > 0
         onClicked: Omarchy.copyText(DiagJs.gpuSummary(root.diag))
       }
@@ -306,7 +306,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Portals"
+    title: I18n.tr("Portals")
     query: root.query
     detail: "xdg-desktop-portal and the Hyprland and GTK backends. Screen sharing and file pickers need these."
 
@@ -321,7 +321,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "PipeWire"
+    title: I18n.tr("PipeWire")
     query: root.query
     detail: "The session audio graph. Restart is on Sound."
 
@@ -336,7 +336,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Network"
+    title: I18n.tr("Network")
     query: root.query
     detail: "Whether this machine has a default route. Join a network on the Network hub."
 
@@ -351,7 +351,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Packages"
+    title: I18n.tr("Packages")
     query: root.query
     detail: "pacman sync databases under /var/lib/pacman/sync. Updates stay on System."
 
@@ -367,7 +367,7 @@ PrefsPage {
 
   PrefsGroup {
     framed: true
-    title: "Recent errors"
+    title: I18n.tr("Recent errors")
     query: root.query
     detail: "journalctl -b -p 3, last fifteen lines. Lines that look like passwords are dropped."
 
@@ -375,7 +375,7 @@ PrefsPage {
       available: root.diag.recentErrors.length === 0
       sectionHelp: false
       label: "Errors"
-      description: "No recent error-priority journal lines."
+      description: I18n.tr("No recent error-priority journal lines.")
       hint: "journalctl -b -p 3"
       query: root.query
       keywords: ["journal", "empty"]
@@ -398,13 +398,13 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Crash capture"
+    title: I18n.tr("Crash capture")
     query: root.query
     detail: "When a process dumps core, Omarchy can notify you so a coding agent can look at the crash."
 
     SettingRow {
       label: "Crash capture"
-      description: "A notification when a process crashes, so a coding agent can look at the dump."
+      description: I18n.tr("A notification when a process crashes, so a coding agent can look at the dump.")
       hint: "omarchy toggle crash capture"
       query: root.query
       keywords: ["crash", "coredump", "agent", "watch"]
@@ -418,7 +418,7 @@ PrefsPage {
 
   FileDialog {
     id: saveDialog
-    title: "Save diagnostic report"
+    title: I18n.tr("Save diagnostic report")
     fileMode: FileDialog.SaveFile
     nameFilters: ["Text files (*.txt)", "All files (*)"]
     onAccepted: {

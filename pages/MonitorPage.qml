@@ -11,8 +11,8 @@ import "monitor" as Mon
 PrefsPage {
   id: root
   hubId: "monitor"
-  title: "Monitor"
-  description: "Live load, memory, disks, traffic, sensors, and processes. Home is the short glance. Samples stay in this window."
+  title: I18n.tr("Monitor")
+  description: I18n.tr("Live load, memory, disks, traffic, sensors, and processes. Home is the short glance. Samples stay in this window.")
 
   property var stack: null
   property var navigator: null
@@ -133,7 +133,7 @@ PrefsPage {
   Component { id: sensorsPage; Mon.SensorsPage {} }
 
   PrefsGroup {
-    title: "Sampling"
+    title: I18n.tr("Sampling")
     query: root.query
     detail: "Samples stay in this window. Pause freezes the graphs. Interval is how often /proc is read."
 
@@ -166,7 +166,7 @@ PrefsPage {
 
       Text {
         width: parent.width
-        text: (LiveStatsStore.sampleCount ? LiveStatsStore.sampleCount + " samples" : "No samples yet")
+        text: (LiveStatsStore.sampleCount ? I18n.tr("{count} samples", { count: LiveStatsStore.sampleCount }) : I18n.tr("No samples yet"))
           + (root.psiCaption() ? "  ·  stall " + root.psiCaption() : "")
           + (LiveStatsStore.lastError ? "  ·  " + LiveStatsStore.lastError : "")
         color: LiveStatsStore.lastError ? Theme.urgent : Theme.muted
@@ -178,7 +178,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Now"
+    title: I18n.tr("Now")
     query: root.query
     framed: false
     catalog: false
@@ -280,7 +280,7 @@ PrefsPage {
         width: root.tileWidth
         label: "Load"
         valueText: root.loadCaption()
-        caption: root.coreValues.length ? "1 / 5 / 15  ·  " + root.coreValues.length + " cores" : ""
+        caption: root.coreValues.length ? I18n.tr("1 / 5 / 15  ·  {count} cores", { count: root.coreValues.length }) : ""
         values: {
           if (!loadMeter.inView) return []
           return LiveStatsJs.series(root.history, "load1")
@@ -290,7 +290,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Cores"
+    title: I18n.tr("Cores")
     query: root.query
     wide: true
     lede: ChartCopy.blurb("corebars")
@@ -324,7 +324,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Pages"
+    title: I18n.tr("Pages")
     query: root.query
     detail: "Each page is a process-manager surface: filters, rates, and the same live sample."
 
@@ -339,7 +339,7 @@ PrefsPage {
         keywords: ["monitor", "process", "cpu", "memory", "disk", "network", "sensor"]
 
         PrefsButton {
-          text: "Configure…"
+          text: I18n.tr("Configure…")
           onClicked: root.openSubpage(modelData.id)
         }
       }
@@ -347,7 +347,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Hottest tasks"
+    title: I18n.tr("Hottest tasks")
     query: root.query
     wide: true
     detail: "This user's processes, sorted by CPU. The full table is on Processes."
@@ -390,12 +390,12 @@ PrefsPage {
 
     SettingRow {
       label: "Full table"
-      description: "Every filter, sort, and signal is on Processes."
+      description: I18n.tr("Every filter, sort, and signal is on Processes.")
       query: root.query
       keywords: ["process", "kill", "pid"]
 
       PrefsButton {
-        text: "Configure…"
+        text: I18n.tr("Configure…")
         primary: true
         onClicked: root.openSubpage("processes")
       }

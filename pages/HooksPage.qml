@@ -8,8 +8,8 @@ import "../services/RichUi.js" as RichUi
 PrefsPage {
   id: root
   hubId: "hooks"
-  title: "Hooks"
-  description: "Scripts Omarchy runs after a theme or font change, at boot, after an update, before a pacman refresh, and on low battery. Each event is a folder under ~/.config/omarchy/hooks."
+  title: I18n.tr("Hooks")
+  description: I18n.tr("Scripts Omarchy runs after a theme or font change, at boot, after an update, before a pacman refresh, and on low battery. Each event is a folder under ~/.config/omarchy/hooks.")
 
   property string pendingPath: ""
   property string pendingName: ""
@@ -115,14 +115,14 @@ PrefsPage {
 
   FileDialog {
     id: hookFileDialog
-    title: "Install a hook"
+    title: I18n.tr("Install a hook")
     onAccepted: root.installFile = RichUi.pathFromUrl(selectedFile)
   }
 
   PrefsConfirm {
     id: removeHookConfirm
-    title: "Remove this hook"
-    message: "Delete " + root.pendingName + " from the " + root.pendingType + " hook folder? Sample files stay."
+    title: I18n.tr("Remove this hook")
+    message: I18n.tr("Delete {name} from the {type} hook folder? Sample files stay.", { name: root.pendingName, type: root.pendingType })
     confirmText: "Remove"
     onConfirmed: Omarchy.removeHook(root.pendingPath)
   }
@@ -133,20 +133,20 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Install"
+    title: I18n.tr("Install")
     query: root.query
     detail: "Add copies a file you already have, or writes a one-line script, into ~/.config/omarchy/hooks/<event>.d/. Enable a sample by dropping .sample from its name. Disable puts .sample back so the runner skips it."
     hint: "omarchy hook install"
 
     SettingRow {
       label: "Add a hook"
-      description: "Pick the event, then copy a file or write a one-line command."
+      description: I18n.tr("Pick the event, then copy a file or write a one-line command.")
       hint: "omarchy hook install"
       query: root.query
       keywords: ["hook", "install", "script", "add"]
 
       PrefsButton {
-        text: "Add…"
+        text: I18n.tr("Add…")
         primary: true
         onClicked: root.openAdd(root.installType)
       }
@@ -176,15 +176,15 @@ PrefsPage {
         Row {
           spacing: Theme.space
           PrefsButton {
-            text: "Add…"
+            text: I18n.tr("Add…")
             onClicked: root.openAdd(hookId)
           }
           PrefsButton {
-            text: "Run now"
+            text: I18n.tr("Run now")
             onClicked: Omarchy.runHook(hookId, root.runArg(hookId))
           }
           PrefsButton {
-            text: "Open folder"
+            text: I18n.tr("Open folder")
             onClicked: Omarchy.openHookFolder(hookId)
           }
         }
@@ -194,7 +194,7 @@ PrefsPage {
         available: root.itemsFor(hookId).length === 0
         sectionHelp: false
         label: "Scripts"
-        description: "No scripts."
+        description: I18n.tr("No scripts.")
         query: root.query
         keywords: ["hook", "empty", hookId]
       }
@@ -231,7 +231,7 @@ PrefsPage {
 
   PrefsDialog {
     id: addDialog
-    title: "Add a hook"
+    title: I18n.tr("Add a hook")
 
     PrefsText {
       width: parent.width
@@ -258,7 +258,7 @@ PrefsPage {
 
     PrefsButton {
       visible: root.installMode === "file"
-      text: root.installFile ? ("File: " + RichUi.fileBasename(root.installFile)) : "Choose…"
+      text: root.installFile ? I18n.tr("File: {name}", { name: RichUi.fileBasename(root.installFile) }) : I18n.tr("Choose…")
       onClicked: hookFileDialog.open()
     }
 
@@ -302,12 +302,12 @@ PrefsPage {
       spacing: Theme.space
 
       PrefsButton {
-        text: "Cancel"
+        text: I18n.tr("Cancel")
         onClicked: addDialog.close()
       }
 
       PrefsButton {
-        text: "Install"
+        text: I18n.tr("Install")
         primary: true
         enabled: (
           (root.installMode === "file" && root.installFile.length > 0) ||

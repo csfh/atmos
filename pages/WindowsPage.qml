@@ -7,8 +7,8 @@ import "rows"
 PrefsPage {
   id: root
   hubId: "windows"
-  title: "Windows"
-  description: "Gaps, corners, and the tiling layout. Keybindings and window rules have their own pages. Reset only removes the block Atmos wrote."
+  title: I18n.tr("Windows")
+  description: I18n.tr("Gaps, corners, and the tiling layout. Keybindings and window rules have their own pages. Reset only removes the block Atmos wrote.")
 
   property var stack: null
   property var navigator: null
@@ -58,7 +58,7 @@ PrefsPage {
   Component { id: rulesPage; Win.RulesPage {} }
 
   PrefsGroup {
-    title: "Shortcuts and rules"
+    title: I18n.tr("Shortcuts and rules")
     query: root.query
     detail: "Keybindings lists what Hyprland is running and lets you add a personal override. Window rules float, tile, or pin a class without rewriting hyprland.lua."
 
@@ -70,7 +70,7 @@ PrefsPage {
       keywords: ["keybinding", "hotkey", "shortcut", "bind", "unbind", "chord"]
 
       PrefsButton {
-        text: "Configure…"
+        text: I18n.tr("Configure…")
         enabled: true
         onClicked: root.openSubpage("bindings")
       }
@@ -84,7 +84,7 @@ PrefsPage {
       keywords: ["window", "rule", "float", "tile", "class", "regex"]
 
       PrefsButton {
-        text: "Configure…"
+        text: I18n.tr("Configure…")
         enabled: true
         onClicked: root.openSubpage("rules")
       }
@@ -92,14 +92,14 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Look"
+    title: I18n.tr("Look")
     query: root.query
     detail: "These write a managed block at the end of ~/.config/hypr/looknfeel.lua. Tight windows overrides the sliders until you turn it off."
 
     SettingRow {
       stretchControl: true
       label: "Inner gaps"
-      description: "Space between windows. Tight windows sets this to zero."
+      description: I18n.tr("Space between windows. Tight windows sets this to zero.")
       hint: "~/.config/hypr/looknfeel.lua · general.gaps_in"
       query: root.query
       keywords: ["gap", "padding", "space", "tile"]
@@ -123,7 +123,7 @@ PrefsPage {
     SettingRow {
       stretchControl: true
       label: "Outer gaps"
-      description: "Space between windows and the edge of the screen."
+      description: I18n.tr("Space between windows and the edge of the screen.")
       hint: "~/.config/hypr/looknfeel.lua · general.gaps_out"
       query: root.query
       keywords: ["gap", "margin", "edge"]
@@ -147,7 +147,7 @@ PrefsPage {
     SettingRow {
       stretchControl: true
       label: "Border"
-      description: "Thickness of the window outline."
+      description: I18n.tr("Thickness of the window outline.")
       hint: "~/.config/hypr/looknfeel.lua · general.border_size"
       query: root.query
       keywords: ["border", "outline", "frame"]
@@ -171,7 +171,7 @@ PrefsPage {
     SettingRow {
       stretchControl: true
       label: "Corners"
-      description: "How round the window corners are."
+      description: I18n.tr("How round the window corners are.")
       hint: "~/.config/hypr/looknfeel.lua · decoration.rounding"
       query: root.query
       keywords: ["rounding", "radius", "corners"]
@@ -194,7 +194,7 @@ PrefsPage {
 
     SettingRow {
       label: "Blur"
-      description: "Blur what sits behind a transparent window."
+      description: I18n.tr("Blur what sits behind a transparent window.")
       hint: "~/.config/hypr/looknfeel.lua · decoration.blur"
       query: root.query
       keywords: ["blur", "glass", "transparent"]
@@ -207,7 +207,7 @@ PrefsPage {
 
     SettingRow {
       label: "Shadow"
-      description: "A shadow under each window."
+      description: I18n.tr("A shadow under each window.")
       hint: "~/.config/hypr/looknfeel.lua · decoration.shadow"
       query: root.query
       keywords: ["shadow", "drop"]
@@ -220,7 +220,7 @@ PrefsPage {
 
     SettingRow {
       label: "Tiling"
-      description: "Dwindle splits the screen in two. Scrolling walks columns sideways, like niri."
+      description: I18n.tr("Dwindle splits the screen in two. Scrolling walks columns sideways, like niri.")
       hint: "~/.config/hypr/looknfeel.lua · general.layout"
       query: root.query
       keywords: ["dwindle", "scrolling", "niri", "layout", "tile"]
@@ -241,7 +241,7 @@ PrefsPage {
       available: Omarchy.hyprLook.layout === "scrolling"
       stretchControl: true
       label: "Column width"
-      description: "How wide each scrolling column is. Near 1 shows one column. Near 0.5 shows two."
+      description: I18n.tr("How wide each scrolling column is. Near 1 shows one column. Near 0.5 shows two.")
       hint: "~/.config/hypr/looknfeel.lua · scrolling.column_width"
       query: root.query
       keywords: ["column", "scrolling", "width"]
@@ -265,13 +265,13 @@ PrefsPage {
 
     SettingRow {
       label: "Reset look"
-      description: "Remove the block Atmos wrote. Hyprland goes back to the rest of looknfeel.lua and the Omarchy defaults."
+      description: I18n.tr("Remove the block Atmos wrote. Hyprland goes back to the rest of looknfeel.lua and the Omarchy defaults.")
       hint: "~/.config/hypr/looknfeel.lua"
       query: root.query
       keywords: ["reset", "default", "looknfeel"]
 
       PrefsButton {
-        text: "Reset"
+        text: I18n.tr("Reset")
         danger: true
         enabled: Omarchy.hyprLookManaged
         onClicked: Omarchy.resetHyprLook()
@@ -280,13 +280,13 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Behavior"
+    title: I18n.tr("Behavior")
     query: root.query
     detail: "Tight windows and square aspect are permanent Hyprland flags. Transparency and tiled fullscreen apply to the window that is focused right now."
 
     SettingRow {
       label: "Tight windows"
-      description: "No gaps, borders, or rounding. The sliders above stay disabled while this is on."
+      description: I18n.tr("No gaps, borders, or rounding. The sliders above stay disabled while this is on.")
       hint: "omarchy hyprland toggle window-no-gaps"
       query: root.query
       keywords: ["gaps", "borderless", "tight", "no gaps"]
@@ -299,7 +299,7 @@ PrefsPage {
 
     SettingRow {
       label: "Square single window"
-      description: "When one window is on the screen, keep it from stretching across an ultrawide."
+      description: I18n.tr("When one window is on the screen, keep it from stretching across an ultrawide.")
       hint: "omarchy hyprland toggle single-window-aspect-ratio"
       query: root.query
       keywords: ["aspect", "square", "ultrawide", "single"]
@@ -320,14 +320,14 @@ PrefsPage {
       keywords: ["workspace", "layout", "dwindle", "scrolling"]
 
       PrefsButton {
-        text: "Switch layout"
+        text: I18n.tr("Switch layout")
         onClicked: Omarchy.toggleWorkspaceLayout()
       }
     }
 
     SettingRow {
       label: "This window"
-      description: "Switch transparency or tiled fullscreen on the focused window. That change lasts for this window only."
+      description: I18n.tr("Switch transparency or tiled fullscreen on the focused window. That change lasts for this window only.")
       hint: "omarchy hyprland window transparency toggle"
       query: root.query
       keywords: ["opacity", "transparent", "fullscreen", "tiled"]
@@ -335,11 +335,11 @@ PrefsPage {
       Row {
         spacing: Theme.space
         PrefsButton {
-          text: "Switch transparency"
+          text: I18n.tr("Switch transparency")
           onClicked: Omarchy.toggleWindowTransparency()
         }
         PrefsButton {
-          text: "Switch tiled full"
+          text: I18n.tr("Switch tiled full")
           onClicked: Omarchy.toggleTiledFullscreen()
         }
       }
@@ -347,14 +347,14 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Advanced"
+    title: I18n.tr("Advanced")
     advanced: true
     query: root.query
     detail: "Dim, animations, cursor, and tearing. These go in the same looknfeel.lua block as the sliders above."
 
     SettingRow {
       label: "Dim others"
-      description: "Darken windows that are not focused."
+      description: I18n.tr("Darken windows that are not focused.")
       hint: "~/.config/hypr/looknfeel.lua · decoration.dim_inactive"
       query: root.query
       keywords: ["dim", "inactive", "focus"]
@@ -369,7 +369,7 @@ PrefsPage {
       available: Omarchy.hyprLook.dimInactive
       stretchControl: true
       label: "Dim strength"
-      description: "How far unfocused windows go toward black."
+      description: I18n.tr("How far unfocused windows go toward black.")
       hint: "~/.config/hypr/looknfeel.lua · decoration.dim_strength"
       query: root.query
       keywords: ["dim", "strength", "inactive"]
@@ -397,7 +397,7 @@ PrefsPage {
 
     SettingRow {
       label: "Warp cursor on workspace"
-      description: "The pointer jumps when you change workspaces."
+      description: I18n.tr("The pointer jumps when you change workspaces.")
       hint: "~/.config/hypr/looknfeel.lua · cursor.warp_on_change_workspace"
       query: root.query
       keywords: ["cursor", "warp", "workspace"]
@@ -410,7 +410,7 @@ PrefsPage {
 
     SettingRow {
       label: "Resize on border"
-      description: "Drag a window edge to resize it, without the modifier key."
+      description: I18n.tr("Drag a window edge to resize it, without the modifier key.")
       hint: "~/.config/hypr/looknfeel.lua · general.resize_on_border"
       query: root.query
       keywords: ["resize", "border", "drag"]
@@ -423,7 +423,7 @@ PrefsPage {
 
     SettingRow {
       label: "Allow tearing"
-      description: "Games and other windows may tear if they ask. That can cut input lag."
+      description: I18n.tr("Games and other windows may tear if they ask. That can cut input lag.")
       hint: "~/.config/hypr/looknfeel.lua · general.allow_tearing"
       query: root.query
       keywords: ["tearing", "vrr", "latency", "game"]
@@ -439,7 +439,7 @@ PrefsPage {
     SettingRow {
       stretchControl: true
       label: "Active opacity"
-      description: "How solid a focused window is."
+      description: I18n.tr("How solid a focused window is.")
       hint: "~/.config/hypr/looknfeel.lua · decoration.active_opacity"
       query: root.query
       keywords: ["opacity", "transparency", "alpha"]
@@ -463,7 +463,7 @@ PrefsPage {
     SettingRow {
       stretchControl: true
       label: "Inactive opacity"
-      description: "How solid unfocused windows are."
+      description: I18n.tr("How solid unfocused windows are.")
       hint: "~/.config/hypr/looknfeel.lua · decoration.inactive_opacity"
       query: root.query
       keywords: ["opacity", "transparency", "alpha", "inactive"]
@@ -486,7 +486,7 @@ PrefsPage {
 
     SettingRow {
       label: "Preserve split"
-      description: "Keep the dwindle split after the last window in a branch closes."
+      description: I18n.tr("Keep the dwindle split after the last window in a branch closes.")
       hint: "~/.config/hypr/looknfeel.lua · dwindle.preserve_split"
       query: root.query
       keywords: ["dwindle", "split", "tile"]
@@ -499,7 +499,7 @@ PrefsPage {
 
     SettingRow {
       label: "Focus on activate"
-      description: "Focus a window when another client asks Hyprland to activate it."
+      description: I18n.tr("Focus a window when another client asks Hyprland to activate it.")
       hint: "~/.config/hypr/looknfeel.lua · misc.focus_on_activate"
       query: root.query
       keywords: ["focus", "activate", "urgent"]
@@ -512,7 +512,7 @@ PrefsPage {
 
     SettingRow {
       label: "Swallow terminals"
-      description: "A terminal that launches a GUI app is swallowed into that window."
+      description: I18n.tr("A terminal that launches a GUI app is swallowed into that window.")
       hint: "~/.config/hypr/looknfeel.lua · misc.enable_swallow"
       query: root.query
       keywords: ["swallow", "terminal"]
@@ -527,7 +527,7 @@ PrefsPage {
       available: Omarchy.hyprLook.enableSwallow
       stretchControl: true
       label: "Swallow regex"
-      description: "Which terminal classes Hyprland swallows. Empty keeps the Hyprland default."
+      description: I18n.tr("Which terminal classes Hyprland swallows. Empty keeps the Hyprland default.")
       hint: "~/.config/hypr/looknfeel.lua · misc.swallow_regex"
       query: root.query
       keywords: ["swallow", "regex"]
@@ -546,7 +546,7 @@ PrefsPage {
 
         PrefsButton {
           id: swallowRegexSetBtn
-          text: "Set"
+          text: I18n.tr("Set")
           onClicked: Omarchy.writeHyprLook({ swallowRegex: swallowRegexField.currentText() })
         }
       }
@@ -554,7 +554,7 @@ PrefsPage {
 
     SettingRow {
       label: "Focus under fullscreen"
-      description: "What happens when focus moves to a window under a fullscreen one. 0 ignores it, 1 takes over, 2 stays underneath."
+      description: I18n.tr("What happens when focus moves to a window under a fullscreen one. 0 ignores it, 1 takes over, 2 stays underneath.")
       hint: "~/.config/hypr/looknfeel.lua · misc.on_focus_under_fullscreen"
       query: root.query
       keywords: ["fullscreen", "focus"]

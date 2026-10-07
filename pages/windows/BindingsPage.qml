@@ -7,8 +7,8 @@ import "../../services/RichUi.js" as RichUi
 PrefsPage {
   id: root
   hubId: "keybindings"
-  title: "Keybindings"
-  description: "The list is what Hyprland is running now. Add writes a managed block at the end of ~/.config/hypr/bindings.lua. Lines you typed yourself stay. Remove only deletes a row Atmos added."
+  title: I18n.tr("Keybindings")
+  description: I18n.tr("The list is what Hyprland is running now. Add writes a managed block at the end of ~/.config/hypr/bindings.lua. Lines you typed yourself stay. Remove only deletes a row Atmos added.")
 
   property string keysDraft: ""
   property string labelDraft: ""
@@ -121,20 +121,20 @@ PrefsPage {
 
   PrefsGroup {
     framed: true
-    title: "Your overrides"
+    title: I18n.tr("Your overrides")
     query: root.query
     detail: "These lines live in the Atmos block of bindings.lua. Adding a chord that is already taken writes hl.unbind first, then o.bind."
     hint: "~/.config/hypr/bindings.lua"
 
     SettingRow {
       label: "Add a binding"
-      description: "A chord, a short name, and the command to run. Unbind only turns a default off."
+      description: I18n.tr("A chord, a short name, and the command to run. Unbind only turns a default off.")
       hint: "~/.config/hypr/bindings.lua"
       query: root.query
       keywords: ["bind", "unbind", "hotkey", "shortcut", "chord"]
 
       PrefsButton {
-        text: "Add…"
+        text: I18n.tr("Add…")
         primary: true
         onClicked: root.openAdd()
       }
@@ -144,7 +144,7 @@ PrefsPage {
       available: root.overrideRows.length === 0
       sectionHelp: false
       label: "Overrides"
-      description: "No personal bindings."
+      description: I18n.tr("No personal bindings.")
       query: root.query
       keywords: ["empty", "bindings"]
     }
@@ -162,7 +162,7 @@ PrefsPage {
         keywords: ["bind", "unbind", "override"]
 
         PrefsButton {
-          text: "Remove…"
+          text: I18n.tr("Remove…")
           danger: true
           enabled: modelData && modelData.managed
           onClicked: {
@@ -177,7 +177,7 @@ PrefsPage {
 
   PrefsGroup {
     framed: true
-    title: "What is bound"
+    title: I18n.tr("What is bound")
     query: root.query
     detail: "This is omarchy menu keybindings --print. Filter if you want to find a chord before you override it."
     hint: "omarchy menu keybindings --print"
@@ -186,7 +186,7 @@ PrefsPage {
       available: Omarchy.keybindings.length === 0
       sectionHelp: false
       label: "Bindings"
-      description: "No bindings reported."
+      description: I18n.tr("No bindings reported.")
       hint: "omarchy menu keybindings --print"
       query: root.query
       keywords: ["empty", "keybinding"]
@@ -196,7 +196,7 @@ PrefsPage {
       available: Omarchy.keybindings.length > 0
       stretchControl: true
       label: "Filter"
-      description: root.catalogRows.length + " of " + Omarchy.keybindings.length + " bindings."
+      description: I18n.tr("{shown} of {total} bindings.", { shown: root.catalogRows.length, total: Omarchy.keybindings.length })
       hint: "omarchy menu keybindings --print"
       query: root.query
       keywords: ["search", "filter", "list"]
@@ -215,7 +215,7 @@ PrefsPage {
       available: Omarchy.keybindings.length > 0 && root.catalogRows.length === 0
       sectionHelp: false
       label: "Bindings"
-      description: "No matching bindings."
+      description: I18n.tr("No matching bindings.")
       query: root.query
       keywords: ["empty", "filter"]
     }
@@ -235,12 +235,12 @@ PrefsPage {
         Row {
           spacing: Theme.space
           PrefsButton {
-            text: "Copy"
+            text: I18n.tr("Copy")
             enabled: !!(modelData && modelData.keys)
             onClicked: Omarchy.copyText(RichUi.bindingCopyText(modelData))
           }
           PrefsButton {
-            text: "Override…"
+            text: I18n.tr("Override…")
             enabled: !!(modelData && modelData.keys)
             onClicked: root.openAdd(modelData.keys)
           }
@@ -252,13 +252,13 @@ PrefsPage {
       available: root.catalogRows.length > root.catalogLimit
       sectionHelp: false
       label: "More bindings"
-      description: "Showing " + Math.min(root.catalogLimit, root.catalogRows.length) + " of " + root.catalogRows.length + " bindings. Refine the filter, or show them all."
+      description: I18n.tr("Showing {shown} of {total} bindings. Refine the filter, or show them all.", { shown: Math.min(root.catalogLimit, root.catalogRows.length), total: root.catalogRows.length })
       hint: "omarchy menu keybindings --print"
       query: root.query
       keywords: ["more", "show", "all", "list"]
 
       PrefsButton {
-        text: "Show all"
+        text: I18n.tr("Show all")
         onClicked: root.catalogLimit = root.catalogRows.length
       }
     }
@@ -266,7 +266,7 @@ PrefsPage {
 
   PrefsDialog {
     id: addDialog
-    title: "Add a binding"
+    title: I18n.tr("Add a binding")
 
     Item {
       id: keyGrab
@@ -339,7 +339,7 @@ PrefsPage {
     SettingRow {
       sectionHelp: false
       label: "Unbind only"
-      description: "The default chord is removed, with no replacement."
+      description: I18n.tr("The default chord is removed, with no replacement.")
       query: ""
 
       PrefsToggle {
@@ -362,12 +362,12 @@ PrefsPage {
       spacing: Theme.space
 
       PrefsButton {
-        text: "Cancel"
+        text: I18n.tr("Cancel")
         onClicked: addDialog.close()
       }
 
       PrefsButton {
-        text: "Add"
+        text: I18n.tr("Add")
         primary: true
         enabled: root.keysDraft.length > 0 && (root.unbindOnly || root.commandDraft.length > 0)
         onClicked: root.submitAdd()
@@ -377,8 +377,8 @@ PrefsPage {
 
   PrefsConfirm {
     id: removeConfirm
-    title: "Remove binding"
-    message: "Remove the Atmos override for " + root.pendingKeys + "?"
+    title: I18n.tr("Remove binding")
+    message: I18n.tr("Remove the Atmos override for {keys}?", { keys: root.pendingKeys })
     confirmText: "Remove"
     onConfirmed: Omarchy.removeBinding(root.pendingKeys)
   }

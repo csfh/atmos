@@ -1,4 +1,5 @@
 const fs = require("fs");
+const qmlSource = require("./qml-source");
 const path = require("path");
 const { load, assert, assertEqual } = require("./harness");
 
@@ -195,7 +196,7 @@ const pagesDir = path.join(__dirname, "..", "pages");
 const advancedBlocks = [];
 const untriagedHits = [];
 walkQml(pagesDir).forEach(function (file) {
-  const src = fs.readFileSync(file, "utf8");
+  const src = qmlSource.read(file, "utf8");
   const rel = path.relative(path.join(__dirname, ".."), file);
   const re = /title:\s*"Advanced"/g;
   let m;
@@ -218,7 +219,7 @@ advancedBlocks.forEach(function (block) {
 });
 assertEqual(untriagedHits.length, 0, "Diagnostics, Accounts, and Favorites stay untriaged");
 
-const inputSrc = fs.readFileSync(path.join(pagesDir, "InputPage.qml"), "utf8");
+const inputSrc = qmlSource.read(path.join(pagesDir, "InputPage.qml"), "utf8");
 assert(
   /title:\s*"Advanced"[\s\S]{0,80}advanced:\s*true/.test(inputSrc),
   "Input folds its existing Advanced section",

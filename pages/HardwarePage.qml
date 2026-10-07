@@ -7,8 +7,8 @@ import "../services/RichUi.js" as RichUi
 PrefsPage {
   id: root
   hubId: "hardware"
-  title: "Hardware"
-  description: "What this machine is made of. Processor, memory, chipset, firmware, NPU, and the rest of the units the kernel can see. Graphics drivers are on Drivers."
+  title: I18n.tr("Hardware")
+  description: I18n.tr("What this machine is made of. Processor, memory, chipset, firmware, NPU, and the rest of the units the kernel can see. Graphics drivers are on Drivers.")
 
   property var navigator: null
   readonly property var hw: HardwareJs.normalize(Omarchy.hardware)
@@ -55,7 +55,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Machine"
+    title: I18n.tr("Machine")
     query: root.objectQuery(root.hw.machine, ["vendor", "name", "family", "chassis", "version", "serial", "sku"])
     detail: "Name and chassis from DMI. Refresh reads the machine again, including memory use."
 
@@ -68,7 +68,7 @@ PrefsPage {
       keywords: ["machine", "system", "product", "chassis", "laptop", "desktop", "dmi", "smbios"]
 
       PrefsButton {
-        text: "Copy"
+        text: I18n.tr("Copy")
         enabled: root.hasText(HardwareJs.machineSummary(root.hw.machine), root.hw.machine.name)
         onClicked: root.copyField(HardwareJs.machineSummary(root.hw.machine) || root.hw.machine.name)
       }
@@ -93,20 +93,20 @@ PrefsPage {
 
     SettingRow {
       label: "Refresh"
-      description: "Read the units again. Memory use and temperatures change while the machine runs."
+      description: I18n.tr("Read the units again. Memory use and temperatures change while the machine runs.")
       hint: "snapshot"
       query: root.query
       keywords: ["reload", "rescan", "inventory"]
 
       PrefsButton {
-        text: "Refresh"
+        text: I18n.tr("Refresh")
         onClicked: Omarchy.refresh()
       }
     }
   }
 
   PrefsGroup {
-    title: "Motherboard"
+    title: I18n.tr("Motherboard")
     query: root.objectQuery(root.hw.board, ["vendor", "name", "version"])
     detail: "The board DMI names. Chipset is the host bridge on that board, listed next."
 
@@ -119,7 +119,7 @@ PrefsPage {
       keywords: ["motherboard", "mainboard", "board", "baseboard"]
 
       PrefsButton {
-        text: "Copy"
+        text: I18n.tr("Copy")
         enabled: root.hasText(HardwareJs.boardSummary(root.hw.board))
         onClicked: root.copyField(HardwareJs.boardSummary(root.hw.board))
       }
@@ -127,7 +127,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Chipset"
+    title: I18n.tr("Chipset")
     query: root.objectQuery(root.hw.chipset, ["name", "vendor", "pciId", "southbridge"])
     detail: "The PCI host bridge, and the ISA or LPC bridge when the kernel names one. That is the chipset the CPU talks to."
 
@@ -140,7 +140,7 @@ PrefsPage {
       keywords: ["chipset", "northbridge", "southbridge", "host bridge", "isa", "lpc", "pch", "pci"]
 
       PrefsButton {
-        text: "Copy"
+        text: I18n.tr("Copy")
         enabled: root.hasText(HardwareJs.chipsetSummary(root.hw.chipset))
         onClicked: root.copyField(HardwareJs.chipsetSummary(root.hw.chipset))
       }
@@ -148,7 +148,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Firmware"
+    title: I18n.tr("Firmware")
     query: root.firmwareQuery()
     detail: "BIOS or UEFI from DMI, plus TPM and Secure Boot when the firmware exposes them."
 
@@ -161,7 +161,7 @@ PrefsPage {
       keywords: ["bios", "uefi", "firmware", "efi"]
 
       PrefsButton {
-        text: "Copy"
+        text: I18n.tr("Copy")
         enabled: root.hasText(HardwareJs.biosSummary(root.hw.bios), root.hw.bios.version)
         onClicked: root.copyField(HardwareJs.biosSummary(root.hw.bios) || root.hw.bios.version)
       }
@@ -188,7 +188,7 @@ PrefsPage {
       keywords: ["tpm", "trusted platform"]
 
       PrefsButton {
-        text: "Copy"
+        text: I18n.tr("Copy")
         enabled: root.hasText(HardwareJs.tpmSummary(root.hw.tpm))
         onClicked: root.copyField(HardwareJs.tpmSummary(root.hw.tpm))
       }
@@ -196,7 +196,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Processor"
+    title: I18n.tr("Processor")
     query: root.objectQuery(root.hw.cpu, ["model", "vendor", "arch", "cores"])
     detail: "Cores and threads from the kernel. Flags are the ones that matter for guests and SIMD."
 
@@ -209,7 +209,7 @@ PrefsPage {
       keywords: ["cpu", "processor", "core", "thread", "avx", "intel", "amd", "arm"]
 
       PrefsButton {
-        text: "Copy"
+        text: I18n.tr("Copy")
         enabled: root.hasText(root.hw.cpu.model)
         onClicked: root.copyField(root.hw.cpu.model)
       }
@@ -218,14 +218,14 @@ PrefsPage {
 
   PrefsGroup {
     framed: true
-    title: "Memory"
+    title: I18n.tr("Memory")
     query: root.hw.memory.total > 0 || root.hw.memory.modules.length > 0 ? root.query : "."
     detail: "Fitted memory from the inventory. Live use is on Monitor. Swap is on Disks. Modules are SMBIOS type 17 when the firmware table is readable without root."
 
     SettingRow {
       available: root.hw.memory.total > 0
       label: "Installed"
-      description: "How much memory is fitted."
+      description: I18n.tr("How much memory is fitted.")
       hint: "/proc/meminfo"
       query: root.query
       keywords: ["ram", "memory", "dimm", "ddr"]
@@ -245,7 +245,7 @@ PrefsPage {
         keywords: ["dimm", "sodimm", "ddr4", "ddr5", "module", "bank"]
 
         PrefsButton {
-          text: "Copy"
+          text: I18n.tr("Copy")
           enabled: !!(modelData && HardwareJs.moduleSummary(modelData))
           onClicked: root.copyField(HardwareJs.moduleSummary(modelData))
         }
@@ -254,19 +254,19 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Graphics"
+    title: I18n.tr("Graphics")
     query: root.query
     detail: "GPUs, the bound DRM driver, and hybrid switching live on Drivers."
 
     SettingRow {
       label: "Drivers"
-      description: "GPUs, the bound DRM driver, and hybrid switching."
+      description: I18n.tr("GPUs, the bound DRM driver, and hybrid switching.")
       hint: "atmos drivers"
       query: root.query
       keywords: ["gpu", "graphics", "nvidia", "vulkan", "hybrid", "drm", "drivers"]
 
       PrefsButton {
-        text: "Open…"
+        text: I18n.tr("Open…")
         onClicked: {
           if (root.navigator && root.navigator.go)
             root.navigator.go("drivers")
@@ -277,7 +277,7 @@ PrefsPage {
 
   PrefsGroup {
     framed: true
-    title: "NPU"
+    title: I18n.tr("NPU")
     query: root.listQuery(root.hw.npus)
     detail: "A neural processor on PCI, such as AMD XDNA, when one is present."
 
@@ -293,7 +293,7 @@ PrefsPage {
         keywords: ["npu", "xdna", "neural", "ai", "tpu", "accelerator"]
 
         PrefsButton {
-          text: "Copy"
+          text: I18n.tr("Copy")
           enabled: !!(modelData && (modelData.name || HardwareJs.npuSummary(modelData)))
           onClicked: root.copyField(HardwareJs.npuSummary(modelData) || (modelData && modelData.name) || "")
         }
@@ -303,7 +303,7 @@ PrefsPage {
 
   PrefsGroup {
     framed: true
-    title: "Network adapters"
+    title: I18n.tr("Network adapters")
     query: root.listQuery(root.hw.nics)
     detail: "Physical interfaces the kernel registered. Virtual bridges and containers stay off this list."
 
@@ -329,7 +329,7 @@ PrefsPage {
 
   PrefsGroup {
     framed: true
-    title: "Audio"
+    title: I18n.tr("Audio")
     query: root.listQuery(root.hw.audio)
     detail: "Sound cards from ALSA. Volume and sinks stay on the Sound page."
 
@@ -339,13 +339,15 @@ PrefsPage {
       SettingRow {
         required property var modelData
         label: (modelData && modelData.name) || "Audio"
-        description: modelData && modelData.driver ? ("ALSA " + modelData.driver + ". Volume and sinks are on Sound.") : "ALSA card. Volume and sinks are on Sound."
+        description: modelData && modelData.driver
+          ? I18n.tr("ALSA {driver}. Volume and sinks are on Sound.", { driver: modelData.driver })
+          : I18n.tr("ALSA card. Volume and sinks are on Sound.")
         hint: "/proc/asound/cards"
         query: root.query
         keywords: ["audio", "sound", "alsa", "card"]
 
         PrefsButton {
-          text: "Copy"
+          text: I18n.tr("Copy")
           enabled: !!(modelData && modelData.name)
           onClicked: root.copyField((modelData && modelData.name) || "")
         }
@@ -355,7 +357,7 @@ PrefsPage {
 
   PrefsGroup {
     framed: true
-    title: "USB"
+    title: I18n.tr("USB")
     query: root.listQuery(root.hw.usb)
     detail: "Devices on the USB buses that published a product name."
 
@@ -374,7 +376,7 @@ PrefsPage {
         keywords: ["usb", "hub", "keyboard", "mouse", "storage"]
 
         PrefsButton {
-          text: "Copy"
+          text: I18n.tr("Copy")
           enabled: !!(modelData && modelData.name)
           onClicked: root.copyField((modelData && modelData.name) || "")
         }
@@ -384,7 +386,7 @@ PrefsPage {
 
   PrefsGroup {
     framed: true
-    title: "Battery"
+    title: I18n.tr("Battery")
     query: root.listQuery(root.hw.batteries)
     detail: "Charge from sysfs. Profiles and the bar percentage stay on the Power page."
 
@@ -419,12 +421,12 @@ PrefsPage {
           Row {
             spacing: Theme.space
             PrefsButton {
-              text: "Show battery"
+              text: I18n.tr("Show battery")
               enabled: Omarchy.batteryPresent
               onClicked: Omarchy.showBatteryNotification()
             }
             PrefsButton {
-              text: "Copy"
+              text: I18n.tr("Copy")
               enabled: !!HardwareJs.batterySummary(modelData)
               onClicked: root.copyField(HardwareJs.batterySummary(modelData))
             }
@@ -436,7 +438,7 @@ PrefsPage {
 
   PrefsGroup {
     framed: true
-    title: "Thermal"
+    title: I18n.tr("Thermal")
     query: root.listQuery(root.hw.thermals)
     detail: "Zones the kernel exported. Refresh if you want a newer reading."
 
@@ -452,7 +454,7 @@ PrefsPage {
         keywords: ["thermal", "temperature", "sensor", "heat"]
 
         PrefsButton {
-          text: "Copy"
+          text: I18n.tr("Copy")
           enabled: !!HardwareJs.thermalSummary(modelData)
           onClicked: root.copyField(HardwareJs.thermalSummary(modelData))
         }
@@ -461,7 +463,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Virtualization"
+    title: I18n.tr("Virtualization")
     query: root.objectQuery(root.hw.virtualization, ["hypervisor", "guest", "kvm"])
     detail: "Whether this OS is a guest, and whether KVM can run guests here."
 
@@ -474,7 +476,7 @@ PrefsPage {
       keywords: ["kvm", "qemu", "hypervisor", "vm", "virtual", "guest"]
 
       PrefsButton {
-        text: "Copy"
+        text: I18n.tr("Copy")
         enabled: root.hasText(HardwareJs.virtSummary(root.hw.virtualization))
         onClicked: root.copyField(HardwareJs.virtSummary(root.hw.virtualization))
       }

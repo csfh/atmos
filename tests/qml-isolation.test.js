@@ -22,7 +22,16 @@ for (const file of files) {
   const text = fs.readFileSync(file, "utf8");
   const rel = path.relative(path.join(__dirname, ".."), file);
   assert(text.indexOf("inotifywait") === -1, rel + " does not run inotifywait");
-  assert(!/\bFileView\b/.test(text), rel + " does not open a FileView");
+  if (rel === "services/I18n.qml") {
+    assert(
+      text.includes('path: Quickshell.shellDir + "/i18n.json"') &&
+        !text.includes("Backend.request") &&
+        !text.includes("Process {"),
+      "I18n reads only the bundled translation resource, not host preferences",
+    );
+  } else {
+    assert(!/\bFileView\b/.test(text), rel + " does not open a FileView");
+  }
   assert(!forbiddenArgv.test(text), rel + " does not spawn a host command itself");
 }
 

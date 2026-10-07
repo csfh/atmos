@@ -43,7 +43,7 @@ Item {
       PrefsText {
         id: copy
         width: Math.max(80, parent.width - actions.width - parent.spacing)
-        text: "These settings revert in " + Omarchy.guardSeconds + "s unless you keep them. Esc reverts."
+        text: I18n.tr("These settings revert in {seconds}s unless you keep them. Esc reverts.", { seconds: Omarchy.guardSeconds })
         wrapMode: Text.WordWrap
         color: Omarchy.guardSeconds <= 5 ? Theme.urgent : Theme.foreground
         font.family: Theme.fontFamily
@@ -58,13 +58,13 @@ Item {
 
         PrefsButton {
           id: keepBtn
-          text: "Keep"
+          text: I18n.tr("Keep")
           primary: true
           onClicked: Omarchy.keepGuard()
         }
 
         PrefsButton {
-          text: "Revert"
+          text: I18n.tr("Revert")
           onClicked: Omarchy.revertGuard()
         }
       }

@@ -6,8 +6,8 @@ import "../services/RichUi.js" as RichUi
 PrefsPage {
   id: root
   hubId: "security"
-  title: "Security"
-  description: "Fingerprint, a security key, and whether this machine accepts SSH. Passwordless sudo is under Advanced."
+  title: I18n.tr("Security")
+  description: I18n.tr("Fingerprint, a security key, and whether this machine accepts SSH. Passwordless sudo is under Advanced.")
 
   property string sshKeyDraft: ""
   readonly property string sshKeyParsed: RichUi.parseSshPublicKey(root.sshKeyDraft)
@@ -15,7 +15,7 @@ PrefsPage {
 
   PrefsConfirm {
     id: fingerprintSetupConfirm
-    title: "Set up fingerprint"
+    title: I18n.tr("Set up fingerprint")
     message: "Enroll a print for sudo, polkit, and the lock screen. You will need to touch the reader during setup."
     confirmText: "Set up"
     onConfirmed: Omarchy.setupFingerprint()
@@ -23,7 +23,7 @@ PrefsPage {
 
   PrefsConfirm {
     id: fingerprintRemoveConfirm
-    title: "Remove fingerprint"
+    title: I18n.tr("Remove fingerprint")
     message: "Stop using the fingerprint reader for sudo, polkit, and the lock screen."
     confirmText: "Remove"
     onConfirmed: Omarchy.removeFingerprint()
@@ -31,7 +31,7 @@ PrefsPage {
 
   PrefsConfirm {
     id: fido2SetupConfirm
-    title: "Set up a security key"
+    title: I18n.tr("Set up a security key")
     message: "Register a FIDO2 key for sudo and polkit. Have the key ready."
     confirmText: "Set up"
     onConfirmed: Omarchy.setupFido2()
@@ -39,7 +39,7 @@ PrefsPage {
 
   PrefsConfirm {
     id: fido2RemoveConfirm
-    title: "Remove security key"
+    title: I18n.tr("Remove security key")
     message: "Stop using FIDO2 keys for sudo and polkit."
     confirmText: "Remove"
     onConfirmed: Omarchy.removeFido2()
@@ -47,7 +47,7 @@ PrefsPage {
 
   PrefsConfirm {
     id: sshdDisableConfirm
-    title: "Turn off SSH"
+    title: I18n.tr("Turn off SSH")
     message: "Stop the OpenSSH server and close the firewall port. Authorized keys on this account stay."
     confirmText: "Turn off"
     onConfirmed: Omarchy.disableSshd()
@@ -55,7 +55,7 @@ PrefsPage {
 
   PrefsConfirm {
     id: passwordlessOffConfirm
-    title: "Turn off passwordless sudo"
+    title: I18n.tr("Turn off passwordless sudo")
     message: "Sudo will ask for a password again."
     confirmText: "Turn off"
     onConfirmed: Omarchy.disablePasswordlessSudo()
@@ -63,7 +63,7 @@ PrefsPage {
 
   PrefsConfirm {
     id: dockerOnConfirm
-    title: "Sudoless Docker"
+    title: I18n.tr("Sudoless Docker")
     message: "Add this account to the docker group so Docker runs without sudo. You may need to log in again."
     confirmText: "Set up"
     onConfirmed: Omarchy.setupSudolessDocker()
@@ -71,7 +71,7 @@ PrefsPage {
 
   PrefsConfirm {
     id: dockerOffConfirm
-    title: "Remove sudoless Docker"
+    title: I18n.tr("Remove sudoless Docker")
     message: "Take this account out of the docker group. Docker will need sudo again."
     confirmText: "Remove"
     onConfirmed: Omarchy.removeSudolessDocker()
@@ -79,7 +79,7 @@ PrefsPage {
 
   PrefsDialog {
     id: sshdDialog
-    title: "Turn on SSH"
+    title: I18n.tr("Turn on SSH")
 
     PrefsText {
       width: parent.width
@@ -110,7 +110,7 @@ PrefsPage {
     }
 
     PrefsButton {
-      text: "Turn on"
+      text: I18n.tr("Turn on")
       primary: true
       enabled: !Omarchy.jobBusy && root.sshKeyValid
       onClicked: {
@@ -133,7 +133,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Login"
+    title: I18n.tr("Login")
     query: root.query
     detail: "Fingerprint and FIDO2 change PAM for sudo, polkit, and the lock screen. Set up talks to the reader or key."
 
@@ -151,14 +151,14 @@ PrefsPage {
         spacing: Theme.space
         PrefsButton {
           visible: !Omarchy.fingerprintConfigured
-          text: "Set up…"
+          text: I18n.tr("Set up…")
           primary: true
           enabled: !Omarchy.jobBusy && Omarchy.fingerprintAvailable && !Omarchy.fingerprintConfigured
           onClicked: fingerprintSetupConfirm.ask()
         }
         PrefsButton {
           visible: Omarchy.fingerprintConfigured
-          text: "Remove…"
+          text: I18n.tr("Remove…")
           danger: true
           enabled: !Omarchy.jobBusy && Omarchy.fingerprintConfigured
           onClicked: fingerprintRemoveConfirm.ask()
@@ -179,14 +179,14 @@ PrefsPage {
         spacing: Theme.space
         PrefsButton {
           visible: !Omarchy.fido2Configured
-          text: "Set up…"
+          text: I18n.tr("Set up…")
           primary: true
           enabled: !Omarchy.jobBusy && !Omarchy.fido2Configured
           onClicked: fido2SetupConfirm.ask()
         }
         PrefsButton {
           visible: Omarchy.fido2Configured
-          text: "Remove…"
+          text: I18n.tr("Remove…")
           danger: true
           enabled: !Omarchy.jobBusy && Omarchy.fido2Configured
           onClicked: fido2RemoveConfirm.ask()
@@ -196,7 +196,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Remote"
+    title: I18n.tr("Remote")
     query: root.query
     detail: "OpenSSH on this machine. Turning it on needs a public key. Turning it off leaves authorized_keys alone."
 
@@ -215,7 +215,7 @@ PrefsPage {
         spacing: Theme.space
         PrefsButton {
           visible: !Omarchy.sshdEnabled && !Omarchy.sshdActive
-          text: "Turn on…"
+          text: I18n.tr("Turn on…")
           primary: true
           enabled: !Omarchy.jobBusy && !Omarchy.sshdEnabled && !Omarchy.sshdActive
           onClicked: {
@@ -226,7 +226,7 @@ PrefsPage {
         }
         PrefsButton {
           visible: Omarchy.sshdEnabled || Omarchy.sshdActive
-          text: "Turn off…"
+          text: I18n.tr("Turn off…")
           danger: true
           enabled: !Omarchy.jobBusy && (Omarchy.sshdEnabled || Omarchy.sshdActive)
           onClicked: sshdDisableConfirm.ask()
@@ -236,7 +236,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Advanced"
+    title: I18n.tr("Advanced")
     advanced: true
     query: root.query
     detail: "Passwordless sudo is timed. Sudoless Docker puts this account in the docker group."
@@ -244,7 +244,7 @@ PrefsPage {
     SettingRow {
       stretchControl: true
       label: "Passwordless minutes"
-      description: "How long passwordless sudo stays on when you enable it."
+      description: I18n.tr("How long passwordless sudo stays on when you enable it.")
       hint: "omarchy sudo passwordless"
       query: root.query
       keywords: ["sudo", "nopasswd", "passwordless", "minutes"]
@@ -273,13 +273,13 @@ PrefsPage {
         spacing: Theme.space
         PrefsButton {
           visible: !Omarchy.passwordlessSudo
-          text: "Turn on…"
+          text: I18n.tr("Turn on…")
           enabled: !Omarchy.jobBusy && !Omarchy.passwordlessSudo
           onClicked: Omarchy.requestSudoMode()
         }
         PrefsButton {
           visible: Omarchy.passwordlessSudo
-          text: "Turn off…"
+          text: I18n.tr("Turn off…")
           danger: true
           enabled: !Omarchy.jobBusy && Omarchy.passwordlessSudo
           onClicked: passwordlessOffConfirm.ask()
@@ -300,13 +300,13 @@ PrefsPage {
         spacing: Theme.space
         PrefsButton {
           visible: !Omarchy.sudolessDocker
-          text: "Set up…"
+          text: I18n.tr("Set up…")
           enabled: !Omarchy.jobBusy && !Omarchy.sudolessDocker
           onClicked: dockerOnConfirm.ask()
         }
         PrefsButton {
           visible: Omarchy.sudolessDocker
-          text: "Remove…"
+          text: I18n.tr("Remove…")
           danger: true
           enabled: !Omarchy.jobBusy && Omarchy.sudolessDocker
           onClicked: dockerOffConfirm.ask()

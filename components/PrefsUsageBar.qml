@@ -23,7 +23,7 @@ Item {
     PrefsText {
       id: label
       width: parent.width
-      text: RichUi.formatBytes(root.used) + " of " + RichUi.formatBytes(root.size) + " used (" + root.percent + "%). " + RichUi.formatBytes(root.avail) + " free."
+      text: I18n.tr("{used} of {size} used ({percent}%). {available} free.", { used: RichUi.formatBytes(root.used), size: RichUi.formatBytes(root.size), percent: root.percent, available: RichUi.formatBytes(root.avail) })
       color: Theme.foreground
       font.family: Theme.fontFamily
       font.pixelSize: Theme.captionSize

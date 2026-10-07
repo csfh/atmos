@@ -6,8 +6,8 @@ import "../services/HyprPrefs.js" as HyprPrefs
 PrefsPage {
   id: root
   hubId: "input"
-  title: "Input"
-  description: "How the mouse, touchpad, and keyboard feel. Turning the laptop trackpad off is on Displays. The system layout picker is on System."
+  title: I18n.tr("Input")
+  description: I18n.tr("How the mouse, touchpad, and keyboard feel. Turning the laptop trackpad off is on Displays. The system layout picker is on System.")
 
   property string kbLayoutDraft: Omarchy.hyprInput.kbLayoutOverride || ""
   property string kbVariantDraft: Omarchy.hyprInput.kbVariantOverride || ""
@@ -34,7 +34,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Pointer"
+    title: I18n.tr("Pointer")
     query: root.query
     writesFile: "~/.config/hypr/input.lua"
     detail: "Sensitivity and acceleration for the mouse and trackpad. These write a managed block in ~/.config/hypr/input.lua."
@@ -42,7 +42,7 @@ PrefsPage {
     SettingRow {
       stretchControl: true
       label: "Sensitivity"
-      description: "Pointer speed. Zero is the Hyprland default. Negative is slower."
+      description: I18n.tr("Pointer speed. Zero is the Hyprland default. Negative is slower.")
       hint: "~/.config/hypr/input.lua · input.sensitivity"
       query: root.query
       keywords: ["mouse", "pointer", "speed", "sensitivity"]
@@ -64,7 +64,7 @@ PrefsPage {
 
     SettingRow {
       label: "Acceleration"
-      description: "Adaptive speeds up as you move. Flat keeps a steady ratio."
+      description: I18n.tr("Adaptive speeds up as you move. Flat keeps a steady ratio.")
       hint: "~/.config/hypr/input.lua · input.accel_profile"
       query: root.query
       keywords: ["accel", "acceleration", "flat", "adaptive"]
@@ -85,7 +85,7 @@ PrefsPage {
 
     SettingRow {
       label: "Scroll inertia"
-      description: "How a high-resolution or free-spin mouse wheel is turned into scroll events. Smooth keeps the fine motion. Stepped turns it into clicks."
+      description: I18n.tr("How a high-resolution or free-spin mouse wheel is turned into scroll events. Smooth keeps the fine motion. Stepped turns it into clicks.")
       hint: "~/.config/hypr/input.lua · input.emulate_discrete_scroll"
       query: root.query
       keywords: ["inertia", "wheel", "high-res", "discrete", "smooth", "scroll"]
@@ -107,14 +107,14 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Touchpad"
+    title: I18n.tr("Touchpad")
     query: root.query
     writesFile: "~/.config/hypr/input.lua"
     detail: "Feel for the trackpad. The on/off switch for the device itself is on Displays."
 
     SettingRow {
       label: "Natural scroll"
-      description: "Content moves with your fingers, the way a phone does."
+      description: I18n.tr("Content moves with your fingers, the way a phone does.")
       hint: "~/.config/hypr/input.lua · input.touchpad.natural_scroll"
       query: root.query
       keywords: ["natural", "invert", "scroll", "direction"]
@@ -128,7 +128,7 @@ PrefsPage {
     SettingRow {
       stretchControl: true
       label: "Scroll speed"
-      description: "How far two-finger scroll moves."
+      description: I18n.tr("How far two-finger scroll moves.")
       hint: "~/.config/hypr/input.lua · input.touchpad.scroll_factor"
       query: root.query
       keywords: ["scroll", "factor", "speed"]
@@ -150,7 +150,7 @@ PrefsPage {
 
     SettingRow {
       label: "Two-finger click"
-      description: "A two-finger tap is a right click."
+      description: I18n.tr("A two-finger tap is a right click.")
       hint: "~/.config/hypr/input.lua · input.touchpad.clickfinger_behavior"
       query: root.query
       keywords: ["clickfinger", "right click", "tap"]
@@ -163,7 +163,7 @@ PrefsPage {
 
     SettingRow {
       label: "Ignore while typing"
-      description: "The trackpad rests while you type, so a palm does not move the pointer."
+      description: I18n.tr("The trackpad rests while you type, so a palm does not move the pointer.")
       hint: "~/.config/hypr/input.lua · input.touchpad.disable_while_typing"
       query: root.query
       keywords: ["disable while typing", "palm", "reject"]
@@ -176,7 +176,7 @@ PrefsPage {
 
     SettingRow {
       label: "Three-finger drag"
-      description: "Three fingers down and moving drags, like a click-and-hold."
+      description: I18n.tr("Three fingers down and moving drags, like a click-and-hold.")
       hint: "~/.config/hypr/input.lua · input.touchpad.drag_3fg"
       query: root.query
       keywords: ["three finger", "drag"]
@@ -189,7 +189,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Keyboard"
+    title: I18n.tr("Keyboard")
     query: root.query
     writesFile: "~/.config/hypr/input.lua"
     detail: "Repeat and numlock for Hyprland. The console and login layout stay on System."
@@ -197,7 +197,7 @@ PrefsPage {
     SettingRow {
       stretchControl: true
       label: "Repeat rate"
-      description: "How many times a held key repeats each second."
+      description: I18n.tr("How many times a held key repeats each second.")
       hint: "~/.config/hypr/input.lua · input.repeat_rate"
       query: root.query
       keywords: ["repeat", "rate", "hold"]
@@ -220,7 +220,7 @@ PrefsPage {
     SettingRow {
       stretchControl: true
       label: "Repeat delay"
-      description: "How long you hold a key before it starts repeating."
+      description: I18n.tr("How long you hold a key before it starts repeating.")
       hint: "~/.config/hypr/input.lua · input.repeat_delay"
       query: root.query
       keywords: ["repeat", "delay", "hold"]
@@ -242,7 +242,7 @@ PrefsPage {
 
     SettingRow {
       label: "Numlock on boot"
-      description: "The number pad is on when Hyprland starts."
+      description: I18n.tr("The number pad is on when Hyprland starts.")
       hint: "~/.config/hypr/input.lua · input.numlock_by_default"
       query: root.query
       keywords: ["numlock", "keypad"]
@@ -255,13 +255,13 @@ PrefsPage {
 
     SettingRow {
       label: "Reset input"
-      description: "Remove the block Atmos wrote. Hyprland goes back to the rest of input.lua and the Omarchy defaults."
+      description: I18n.tr("Remove the block Atmos wrote. Hyprland goes back to the rest of input.lua and the Omarchy defaults.")
       hint: "~/.config/hypr/input.lua"
       query: root.query
       keywords: ["reset", "default", "input"]
 
       PrefsButton {
-        text: "Reset"
+        text: I18n.tr("Reset")
         danger: true
         enabled: Omarchy.hyprInputManaged
         onClicked: Omarchy.resetHyprInput()
@@ -270,7 +270,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Advanced"
+    title: I18n.tr("Advanced")
     advanced: true
     query: root.query
     writesFile: "~/.config/hypr/input.lua"
@@ -279,7 +279,7 @@ PrefsPage {
 
     SettingRow {
       label: "Follow mouse"
-      description: "How the pointer picks the focused window. 1 is the usual Omarchy setting."
+      description: I18n.tr("How the pointer picks the focused window. 1 is the usual Omarchy setting.")
       hint: "~/.config/hypr/input.lua · input.follow_mouse"
       query: root.query
       keywords: ["follow", "focus", "mouse"]
@@ -302,7 +302,7 @@ PrefsPage {
 
     SettingRow {
       label: "Wake on key"
-      description: "A key press turns the screen back on after DPMS off."
+      description: I18n.tr("A key press turns the screen back on after DPMS off.")
       hint: "~/.config/hypr/input.lua · misc.key_press_enables_dpms"
       query: root.query
       keywords: ["dpms", "wake", "key"]
@@ -315,7 +315,7 @@ PrefsPage {
 
     SettingRow {
       label: "Wake on mouse"
-      description: "Moving the pointer turns the screen back on after DPMS off."
+      description: I18n.tr("Moving the pointer turns the screen back on after DPMS off.")
       hint: "~/.config/hypr/input.lua · misc.mouse_move_enables_dpms"
       query: root.query
       keywords: ["dpms", "wake", "mouse"]
@@ -355,7 +355,7 @@ PrefsPage {
 
         PrefsButton {
           id: layoutSetBtn
-          text: "Set"
+          text: I18n.tr("Set")
           primary: true
           enabled: root.kbOverrideValid && root.kbOverrideDirty
           onClicked: root.applyKbOverride()
@@ -392,7 +392,7 @@ PrefsPage {
 
         PrefsButton {
           id: variantSetBtn
-          text: "Set"
+          text: I18n.tr("Set")
           primary: true
           enabled: root.kbOverrideValid && root.kbOverrideDirty
           onClicked: root.applyKbOverride()
@@ -402,7 +402,7 @@ PrefsPage {
 
     SettingRow {
       label: "Alt+Alt layout switch"
-      description: "Left Alt and Right Alt together cycle the Hyprland layouts above."
+      description: I18n.tr("Left Alt and Right Alt together cycle the Hyprland layouts above.")
       hint: "~/.config/hypr/input.lua · input.kb_options"
       query: root.query
       keywords: ["grp", "alts", "switch", "layout"]

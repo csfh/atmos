@@ -10,8 +10,8 @@ import "../../services/RichUi.js" as RichUi
 PrefsPage {
   id: root
   hubId: "monitor/sensors"
-  title: "Sensors"
-  description: "hwmon temperatures and fans, plus GPU busy and VRAM when the driver publishes them."
+  title: I18n.tr("Sensors")
+  description: I18n.tr("hwmon temperatures and fans, plus GPU busy and VRAM when the driver publishes them.")
 
   property string sensorFilter: ""
   property string sensorKind: "all"
@@ -60,13 +60,13 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Package"
+    title: I18n.tr("Package")
     query: root.query
     detail: "CPU package temperature, the same reading Home uses."
 
     SettingRow {
       label: "Processor"
-      description: "CPU package from hwmon or thermal_zone."
+      description: I18n.tr("CPU package from hwmon or thermal_zone.")
       hint: "/sys/class/hwmon"
       query: root.query
       keywords: ["cpu", "temperature", "package"]
@@ -87,7 +87,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Thermal calendar"
+    title: I18n.tr("Thermal calendar")
     query: root.query
     wide: true
     lede: ChartCopy.blurb("calendar")
@@ -113,7 +113,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "RAPL waterfall"
+    title: I18n.tr("RAPL waterfall")
     query: root.query
     wide: true
     lede: ChartCopy.blurb("waterfall")
@@ -141,7 +141,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Graphics"
+    title: I18n.tr("Graphics")
     query: root.query
     detail: "Busy and VRAM come from the DRM device or nvidia-smi. Missing stays unknown."
 
@@ -190,14 +190,14 @@ PrefsPage {
       available: root.gpuList.length === 0
       sectionHelp: false
       label: "No GPUs"
-      description: "Hardware inventory did not name a graphics device."
+      description: I18n.tr("Hardware inventory did not name a graphics device.")
       query: root.query
       keywords: ["empty", "gpu"]
     }
   }
 
   PrefsGroup {
-    title: "hwmon"
+    title: I18n.tr("hwmon")
     query: root.query
     detail: "Every readable temp*_input and fan*_input. Zero and missing stay off the list."
 

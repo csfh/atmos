@@ -4,7 +4,7 @@ import "../../services"
 
 SettingRow {
   label: "Cursor size"
-  description: "How large the pointer is."
+  description: I18n.tr("How large the pointer is.")
   hint: "~/.config/hypr/looknfeel.lua · HYPRCURSOR_SIZE"
   keywords: ["cursor", "pointer", "size", "a11y"]
 

@@ -6,8 +6,8 @@ import "../services/Tweaks.js" as TweaksJs
 PrefsPage {
   id: root
   hubId: "tweaks"
-  title: "Tweaks"
-  description: "Settings that do not deserve their own sidebar entry. Each row says what it writes. Reset puts that one tweak back."
+  title: I18n.tr("Tweaks")
+  description: I18n.tr("Settings that do not deserve their own sidebar entry. Each row says what it writes. Reset puts that one tweak back.")
 
   readonly property var groups: TweaksJs.groupedCatalog()
 
@@ -69,7 +69,7 @@ PrefsPage {
               onToggled: root.setTweak(modelData, !root.currentOn(modelData))
             }
             PrefsButton {
-              text: "Reset"
+              text: I18n.tr("Reset")
               onClicked: root.resetTweak(modelData)
             }
           }

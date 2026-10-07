@@ -6,8 +6,8 @@ import "../services/Profiles.js" as ProfilesJs
 PrefsPage {
   id: root
   hubId: "profiles"
-  title: "Profiles"
-  description: "A profile is a named bundle of Settings keys. Apply goes through the same writers as an Omafile. Coding, Gaming, and Battery ship with Atmos. Save your own as an Omafile."
+  title: I18n.tr("Profiles")
+  description: I18n.tr("A profile is a named bundle of Settings keys. Apply goes through the same writers as an Omafile. Coding, Gaming, and Battery ship with Atmos. Save your own as an Omafile.")
 
   property var navigator: null
 
@@ -20,7 +20,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Built-in"
+    title: I18n.tr("Built-in")
     query: root.query
     detail: "Each bundle writes power, idle, notifications, and window look through Settings.commandFor."
 
@@ -36,7 +36,7 @@ PrefsPage {
         keywords: ["profile", "coding", "gaming", "battery"]
 
         PrefsButton {
-          text: "Apply"
+          text: I18n.tr("Apply")
           primary: true
           onClicked: root.applyProfile(modelData.id)
         }
@@ -45,19 +45,19 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Your own"
+    title: I18n.tr("Your own")
     query: root.query
     detail: "Write an Omafile, then apply it later. An Omafile is a Markdown document of an Omarchy system, not a second prefs store."
 
     SettingRow {
       label: "Omafile"
-      description: "Write this Omarchy system to a file, or apply one you already have."
+      description: I18n.tr("Write this Omarchy system to a file, or apply one you already have.")
       hint: "atmos export"
       query: root.query
       keywords: ["omafile", "import", "export", "markdown"]
 
       PrefsButton {
-        text: "Open…"
+        text: I18n.tr("Open…")
         onClicked: {
           if (root.navigator && root.navigator.go) root.navigator.go("export")
         }

@@ -6,8 +6,8 @@ import "../services/Workspaces.js" as WsJs
 PrefsPage {
   id: root
   hubId: "workspaces"
-  title: "Workspaces"
-  description: "How many numbered workspaces stay around, what the bar calls them, and which monitor they live on."
+  title: I18n.tr("Workspaces")
+  description: I18n.tr("How many numbered workspaces stay around, what the bar calls them, and which monitor they live on.")
 
   property string specialDraft: ""
   property string specialError: ""
@@ -85,7 +85,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Count and switching"
+    title: I18n.tr("Count and switching")
     query: root.query
     detail: "Hyprland keeps numbered workspaces 1–10 persistent, so Super+N still has somewhere to go. The slider is how many of those the bar always paints. Workspaces past that with windows still show, like stock Hypr."
     hint: "~/.config/hypr/atmos.lua"
@@ -93,7 +93,7 @@ PrefsPage {
     SettingRow {
       stretchControl: true
       label: "Number of workspaces"
-      description: "How many numbered workspaces the bar always shows. Workspaces past that with windows still appear. Hyprland still keeps 1–10."
+      description: I18n.tr("How many numbered workspaces the bar always shows. Workspaces past that with windows still appear. Hyprland still keeps 1–10.")
       hint: "~/.config/omarchy/shell.json"
       query: root.query
       keywords: ["count", "number", "ten", "bar"]
@@ -114,7 +114,7 @@ PrefsPage {
 
     SettingRow {
       label: "Wrap switching"
-      description: "The last workspace wraps to the first."
+      description: I18n.tr("The last workspace wraps to the first.")
       hint: "workspace e+1"
       query: root.query
       keywords: ["wrap", "cycle", "switch"]
@@ -129,7 +129,7 @@ PrefsPage {
 
     SettingRow {
       label: "Super + mouse wheel"
-      description: "The mouse wheel moves between workspaces while Super is held. Atmos writes that as an override."
+      description: I18n.tr("The mouse wheel moves between workspaces while Super is held. Atmos writes that as an override.")
       hint: "SUPER + mouse_down"
       query: root.query
       keywords: ["wheel", "scroll", "switch"]
@@ -144,7 +144,7 @@ PrefsPage {
 
     SettingRow {
       label: "Show names in the bar"
-      description: "Omarchy's stock widget paints numbers. This clone paints the names you set below."
+      description: I18n.tr("Omarchy's stock widget paints numbers. This clone paints the names you set below.")
       hint: "~/.config/omarchy/plugins"
       query: root.query
       keywords: ["bar", "name", "plugin", "clone", "label"]
@@ -160,7 +160,7 @@ PrefsPage {
 
     SettingRow {
       label: "Open on login"
-      description: "Which numbered workspace Hyprland focuses after you log in."
+      description: I18n.tr("Which numbered workspace Hyprland focuses after you log in.")
       hint: "hl.workspace_rule · default"
       query: root.query
       keywords: ["default", "login", "start"]
@@ -178,7 +178,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Names and monitors"
+    title: I18n.tr("Names and monitors")
     query: root.query
     detail: "A name is stored on the Hyprland workspace. Turn on Show names in the bar to paint it on the strip. A monitor pins that workspace to one output. Leave either blank."
 
@@ -205,7 +205,7 @@ PrefsPage {
             onSubmitted: function(value) { root.patchItem(modelData.id, { name: value }) }
           }
           PrefsButton {
-            text: "Set"
+            text: I18n.tr("Set")
             onClicked: root.patchItem(modelData.id, { name: workspaceNameField.currentText() })
           }
           PrefsSelect {
@@ -224,7 +224,7 @@ PrefsPage {
 
   PrefsGroup {
     framed: true
-    title: "Scratch workspaces"
+    title: I18n.tr("Scratch workspaces")
     query: root.query
     detail: "A special workspace stays off the numbered strip until you toggle it."
 
@@ -248,7 +248,7 @@ PrefsPage {
           }
         }
         PrefsButton {
-          text: "Add"
+          text: I18n.tr("Add")
           primary: true
           onClicked: {
             root.specialDraft = specialNameField.currentText()
@@ -264,12 +264,12 @@ PrefsPage {
       SettingRow {
         required property var modelData
         label: modelData && modelData.id ? modelData.id : "special"
-        description: "A scratch workspace. Remove drops the Atmos rule."
+        description: I18n.tr("A scratch workspace. Remove drops the Atmos rule.")
         query: root.query
         keywords: ["scratch", "special"]
 
         PrefsButton {
-          text: "Remove"
+          text: I18n.tr("Remove")
           danger: true
           onClicked: {
             var state = root.currentState()

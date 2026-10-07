@@ -8,8 +8,8 @@ import "../../services/RichUi.js" as RichUi
 PrefsPage {
   id: root
   hubId: "network/speedtest"
-  title: "Speed test"
-  description: "A short download, then an upload, on whatever you are connected to now. Opening this page starts a run."
+  title: I18n.tr("Speed test")
+  description: I18n.tr("A short download, then an upload, on whatever you are connected to now. Opening this page starts a run.")
 
   property bool speedRunning: false
   property string speedPhase: ""
@@ -161,7 +161,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Run"
+    title: I18n.tr("Run")
     query: root.query
     detail: "Runs a download sample, then an upload sample. Each direction is about five seconds. Results are megabits per second on the default route. Opening this page starts a run."
 
@@ -206,7 +206,7 @@ PrefsPage {
       keywords: ["failed"]
 
       PrefsButton {
-        text: "Retry"
+        text: I18n.tr("Retry")
         enabled: !root.speedRunning && Omarchy.netKind !== "disconnected"
         onClicked: root.startSpeedtest()
       }
@@ -214,7 +214,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Results"
+    title: I18n.tr("Results")
     query: root.query
     detail: "Inbound and outbound rates from the last run on this page. They are megabits per second on the default route."
 
@@ -237,7 +237,7 @@ PrefsPage {
           anchors.verticalCenter: parent.verticalCenter
         }
         PrefsButton {
-          text: "Copy"
+          text: I18n.tr("Copy")
           enabled: root.downloadMbps.length > 0
           onClicked: Omarchy.copyText(RichUi.mbpsCopyText("Download", root.downloadMbps))
         }
@@ -263,7 +263,7 @@ PrefsPage {
           anchors.verticalCenter: parent.verticalCenter
         }
         PrefsButton {
-          text: "Copy"
+          text: I18n.tr("Copy")
           enabled: root.uploadMbps.length > 0
           onClicked: Omarchy.copyText(RichUi.mbpsCopyText("Upload", root.uploadMbps))
         }

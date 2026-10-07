@@ -7,8 +7,8 @@ import "applications" as Apps
 PrefsPage {
   id: root
   hubId: "applications"
-  title: "Applications"
-  description: "Launchers you added yourself under ~/.local/share/applications. Remove deletes that desktop file. Packages from the repos stay on the system."
+  title: I18n.tr("Applications")
+  description: I18n.tr("Launchers you added yourself under ~/.local/share/applications. Remove deletes that desktop file. Packages from the repos stay on the system.")
 
   property var stack: null
   property var navigator: null
@@ -128,7 +128,7 @@ PrefsPage {
   PrefsConfirm {
     id: removeAppConfirm
     title: "Remove " + root.kindLabel(root.pendingKind)
-    message: "Remove " + root.pendingName + " from the launcher list? The desktop file under ~/.local/share/applications goes with it."
+    message: I18n.tr("Remove {name} from the launcher list? The desktop file under ~/.local/share/applications goes with it.", { name: root.pendingName })
     confirmText: "Remove"
     onConfirmed: {
       if (root.pendingKind === "web") Omarchy.removeWebApp(root.pendingId)
@@ -206,12 +206,12 @@ PrefsPage {
       spacing: Theme.space
 
       PrefsButton {
-        text: "Cancel"
+        text: I18n.tr("Cancel")
         onClicked: addDialog.close()
       }
 
       PrefsButton {
-        text: "Add"
+        text: I18n.tr("Add")
         primary: true
         enabled: !Omarchy.jobBusy
         onClicked: root.submitAdd()
@@ -220,20 +220,22 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Startup"
+    title: I18n.tr("Startup")
     query: root.query
     detail: "Enable, delay, and failures live on the Startup page. The list below is the Atmos block in autostart.lua."
     hint: "~/.config/hypr/autostart.lua"
 
     SettingRow {
       label: "Startup programs"
-      description: Omarchy.autostart.length === 1 ? "One command at login." : (Omarchy.autostart.length + " commands at login.")
+      description: Omarchy.autostart.length === 1
+      ? I18n.tr("One command at login.")
+      : I18n.tr("{count} commands at login.", { count: Omarchy.autostart.length })
       hint: "~/.config/hypr/autostart.lua"
       query: root.query
       keywords: ["autostart", "startup", "delay"]
 
       PrefsButton {
-        text: "Configure…"
+        text: I18n.tr("Configure…")
         onClicked: root.openSubpage("startup")
       }
     }
@@ -241,7 +243,7 @@ PrefsPage {
 
   PrefsGroup {
     framed: true
-    title: "Advanced"
+    title: I18n.tr("Advanced")
     advanced: true
     query: root.query
     detail: "Autostart writes a managed block at the end of ~/.config/hypr/autostart.lua. Lines you typed yourself stay. Remove only deletes a line Atmos added."
@@ -249,7 +251,7 @@ PrefsPage {
 
     SettingRow {
       label: "Add a command"
-      description: "A program name or command Omarchy should launch on start. Same form as o.launch_on_start."
+      description: I18n.tr("A program name or command Omarchy should launch on start. Same form as o.launch_on_start.")
       hint: "~/.config/hypr/autostart.lua"
       query: root.query
       keywords: ["autostart", "startup", "launch", "hypr"]
@@ -266,7 +268,7 @@ PrefsPage {
           }
         }
         PrefsButton {
-          text: "Add"
+          text: I18n.tr("Add")
           primary: true
           enabled: root.autostartDraft.length > 0
           onClicked: Omarchy.addAutostart(root.autostartDraft)
@@ -278,7 +280,7 @@ PrefsPage {
       available: Omarchy.autostart.length === 0
       sectionHelp: false
       label: "Launch on start"
-      description: "No launch-on-start commands."
+      description: I18n.tr("No launch-on-start commands.")
       query: root.query
       keywords: ["autostart", "empty"]
     }
@@ -299,7 +301,7 @@ PrefsPage {
 
         PrefsButton {
           visible: !!(modelData && modelData.managed)
-          text: "Remove…"
+          text: I18n.tr("Remove…")
           danger: true
           enabled: modelData && modelData.managed
           onClicked: {
@@ -312,20 +314,20 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Add"
+    title: I18n.tr("Add")
     query: root.query
     detail: "Desktop writes a .desktop file for a command. Terminal uses omarchy tui install. Web uses omarchy webapp install and can fetch the site icon."
     hint: "omarchy tui install · omarchy webapp install"
 
     SettingRow {
       label: "Desktop"
-      description: "A launcher for a command on this machine."
+      description: I18n.tr("A launcher for a command on this machine.")
       hint: "add-desktop-launcher.sh"
       query: root.query
       keywords: ["add", "install", "create", "desktop", "launcher"]
 
       PrefsButton {
-        text: "Add…"
+        text: I18n.tr("Add…")
         primary: true
         enabled: !Omarchy.jobBusy
         onClicked: root.openAdd("desktop")
@@ -334,13 +336,13 @@ PrefsPage {
 
     SettingRow {
       label: "Terminal"
-      description: "A TUI that opens in your default terminal."
+      description: I18n.tr("A TUI that opens in your default terminal.")
       hint: "omarchy tui install"
       query: root.query
       keywords: ["add", "install", "create", "tui", "terminal"]
 
       PrefsButton {
-        text: "Add…"
+        text: I18n.tr("Add…")
         primary: true
         enabled: !Omarchy.jobBusy
         onClicked: root.openAdd("tui")
@@ -349,13 +351,13 @@ PrefsPage {
 
     SettingRow {
       label: "Web"
-      description: "A site in its own window."
+      description: I18n.tr("A site in its own window.")
       hint: "omarchy webapp install"
       query: root.query
       keywords: ["add", "install", "create", "webapp", "web"]
 
       PrefsButton {
-        text: "Add…"
+        text: I18n.tr("Add…")
         primary: true
         enabled: !Omarchy.jobBusy
         onClicked: root.openAdd("web")
@@ -365,7 +367,7 @@ PrefsPage {
 
   PrefsGroup {
     framed: true
-    title: "Desktop"
+    title: I18n.tr("Desktop")
     query: root.query
     detail: "Regular desktop launchers in ~/.local/share/applications. Web apps and terminal UIs have their own sections below. Remove deletes that .desktop file."
     hint: "omarchy remove launcher entry"
@@ -374,7 +376,7 @@ PrefsPage {
       available: Omarchy.desktopApps.length === 0
       sectionHelp: false
       label: "Desktop launchers"
-      description: "No desktop launchers."
+      description: I18n.tr("No desktop launchers.")
       query: root.query
       keywords: ["empty", "desktop"]
     }
@@ -398,7 +400,7 @@ PrefsPage {
 
   PrefsGroup {
     framed: true
-    title: "Terminal"
+    title: I18n.tr("Terminal")
     query: root.query
     detail: "Terminal UIs you installed with omarchy tui install. They open in your default terminal. Remove deletes the launcher."
     hint: "omarchy tui remove"
@@ -407,7 +409,7 @@ PrefsPage {
       available: Omarchy.tuiApps.length === 0
       sectionHelp: false
       label: "Terminal launchers"
-      description: "No terminal launchers."
+      description: I18n.tr("No terminal launchers.")
       query: root.query
       keywords: ["empty", "tui"]
     }
@@ -431,7 +433,7 @@ PrefsPage {
 
   PrefsGroup {
     framed: true
-    title: "Web"
+    title: I18n.tr("Web")
     query: root.query
     detail: "Site wrappers you installed with omarchy webapp install. Remove deletes the launcher. The site itself stays online."
     hint: "omarchy webapp remove"
@@ -440,7 +442,7 @@ PrefsPage {
       available: Omarchy.webApps.length === 0
       sectionHelp: false
       label: "Web apps"
-      description: "No web apps."
+      description: I18n.tr("No web apps.")
       query: root.query
       keywords: ["empty", "webapp"]
     }
@@ -464,8 +466,8 @@ PrefsPage {
 
   PrefsConfirm {
     id: removeAutostartConfirm
-    title: "Remove autostart"
-    message: "Stop launching " + root.pendingAutostart + " at login?"
+    title: I18n.tr("Remove autostart")
+    message: I18n.tr("Stop launching {command} at login?", { command: root.pendingAutostart })
     confirmText: "Remove"
     onConfirmed: Omarchy.removeAutostart(root.pendingAutostart)
   }

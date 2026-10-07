@@ -6,8 +6,8 @@ import "../../services/WindowRules.js" as RuleJs
 PrefsPage {
   id: root
   hubId: "windows/rules"
-  title: "Window rules"
-  description: "These write a managed block at the end of ~/.config/hypr/atmos.lua. The Atmos window rules stay above that block. Lines in hyprland.lua stay there too."
+  title: I18n.tr("Window rules")
+  description: I18n.tr("These write a managed block at the end of ~/.config/hypr/atmos.lua. The Atmos window rules stay above that block. Lines in hyprland.lua stay there too.")
 
   property string matchDraft: ""
   property string placementDraft: "float"
@@ -88,20 +88,20 @@ PrefsPage {
 
   PrefsGroup {
     framed: true
-    title: "Your rules"
+    title: I18n.tr("Your rules")
     query: root.query
     detail: "Match is a window class, or a regex Hyprland applies to class. Use focused copies the class of the window that is focused right now."
     hint: "~/.config/hypr/atmos.lua"
 
     SettingRow {
       label: "Add a rule"
-      description: "Float, tile, center, size, or pin a class to a workspace."
+      description: I18n.tr("Float, tile, center, size, or pin a class to a workspace.")
       hint: "~/.config/hypr/atmos.lua"
       query: root.query
       keywords: ["window", "rule", "float", "tile", "class"]
 
       PrefsButton {
-        text: "Add…"
+        text: I18n.tr("Add…")
         primary: true
         onClicked: root.openAdd()
       }
@@ -111,7 +111,7 @@ PrefsPage {
       available: root.ruleRows.length === 0
       sectionHelp: false
       label: "Rules"
-      description: "No personal window rules."
+      description: I18n.tr("No personal window rules.")
       query: root.query
       keywords: ["empty", "rules"]
     }
@@ -131,7 +131,7 @@ PrefsPage {
         keywords: ["window", "rule", "float"]
 
         PrefsButton {
-          text: "Remove…"
+          text: I18n.tr("Remove…")
           danger: true
           enabled: modelData && modelData.managed
           onClicked: {
@@ -145,11 +145,11 @@ PrefsPage {
 
   PrefsDialog {
     id: addDialog
-    title: "Add a window rule"
+    title: I18n.tr("Add a window rule")
 
     PrefsText {
       width: parent.width
-      text: "Match is the window class Hyprland sees. Regex is fine. Leave size at 0 to skip it."
+      text: I18n.tr("Match is the window class Hyprland sees. Regex is fine. Leave size at 0 to skip it.")
       color: Theme.muted
       font.family: Theme.fontFamily
       font.pixelSize: Theme.captionSize
@@ -169,7 +169,7 @@ PrefsPage {
 
       PrefsButton {
         id: focusedBtn
-        text: "Use focused"
+        text: I18n.tr("Use focused")
         enabled: Omarchy.focusedClass.length > 0
         onClicked: root.useFocused()
       }
@@ -186,7 +186,7 @@ PrefsPage {
     SettingRow {
       sectionHelp: false
       label: "Center"
-      description: "A floating window sits in the middle of the screen."
+      description: I18n.tr("A floating window sits in the middle of the screen.")
       query: ""
 
       PrefsToggle {
@@ -238,12 +238,12 @@ PrefsPage {
       spacing: Theme.space
 
       PrefsButton {
-        text: "Cancel"
+        text: I18n.tr("Cancel")
         onClicked: addDialog.close()
       }
 
       PrefsButton {
-        text: "Add"
+        text: I18n.tr("Add")
         primary: true
         enabled: root.matchDraft.length > 0
         onClicked: root.submitAdd()
@@ -253,8 +253,8 @@ PrefsPage {
 
   PrefsConfirm {
     id: removeConfirm
-    title: "Remove window rule"
-    message: "Remove the Atmos rule for " + root.pendingMatch + "?"
+    title: I18n.tr("Remove window rule")
+    message: I18n.tr("Remove the Atmos rule for {match}?", { match: root.pendingMatch })
     confirmText: "Remove"
     onConfirmed: Omarchy.removeWindowRule(root.pendingMatch)
   }

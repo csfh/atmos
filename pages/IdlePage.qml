@@ -6,18 +6,18 @@ import "../services/Theme.js" as ThemeJs
 PrefsPage {
   id: root
   hubId: "idle"
-  title: "Idle"
-  description: "How long the machine waits before the screensaver and lock. You can also keep it awake or change the screensaver logo."
+  title: I18n.tr("Idle")
+  description: I18n.tr("How long the machine waits before the screensaver and lock. You can also keep it awake or change the screensaver logo.")
 
   PrefsGroup {
-    title: "Timings"
+    title: I18n.tr("Timings")
     query: root.query
     detail: "Screensaver and lock are separate timers in ~/.config/omarchy/shell.json. Zero on a slider skips that step."
 
     SettingRow {
       stretchControl: true
       label: "Screensaver"
-      description: "How long you can sit still before the screensaver starts. Zero skips the screensaver."
+      description: I18n.tr("How long you can sit still before the screensaver starts. Zero skips the screensaver.")
       hint: "~/.config/omarchy/shell.json · idle.screensaver"
       query: root.query
       keywords: ["idle", "timeout", "sleep"]
@@ -41,7 +41,7 @@ PrefsPage {
     SettingRow {
       stretchControl: true
       label: "Lock"
-      description: "How long you can sit still before the session locks. Zero skips the lock."
+      description: I18n.tr("How long you can sit still before the session locks. Zero skips the lock.")
       hint: "~/.config/omarchy/shell.json · idle.lock"
       query: root.query
       keywords: ["screen lock", "security"]
@@ -64,13 +64,13 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Behavior"
+    title: I18n.tr("Behavior")
     query: root.query
     detail: "Stay awake skips the screensaver and lock timers. Screensaver and Suspend menu stay available while these switches are on."
 
     SettingRow {
       label: "Stay awake"
-      description: "Keep the screen awake and unlocked."
+      description: I18n.tr("Keep the screen awake and unlocked.")
       hint: "omarchy toggle idle"
       query: root.query
       keywords: ["caffeine", "inhibit", "awake", "sleep"]
@@ -83,7 +83,7 @@ PrefsPage {
 
     SettingRow {
       label: "Screensaver"
-      description: "The screensaver runs after the idle timeout."
+      description: I18n.tr("The screensaver runs after the idle timeout.")
       hint: "omarchy toggle screensaver-off"
       query: root.query
       keywords: ["screensaver", "allow", "disable"]
@@ -96,7 +96,7 @@ PrefsPage {
 
     SettingRow {
       label: "Suspend menu"
-      description: "Suspend stays in the system menu."
+      description: I18n.tr("Suspend stays in the system menu.")
       hint: "omarchy toggle suspend-off"
       query: root.query
       keywords: ["sleep", "power", "system menu", "allow", "suspend"]
@@ -109,7 +109,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Branding"
+    title: I18n.tr("Branding")
     query: root.query
     detail: "ASCII art on the screensaver. Choose a picture to turn into that art. Edit opens the text file if you want to write it yourself. Reset puts the Omarchy logo back."
 
@@ -125,16 +125,16 @@ PrefsPage {
       Row {
         spacing: Theme.space
         PrefsButton {
-          text: "Choose…"
+          text: I18n.tr("Choose…")
           onClicked: Omarchy.setScreensaverBranding("image")
         }
         PrefsButton {
-          text: "Edit"
+          text: I18n.tr("Edit")
           onClicked: Omarchy.setScreensaverBranding("text")
         }
         PrefsButton {
           visible: Omarchy.screensaverBranded
-          text: "Reset"
+          text: I18n.tr("Reset")
           danger: true
           enabled: Omarchy.screensaverBranded
           onClicked: Omarchy.setScreensaverBranding("reset")
@@ -144,7 +144,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Advanced"
+    title: I18n.tr("Advanced")
     advanced: true
     query: Omarchy.isLaptop ? root.query : "."
     detail: "Lid close already locks when the machine is undocked. Omarchy runs that from logind, not from Atmos."
@@ -152,7 +152,7 @@ PrefsPage {
     SettingRow {
       available: Omarchy.isLaptop
       label: "Lid close"
-      description: "Closing the lid locks when undocked. A docked lid stays unlocked on the other screen. Change this in logind (omarchy-system-lid-close), not here."
+      description: I18n.tr("Closing the lid locks when undocked. A docked lid stays unlocked on the other screen. Change this in logind (omarchy-system-lid-close), not here.")
       hint: "omarchy-system-lid-close"
       query: root.query
       keywords: ["lid", "clamshell", "lock", "close"]

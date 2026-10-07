@@ -8,8 +8,8 @@ import "rows"
 PrefsPage {
   id: root
   hubId: "display"
-  title: "Displays"
-  description: "Each monitor keeps its own resolution and refresh rate. Scale and brightness apply to the one you are looking at. On a laptop you also get the built-in panel and its input devices. GPU switching is on Drivers."
+  title: I18n.tr("Displays")
+  description: I18n.tr("Each monitor keeps its own resolution and refresh rate. Scale and brightness apply to the one you are looking at. On a laptop you also get the built-in panel and its input devices. GPU switching is on Drivers.")
 
   readonly property var scalePresets: [
     { value: "1", label: "100%" },
@@ -170,7 +170,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Displays"
+    title: I18n.tr("Displays")
     query: Omarchy.monitors.length === 0 ? root.query : "."
     detail: "Hyprland did not report any outputs. Refresh after a display is connected. Modes live in ~/.config/hypr/monitors.lua."
     hint: "hyprctl monitors all"
@@ -178,7 +178,7 @@ PrefsPage {
     PrefsEmpty {
       available: Omarchy.monitors.length === 0
       label: "Monitors"
-      description: "No monitors reported."
+      description: I18n.tr("No monitors reported.")
       hint: "hyprctl monitors all"
       query: root.query
       keywords: ["monitor", "display", "hdmi", "dp", "edp", "resolution", "empty"]
@@ -186,11 +186,11 @@ PrefsPage {
       Row {
         spacing: Theme.space
         PrefsButton {
-          text: "Refresh"
+          text: I18n.tr("Refresh")
           onClicked: Omarchy.refresh()
         }
         PrefsButton {
-          text: "Edit"
+          text: I18n.tr("Edit")
           onClicked: Omarchy.editMonitorsLua()
         }
       }
@@ -228,7 +228,7 @@ PrefsPage {
             }
           }
           PrefsButton {
-            text: "Copy"
+            text: I18n.tr("Copy")
             enabled: RichUi.monitorModeCopyText(modelData).length > 0
             onClicked: Omarchy.copyText(RichUi.monitorModeCopyText(modelData))
           }
@@ -237,7 +237,7 @@ PrefsPage {
 
       SettingRow {
         label: "Refresh rate"
-        description: "How many frames this panel draws per second. Only the rates the resolution above supports are listed."
+        description: I18n.tr("How many frames this panel draws per second. Only the rates the resolution above supports are listed.")
         hint: "~/.config/hypr/monitors.lua"
         detail: "Atmos writes the pick together with the resolution above as hl.monitor mode."
         query: root.query
@@ -257,7 +257,7 @@ PrefsPage {
       SettingRow {
         available: !!(modelData && modelData.name)
         label: "Rotation"
-        description: "How this panel is turned."
+        description: I18n.tr("How this panel is turned.")
         hint: "hl.monitor transform"
         query: root.query
         keywords: ["rotate", "transform", "portrait"]
@@ -297,7 +297,7 @@ PrefsPage {
       SettingRow {
         available: !!(modelData && modelData.name && root.vrrAvailable(modelData))
         label: "Variable refresh"
-        description: "VRR when this output supports it. Fullscreen-only is the safer game setting."
+        description: I18n.tr("VRR when this output supports it. Fullscreen-only is the safer game setting.")
         hint: "hl.monitor vrr"
         query: root.query
         keywords: ["vrr", "freesync", "g-sync"]
@@ -319,7 +319,7 @@ PrefsPage {
       SettingRow {
         available: !!(modelData && modelData.name)
         label: "Bit depth"
-        description: "10-bit when the panel and cable can do it."
+        description: I18n.tr("10-bit when the panel and cable can do it.")
         hint: "hl.monitor bitdepth"
         query: root.query
         keywords: ["bitdepth", "10-bit", "hdr"]
@@ -365,7 +365,7 @@ PrefsPage {
       SettingRow {
         available: !!(modelData && modelData.name)
         label: "Scale"
-        description: "How large the interface looks on this monitor. The focused output uses omarchy hyprland monitor scaling. Other outputs write a monitor rule."
+        description: I18n.tr("How large the interface looks on this monitor. The focused output uses omarchy hyprland monitor scaling. Other outputs write a monitor rule.")
         hint: "omarchy hyprland monitor scaling"
         detail: "Scale is Hyprland's factor of UI pixels over physical pixels. 200% on a 4K panel makes chrome and text about the size they would be at 1080p. Hyprland snaps to a factor it can render cleanly, so 125% or 160% can land a little off the number you pick. This control only applies to the focused output. Other monitors keep their own scale."
         query: root.query
@@ -416,7 +416,7 @@ PrefsPage {
         available: modelData && modelData.brightnessAvailable === true
         stretchControl: true
         label: "Brightness"
-        description: "How bright this panel is. Works on the built-in display and on some external monitors."
+        description: I18n.tr("How bright this panel is. Works on the built-in display and on some external monitors.")
         hint: "omarchy brightness display"
         query: root.query
         keywords: ["backlight", "ddc", "luminance"]
@@ -442,14 +442,14 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Layouts"
+    title: I18n.tr("Layouts")
     query: Omarchy.monitors.length ? root.query : "."
     detail: "Desk keeps every output on. Laptop keeps the built-in panel and needs one. Docked turns the built-in panel off and needs an external monitor. Each write is a monitor rule in ~/.config/hypr/monitors.lua."
     hint: "~/.config/hypr/monitors.lua"
 
     SettingRow {
       label: "Apply a layout"
-      description: "Uses the outputs Hyprland sees right now. Layouts that would leave no display on stay off."
+      description: I18n.tr("Uses the outputs Hyprland sees right now. Layouts that would leave no display on stay off.")
       hint: "hl.monitor"
       query: root.query
       keywords: ["desk", "laptop", "docked", "layout", "profile"]
@@ -457,16 +457,16 @@ PrefsPage {
       Row {
         spacing: Theme.space
         PrefsButton {
-          text: "Desk"
+          text: I18n.tr("Desk")
           onClicked: Omarchy.applyMonitorLayout("desk")
         }
         PrefsButton {
-          text: "Laptop"
+          text: I18n.tr("Laptop")
           enabled: Omarchy.internalPresent
           onClicked: Omarchy.applyMonitorLayout("laptop")
         }
         PrefsButton {
-          text: "Docked"
+          text: I18n.tr("Docked")
           enabled: Omarchy.externalPresent
           onClicked: Omarchy.applyMonitorLayout("docked")
         }
@@ -475,7 +475,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Laptop"
+    title: I18n.tr("Laptop")
     query: (Omarchy.internalPresent || Omarchy.keyboardBacklightPresent || Omarchy.touchpadPresent || Omarchy.touchscreenPresent) ? root.query : "."
     detail: "These only show up on a laptop. The built-in screen can turn off while an external monitor is plugged in. Touchpad and touchscreen stay off across a Hyprland reload."
 
@@ -499,7 +499,7 @@ PrefsPage {
     SettingRow {
       available: Omarchy.internalPresent && Omarchy.externalPresent
       label: "Mirror to the first external"
-      description: "The same picture on the laptop screen and the first external monitor."
+      description: I18n.tr("The same picture on the laptop screen and the first external monitor.")
       hint: "omarchy hyprland monitor internal mirror"
       query: root.query
       keywords: ["mirror", "clone", "duplicate"]
@@ -514,7 +514,7 @@ PrefsPage {
     SettingRow {
       available: Omarchy.touchpadPresent
       label: "Touchpad"
-      description: "Finger and pointer input on the trackpad. The choice survives a Hyprland reload."
+      description: I18n.tr("Finger and pointer input on the trackpad. The choice survives a Hyprland reload.")
       hint: "omarchy toggle touchpad"
       query: root.query
       keywords: ["trackpad", "touchpad", "pointer", "mouse", "input"]
@@ -544,17 +544,17 @@ PrefsPage {
       Row {
         spacing: Theme.space
         PrefsButton {
-          text: "Dim"
+          text: I18n.tr("Dim")
           enabled: Omarchy.keyboardBacklightPresent
           onClicked: Omarchy.adjustKeyboardBacklight("down")
         }
         PrefsButton {
-          text: "Brighten"
+          text: I18n.tr("Brighten")
           enabled: Omarchy.keyboardBacklightPresent
           onClicked: Omarchy.adjustKeyboardBacklight("up")
         }
         PrefsButton {
-          text: "Turn off"
+          text: I18n.tr("Turn off")
           enabled: Omarchy.keyboardBacklightPresent && Omarchy.keyboardBrightness > 0
           onClicked: Omarchy.adjustKeyboardBacklight("off")
         }

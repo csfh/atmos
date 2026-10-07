@@ -61,7 +61,7 @@ Popup {
     PrefsText {
       visible: root.title.length > 0
       width: parent.width
-      text: root.title
+      text: I18n.tr(root.title)
       color: Theme.foreground
       font.family: Theme.fontFamily
       font.pixelSize: Theme.fontSize
@@ -70,7 +70,7 @@ Popup {
 
     PrefsText {
       width: parent.width
-      text: root.message
+      text: I18n.tr(root.message)
       color: Theme.foreground
       font.family: Theme.fontFamily
       font.pixelSize: Theme.fontSize
@@ -81,12 +81,12 @@ Popup {
       spacing: Theme.space
 
       PrefsButton {
-        text: root.cancelText
+        text: I18n.tr(root.cancelText)
         onClicked: root.close()
       }
 
       PrefsButton {
-        text: root.confirmText
+        text: I18n.tr(root.confirmText)
         primary: !root.destructive
         danger: root.destructive
         onClicked: {

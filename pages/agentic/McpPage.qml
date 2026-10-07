@@ -7,8 +7,8 @@ import "../../services/Requests.js" as Requests
 PrefsPage {
   id: root
   hubId: "agentic/mcp"
-  title: "MCP"
-  description: "Let installed coding agents read this machine and change settings through Atmos."
+  title: I18n.tr("MCP")
+  description: I18n.tr("Let installed coding agents read this machine and change settings through Atmos.")
 
   property var agents: []
   property var watchSig: ({})
@@ -156,7 +156,7 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Installed agents"
+    title: I18n.tr("Installed agents")
     query: root.query
     detail: root.missingNames.length > 0
       ? ("Not installed: " + root.missingNames + ".")
@@ -164,7 +164,7 @@ PrefsPage {
 
     SettingRow {
       label: "Install"
-      description: "Write the Atmos command into each installed agent that Atmos knows how to edit."
+      description: I18n.tr("Write the Atmos command into each installed agent that Atmos knows how to edit.")
       caption: root.loadError || root.checkText
       query: root.query
       keywords: ["mcp", "install", "check"]
@@ -173,13 +173,13 @@ PrefsPage {
         spacing: Theme.space
 
         PrefsButton {
-          text: "Install for every installed agent"
+          text: I18n.tr("Install for every installed agent")
           enabled: root.installable > 0
           onClicked: root.installAll()
         }
 
         PrefsButton {
-          text: "Check"
+          text: I18n.tr("Check")
           onClicked: root.runCheck()
         }
       }
@@ -188,7 +188,7 @@ PrefsPage {
     SettingRow {
       visible: root.installed.length === 0 && root.loadError.length === 0
       label: "No agents"
-      description: "Install a coding agent on the Agentic page, then come back."
+      description: I18n.tr("Install a coding agent on the Agentic page, then come back.")
       valueText: "None"
       query: root.query
     }
@@ -215,7 +215,7 @@ PrefsPage {
 
           PrefsButton {
             visible: modelData.writer === true && (modelData.state === "custom" || modelData.state === "stale")
-            text: "Replace"
+            text: I18n.tr("Replace")
             onClicked: root.apply(modelData.id, true, true)
           }
         }

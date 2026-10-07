@@ -4,7 +4,7 @@ import "../../services"
 
 SettingRow {
   label: "Hide cursor while typing"
-  description: "The pointer disappears when you start typing."
+  description: I18n.tr("The pointer disappears when you start typing.")
   hint: "~/.config/hypr/looknfeel.lua · cursor.hide_on_key_press"
   keywords: ["cursor", "pointer", "hide", "type"]
 

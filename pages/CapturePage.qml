@@ -5,8 +5,8 @@ import "../services"
 PrefsPage {
   id: root
   hubId: "capture"
-  title: "Capture"
-  description: "Screenshots, a recording, and a couple of readers for text and QR codes. Pictures go to your Pictures folder. Recordings go to Videos."
+  title: I18n.tr("Capture")
+  description: I18n.tr("Screenshots, a recording, and a couple of readers for text and QR codes. Pictures go to your Pictures folder. Recordings go to Videos.")
 
   readonly property var screenshotModes: [
     { value: "smart", label: "Smart" },
@@ -34,14 +34,14 @@ PrefsPage {
   property bool recFullscreen: false
 
   PrefsGroup {
-    title: "Screenshot"
+    title: I18n.tr("Screenshot")
     query: root.query
     detail: "Smart picks a region or a window. Copy and save writes a PNG under Pictures and puts it on the clipboard."
     hint: "omarchy capture screenshot"
 
     SettingRow {
       label: "Mode"
-      description: "What the picker asks for."
+      description: I18n.tr("What the picker asks for.")
       hint: "omarchy capture screenshot"
       query: root.query
       keywords: ["screenshot", "region", "window", "fullscreen", "smart"]
@@ -55,7 +55,7 @@ PrefsPage {
 
     SettingRow {
       label: "Where it goes"
-      description: "Copy and save is the usual Omarchy path. Copy skips the file. Save skips the clipboard."
+      description: I18n.tr("Copy and save is the usual Omarchy path. Copy skips the file. Save skips the clipboard.")
       hint: "omarchy capture screenshot"
       query: root.query
       keywords: ["screenshot", "clipboard", "save", "copy"]
@@ -69,7 +69,7 @@ PrefsPage {
 
     SettingRow {
       label: "Take screenshot"
-      description: "The picker opens on the desktop."
+      description: I18n.tr("The picker opens on the desktop.")
       hint: "omarchy capture screenshot"
       query: root.query
       keywords: ["screenshot", "capture", "grim"]
@@ -83,14 +83,14 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Recording"
+    title: I18n.tr("Recording")
     query: root.query
     detail: "Start opens a region picker unless you ask for the whole screen. Stop finishes the file in Videos."
     hint: "omarchy capture screenrecording"
 
     SettingRow {
       label: "Desktop audio"
-      description: "Record what the speakers are playing."
+      description: I18n.tr("Record what the speakers are playing.")
       hint: "omarchy capture screenrecording --with-desktop-audio"
       query: root.query
       keywords: ["record", "audio", "speakers"]
@@ -104,7 +104,7 @@ PrefsPage {
 
     SettingRow {
       label: "Microphone"
-      description: "Record your voice with the picture."
+      description: I18n.tr("Record your voice with the picture.")
       hint: "omarchy capture screenrecording --with-microphone-audio"
       query: root.query
       keywords: ["record", "mic", "microphone"]
@@ -118,7 +118,7 @@ PrefsPage {
 
     SettingRow {
       label: "Webcam"
-      description: "A camera overlay on the recording."
+      description: I18n.tr("A camera overlay on the recording.")
       hint: "omarchy capture screenrecording --with-webcam"
       query: root.query
       keywords: ["record", "webcam", "camera"]
@@ -133,7 +133,7 @@ PrefsPage {
     SettingRow {
       available: root.recWebcam
       label: "Webcam size"
-      description: "How large the overlay starts."
+      description: I18n.tr("How large the overlay starts.")
       hint: "omarchy capture screenrecording --webcam-size"
       query: root.query
       keywords: ["webcam", "size", "overlay"]
@@ -148,7 +148,7 @@ PrefsPage {
 
     SettingRow {
       label: "Whole screen"
-      description: "Record the whole monitor, without a region picker."
+      description: I18n.tr("Record the whole monitor, without a region picker.")
       hint: "omarchy capture screenrecording --fullscreen"
       query: root.query
       keywords: ["record", "fullscreen", "monitor"]
@@ -180,7 +180,7 @@ PrefsPage {
         }
         PrefsButton {
           visible: Omarchy.recordingActive
-          text: "Stop"
+          text: I18n.tr("Stop")
           danger: true
           enabled: Omarchy.recordingActive
           onClicked: Omarchy.stopScreenrecording()
@@ -191,7 +191,7 @@ PrefsPage {
     SettingRow {
       available: Omarchy.webcamOverlay
       label: "Resize webcam"
-      description: "Step the overlay smaller or larger while a recording is up."
+      description: I18n.tr("Step the overlay smaller or larger while a recording is up.")
       hint: "omarchy capture webcam resize"
       query: root.query
       keywords: ["webcam", "resize", "overlay"]
@@ -199,17 +199,17 @@ PrefsPage {
       Row {
         spacing: Theme.space
         PrefsButton {
-          text: "Smaller"
+          text: I18n.tr("Smaller")
           enabled: Omarchy.webcamOverlay
           onClicked: Omarchy.resizeWebcam("smaller")
         }
         PrefsButton {
-          text: "Larger"
+          text: I18n.tr("Larger")
           enabled: Omarchy.webcamOverlay
           onClicked: Omarchy.resizeWebcam("larger")
         }
         PrefsButton {
-          text: "Reset"
+          text: I18n.tr("Reset")
           enabled: Omarchy.webcamOverlay
           onClicked: Omarchy.resizeWebcam("reset")
         }
@@ -218,39 +218,39 @@ PrefsPage {
   }
 
   PrefsGroup {
-    title: "Read"
+    title: I18n.tr("Read")
     query: root.query
     detail: "Both open a region picker. Text copies what OCR finds. QR copies the decoded link or payload."
 
     SettingRow {
       label: "Text from screen"
-      description: "OCR a region and copy the words."
+      description: I18n.tr("OCR a region and copy the words.")
       hint: "omarchy capture text"
       query: root.query
       keywords: ["ocr", "text", "tesseract"]
 
       PrefsButton {
-        text: "Read text…"
+        text: I18n.tr("Read text…")
         onClicked: Omarchy.captureText()
       }
     }
 
     SettingRow {
       label: "QR code"
-      description: "Decode a QR code from a region."
+      description: I18n.tr("Decode a QR code from a region.")
       hint: "omarchy capture qr"
       query: root.query
       keywords: ["qr", "code", "scan"]
 
       PrefsButton {
-        text: "Read QR…"
+        text: I18n.tr("Read QR…")
         onClicked: Omarchy.captureQr()
       }
     }
   }
 
   PrefsGroup {
-    title: "Save locations"
+    title: I18n.tr("Save locations")
     query: root.query
     detail: "Omarchy uses the XDG Pictures and Videos folders. Open the folder or copy the path. These are not changed here."
 
@@ -266,12 +266,12 @@ PrefsPage {
       Row {
         spacing: Theme.space
         PrefsButton {
-          text: "Open folder"
+          text: I18n.tr("Open folder")
           enabled: Omarchy.picturesDir.length > 0
           onClicked: Omarchy.openUserDir(Omarchy.picturesDir)
         }
         PrefsButton {
-          text: "Copy"
+          text: I18n.tr("Copy")
           enabled: Omarchy.picturesDir.length > 0
           onClicked: Omarchy.copyText(Omarchy.picturesDir)
         }
@@ -290,12 +290,12 @@ PrefsPage {
       Row {
         spacing: Theme.space
         PrefsButton {
-          text: "Open folder"
+          text: I18n.tr("Open folder")
           enabled: Omarchy.videosDir.length > 0
           onClicked: Omarchy.openUserDir(Omarchy.videosDir)
         }
         PrefsButton {
-          text: "Copy"
+          text: I18n.tr("Copy")
           enabled: Omarchy.videosDir.length > 0
           onClicked: Omarchy.copyText(Omarchy.videosDir)
         }

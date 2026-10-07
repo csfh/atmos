@@ -70,12 +70,12 @@ Popup {
       spacing: Theme.space
 
       PrefsButton {
-        text: root.cancelText
+        text: I18n.tr(root.cancelText)
         onClicked: root.close()
       }
 
       PrefsButton {
-        text: root.primaryText
+        text: I18n.tr(root.primaryText)
         enabled: root.primaryEnabled
         primary: !root.primaryDanger
         danger: root.primaryDanger

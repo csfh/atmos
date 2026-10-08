@@ -677,7 +677,7 @@ function clampPatchedValue(key, value, adapters) {
     var atmos = "";
     if (adapters && typeof adapters.parseChannel === "function")
       atmos = adapters.parseChannel(value);
-    if (!atmos) atmos = "alpha";
+    if (!atmos) atmos = "stable";
     return atmos;
   }
   if (key === "hybridGpuMode") {

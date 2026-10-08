@@ -8,7 +8,7 @@ function parseSha(raw) {
 
 function parseChannel(raw) {
   var s = String(raw || "").replace(/^\s+|\s+$/g, "");
-  if (s === "alpha") return "alpha";
+  if (s === "stable" || s === "alpha") return "stable";
   return "";
 }
 
@@ -53,9 +53,9 @@ function parseCheckOutput(text) {
     }
   }
   if (!out.summary) {
-    if (out.status === "behind") out.summary = "A newer Atmos is on alpha.";
+    if (out.status === "behind") out.summary = "A newer Atmos is on stable.";
     else if (out.status === "current") out.summary = "Atmos is up to date.";
-    else if (out.status === "fetch-failed") out.summary = "Could not fetch the alpha branch.";
+    else if (out.status === "fetch-failed") out.summary = "Could not fetch the stable branch.";
     else if (out.status === "packaged")
       out.summary = "Atmos is managed by pacman. Update it with omarchy update.";
   }

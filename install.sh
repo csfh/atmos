@@ -30,11 +30,11 @@ else
   repo=${ATMOS_REPO:-https://github.com/csfh/atmos.git}
   mkdir -p "$(dirname "$cache")"
   if [[ ! -d $cache/.git ]]; then
-    git clone --depth 1 --branch alpha "$repo" "$cache"
+    git clone --depth 1 --branch stable "$repo" "$cache"
   else
     git -C "$cache" remote set-url origin "$repo"
-    git -C "$cache" fetch --depth 1 origin alpha
-    git -C "$cache" checkout -B alpha FETCH_HEAD
+    git -C "$cache" fetch --depth 1 origin stable
+    git -C "$cache" checkout -B stable FETCH_HEAD
   fi
   # shellcheck source=scripts/atmos-xdg.sh
   . "$cache/scripts/atmos-xdg.sh"
@@ -43,7 +43,7 @@ fi
 
 DEST=$(atmos_data_home)
 atmos_stage "$SOURCE" "$DEST"
-atmos_write_channel alpha
+atmos_write_channel stable
 sha=""
 if git -C "$SOURCE" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   sha=$(git -C "$SOURCE" rev-parse HEAD)

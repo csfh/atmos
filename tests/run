@@ -1698,7 +1698,7 @@ if [[ -x scripts/set-atmos-channel.sh ]]; then
     echo "not ok - set-atmos-channel.sh accepted main"
     exit 1
   fi
-  if bash scripts/set-atmos-channel.sh --alpha >/dev/null 2>&1; then
+  if bash scripts/set-atmos-channel.sh --stable >/dev/null 2>&1; then
     echo "not ok - set-atmos-channel.sh accepted a flag"
     exit 1
   fi

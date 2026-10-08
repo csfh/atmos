@@ -92,6 +92,21 @@ try {
 
   assertEqual(run("setup-atmos.sh", ["bogus"]).status, 2, "setup rejects an unknown action");
 
+  // alpha was the only channel before stable; a config that still says alpha follows stable.
+  const configHome = path.join(fixture, "xdg-config");
+  fs.mkdirSync(path.join(configHome, "atmos"), { recursive: true });
+  const channelOf = (value) => {
+    fs.writeFileSync(path.join(configHome, "atmos", "channel"), value);
+    return spawnSync(
+      "bash",
+      ["-c", `. "${path.join(root, "scripts", "atmos-xdg.sh")}"; atmos_channel`],
+      { encoding: "utf8", env: Object.assign({}, process.env, { XDG_CONFIG_HOME: configHome }) },
+    ).stdout.trim();
+  };
+  assertEqual(channelOf("alpha\n"), "stable", "a legacy alpha channel reads as stable");
+  assertEqual(channelOf("stable\n"), "stable", "the stable channel reads as stable");
+  assertEqual(channelOf("main\n"), "stable", "an unknown channel falls back to stable");
+
   // In a package install only --setup switches the integration on. Reset and
   // every look/windows/workspaces write call `require apply`, which must leave
   // a bare hyprland.lua bare, and must keep healing one the user opted into.

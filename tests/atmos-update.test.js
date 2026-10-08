@@ -3,14 +3,14 @@ const { load, assertEqual } = require("./harness");
 const atmosUp = load("services/AtmosUpdate.js");
 assertEqual(
   atmosUp.parseCheckOutput(
-    "status behind\nchannel alpha\nlocal abcdef0\nremote abcdef1\nshort abcdef0\n",
+    "status behind\nchannel stable\nlocal abcdef0\nremote abcdef1\nshort abcdef0\n",
   ).status,
   "behind",
   "parseCheckOutput behind",
 );
 assertEqual(
-  atmosUp.parseCheckOutput("status behind\nchannel alpha\n").channel,
-  "alpha",
+  atmosUp.parseCheckOutput("status behind\nchannel stable\n").channel,
+  "stable",
   "parseCheckOutput channel",
 );
 assertEqual(
@@ -18,12 +18,13 @@ assertEqual(
   "current",
   "parseCheckOutput current",
 );
-assertEqual(atmosUp.parseChannel("alpha"), "alpha", "parseChannel accepts alpha");
+assertEqual(atmosUp.parseChannel("stable"), "stable", "parseChannel accepts stable");
+assertEqual(atmosUp.parseChannel("alpha"), "stable", "parseChannel reads legacy alpha as stable");
 assertEqual(atmosUp.parseChannel("main"), "", "parseChannel rejects main");
 assertEqual(atmosUp.parseSha("--help"), "", "parseSha rejects a flag");
 assertEqual(
   atmosUp.parseCheckOutput("status behind\nsummary rm -rf /\n").summary,
-  "A newer Atmos is on alpha.",
+  "A newer Atmos is on stable.",
   "parseCheckOutput drops a junk summary",
 );
 assertEqual(atmosUp.parseSha("AbCdEf01"), "abcdef01", "parseSha lowercases a hex sha");
@@ -37,7 +38,7 @@ assertEqual(fetchFailed.remote, "cafebabe", "parseCheckOutput reads remote sha")
 assertEqual(fetchFailed.short, "dead", "parseCheckOutput reads short sha");
 assertEqual(
   fetchFailed.summary,
-  "Could not fetch the alpha branch.",
+  "Could not fetch the stable branch.",
   "parseCheckOutput default fetch-failed summary",
 );
 assertEqual(

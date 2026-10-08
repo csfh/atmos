@@ -57,7 +57,7 @@ PrefsPage {
   PrefsConfirm {
     id: atmosUpdateConfirm
     title: "Update Atmos"
-    message: "Fetch the alpha branch and replace the installed Atmos files under ~/.local/share/atmos. If the window does not reload, quit Atmos and open it again."
+    message: "Fetch the stable branch and replace the installed Atmos files under ~/.local/share/atmos. If the window does not reload, quit Atmos and open it again."
     confirmText: "Update"
     onConfirmed: Omarchy.runAtmosUpdate()
   }
@@ -357,7 +357,7 @@ PrefsPage {
     query: root.query
     detail: Omarchy.atmosPackaged
       ? "Installed by pacman under /usr/lib/atmos. Update it with omarchy update."
-      : "Installed files live under ~/.local/share/atmos. Channel is the git branch Check and Update follow. Only alpha exists yet."
+      : "Installed files live under ~/.local/share/atmos. Channel is the git branch Check and Update follow. Only stable exists yet."
 
     SettingRow {
       label: Omarchy.atmosPackaged && Omarchy.atmosVersion.length
@@ -383,15 +383,15 @@ PrefsPage {
 
     SettingRow {
       label: "Channel"
-      description: "Alpha tracks the alpha branch. Other channels are not available yet."
+      description: "Stable tracks the stable branch. Other channels are not available yet."
       hint: "~/.config/atmos/channel"
       query: root.query
-      keywords: ["atmos", "channel", "alpha", "branch"]
+      keywords: ["atmos", "channel", "stable", "branch"]
 
       PrefsSelect {
         value: Omarchy.atmosChannel
         options: [
-          { value: "alpha", label: "Alpha" }
+          { value: "stable", label: "Stable" }
         ]
         enabled: !Omarchy.jobBusy
         onChanged: function(value) { if (value !== Omarchy.atmosChannel) Omarchy.setAtmosChannel(value) }
@@ -406,10 +406,10 @@ PrefsPage {
         : (Omarchy.jobKind === "atmos-update-check" && Omarchy.jobBusy
           ? "Checking…"
           : (Omarchy.atmosUpdateSummary
-            || (Omarchy.atmosUpdateAvailable ? "A newer Atmos is on alpha." : "Check the alpha branch for a newer copy.")))
+            || (Omarchy.atmosUpdateAvailable ? "A newer Atmos is on stable." : "Check the stable branch for a newer copy.")))
       hint: "scripts/update-atmos.sh"
       query: root.query
-      keywords: ["atmos", "update", "upgrade", "git", "pull", "alpha"]
+      keywords: ["atmos", "update", "upgrade", "git", "pull", "stable"]
 
       Row {
         spacing: Theme.space

@@ -43,7 +43,7 @@ atmos_bin_home() {
 }
 
 atmos_valid_channel() {
-  [[ $1 == alpha ]]
+  [[ $1 == stable ]]
 }
 
 atmos_channel() {
@@ -55,11 +55,13 @@ atmos_channel() {
     c=${c%%$'\n'*}
     c=${c%% *}
   fi
+  # alpha was the only channel before stable. Installs that wrote it follow stable now.
+  [[ $c == alpha ]] && c=stable
   if atmos_valid_channel "$c"; then
     printf '%s\n' "$c"
     return
   fi
-  printf '%s\n' alpha
+  printf '%s\n' stable
 }
 
 atmos_write_channel() {

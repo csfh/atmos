@@ -35,7 +35,7 @@ fi
 
 if ! atmos_sync_cache "$channel"; then
   say status fetch-failed
-  say summary "Could not fetch the alpha branch."
+  say summary "Could not fetch the stable branch."
   exit 1
 fi
 
@@ -68,7 +68,7 @@ say status behind
 if [[ $local_sha == "$remote_sha" ]]; then
   say summary "Atmos installation is incomplete. Update to repair it."
 else
-  say summary "A newer Atmos is on alpha."
+  say summary "A newer Atmos is on stable."
 fi
 
 if [[ $ACTION != apply ]]; then

@@ -25,10 +25,10 @@ Hubs include home, monitor, favorites, appearance, displays, windows, bar, notif
 ## Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/csfh/atmos/alpha/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/csfh/atmos/stable/install.sh | bash
 ```
 
-That copies the launcher into `~/.local/bin`, the QML app into `~/.local/share/atmos`, and the desktop file plus Hypr drop-in into the usual XDG config dirs. From a clone, `./install.sh` does the same thing. System → Atmos follows the **alpha** git branch for Check and Update.
+That copies the launcher into `~/.local/bin`, the QML app into `~/.local/share/atmos`, and the desktop file plus Hypr drop-in into the usual XDG config dirs. From a clone, `./install.sh` does the same thing. System → Atmos follows the **stable** git branch for Check and Update.
 
 ### From the Omarchy package repo
 
@@ -41,7 +41,7 @@ The package installs under `/usr/lib/atmos`. Hyprland integration (the window se
 
 ## Changelog
 
-See [CHANGELOG.md](CHANGELOG.md) for every alpha tag.
+See [CHANGELOG.md](CHANGELOG.md) for every tag.
 
 ## Tests
 
@@ -54,7 +54,7 @@ npm install
 
 `npm install` points Git at `.githooks/`, so commits run oxlint, `oxfmt --check`, and `tests/compile-python` first. `git commit --no-verify` skips that. From a clone that already has `node_modules`, run `scripts/install-git-hooks.sh`.
 
-Pull requests and pushes to `main` and `alpha` run `./tests/run` on GitHub Actions (`.github/workflows/tests.yml`). The live Omarchy snapshot step is skipped on those runners.
+Pull requests and pushes to `main` and `stable` run `./tests/run` on GitHub Actions (`.github/workflows/tests.yml`). The live Omarchy snapshot step is skipped on those runners.
 
 ## License
 

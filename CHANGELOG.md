@@ -1,8 +1,12 @@
 # Changelog
 
-Notable changes to Atmos. Each section is a git tag on `main` and `alpha`. Install and in-app Update follow the `alpha` branch.
+Notable changes to Atmos. Each section is a git tag on `main` and `stable`. Install and in-app Update follow the `stable` branch.
 
 ## [v0.1.0] - 2026-10-08
+
+### Changed
+
+- The update channel is `stable`, replacing `alpha`. Install and in-app Update follow the `stable` branch; an `alpha` channel in `~/.config/atmos/channel` is read as `stable`. The `alpha` branch is kept on v0.1.0 so older installs can update onto this release, then it is frozen.
 
 ### Added
 

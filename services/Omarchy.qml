@@ -210,7 +210,7 @@ QtObject {
   property bool updateAvailable: false
   property string updateSummary: ""
   property string atmosRevision: ""
-  property string atmosChannel: "alpha"
+  property string atmosChannel: "stable"
   property bool atmosInstalled: false
   property bool atmosPackaged: false
   property string atmosVersion: ""
@@ -1667,11 +1667,11 @@ QtObject {
     runJob(["omarchy", "update", "available"], "", "update-check")
   }
   function setAtmosChannel(name) {
-    if (AtmosUpdate.parseChannel(name) !== "alpha") return
+    if (AtmosUpdate.parseChannel(name) !== "stable") return
     if (name === atmosChannel) return
-    runCommand(["bash", Paths.setAtmosChannelScript, "alpha"], {
+    runCommand(["bash", Paths.setAtmosChannelScript, "stable"], {
       key: "atmosChannel",
-      apply: { atmosChannel: "alpha" },
+      apply: { atmosChannel: "stable" },
       refresh: "none"
     })
   }

@@ -17,6 +17,7 @@ Atmos is a standalone Quickshell preferences app for Omarchy. Do not import `qs.
 - Mutations go through `omarchy` commands, `scripts/set-idle.sh` which sources `omarchy-shell-config`, or the Hyprland sentinel writers `scripts/set-hypr-look.sh`, `scripts/set-hypr-input.sh`, `scripts/set-hypr-autostart.sh`, `scripts/set-hypr-bindings.sh`, `scripts/set-hypr-windows.sh`, and `scripts/set-hyprsunset.sh`.
 - Do not write a private prefs store.
 - Hyprland drop-in is `~/.config/hypr/atmos.lua` required as `hypr.atmos` next to `hypr.omafetch`, before `default.hypr.toggles`. `hypr.atmos_layout` wraps dwindle `layoutmsg` so scrolling workspaces do not throw. Sentinel blocks are `-- atmos:look|input|autostart|bindings|windows|workspaces begin/end` in `atmos.lua` / `looknfeel.lua` / `input.lua` / `autostart.lua` / `bindings.lua`, and `-- atmos:monitors begin/end` in `monitors.lua`.
+- A `PACKAGED` file in the app root marks a package-manager install: no Check/Update, no writes under the app root. Per-user Hyprland setup is opt-in through `atmos --setup` (`scripts/setup-atmos.sh`); never run it implicitly from the app.
 - Theme colors come from `~/.local/state/omarchy/current/theme/{colors,shell}.toml` and `~/.config/omarchy/shell.toml`.
 - Diagnostics inventory is `scripts/diag-inventory.py`. Copy/save/agent append `omarchy-debug --no-sudo --print` via `scripts/diag-report.sh`.
 - Keep parsers in `services/*.js` so Node can test them without Quickshell.

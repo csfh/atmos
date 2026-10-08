@@ -1,0 +1,49 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+      - "v[0-9]+.[0-9]+.[0-9]+-*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Tag matches the backend version
+        run: |
+          tag=${GITHUB_REF_NAME#v}
+          crate=$(sed -n 's/^version = "\(.*\)"/\1/p' backend/Cargo.toml | head -n 1)
+          if [[ $crate != "$tag" ]]; then
+            echo "backend/Cargo.toml is $crate but the tag is $GITHUB_REF_NAME" >&2
+            exit 1
+          fi
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: ./tests/run
+
+      - name: Build the release archive
+        run: |
+          version=${GITHUB_REF_NAME#v}
+          mkdir dist
+          git archive --format=tar.gz --prefix="atmos-$version/" \
+            -o "dist/atmos-$GITHUB_REF_NAME.tar.gz" "$GITHUB_REF_NAME"
+          (cd dist && sha256sum "atmos-$GITHUB_REF_NAME.tar.gz" > SHASUMS256.txt)
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          flags=()
+          [[ $GITHUB_REF_NAME == *-* ]] && flags+=(--prerelease)
+          gh release create "$GITHUB_REF_NAME" dist/* \
+            --title "$GITHUB_REF_NAME" --verify-tag --generate-notes "${flags[@]}"

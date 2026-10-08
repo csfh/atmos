@@ -18,6 +18,12 @@ say() {
   printf '%s %s\n' "$1" "$2"
 }
 
+if atmos_packaged; then
+  say status packaged
+  say summary "Atmos is managed by pacman. Update it with omarchy update."
+  exit 0
+fi
+
 channel=$(atmos_channel)
 say channel "$channel"
 

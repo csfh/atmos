@@ -30,6 +30,15 @@ curl -fsSL https://raw.githubusercontent.com/csfh/atmos/alpha/install.sh | bash
 
 That copies the launcher into `~/.local/bin`, the QML app into `~/.local/share/atmos`, and the desktop file plus Hypr drop-in into the usual XDG config dirs. From a clone, `./install.sh` does the same thing. System → Atmos follows the **alpha** git branch for Check and Update.
 
+### From the Omarchy package repo
+
+```bash
+sudo pacman -S omarchy-atmos
+atmos --setup
+```
+
+The package installs under `/usr/lib/atmos`. Hyprland integration (the window seed and `hypr.atmos` requires) is opt-in: `atmos --setup` adds it and `atmos --setup off` removes it. `atmos --setup status` prints `on` or `off`. System → Atmos hides Channel and Update for a package install; `omarchy update` updates it. If you installed with `install.sh` first, remove `~/.local/share/atmos`, `~/.local/bin/atmos` and `~/.local/share/applications/atmos.desktop` so they do not shadow the package.
+
 ## Changelog
 
 See [CHANGELOG.md](CHANGELOG.md) for every alpha tag.

@@ -29,7 +29,13 @@ function parseCheckOutput(text) {
     var key = space === -1 ? line : line.slice(0, space);
     var value = space === -1 ? "" : line.slice(space + 1).replace(/^\s+/, "");
     if (key === "status") {
-      if (value === "current" || value === "behind" || value === "fetch-failed") out.status = value;
+      if (
+        value === "current" ||
+        value === "behind" ||
+        value === "fetch-failed" ||
+        value === "packaged"
+      )
+        out.status = value;
     } else if (key === "channel") out.channel = parseChannel(value);
     else if (key === "local") out.local = parseSha(value);
     else if (key === "remote") out.remote = parseSha(value);
@@ -50,6 +56,8 @@ function parseCheckOutput(text) {
     if (out.status === "behind") out.summary = "A newer Atmos is on alpha.";
     else if (out.status === "current") out.summary = "Atmos is up to date.";
     else if (out.status === "fetch-failed") out.summary = "Could not fetch the alpha branch.";
+    else if (out.status === "packaged")
+      out.summary = "Atmos is managed by pacman. Update it with omarchy update.";
   }
   return out;
 }

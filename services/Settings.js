@@ -778,7 +778,7 @@ function exportMarkdown(snapshot, keys, meta) {
     tomlLine("schema", SETTINGS_SCHEMA),
     tomlLine("exported", String(info.exported || "")),
     tomlLine("hostname", String(info.hostname || snap.hostname || "")),
-    tomlLine("atmos", String(info.atmosRevision || snap.atmosRevision || "")),
+    tomlLine("atmos", String(info.atmosRevision || snap.atmosRevision || snap.atmosVersion || "")),
     tomlLine("omarchy", String(info.omarchyVersion || snap.omarchyVersion || "")),
     tomlLine("hardware", String(info.hardware || "")),
   ];

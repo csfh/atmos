@@ -1296,6 +1296,16 @@ def ensure_atmos_require(text: str) -> str:
     return text.rstrip() + "\n\n" + REQUIRE_LINE + "\n"
 
 
+def packaged() -> bool:
+    return (Path(__file__).resolve().parent.parent / "PACKAGED").is_file()
+
+
+def strip_atmos_requires(text: str) -> str:
+    drop = (REQUIRE_LINE, LAYOUT_REQUIRE)
+    kept = [line for line in text.split("\n") if line.strip() not in drop]
+    return "\n".join(kept)
+
+
 def layout_lua() -> str:
     path = Path(__file__).resolve().parent.parent / "packaging" / "hypr-atmos-layout.lua"
     return path.read_text()
@@ -1542,21 +1552,23 @@ def apply(kind: str, path: Path, payload: dict | None, reset: bool, _text: str |
 def main() -> int:
     if len(sys.argv) < 4:
         print(
-            "Usage: hypr-sentinel.py look|input|autostart|bindings|windows|workspaces|monitors|require apply|reset|list <file> [json]",
+            "Usage: hypr-sentinel.py look|input|autostart|bindings|windows|workspaces|monitors|require apply|reset|list <file> [json] (require also takes enable)",
             file=sys.stderr,
         )
         return 2
     kind, action, dest = sys.argv[1], sys.argv[2], Path(sys.argv[3])
     kinds = ("look", "input", "autostart", "bindings", "windows", "workspaces", "monitors", "require")
-    if kind not in kinds or action not in ("apply", "reset", "list"):
+    if kind not in kinds or action not in ("apply", "reset", "list", "enable"):
         print(
-            "hypr-sentinel.py: kind must be look|input|autostart|bindings|windows|workspaces|monitors|require and action apply|reset|list",
+            "hypr-sentinel.py: kind must be look|input|autostart|bindings|windows|workspaces|monitors|require and action apply|reset|list (enable for require only)",
             file=sys.stderr,
         )
         return 2
     if kind == "require":
-        if action != "apply":
-            print("hypr-sentinel.py: require only supports apply", file=sys.stderr)
+        # enable is the explicit opt-in (atmos --setup). apply keeps an existing
+        # integration healed, but in a package install it never switches one on.
+        if action not in ("apply", "enable", "reset"):
+            print("hypr-sentinel.py: require only supports apply|enable|reset", file=sys.stderr)
             return 2
         if not dest.exists():
             return 0
@@ -1568,6 +1580,13 @@ def main() -> int:
                 pass
             text = dest.read_text()
             if not text.strip():
+                return 0
+            if action == "apply" and packaged() and "hypr.atmos" not in text:
+                return 0
+            if action == "reset":
+                updated = strip_atmos_requires(text)
+                if updated != text:
+                    atomic_write_text(dest, updated)
                 return 0
             ensure_layout_file(dest.parent / "atmos_layout.lua")
             updated = ensure_atmos_require(text)

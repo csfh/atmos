@@ -262,6 +262,10 @@ def atmos_info() -> dict:
         "atmos",
     )
     revision = read_strip(os.path.join(data, "REVISION"), 80)
+    root = os.environ.get("ATMOS_ROOT") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
+    packaged = os.path.isfile(os.path.join(root, "PACKAGED"))
+    if packaged:
+        revision = read_strip(os.path.join(root, "PACKAGED"), 80)
     hypr = os.path.join(HOME, ".config/hypr") if HOME else ""
     hyprland = os.path.join(hypr, "hyprland.lua") if hypr else ""
     sentinels = {
@@ -277,7 +281,8 @@ def atmos_info() -> dict:
     }
     return {
         "revision": revision[:80],
-        "installed": bool(revision) or os.path.isdir(data),
+        "packaged": packaged,
+        "installed": packaged or bool(revision) or os.path.isdir(data),
         "hyprAtmos": file_has(hyprland, 'require("hypr.atmos")') if hyprland else False,
         "hyprAtmosLayout": file_has(hyprland, 'require("hypr.atmos_layout")') if hyprland else False,
         "sentinels": sentinels,

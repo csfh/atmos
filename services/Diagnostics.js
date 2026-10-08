@@ -101,6 +101,7 @@ function normalizeAtmos(raw) {
   return {
     revision: cleanText(src.revision, 80),
     installed: asBool(src.installed),
+    packaged: asBool(src.packaged),
     hyprAtmos: asBool(src.hyprAtmos),
     hyprAtmosLayout: asBool(src.hyprAtmosLayout),
     sentinels: normalizeSentinels(src.sentinels),
@@ -274,7 +275,8 @@ function memoryPressure(diag) {
 
 function atmosOk(diag) {
   var atmos = asObject(asObject(diag).atmos);
-  return atmos.hyprAtmos === true;
+  // A package install leaves the Hyprland integration to atmos --setup.
+  return atmos.hyprAtmos === true || atmos.packaged === true;
 }
 
 function statusLabel(ok) {
@@ -303,6 +305,7 @@ function atmosSummary(diag) {
   var bits = [];
   if (a.revision) bits.push(a.revision);
   if (a.hyprAtmos) bits.push("hypr.atmos is required");
+  else if (a.packaged) bits.push("Hyprland integration is off. Run atmos --setup to turn it on");
   else bits.push("hypr.atmos is missing from hyprland.lua");
   return bits.join(". ") + ".";
 }

@@ -213,6 +213,8 @@ var REST_EXTRAS = Object.freeze([
   "atmosRevision",
   "atmosChannel",
   "atmosInstalled",
+  "atmosPackaged",
+  "atmosVersion",
   "voxtypeInstalled",
   "hybridGpuAvailable",
   "hybridGpuMode",

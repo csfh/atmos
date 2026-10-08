@@ -129,7 +129,9 @@ PrefsPage {
     detail: "The drop-in require in hyprland.lua is what keeps this window floating. Sentinels are the blocks Atmos wrote."
 
     SettingRow {
-      label: Omarchy.atmosRevision.length ? Omarchy.atmosRevision : "Atmos"
+      label: Omarchy.atmosPackaged && Omarchy.atmosVersion.length
+        ? Omarchy.atmosVersion
+        : (Omarchy.atmosRevision.length ? Omarchy.atmosRevision : "Atmos")
       description: DiagJs.atmosSummary(root.diag)
       hint: "~/.config/hypr/hyprland.lua"
       query: root.query

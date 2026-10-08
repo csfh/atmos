@@ -300,6 +300,7 @@ PrefsPage {
     }
 
     SettingRow {
+      available: !Omarchy.atmosPackaged
       label: "Channel"
       description: "Stable is the usual stream. rc and edge move faster. Dev is a source checkout."
       hint: "omarchy channel set"
@@ -354,23 +355,29 @@ PrefsPage {
   PrefsGroup {
     title: "Atmos"
     query: root.query
-    detail: "Installed files live under ~/.local/share/atmos. Channel is the git branch Check and Update follow. Only alpha exists yet."
+    detail: Omarchy.atmosPackaged
+      ? "Installed by pacman under /usr/lib/atmos. Update it with omarchy update."
+      : "Installed files live under ~/.local/share/atmos. Channel is the git branch Check and Update follow. Only alpha exists yet."
 
     SettingRow {
-      label: Omarchy.atmosRevision.length ? Omarchy.atmosRevision : "Atmos"
-      description: Omarchy.atmosRevision.length
-        ? "Installed revision under ~/.local/share/atmos. Copy if you need it in a report."
-        : (Omarchy.atmosInstalled
-          ? "REVISION was not readable. Copy stays disabled until that file exists."
-          : "Not installed in XDG data. Copy stays disabled. Run install.sh from the Atmos source tree.")
-      hint: "~/.local/share/atmos/REVISION"
+      label: Omarchy.atmosPackaged && Omarchy.atmosVersion.length
+        ? Omarchy.atmosVersion
+        : (Omarchy.atmosRevision.length ? Omarchy.atmosRevision : "Atmos")
+      description: Omarchy.atmosPackaged
+        ? "Installed package version. Copy if you need it in a report."
+        : (Omarchy.atmosRevision.length
+          ? "Installed revision under ~/.local/share/atmos. Copy if you need it in a report."
+          : (Omarchy.atmosInstalled
+            ? "REVISION was not readable. Copy stays disabled until that file exists."
+            : "Not installed in XDG data. Copy stays disabled. Run install.sh from the Atmos source tree."))
+      hint: Omarchy.atmosPackaged ? "/usr/lib/atmos/PACKAGED" : "~/.local/share/atmos/REVISION"
       query: root.query
       keywords: ["atmos", "version", "revision", "git"]
 
       PrefsButton {
         text: "Copy"
-        enabled: Omarchy.atmosRevision.length > 0
-        onClicked: Omarchy.copyText(Omarchy.atmosRevision)
+        enabled: (Omarchy.atmosPackaged ? Omarchy.atmosVersion : Omarchy.atmosRevision).length > 0
+        onClicked: Omarchy.copyText(Omarchy.atmosPackaged ? Omarchy.atmosVersion : Omarchy.atmosRevision)
       }
     }
 
@@ -392,6 +399,7 @@ PrefsPage {
     }
 
     SettingRow {
+      available: !Omarchy.atmosPackaged
       label: "Updates"
       description: Omarchy.jobKind === "atmos-update" && Omarchy.jobBusy
         ? "Updating…"
@@ -417,6 +425,19 @@ PrefsPage {
           onClicked: atmosUpdateConfirm.ask()
         }
       }
+    }
+
+    SettingRow {
+      available: Omarchy.atmosPackaged
+      readonly property bool integrated: DiagJs.normalize(Omarchy.diagnostics).atmos.hyprAtmos
+      label: "Hyprland integration"
+      description: integrated
+        ? "The Atmos window rule and layout wrap load from hyprland.lua. Run atmos --setup off in a terminal to remove them."
+        : "Off. Window rules and workspace settings Atmos writes are not loaded until you run atmos --setup in a terminal."
+      hint: "atmos --setup"
+      valueText: integrated ? "On" : "Off"
+      query: root.query
+      keywords: ["atmos", "setup", "hyprland", "integration", "hypr.atmos", "drop-in"]
     }
 
     SettingRow {

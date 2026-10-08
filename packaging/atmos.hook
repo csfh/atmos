@@ -1,0 +1,11 @@
+# pacman cannot reach what atmos --setup wrote into each user's Hyprland config, so it says how.
+[Trigger]
+Type = Package
+Operation = Remove
+Target = omarchy-atmos
+
+[Action]
+Description = Noting what Atmos leaves in each user's config
+# Pre, because pacman reads its hooks again after the transaction, when this file is already gone.
+When = PreTransaction
+Exec = /usr/bin/printf %s\n "Atmos: if you ran atmos --setup, it left hypr.atmos and hypr.atmos_layout in ~/.config/hypr/hyprland.lua." "Atmos: each user undoes that with atmos --setup off, which needs Atmos installed."

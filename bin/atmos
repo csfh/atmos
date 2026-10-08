@@ -51,6 +51,11 @@ if [[ ${1:-} == mcp ]]; then
   exec node "$ROOT/services/McpServer.js" "$@"
 fi
 
+# Per-user Hyprland integration, opt-in. This does not open a window.
+if [[ ${1:-} == --setup ]]; then
+  exec bash "$ROOT/scripts/setup-atmos.sh" "${2:-on}"
+fi
+
 if [[ ! -f $ROOT/shell.qml ]]; then
   echo "atmos: missing $ROOT/shell.qml" >&2
   exit 1

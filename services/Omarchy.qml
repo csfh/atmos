@@ -212,6 +212,8 @@ QtObject {
   property string atmosRevision: ""
   property string atmosChannel: "alpha"
   property bool atmosInstalled: false
+  property bool atmosPackaged: false
+  property string atmosVersion: ""
   property bool atmosUpdateAvailable: false
   property string atmosUpdateSummary: ""
   property bool voxtypeInstalled: false

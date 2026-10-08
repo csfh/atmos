@@ -25,6 +25,13 @@ python3 "$ROOT/hypr-sentinel.py" autostart reset "$ATMOS_AUTOSTART_FILE"
 python3 "$ROOT/hypr-sentinel.py" bindings reset "$ATMOS_BINDINGS_FILE"
 python3 "$ROOT/hypr-sentinel.py" windows reset "$ATMOS_WINDOWS_FILE"
 
+# shellcheck source=atmos-xdg.sh
+source "$ROOT/atmos-xdg.sh"
+if atmos_packaged && [[ $(atmos_setup_state) == off ]]; then
+  atmos_hypr_reload reset-atmos.sh errors
+  exit 0
+fi
+
 seed=$(cd -- "$ROOT/.." && pwd)/packaging/hypr-atmos.lua
 if [[ -f $seed ]]; then
   mkdir -p "$(dirname "$ATMOS_WINDOWS_FILE")"

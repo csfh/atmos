@@ -107,4 +107,12 @@ assert(blank.indexOf("Atmos diagnostic report") === 0, "empty report still has a
 assert(blank.indexOf("None.") !== -1, "empty report says none for empty lists");
 assert(blank.indexOf("== Hyprland ==") !== -1, "empty report keeps Hyprland");
 assertEqual(diag.atmosOk({}), false, "atmosOk false without hypr.atmos");
+const packagedOff = diag.normalize({
+  atmos: { installed: true, packaged: true, revision: "0.1.0-1" },
+});
+assertEqual(diag.atmosOk(packagedOff), true, "atmosOk when packaged and setup is still off");
+assert(
+  diag.atmosSummary(packagedOff).indexOf("atmos --setup") !== -1,
+  "atmosSummary tells a packaged user how to turn the integration on",
+);
 assertEqual(diag.networkSummary({}), "No default route.", "networkSummary offline default");

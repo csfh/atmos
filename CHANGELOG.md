@@ -2,6 +2,15 @@
 
 Notable changes to Atmos. Each section is a git tag on `main` and `alpha`. Install and in-app Update follow the `alpha` branch.
 
+## [Unreleased]
+
+### Added
+
+- Packaging for the Omarchy package repo. A `PACKAGED` marker in the app root makes Atmos leave updates to pacman: System → Atmos shows the package version and hides Channel and Update, and `update-atmos.sh` reports `packaged`.
+- `atmos --setup [on|off|status]` adds or removes the Hyprland drop-ins for one user. `hypr-sentinel.py require reset` removes the requires.
+- `packaging/atmos.hook` tells pacman users to run `atmos --setup off` before removing the package.
+- A release workflow publishes `atmos-vX.Y.Z.tar.gz` and `SHASUMS256.txt` for each `v*` tag, after checking the tag against `backend/Cargo.toml` and running `./tests/run`.
+
 ## [v0.1.0-rc.2] - 2026-10-05
 
 ### Added

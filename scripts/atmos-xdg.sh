@@ -1,5 +1,27 @@
 # Shared XDG paths and staging for Atmos install/update. Source from install.sh or scripts/.
 
+# A package manager owns the app when the packager left a PACKAGED marker in
+# the app root. Its first line is the package version.
+atmos_app_root() {
+  if [[ -n ${ATMOS_ROOT:-} ]]; then
+    printf '%s\n' "$ATMOS_ROOT"
+    return
+  fi
+  cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd
+}
+
+atmos_packaged() {
+  [[ -f $(atmos_app_root)/PACKAGED ]]
+}
+
+atmos_package_version() {
+  local file v=""
+  file=$(atmos_app_root)/PACKAGED
+  [[ -r $file ]] && v=$(head -n 1 -- "$file")
+  [[ $v =~ ^[0-9A-Za-z][0-9A-Za-z.+_~-]{0,39}$ ]] || v=""
+  printf '%s\n' "$v"
+}
+
 atmos_repo() {
   printf '%s\n' "${ATMOS_REPO:-https://github.com/csfh/atmos.git}"
 }
@@ -192,13 +214,47 @@ atmos_link_xdg() {
   if command -v update-desktop-database >/dev/null 2>&1; then
     update-desktop-database "${XDG_DATA_HOME:-$HOME/.local/share}/applications" >/dev/null 2>&1 || true
   fi
-  if [[ ! -f $HOME/.config/hypr/atmos.lua ]]; then
-    cp "$dest/packaging/hypr-atmos.lua" "$HOME/.config/hypr/atmos.lua"
+  atmos_setup_hypr "$dest"
+}
+
+# Hyprland integration for the current user: the window seed, the layout
+# wrapper, and their requires in hyprland.lua. Idempotent.
+atmos_setup_hypr() {
+  local dest=$1
+  local hypr="${ATMOS_HYPR_DIR:-$HOME/.config/hypr}"
+  mkdir -p "$hypr"
+  if [[ ! -f $hypr/atmos.lua ]]; then
+    cp "$dest/packaging/hypr-atmos.lua" "$hypr/atmos.lua"
   fi
-  cp "$dest/packaging/hypr-atmos-layout.lua" "$HOME/.config/hypr/atmos_layout.lua"
-  python3 "$dest/scripts/hypr-sentinel.py" require apply "$HOME/.config/hypr/hyprland.lua"
+  cp "$dest/packaging/hypr-atmos-layout.lua" "$hypr/atmos_layout.lua"
+  python3 "$dest/scripts/hypr-sentinel.py" require enable "$hypr/hyprland.lua"
   atmos_strip_omarchy_menu
   if command -v hyprctl >/dev/null 2>&1; then
     hyprctl reload >/dev/null || true
+  fi
+}
+
+# Undo atmos_setup_hypr. atmos.lua is the user's file once edited, so it goes
+# only while it is still the seed. Sentinel blocks (the user's settings) stay;
+# Reset in Atmos strips those.
+atmos_unsetup_hypr() {
+  local dest=$1
+  local hypr="${ATMOS_HYPR_DIR:-$HOME/.config/hypr}"
+  python3 "$dest/scripts/hypr-sentinel.py" require reset "$hypr/hyprland.lua"
+  rm -f -- "$hypr/atmos_layout.lua"
+  if [[ -f $hypr/atmos.lua ]] && cmp -s -- "$hypr/atmos.lua" "$dest/packaging/hypr-atmos.lua"; then
+    rm -f -- "$hypr/atmos.lua"
+  fi
+  if command -v hyprctl >/dev/null 2>&1; then
+    hyprctl reload >/dev/null || true
+  fi
+}
+
+atmos_setup_state() {
+  local hypr="${ATMOS_HYPR_DIR:-$HOME/.config/hypr}"
+  if [[ -f $hypr/hyprland.lua ]] && grep -q 'hypr\.atmos' "$hypr/hyprland.lua"; then
+    printf 'on\n'
+  else
+    printf 'off\n'
   fi
 }

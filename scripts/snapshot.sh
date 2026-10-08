@@ -2388,8 +2388,15 @@ atmos_revision=""
 atmos_channel=$(atmos_channel)
 atmos_installed=false
 atmos_data=$(atmos_data_home)
+atmos_packaged=false
+atmos_version=""
 if [[ -x $atmos_data/bin/atmos ]]; then
   atmos_installed=true
+fi
+if atmos_packaged; then
+  atmos_packaged=true
+  atmos_installed=true
+  atmos_version=$(atmos_package_version)
 fi
 if [[ -r $atmos_data/REVISION ]]; then
   atmos_revision=$(<"$atmos_data/REVISION")
@@ -2915,6 +2922,8 @@ snapshot_json=$(jq -n \
   --arg atmosRevision "$atmos_revision" \
   --arg atmosChannel "$atmos_channel" \
   --argjson atmosInstalled "$atmos_installed" \
+  --argjson atmosPackaged "$atmos_packaged" \
+  --arg atmosVersion "$atmos_version" \
   --argjson voxtypeInstalled "$voxtype_installed" \
   --argjson hybridGpuAvailable "$hybrid_gpu_available" \
   --arg hybridGpuMode "$hybrid_gpu_mode" \
@@ -3193,6 +3202,8 @@ snapshot_json=$(jq -n \
     atmosRevision: $atmosRevision,
     atmosChannel: $atmosChannel,
     atmosInstalled: $atmosInstalled,
+    atmosPackaged: $atmosPackaged,
+    atmosVersion: $atmosVersion,
     voxtypeInstalled: $voxtypeInstalled,
     hybridGpuAvailable: $hybridGpuAvailable,
     hybridGpuMode: $hybridGpuMode,

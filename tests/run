@@ -288,7 +288,9 @@ agentsSyncFileName
 amdPstate
 atmosChannel
 atmosInstalled
+atmosPackaged
 atmosRevision
+atmosVersion
 audioInputMuted
 audioInputVolume
 audioOutputMuted

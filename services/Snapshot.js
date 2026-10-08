@@ -387,6 +387,7 @@ var BOOL_ON_KEYS = {
   sudolessDocker: true,
   updateAvailable: true,
   atmosInstalled: true,
+  atmosPackaged: true,
   voxtypeInstalled: true,
   hybridGpuAvailable: true,
   hwNvidia: true,
@@ -666,6 +667,11 @@ function clampPatchedValue(key, value, adapters) {
     var rev = String(value || "");
     if (!/^[0-9a-f]{4,40}$/.test(rev)) return "";
     return rev;
+  }
+  if (key === "atmosVersion") {
+    var pkgver = String(value || "");
+    if (!/^[0-9A-Za-z][0-9A-Za-z.+_~-]{0,39}$/.test(pkgver)) return "";
+    return pkgver;
   }
   if (key === "atmosChannel") {
     var atmos = "";

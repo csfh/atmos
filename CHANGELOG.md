@@ -2,7 +2,7 @@
 
 Notable changes to Atmos. Each section is a git tag on `main` and `alpha`. Install and in-app Update follow the `alpha` branch.
 
-## [Unreleased]
+## [v0.1.0] - 2026-10-08
 
 ### Added
 

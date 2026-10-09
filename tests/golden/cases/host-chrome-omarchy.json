@@ -1,0 +1,26 @@
+{
+  "backend": "omarchy",
+  "files": {
+    ".local/state/omarchy/current/theme.name": "tokyo-night\n",
+    ".local/state/omarchy/current/theme/colors.toml": "accent = \"#7aa2f7\"\n",
+    ".local/state/omarchy/current/theme/shell.toml": "[bar]\nradius = 4\n"
+  },
+  "request": {
+    "op": "host.chrome"
+  },
+  "response": {
+    "ok": true,
+    "platform": {
+      "compositor": "hyprland",
+      "family": "arch",
+      "id": "omarchy"
+    },
+    "result": {
+      "colors": "accent = \"#7aa2f7\"\n",
+      "themeName": "tokyo-night\n",
+      "themeShell": "[bar]\nradius = 4\n",
+      "userShell": ""
+    },
+    "version": "0.1.0"
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "backend": "omarchy",
+  "files": {
+    ".local/state/omarchy/speed/net-down.txt": "94.2 Mbit/s\n"
+  },
+  "request": {
+    "op": "speedtest.net",
+    "phase": "down"
+  },
+  "response": {
+    "ok": true,
+    "platform": {
+      "compositor": "hyprland",
+      "family": "arch",
+      "id": "omarchy"
+    },
+    "result": {
+      "exit": 0,
+      "stderr": "",
+      "stdout": "94.2 Mbit/s\n"
+    },
+    "version": "0.1.0"
+  }
+}

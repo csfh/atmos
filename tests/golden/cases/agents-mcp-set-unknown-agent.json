@@ -1,0 +1,23 @@
+{
+  "backend": "omarchy",
+  "request": {
+    "op": "agents.mcp.set",
+    "agent": "nope",
+    "on": true
+  },
+  "response": {
+    "error": {
+      "code": "bad_request",
+      "context": "nope",
+      "message": "unknown agent nope"
+    },
+    "ok": false,
+    "platform": {
+      "compositor": "hyprland",
+      "family": "arch",
+      "id": "omarchy"
+    },
+    "result": null,
+    "version": "0.1.0"
+  }
+}

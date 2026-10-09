@@ -1,0 +1,22 @@
+{
+  "backend": "omarchy",
+  "request": {
+    "op": "speedtest.net",
+    "phase": "sideways"
+  },
+  "response": {
+    "error": {
+      "code": "failed",
+      "context": null,
+      "message": "speedtest phase must be down or up"
+    },
+    "ok": false,
+    "platform": {
+      "compositor": "hyprland",
+      "family": "arch",
+      "id": "omarchy"
+    },
+    "result": null,
+    "version": "0.1.0"
+  }
+}

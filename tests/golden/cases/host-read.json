@@ -1,0 +1,33 @@
+{
+  "backend": "plain",
+  "files": {
+    "note.txt": "one\ntwo\n"
+  },
+  "request": {
+    "op": "host.read",
+    "paths": ["/note.txt", "/missing.txt"]
+  },
+  "response": {
+    "ok": true,
+    "platform": {
+      "compositor": "none",
+      "family": "portable",
+      "id": "plain"
+    },
+    "result": {
+      "files": [
+        {
+          "exists": true,
+          "path": "/note.txt",
+          "text": "one\ntwo\n"
+        },
+        {
+          "exists": false,
+          "path": "/missing.txt",
+          "text": ""
+        }
+      ]
+    },
+    "version": "0.1.0"
+  }
+}

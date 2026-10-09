@@ -1,0 +1,1039 @@
+{
+  "backend": "omarchy",
+  "request": {
+    "op": "settings.list"
+  },
+  "response": {
+    "ok": true,
+    "platform": {
+      "compositor": "hyprland",
+      "family": "arch",
+      "id": "omarchy"
+    },
+    "result": [
+      {
+        "domain": "agent",
+        "encoding": "map",
+        "file": ".config/omarchy/defaults.json",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "agentsRefreshIntervalSec",
+        "encoding": "shell",
+        "file": ".config/omarchy/shell.json",
+        "prefix": "",
+        "type": "int"
+      },
+      {
+        "domain": "agentsSync",
+        "encoding": "shell",
+        "file": ".config/omarchy/shell.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "agentsSyncDeviceId",
+        "encoding": "shell",
+        "file": ".config/omarchy/shell.json",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "agentsSyncDir",
+        "encoding": "shell",
+        "file": ".config/omarchy/shell.json",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "agentsSyncFileName",
+        "encoding": "shell",
+        "file": ".config/omarchy/shell.json",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "atmosChannel",
+        "encoding": "line",
+        "file": ".config/atmos/channel",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "audioInputMuted",
+        "encoding": "doc",
+        "file": ".local/state/omarchy/audio-level",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "audioInputVolume",
+        "encoding": "doc",
+        "file": ".local/state/omarchy/audio-level",
+        "prefix": "",
+        "type": "int"
+      },
+      {
+        "domain": "audioOutputMuted",
+        "encoding": "doc",
+        "file": ".local/state/omarchy/audio-level",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "audioOutputVolume",
+        "encoding": "doc",
+        "file": ".local/state/omarchy/audio-level",
+        "prefix": "",
+        "type": "int"
+      },
+      {
+        "domain": "audioTuningOn",
+        "encoding": "doc",
+        "file": ".local/state/omarchy/audio-level",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "autostart",
+        "encoding": "hypr",
+        "file": ".config/hypr/autostart.lua",
+        "prefix": "",
+        "type": "list"
+      },
+      {
+        "domain": "avatarPath",
+        "encoding": "line",
+        "file": ".config/omarchy/avatar.path",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "background",
+        "encoding": "map",
+        "file": ".config/omarchy/theme.json",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "barPosition",
+        "encoding": "shell",
+        "file": ".config/omarchy/shell.json",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "barTransparent",
+        "encoding": "shell",
+        "file": ".config/omarchy/shell.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "barVisible",
+        "encoding": "shell",
+        "file": ".config/omarchy/shell.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "bindings",
+        "encoding": "hypr",
+        "file": ".config/hypr/bindings.lua",
+        "prefix": "",
+        "type": "list"
+      },
+      {
+        "domain": "bluetooth",
+        "encoding": "doc",
+        "file": ".local/state/omarchy/bluetooth-power",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "browser",
+        "encoding": "map",
+        "file": ".config/omarchy/defaults.json",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "chargeLimit",
+        "encoding": "doc",
+        "file": "sys/class/power_supply/BAT0/charge_control_end_threshold",
+        "prefix": "",
+        "type": "int"
+      },
+      {
+        "domain": "clockBirthYear",
+        "encoding": "shell",
+        "file": ".config/omarchy/shell.json",
+        "prefix": "",
+        "type": "int"
+      },
+      {
+        "domain": "clockFormat",
+        "encoding": "shell",
+        "file": ".config/omarchy/shell.json",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "clockFormatAlt",
+        "encoding": "shell",
+        "file": ".config/omarchy/shell.json",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "clockLifeExpectancy",
+        "encoding": "shell",
+        "file": ".config/omarchy/shell.json",
+        "prefix": "",
+        "type": "int"
+      },
+      {
+        "domain": "clockWeekStart",
+        "encoding": "shell",
+        "file": ".config/omarchy/shell.json",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "crashCapture",
+        "encoding": "doc",
+        "file": ".local/state/omarchy/crash-capture",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "customDns",
+        "encoding": "line",
+        "file": ".config/omarchy/custom-dns",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "directBoot",
+        "encoding": "doc",
+        "file": "sys/firmware/efi/omarchy-entry",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "displayBrightness",
+        "encoding": "line",
+        "file": "sys/class/backlight/acpi_video0/brightness",
+        "prefix": "",
+        "type": "int"
+      },
+      {
+        "domain": "dns",
+        "encoding": "map",
+        "file": ".config/omarchy/network.json",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "doNotDisturb",
+        "encoding": "nested",
+        "file": ".local/state/omarchy/notifications.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "editor",
+        "encoding": "map",
+        "file": ".config/omarchy/defaults.json",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "envPathPrepend",
+        "encoding": "doc",
+        "file": ".config/environment.d/10-atmos.conf",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "envVars",
+        "encoding": "doc",
+        "file": ".config/environment.d/10-atmos.conf",
+        "prefix": "",
+        "type": "list"
+      },
+      {
+        "domain": "favorites",
+        "encoding": "items",
+        "file": ".local/state/omarchy/atmos-favorites.json",
+        "prefix": "",
+        "type": "list"
+      },
+      {
+        "domain": "fido2Configured",
+        "encoding": "doc",
+        "file": "etc/pam.d/sudo",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "fingerprintConfigured",
+        "encoding": "doc",
+        "file": "etc/pam.d/sudo",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "font",
+        "encoding": "map",
+        "file": ".config/omarchy/theme.json",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "fstrimEnabled",
+        "encoding": "doc",
+        "file": "etc/systemd/system/timers.target.wants/fstrim.timer",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "fullName",
+        "encoding": "line",
+        "file": "var/lib/AccountsService/users/atmos",
+        "prefix": "FullName=",
+        "type": "string"
+      },
+      {
+        "domain": "hostname",
+        "encoding": "line",
+        "file": "etc/hostname",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "hyprInput.accelProfile",
+        "encoding": "lua",
+        "file": ".config/hypr/input.lua",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "hyprInput.clickfinger",
+        "encoding": "lua",
+        "file": ".config/hypr/input.lua",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "hyprInput.disableWhileTyping",
+        "encoding": "lua",
+        "file": ".config/hypr/input.lua",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "hyprInput.drag3fg",
+        "encoding": "lua",
+        "file": ".config/hypr/input.lua",
+        "prefix": "",
+        "type": "int"
+      },
+      {
+        "domain": "hyprInput.emulateDiscreteScroll",
+        "encoding": "lua",
+        "file": ".config/hypr/input.lua",
+        "prefix": "",
+        "type": "int"
+      },
+      {
+        "domain": "hyprInput.followMouse",
+        "encoding": "lua",
+        "file": ".config/hypr/input.lua",
+        "prefix": "",
+        "type": "int"
+      },
+      {
+        "domain": "hyprInput.kbGroupToggle",
+        "encoding": "lua",
+        "file": ".config/hypr/input.lua",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "hyprInput.kbLayoutOverride",
+        "encoding": "lua",
+        "file": ".config/hypr/input.lua",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "hyprInput.kbVariantOverride",
+        "encoding": "lua",
+        "file": ".config/hypr/input.lua",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "hyprInput.keyPressDpms",
+        "encoding": "lua",
+        "file": ".config/hypr/input.lua",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "hyprInput.mouseMoveDpms",
+        "encoding": "lua",
+        "file": ".config/hypr/input.lua",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "hyprInput.naturalScroll",
+        "encoding": "lua",
+        "file": ".config/hypr/input.lua",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "hyprInput.numlock",
+        "encoding": "lua",
+        "file": ".config/hypr/input.lua",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "hyprInput.repeatDelay",
+        "encoding": "lua",
+        "file": ".config/hypr/input.lua",
+        "prefix": "",
+        "type": "int"
+      },
+      {
+        "domain": "hyprInput.repeatRate",
+        "encoding": "lua",
+        "file": ".config/hypr/input.lua",
+        "prefix": "",
+        "type": "int"
+      },
+      {
+        "domain": "hyprInput.scrollFactor",
+        "encoding": "lua",
+        "file": ".config/hypr/input.lua",
+        "prefix": "",
+        "type": "number"
+      },
+      {
+        "domain": "hyprInput.sensitivity",
+        "encoding": "lua",
+        "file": ".config/hypr/input.lua",
+        "prefix": "",
+        "type": "number"
+      },
+      {
+        "domain": "hyprInput.workspaceGesture",
+        "encoding": "lua",
+        "file": ".config/hypr/input.lua",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "hyprLook.activeOpacity",
+        "encoding": "lua",
+        "file": ".config/hypr/looknfeel.lua",
+        "prefix": "",
+        "type": "number"
+      },
+      {
+        "domain": "hyprLook.allowTearing",
+        "encoding": "lua",
+        "file": ".config/hypr/looknfeel.lua",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "hyprLook.animations",
+        "encoding": "lua",
+        "file": ".config/hypr/looknfeel.lua",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "hyprLook.blur",
+        "encoding": "lua",
+        "file": ".config/hypr/looknfeel.lua",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "hyprLook.borderSize",
+        "encoding": "lua",
+        "file": ".config/hypr/looknfeel.lua",
+        "prefix": "",
+        "type": "int"
+      },
+      {
+        "domain": "hyprLook.columnWidth",
+        "encoding": "lua",
+        "file": ".config/hypr/looknfeel.lua",
+        "prefix": "",
+        "type": "number"
+      },
+      {
+        "domain": "hyprLook.cursorHideOnKey",
+        "encoding": "lua",
+        "file": ".config/hypr/looknfeel.lua",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "hyprLook.cursorSize",
+        "encoding": "lua",
+        "file": ".config/hypr/looknfeel.lua",
+        "prefix": "",
+        "type": "int"
+      },
+      {
+        "domain": "hyprLook.cursorWarp",
+        "encoding": "lua",
+        "file": ".config/hypr/looknfeel.lua",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "hyprLook.dimInactive",
+        "encoding": "lua",
+        "file": ".config/hypr/looknfeel.lua",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "hyprLook.dimStrength",
+        "encoding": "lua",
+        "file": ".config/hypr/looknfeel.lua",
+        "prefix": "",
+        "type": "number"
+      },
+      {
+        "domain": "hyprLook.enableSwallow",
+        "encoding": "lua",
+        "file": ".config/hypr/looknfeel.lua",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "hyprLook.focusOnActivate",
+        "encoding": "lua",
+        "file": ".config/hypr/looknfeel.lua",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "hyprLook.gapsIn",
+        "encoding": "lua",
+        "file": ".config/hypr/looknfeel.lua",
+        "prefix": "",
+        "type": "int"
+      },
+      {
+        "domain": "hyprLook.gapsOut",
+        "encoding": "lua",
+        "file": ".config/hypr/looknfeel.lua",
+        "prefix": "",
+        "type": "int"
+      },
+      {
+        "domain": "hyprLook.inactiveOpacity",
+        "encoding": "lua",
+        "file": ".config/hypr/looknfeel.lua",
+        "prefix": "",
+        "type": "number"
+      },
+      {
+        "domain": "hyprLook.layout",
+        "encoding": "lua",
+        "file": ".config/hypr/looknfeel.lua",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "hyprLook.onFocusUnderFullscreen",
+        "encoding": "lua",
+        "file": ".config/hypr/looknfeel.lua",
+        "prefix": "",
+        "type": "int"
+      },
+      {
+        "domain": "hyprLook.preserveSplit",
+        "encoding": "lua",
+        "file": ".config/hypr/looknfeel.lua",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "hyprLook.resizeOnBorder",
+        "encoding": "lua",
+        "file": ".config/hypr/looknfeel.lua",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "hyprLook.rounding",
+        "encoding": "lua",
+        "file": ".config/hypr/looknfeel.lua",
+        "prefix": "",
+        "type": "int"
+      },
+      {
+        "domain": "hyprLook.shadow",
+        "encoding": "lua",
+        "file": ".config/hypr/looknfeel.lua",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "hyprLook.swallowRegex",
+        "encoding": "lua",
+        "file": ".config/hypr/looknfeel.lua",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "hyprNoGaps",
+        "encoding": "flag",
+        "file": ".local/state/omarchy/toggles/hypr/window-no-gaps.lua",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "hyprSquareAspect",
+        "encoding": "flag",
+        "file": ".local/state/omarchy/toggles/hypr/single-window-aspect-ratio.lua",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "idleLock",
+        "encoding": "shell",
+        "file": ".config/omarchy/shell.json",
+        "prefix": "",
+        "type": "int"
+      },
+      {
+        "domain": "idleScreensaver",
+        "encoding": "shell",
+        "file": ".config/omarchy/shell.json",
+        "prefix": "",
+        "type": "int"
+      },
+      {
+        "domain": "indicatorsAlwaysShow",
+        "encoding": "shell",
+        "file": ".config/omarchy/shell.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "indicatorsItems",
+        "encoding": "shell",
+        "file": ".config/omarchy/shell.json",
+        "prefix": "",
+        "type": "list"
+      },
+      {
+        "domain": "internalDisplay",
+        "encoding": "map",
+        "file": ".config/omarchy/monitor-prefs.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "internalMirror",
+        "encoding": "map",
+        "file": ".config/omarchy/monitor-prefs.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "keyboardLayout",
+        "encoding": "line",
+        "file": "etc/vconsole.conf",
+        "prefix": "XKBLAYOUT=",
+        "type": "string"
+      },
+      {
+        "domain": "locale",
+        "encoding": "line",
+        "file": "etc/locale.conf",
+        "prefix": "LANG=",
+        "type": "string"
+      },
+      {
+        "domain": "mimeImage",
+        "encoding": "doc",
+        "file": ".config/mimeapps.list",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "mimePdf",
+        "encoding": "doc",
+        "file": ".config/mimeapps.list",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "mimeVideo",
+        "encoding": "doc",
+        "file": ".config/mimeapps.list",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "monitorRules",
+        "encoding": "hypr",
+        "file": ".config/hypr/monitors.lua",
+        "prefix": "",
+        "type": "list"
+      },
+      {
+        "domain": "monitorScale",
+        "encoding": "map",
+        "file": ".config/omarchy/monitor-prefs.json",
+        "prefix": "",
+        "type": "number"
+      },
+      {
+        "domain": "nightlight",
+        "encoding": "doc",
+        "file": ".config/hypr/hyprsunset.conf",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "nightlightDay",
+        "encoding": "doc",
+        "file": ".config/hypr/hyprsunset.conf",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "nightlightNight",
+        "encoding": "doc",
+        "file": ".config/hypr/hyprsunset.conf",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "nightlightNightOn",
+        "encoding": "doc",
+        "file": ".config/hypr/hyprsunset.conf",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "nightlightTemperature",
+        "encoding": "doc",
+        "file": ".config/hypr/hyprsunset.conf",
+        "prefix": "",
+        "type": "int"
+      },
+      {
+        "domain": "ntp",
+        "encoding": "line",
+        "file": "etc/systemd/timesyncd.conf.d/atmos-ntp.conf",
+        "prefix": "NTP=",
+        "type": "bool"
+      },
+      {
+        "domain": "omarchyChannel",
+        "encoding": "line",
+        "file": ".config/omarchy/channel",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "parallelDownloads",
+        "encoding": "line",
+        "file": "etc/pacman.conf",
+        "prefix": "ParallelDownloads = ",
+        "type": "int"
+      },
+      {
+        "domain": "passwordlessSudo",
+        "encoding": "doc",
+        "file": "etc/sudoers.d/99-omarchy-nopasswd",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "plugins",
+        "encoding": "whole",
+        "file": ".config/omarchy/plugins.json",
+        "prefix": "",
+        "type": "list"
+      },
+      {
+        "domain": "plymouth",
+        "encoding": "map",
+        "file": ".config/omarchy/theme.json",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "powerProfile",
+        "encoding": "map",
+        "file": ".config/omarchy/power.json",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "powerProfileAc",
+        "encoding": "map",
+        "file": ".config/omarchy/power.json",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "powerProfileBattery",
+        "encoding": "map",
+        "file": ".config/omarchy/power.json",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "powerShowPercentage",
+        "encoding": "shell",
+        "file": ".config/omarchy/shell.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "presentationMode",
+        "encoding": "doc",
+        "file": ".local/state/omarchy/atmos-presentation.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "screensaverEnabled",
+        "encoding": "shell",
+        "file": ".config/omarchy/shell.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "snapperNumberLimit",
+        "encoding": "doc",
+        "file": "etc/snapper/configs/root",
+        "prefix": "",
+        "type": "int"
+      },
+      {
+        "domain": "snapperTimeline",
+        "encoding": "doc",
+        "file": "etc/snapper/configs/root",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "spacerSize",
+        "encoding": "shell",
+        "file": ".config/omarchy/shell.json",
+        "prefix": "",
+        "type": "int"
+      },
+      {
+        "domain": "sshdEnabled",
+        "encoding": "doc",
+        "file": "etc/systemd/system-preset/atmos-sshd.preset",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "stayAwake",
+        "encoding": "shell",
+        "file": ".config/omarchy/shell.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "sudolessDocker",
+        "encoding": "doc",
+        "file": "etc/group.d/atmos-docker",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "suspendEnabled",
+        "encoding": "doc",
+        "file": ".local/state/omarchy/suspend",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "terminal",
+        "encoding": "map",
+        "file": ".config/omarchy/defaults.json",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "textSize",
+        "encoding": "map",
+        "file": ".config/omarchy/theme.json",
+        "prefix": "",
+        "type": "int"
+      },
+      {
+        "domain": "theme",
+        "encoding": "map",
+        "file": ".config/omarchy/theme.json",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "timezone",
+        "encoding": "line",
+        "file": "etc/timezone",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "touchpadEnabled",
+        "encoding": "lua",
+        "file": ".config/hypr/input.lua",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "touchscreenEnabled",
+        "encoding": "lua",
+        "file": ".config/hypr/input.lua",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "trayHidden",
+        "encoding": "shell",
+        "file": ".config/omarchy/shell.json",
+        "prefix": "",
+        "type": "list"
+      },
+      {
+        "domain": "trayPinned",
+        "encoding": "shell",
+        "file": ".config/omarchy/shell.json",
+        "prefix": "",
+        "type": "list"
+      },
+      {
+        "domain": "tweaks.electronWayland",
+        "encoding": "map",
+        "file": ".config/omarchy/tweaks.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "tweaks.forceZeroScaling",
+        "encoding": "map",
+        "file": ".config/omarchy/tweaks.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "tweaks.middlePaste",
+        "encoding": "map",
+        "file": ".config/omarchy/tweaks.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "tweaks.swappiness",
+        "encoding": "map",
+        "file": ".config/omarchy/tweaks.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "weatherLocation",
+        "encoding": "shell",
+        "file": ".config/omarchy/shell.json",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "weatherRefreshMinutes",
+        "encoding": "shell",
+        "file": ".config/omarchy/shell.json",
+        "prefix": "",
+        "type": "int"
+      },
+      {
+        "domain": "weatherUnit",
+        "encoding": "shell",
+        "file": ".config/omarchy/shell.json",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "wifiBand",
+        "encoding": "line",
+        "file": ".config/omarchy/wifi-band",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "wifiRadio",
+        "encoding": "doc",
+        "file": ".local/state/omarchy/wifi-radio",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "windowRules",
+        "encoding": "hypr",
+        "file": ".config/hypr/atmos.lua",
+        "prefix": "",
+        "type": "list"
+      },
+      {
+        "domain": "workspaceBarCount",
+        "encoding": "shell",
+        "file": ".config/omarchy/shell.json",
+        "prefix": "",
+        "type": "int"
+      },
+      {
+        "domain": "workspaceBarNames",
+        "encoding": "shell",
+        "file": ".config/omarchy/shell.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "workspaceWheelSwitch",
+        "encoding": "hypr",
+        "file": ".config/hypr/atmos.lua",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "workspaceWrapSwitch",
+        "encoding": "hypr",
+        "file": ".config/hypr/atmos.lua",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "workspaces",
+        "encoding": "hypr",
+        "file": ".config/hypr/atmos.lua",
+        "prefix": "",
+        "type": "list"
+      }
+    ],
+    "version": "0.1.0"
+  }
+}

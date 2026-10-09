@@ -1,0 +1,23 @@
+{
+  "backend": "plain",
+  "request": {
+    "op": "host.accounts",
+    "user": "plain",
+    "home": "/home/plain"
+  },
+  "response": {
+    "ok": true,
+    "platform": {
+      "compositor": "none",
+      "family": "portable",
+      "id": "plain"
+    },
+    "result": {
+      "exists": {},
+      "group": "plain:x:1000:\n",
+      "hostname": "plain-host",
+      "passwd": "plain:x:1000:1000:Plain:/home/plain:/bin/sh\n"
+    },
+    "version": "0.1.0"
+  }
+}

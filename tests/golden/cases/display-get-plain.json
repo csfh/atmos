@@ -1,0 +1,20 @@
+{
+  "backend": "plain",
+  "request": {
+    "op": "display.get",
+    "kind": "hardware"
+  },
+  "response": {
+    "ok": true,
+    "platform": {
+      "compositor": "none",
+      "family": "portable",
+      "id": "plain"
+    },
+    "result": {
+      "collector": "plain-hardware",
+      "platform": "plain"
+    },
+    "version": "0.1.0"
+  }
+}

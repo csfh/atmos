@@ -1,0 +1,21 @@
+{
+  "backend": "plain",
+  "request": {
+    "op": "no.such.op"
+  },
+  "response": {
+    "error": {
+      "code": "bad_request",
+      "context": null,
+      "message": "unknown variant `no.such.op`, expected one of `version`, `platform`, `settings.list`, `settings.get`, `settings.set`, `settings.snapshot`, `display.get`, `display.snapshot`, `host.chrome`, `host.themePack`, `host.accounts`, `host.stamp`, `host.read`, `host.write`, `host.open`, `speedtest.disk`, `speedtest.net`, `unit.output`, `agents.mcp.list`, `agents.mcp.set`, `agents.mcp.check`"
+    },
+    "ok": false,
+    "platform": {
+      "compositor": "none",
+      "family": "portable",
+      "id": "plain"
+    },
+    "result": null,
+    "version": "0.1.0"
+  }
+}

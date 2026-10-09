@@ -1,0 +1,22 @@
+{
+  "backend": "plain",
+  "request": {
+    "op": "host.read",
+    "paths": ["/../escape"]
+  },
+  "response": {
+    "error": {
+      "code": "denied",
+      "context": "/../escape",
+      "message": "path may not contain .."
+    },
+    "ok": false,
+    "platform": {
+      "compositor": "none",
+      "family": "portable",
+      "id": "plain"
+    },
+    "result": null,
+    "version": "0.1.0"
+  }
+}

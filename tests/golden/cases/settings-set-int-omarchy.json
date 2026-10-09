@@ -1,0 +1,23 @@
+{
+  "backend": "omarchy",
+  "request": {
+    "op": "settings.set",
+    "domain": "hyprLook.gapsIn",
+    "value": 7
+  },
+  "response": {
+    "ok": true,
+    "platform": {
+      "compositor": "hyprland",
+      "family": "arch",
+      "id": "omarchy"
+    },
+    "result": {
+      "domain": "hyprLook.gapsIn",
+      "encoding": "lua",
+      "file": ".config/hypr/looknfeel.lua",
+      "value": 7
+    },
+    "version": "0.1.0"
+  }
+}

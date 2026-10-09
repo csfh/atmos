@@ -1,0 +1,20 @@
+{
+  "backend": "plain",
+  "request": {
+    "op": "speedtest.disk"
+  },
+  "response": {
+    "ok": true,
+    "platform": {
+      "compositor": "none",
+      "family": "portable",
+      "id": "plain"
+    },
+    "result": {
+      "exit": 0,
+      "stderr": "",
+      "stdout": "plain-disk\n"
+    },
+    "version": "0.1.0"
+  }
+}

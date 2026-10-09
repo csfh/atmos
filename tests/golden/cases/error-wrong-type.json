@@ -1,0 +1,22 @@
+{
+  "backend": "plain",
+  "request": {
+    "op": "host.read",
+    "paths": "a"
+  },
+  "response": {
+    "error": {
+      "code": "bad_request",
+      "context": null,
+      "message": "invalid type: string \"a\", expected a sequence"
+    },
+    "ok": false,
+    "platform": {
+      "compositor": "none",
+      "family": "portable",
+      "id": "plain"
+    },
+    "result": null,
+    "version": "0.1.0"
+  }
+}

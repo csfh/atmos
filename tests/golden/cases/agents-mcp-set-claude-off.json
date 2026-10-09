@@ -1,0 +1,23 @@
+{
+  "backend": "omarchy",
+  "request": {
+    "op": "agents.mcp.set",
+    "agent": "claude",
+    "on": false
+  },
+  "response": {
+    "error": {
+      "code": "not_found",
+      "context": ".local/bin/atmos",
+      "message": "Atmos is not installed"
+    },
+    "ok": false,
+    "platform": {
+      "compositor": "hyprland",
+      "family": "arch",
+      "id": "omarchy"
+    },
+    "result": null,
+    "version": "0.1.0"
+  }
+}

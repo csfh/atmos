@@ -1,0 +1,26 @@
+{
+  "backend": "omarchy",
+  "files": {
+    ".local/state/omarchy/display/live.json": "{\"cpu\":{\"load\":0.5}}\n"
+  },
+  "request": {
+    "op": "display.get",
+    "kind": "live"
+  },
+  "response": {
+    "ok": true,
+    "platform": {
+      "compositor": "hyprland",
+      "family": "arch",
+      "id": "omarchy"
+    },
+    "result": {
+      "collector": "live-stats.py",
+      "cpu": {
+        "load": 0.5
+      },
+      "platform": "omarchy"
+    },
+    "version": "0.1.0"
+  }
+}

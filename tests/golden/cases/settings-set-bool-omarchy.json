@@ -1,0 +1,23 @@
+{
+  "backend": "omarchy",
+  "request": {
+    "op": "settings.set",
+    "domain": "hyprLook.blur",
+    "value": true
+  },
+  "response": {
+    "ok": true,
+    "platform": {
+      "compositor": "hyprland",
+      "family": "arch",
+      "id": "omarchy"
+    },
+    "result": {
+      "domain": "hyprLook.blur",
+      "encoding": "lua",
+      "file": ".config/hypr/looknfeel.lua",
+      "value": true
+    },
+    "version": "0.1.0"
+  }
+}

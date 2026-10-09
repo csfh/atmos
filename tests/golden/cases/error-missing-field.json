@@ -1,0 +1,21 @@
+{
+  "backend": "plain",
+  "request": {
+    "op": "settings.get"
+  },
+  "response": {
+    "error": {
+      "code": "bad_request",
+      "context": null,
+      "message": "missing field `domain`"
+    },
+    "ok": false,
+    "platform": {
+      "compositor": "none",
+      "family": "portable",
+      "id": "plain"
+    },
+    "result": null,
+    "version": "0.1.0"
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "backend": "plain",
+  "request": {
+    "op": "settings.get",
+    "domain": "no.such.domain"
+  },
+  "response": {
+    "error": {
+      "code": "failed",
+      "context": null,
+      "message": "unknown domain no.such.domain"
+    },
+    "ok": false,
+    "platform": {
+      "compositor": "none",
+      "family": "portable",
+      "id": "plain"
+    },
+    "result": null,
+    "version": "0.1.0"
+  }
+}

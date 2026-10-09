@@ -1,0 +1,21 @@
+{
+  "backend": "plain",
+  "request": {
+    "op": "host.write",
+    "path": "/out/made.txt",
+    "text": "written\n"
+  },
+  "response": {
+    "ok": true,
+    "platform": {
+      "compositor": "none",
+      "family": "portable",
+      "id": "plain"
+    },
+    "result": {
+      "bytes": 8,
+      "path": "/out/made.txt"
+    },
+    "version": "0.1.0"
+  }
+}

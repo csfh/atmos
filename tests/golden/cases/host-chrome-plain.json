@@ -1,0 +1,21 @@
+{
+  "backend": "plain",
+  "request": {
+    "op": "host.chrome"
+  },
+  "response": {
+    "ok": true,
+    "platform": {
+      "compositor": "none",
+      "family": "portable",
+      "id": "plain"
+    },
+    "result": {
+      "colors": "plain-colors",
+      "themeName": "plain",
+      "themeShell": "plain-shell",
+      "userShell": "plain-user-shell"
+    },
+    "version": "0.1.0"
+  }
+}

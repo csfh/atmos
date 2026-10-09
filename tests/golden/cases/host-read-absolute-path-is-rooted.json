@@ -1,0 +1,25 @@
+{
+  "backend": "plain",
+  "request": {
+    "op": "host.read",
+    "paths": ["/etc/passwd"]
+  },
+  "response": {
+    "ok": true,
+    "platform": {
+      "compositor": "none",
+      "family": "portable",
+      "id": "plain"
+    },
+    "result": {
+      "files": [
+        {
+          "exists": false,
+          "path": "/etc/passwd",
+          "text": ""
+        }
+      ]
+    },
+    "version": "0.1.0"
+  }
+}

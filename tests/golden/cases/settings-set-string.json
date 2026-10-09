@@ -1,0 +1,23 @@
+{
+  "backend": "plain",
+  "request": {
+    "op": "settings.set",
+    "domain": "theme",
+    "value": "tokyo-night"
+  },
+  "response": {
+    "ok": true,
+    "platform": {
+      "compositor": "none",
+      "family": "portable",
+      "id": "plain"
+    },
+    "result": {
+      "domain": "theme",
+      "encoding": "map",
+      "file": ".config/plain/theme.json",
+      "value": "tokyo-night"
+    },
+    "version": "0.1.0"
+  }
+}

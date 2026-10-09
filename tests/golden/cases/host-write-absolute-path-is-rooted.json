@@ -1,0 +1,21 @@
+{
+  "backend": "plain",
+  "request": {
+    "op": "host.write",
+    "path": "/etc/atmos-test",
+    "text": "x"
+  },
+  "response": {
+    "ok": true,
+    "platform": {
+      "compositor": "none",
+      "family": "portable",
+      "id": "plain"
+    },
+    "result": {
+      "bytes": 1,
+      "path": "/etc/atmos-test"
+    },
+    "version": "0.1.0"
+  }
+}

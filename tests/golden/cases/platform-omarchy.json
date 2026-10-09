@@ -1,0 +1,20 @@
+{
+  "backend": "omarchy",
+  "request": {
+    "op": "platform"
+  },
+  "response": {
+    "ok": true,
+    "platform": {
+      "compositor": "hyprland",
+      "family": "arch",
+      "id": "omarchy"
+    },
+    "result": {
+      "compositor": "hyprland",
+      "family": "arch",
+      "id": "omarchy"
+    },
+    "version": "0.1.0"
+  }
+}

@@ -1,0 +1,1039 @@
+{
+  "backend": "plain",
+  "request": {
+    "op": "settings.list"
+  },
+  "response": {
+    "ok": true,
+    "platform": {
+      "compositor": "none",
+      "family": "portable",
+      "id": "plain"
+    },
+    "result": [
+      {
+        "domain": "agent",
+        "encoding": "map",
+        "file": ".config/plain/defaults.json",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "agentsRefreshIntervalSec",
+        "encoding": "map",
+        "file": ".config/plain/shell.json",
+        "prefix": "",
+        "type": "int"
+      },
+      {
+        "domain": "agentsSync",
+        "encoding": "map",
+        "file": ".config/plain/shell.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "agentsSyncDeviceId",
+        "encoding": "map",
+        "file": ".config/plain/shell.json",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "agentsSyncDir",
+        "encoding": "map",
+        "file": ".config/plain/shell.json",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "agentsSyncFileName",
+        "encoding": "map",
+        "file": ".config/plain/shell.json",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "atmosChannel",
+        "encoding": "map",
+        "file": ".config/plain/atmos-channel.json",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "audioInputMuted",
+        "encoding": "map",
+        "file": ".config/plain/audio.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "audioInputVolume",
+        "encoding": "map",
+        "file": ".config/plain/audio.json",
+        "prefix": "",
+        "type": "int"
+      },
+      {
+        "domain": "audioOutputMuted",
+        "encoding": "map",
+        "file": ".config/plain/audio.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "audioOutputVolume",
+        "encoding": "map",
+        "file": ".config/plain/audio.json",
+        "prefix": "",
+        "type": "int"
+      },
+      {
+        "domain": "audioTuningOn",
+        "encoding": "map",
+        "file": ".config/plain/audio.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "autostart",
+        "encoding": "map",
+        "file": ".config/plain/autostart.json",
+        "prefix": "",
+        "type": "list"
+      },
+      {
+        "domain": "avatarPath",
+        "encoding": "map",
+        "file": ".config/plain/avatar.json",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "background",
+        "encoding": "map",
+        "file": ".config/plain/theme.json",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "barPosition",
+        "encoding": "map",
+        "file": ".config/plain/shell.json",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "barTransparent",
+        "encoding": "map",
+        "file": ".config/plain/shell.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "barVisible",
+        "encoding": "map",
+        "file": ".config/plain/shell.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "bindings",
+        "encoding": "map",
+        "file": ".config/plain/bindings.json",
+        "prefix": "",
+        "type": "list"
+      },
+      {
+        "domain": "bluetooth",
+        "encoding": "map",
+        "file": ".config/plain/network.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "browser",
+        "encoding": "map",
+        "file": ".config/plain/defaults.json",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "chargeLimit",
+        "encoding": "map",
+        "file": ".config/plain/power.json",
+        "prefix": "",
+        "type": "int"
+      },
+      {
+        "domain": "clockBirthYear",
+        "encoding": "map",
+        "file": ".config/plain/shell.json",
+        "prefix": "",
+        "type": "int"
+      },
+      {
+        "domain": "clockFormat",
+        "encoding": "map",
+        "file": ".config/plain/shell.json",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "clockFormatAlt",
+        "encoding": "map",
+        "file": ".config/plain/shell.json",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "clockLifeExpectancy",
+        "encoding": "map",
+        "file": ".config/plain/shell.json",
+        "prefix": "",
+        "type": "int"
+      },
+      {
+        "domain": "clockWeekStart",
+        "encoding": "map",
+        "file": ".config/plain/shell.json",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "crashCapture",
+        "encoding": "map",
+        "file": ".config/plain/power.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "customDns",
+        "encoding": "map",
+        "file": ".config/plain/network.json",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "directBoot",
+        "encoding": "map",
+        "file": ".config/plain/security.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "displayBrightness",
+        "encoding": "map",
+        "file": ".config/plain/backlight.json",
+        "prefix": "",
+        "type": "int"
+      },
+      {
+        "domain": "dns",
+        "encoding": "map",
+        "file": ".config/plain/network.json",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "doNotDisturb",
+        "encoding": "map",
+        "file": ".config/plain/shell.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "editor",
+        "encoding": "map",
+        "file": ".config/plain/defaults.json",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "envPathPrepend",
+        "encoding": "map",
+        "file": ".config/plain/env.json",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "envVars",
+        "encoding": "map",
+        "file": ".config/plain/env.json",
+        "prefix": "",
+        "type": "list"
+      },
+      {
+        "domain": "favorites",
+        "encoding": "map",
+        "file": ".config/plain/favorites.json",
+        "prefix": "",
+        "type": "list"
+      },
+      {
+        "domain": "fido2Configured",
+        "encoding": "map",
+        "file": ".config/plain/security.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "fingerprintConfigured",
+        "encoding": "map",
+        "file": ".config/plain/security.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "font",
+        "encoding": "map",
+        "file": ".config/plain/theme.json",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "fstrimEnabled",
+        "encoding": "map",
+        "file": ".config/plain/security.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "fullName",
+        "encoding": "map",
+        "file": ".config/plain/fullname.json",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "hostname",
+        "encoding": "map",
+        "file": ".config/plain/hostname.json",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "hyprInput.accelProfile",
+        "encoding": "map",
+        "file": ".config/plain/input.json",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "hyprInput.clickfinger",
+        "encoding": "map",
+        "file": ".config/plain/input.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "hyprInput.disableWhileTyping",
+        "encoding": "map",
+        "file": ".config/plain/input.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "hyprInput.drag3fg",
+        "encoding": "map",
+        "file": ".config/plain/input.json",
+        "prefix": "",
+        "type": "int"
+      },
+      {
+        "domain": "hyprInput.emulateDiscreteScroll",
+        "encoding": "map",
+        "file": ".config/plain/input.json",
+        "prefix": "",
+        "type": "int"
+      },
+      {
+        "domain": "hyprInput.followMouse",
+        "encoding": "map",
+        "file": ".config/plain/input.json",
+        "prefix": "",
+        "type": "int"
+      },
+      {
+        "domain": "hyprInput.kbGroupToggle",
+        "encoding": "map",
+        "file": ".config/plain/input.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "hyprInput.kbLayoutOverride",
+        "encoding": "map",
+        "file": ".config/plain/input.json",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "hyprInput.kbVariantOverride",
+        "encoding": "map",
+        "file": ".config/plain/input.json",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "hyprInput.keyPressDpms",
+        "encoding": "map",
+        "file": ".config/plain/input.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "hyprInput.mouseMoveDpms",
+        "encoding": "map",
+        "file": ".config/plain/input.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "hyprInput.naturalScroll",
+        "encoding": "map",
+        "file": ".config/plain/input.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "hyprInput.numlock",
+        "encoding": "map",
+        "file": ".config/plain/input.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "hyprInput.repeatDelay",
+        "encoding": "map",
+        "file": ".config/plain/input.json",
+        "prefix": "",
+        "type": "int"
+      },
+      {
+        "domain": "hyprInput.repeatRate",
+        "encoding": "map",
+        "file": ".config/plain/input.json",
+        "prefix": "",
+        "type": "int"
+      },
+      {
+        "domain": "hyprInput.scrollFactor",
+        "encoding": "map",
+        "file": ".config/plain/input.json",
+        "prefix": "",
+        "type": "number"
+      },
+      {
+        "domain": "hyprInput.sensitivity",
+        "encoding": "map",
+        "file": ".config/plain/input.json",
+        "prefix": "",
+        "type": "number"
+      },
+      {
+        "domain": "hyprInput.workspaceGesture",
+        "encoding": "map",
+        "file": ".config/plain/input.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "hyprLook.activeOpacity",
+        "encoding": "map",
+        "file": ".config/plain/look.json",
+        "prefix": "",
+        "type": "number"
+      },
+      {
+        "domain": "hyprLook.allowTearing",
+        "encoding": "map",
+        "file": ".config/plain/look.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "hyprLook.animations",
+        "encoding": "map",
+        "file": ".config/plain/look.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "hyprLook.blur",
+        "encoding": "map",
+        "file": ".config/plain/look.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "hyprLook.borderSize",
+        "encoding": "map",
+        "file": ".config/plain/look.json",
+        "prefix": "",
+        "type": "int"
+      },
+      {
+        "domain": "hyprLook.columnWidth",
+        "encoding": "map",
+        "file": ".config/plain/look.json",
+        "prefix": "",
+        "type": "number"
+      },
+      {
+        "domain": "hyprLook.cursorHideOnKey",
+        "encoding": "map",
+        "file": ".config/plain/look.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "hyprLook.cursorSize",
+        "encoding": "map",
+        "file": ".config/plain/look.json",
+        "prefix": "",
+        "type": "int"
+      },
+      {
+        "domain": "hyprLook.cursorWarp",
+        "encoding": "map",
+        "file": ".config/plain/look.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "hyprLook.dimInactive",
+        "encoding": "map",
+        "file": ".config/plain/look.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "hyprLook.dimStrength",
+        "encoding": "map",
+        "file": ".config/plain/look.json",
+        "prefix": "",
+        "type": "number"
+      },
+      {
+        "domain": "hyprLook.enableSwallow",
+        "encoding": "map",
+        "file": ".config/plain/look.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "hyprLook.focusOnActivate",
+        "encoding": "map",
+        "file": ".config/plain/look.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "hyprLook.gapsIn",
+        "encoding": "map",
+        "file": ".config/plain/look.json",
+        "prefix": "",
+        "type": "int"
+      },
+      {
+        "domain": "hyprLook.gapsOut",
+        "encoding": "map",
+        "file": ".config/plain/look.json",
+        "prefix": "",
+        "type": "int"
+      },
+      {
+        "domain": "hyprLook.inactiveOpacity",
+        "encoding": "map",
+        "file": ".config/plain/look.json",
+        "prefix": "",
+        "type": "number"
+      },
+      {
+        "domain": "hyprLook.layout",
+        "encoding": "map",
+        "file": ".config/plain/look.json",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "hyprLook.onFocusUnderFullscreen",
+        "encoding": "map",
+        "file": ".config/plain/look.json",
+        "prefix": "",
+        "type": "int"
+      },
+      {
+        "domain": "hyprLook.preserveSplit",
+        "encoding": "map",
+        "file": ".config/plain/look.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "hyprLook.resizeOnBorder",
+        "encoding": "map",
+        "file": ".config/plain/look.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "hyprLook.rounding",
+        "encoding": "map",
+        "file": ".config/plain/look.json",
+        "prefix": "",
+        "type": "int"
+      },
+      {
+        "domain": "hyprLook.shadow",
+        "encoding": "map",
+        "file": ".config/plain/look.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "hyprLook.swallowRegex",
+        "encoding": "map",
+        "file": ".config/plain/look.json",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "hyprNoGaps",
+        "encoding": "map",
+        "file": ".config/plain/look.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "hyprSquareAspect",
+        "encoding": "map",
+        "file": ".config/plain/look.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "idleLock",
+        "encoding": "map",
+        "file": ".config/plain/shell.json",
+        "prefix": "",
+        "type": "int"
+      },
+      {
+        "domain": "idleScreensaver",
+        "encoding": "map",
+        "file": ".config/plain/shell.json",
+        "prefix": "",
+        "type": "int"
+      },
+      {
+        "domain": "indicatorsAlwaysShow",
+        "encoding": "map",
+        "file": ".config/plain/shell.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "indicatorsItems",
+        "encoding": "map",
+        "file": ".config/plain/shell.json",
+        "prefix": "",
+        "type": "list"
+      },
+      {
+        "domain": "internalDisplay",
+        "encoding": "map",
+        "file": ".config/plain/monitors.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "internalMirror",
+        "encoding": "map",
+        "file": ".config/plain/monitors.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "keyboardLayout",
+        "encoding": "map",
+        "file": ".config/plain/keyboard.json",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "locale",
+        "encoding": "map",
+        "file": ".config/plain/locale.json",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "mimeImage",
+        "encoding": "map",
+        "file": ".config/plain/defaults.json",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "mimePdf",
+        "encoding": "map",
+        "file": ".config/plain/defaults.json",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "mimeVideo",
+        "encoding": "map",
+        "file": ".config/plain/defaults.json",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "monitorRules",
+        "encoding": "map",
+        "file": ".config/plain/monitors.json",
+        "prefix": "",
+        "type": "list"
+      },
+      {
+        "domain": "monitorScale",
+        "encoding": "map",
+        "file": ".config/plain/monitors.json",
+        "prefix": "",
+        "type": "number"
+      },
+      {
+        "domain": "nightlight",
+        "encoding": "map",
+        "file": ".config/plain/hyprsunset.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "nightlightDay",
+        "encoding": "map",
+        "file": ".config/plain/hyprsunset.json",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "nightlightNight",
+        "encoding": "map",
+        "file": ".config/plain/hyprsunset.json",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "nightlightNightOn",
+        "encoding": "map",
+        "file": ".config/plain/hyprsunset.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "nightlightTemperature",
+        "encoding": "map",
+        "file": ".config/plain/hyprsunset.json",
+        "prefix": "",
+        "type": "int"
+      },
+      {
+        "domain": "ntp",
+        "encoding": "map",
+        "file": ".config/plain/ntp.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "omarchyChannel",
+        "encoding": "map",
+        "file": ".config/plain/omarchy-channel.json",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "parallelDownloads",
+        "encoding": "map",
+        "file": ".config/plain/downloads.json",
+        "prefix": "",
+        "type": "int"
+      },
+      {
+        "domain": "passwordlessSudo",
+        "encoding": "map",
+        "file": ".config/plain/security.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "plugins",
+        "encoding": "map",
+        "file": ".config/plain/plugins.json",
+        "prefix": "",
+        "type": "list"
+      },
+      {
+        "domain": "plymouth",
+        "encoding": "map",
+        "file": ".config/plain/theme.json",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "powerProfile",
+        "encoding": "map",
+        "file": ".config/plain/power.json",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "powerProfileAc",
+        "encoding": "map",
+        "file": ".config/plain/power.json",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "powerProfileBattery",
+        "encoding": "map",
+        "file": ".config/plain/power.json",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "powerShowPercentage",
+        "encoding": "map",
+        "file": ".config/plain/shell.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "presentationMode",
+        "encoding": "map",
+        "file": ".config/plain/power.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "screensaverEnabled",
+        "encoding": "map",
+        "file": ".config/plain/shell.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "snapperNumberLimit",
+        "encoding": "map",
+        "file": ".config/plain/security.json",
+        "prefix": "",
+        "type": "int"
+      },
+      {
+        "domain": "snapperTimeline",
+        "encoding": "map",
+        "file": ".config/plain/security.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "spacerSize",
+        "encoding": "map",
+        "file": ".config/plain/shell.json",
+        "prefix": "",
+        "type": "int"
+      },
+      {
+        "domain": "sshdEnabled",
+        "encoding": "map",
+        "file": ".config/plain/security.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "stayAwake",
+        "encoding": "map",
+        "file": ".config/plain/shell.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "sudolessDocker",
+        "encoding": "map",
+        "file": ".config/plain/security.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "suspendEnabled",
+        "encoding": "map",
+        "file": ".config/plain/power.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "terminal",
+        "encoding": "map",
+        "file": ".config/plain/defaults.json",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "textSize",
+        "encoding": "map",
+        "file": ".config/plain/theme.json",
+        "prefix": "",
+        "type": "int"
+      },
+      {
+        "domain": "theme",
+        "encoding": "map",
+        "file": ".config/plain/theme.json",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "timezone",
+        "encoding": "map",
+        "file": ".config/plain/timezone.json",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "touchpadEnabled",
+        "encoding": "map",
+        "file": ".config/plain/input.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "touchscreenEnabled",
+        "encoding": "map",
+        "file": ".config/plain/input.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "trayHidden",
+        "encoding": "map",
+        "file": ".config/plain/shell.json",
+        "prefix": "",
+        "type": "list"
+      },
+      {
+        "domain": "trayPinned",
+        "encoding": "map",
+        "file": ".config/plain/shell.json",
+        "prefix": "",
+        "type": "list"
+      },
+      {
+        "domain": "tweaks.electronWayland",
+        "encoding": "map",
+        "file": ".config/plain/tweaks.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "tweaks.forceZeroScaling",
+        "encoding": "map",
+        "file": ".config/plain/tweaks.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "tweaks.middlePaste",
+        "encoding": "map",
+        "file": ".config/plain/tweaks.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "tweaks.swappiness",
+        "encoding": "map",
+        "file": ".config/plain/tweaks.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "weatherLocation",
+        "encoding": "map",
+        "file": ".config/plain/shell.json",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "weatherRefreshMinutes",
+        "encoding": "map",
+        "file": ".config/plain/shell.json",
+        "prefix": "",
+        "type": "int"
+      },
+      {
+        "domain": "weatherUnit",
+        "encoding": "map",
+        "file": ".config/plain/shell.json",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "wifiBand",
+        "encoding": "map",
+        "file": ".config/plain/wifiband.json",
+        "prefix": "",
+        "type": "string"
+      },
+      {
+        "domain": "wifiRadio",
+        "encoding": "map",
+        "file": ".config/plain/network.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "windowRules",
+        "encoding": "map",
+        "file": ".config/plain/windows.json",
+        "prefix": "",
+        "type": "list"
+      },
+      {
+        "domain": "workspaceBarCount",
+        "encoding": "map",
+        "file": ".config/plain/shell.json",
+        "prefix": "",
+        "type": "int"
+      },
+      {
+        "domain": "workspaceBarNames",
+        "encoding": "map",
+        "file": ".config/plain/shell.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "workspaceWheelSwitch",
+        "encoding": "map",
+        "file": ".config/plain/workspaces.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "workspaceWrapSwitch",
+        "encoding": "map",
+        "file": ".config/plain/workspaces.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
+        "domain": "workspaces",
+        "encoding": "map",
+        "file": ".config/plain/workspaces.json",
+        "prefix": "",
+        "type": "list"
+      }
+    ],
+    "version": "0.1.0"
+  }
+}

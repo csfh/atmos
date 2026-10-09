@@ -1,0 +1,22 @@
+{
+  "backend": "plain",
+  "request": {
+    "op": "display.get",
+    "kind": "nope"
+  },
+  "response": {
+    "error": {
+      "code": "failed",
+      "context": null,
+      "message": "unknown display kind nope"
+    },
+    "ok": false,
+    "platform": {
+      "compositor": "none",
+      "family": "portable",
+      "id": "plain"
+    },
+    "result": null,
+    "version": "0.1.0"
+  }
+}

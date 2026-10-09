@@ -1,0 +1,34 @@
+{
+  "backend": "plain",
+  "setup": [
+    {
+      "op": "settings.set",
+      "domain": "theme",
+      "value": "tokyo-night"
+    },
+    {
+      "op": "settings.set",
+      "domain": "hyprLook.gapsIn",
+      "value": 4
+    }
+  ],
+  "request": {
+    "op": "settings.snapshot",
+    "group": "all"
+  },
+  "response": {
+    "ok": true,
+    "platform": {
+      "compositor": "none",
+      "family": "portable",
+      "id": "plain"
+    },
+    "result": {
+      "hyprLook": {
+        "gapsIn": 4
+      },
+      "theme": "tokyo-night"
+    },
+    "version": "0.1.0"
+  }
+}

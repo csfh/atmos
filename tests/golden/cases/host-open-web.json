@@ -1,0 +1,19 @@
+{
+  "backend": "plain",
+  "request": {
+    "op": "host.open",
+    "path": "https://example.com/"
+  },
+  "response": {
+    "ok": true,
+    "platform": {
+      "compositor": "none",
+      "family": "portable",
+      "id": "plain"
+    },
+    "result": {
+      "opened": "https://example.com/"
+    },
+    "version": "0.1.0"
+  }
+}

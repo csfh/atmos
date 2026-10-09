@@ -1,0 +1,22 @@
+{
+  "backend": "plain",
+  "files": {
+    "doc.txt": "x\n"
+  },
+  "request": {
+    "op": "host.open",
+    "path": "/doc.txt"
+  },
+  "response": {
+    "ok": true,
+    "platform": {
+      "compositor": "none",
+      "family": "portable",
+      "id": "plain"
+    },
+    "result": {
+      "opened": "/doc.txt"
+    },
+    "version": "0.1.0"
+  }
+}

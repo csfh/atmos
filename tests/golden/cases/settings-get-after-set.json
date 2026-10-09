@@ -1,0 +1,24 @@
+{
+  "backend": "omarchy",
+  "setup": [
+    {
+      "op": "settings.set",
+      "domain": "hyprLook.gapsOut",
+      "value": 12
+    }
+  ],
+  "request": {
+    "op": "settings.get",
+    "domain": "hyprLook.gapsOut"
+  },
+  "response": {
+    "ok": true,
+    "platform": {
+      "compositor": "hyprland",
+      "family": "arch",
+      "id": "omarchy"
+    },
+    "result": 12,
+    "version": "0.1.0"
+  }
+}

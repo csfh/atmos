@@ -8,6 +8,8 @@ Atmos is a standalone Quickshell preferences app for Omarchy. Do not import `qs.
 - `npm install` — oxlint and oxfmt; also sets `core.hooksPath` to `.githooks`
 - `npm run lint` / `npm run fmt` — lint and format `services` and `tests`
 - `./tests/run` — oxlint, oxfmt --check, `scripts/*.py` syntax, parser tests, plus a live snapshot check when `omarchy` is present
+- `tests/sandbox.js` — any test that runs a script or `ratmos` goes through `createSandbox()`: throwaway HOME/XDG, a PATH of fakes that record argv (`box.calls()`), and a guard that throws on the real home or a real tool. An unscripted fake exits 97. `backendWrapper()` gives an `ATMOS_BACKEND` pinned to a fixture `--root` (ratmos only; run the app itself under `box.env()` too).
+- `tests/golden/` — recorded `ratmos` replies for every op, replayed over `request` and `serve` with bodies from `Requests.js`. After an intended protocol change: `ATMOS_GOLDEN_RECORD=1 node tests/golden.test.js`, then review the diff.
 - `./tests/smoke [seconds]` — opt-in: launches the real app, checks the log is clean and that one `ratmos serve` runs with no idle one-shot requests. Needs a Wayland session; run it before tagging a release.
 - pre-commit (`.githooks/pre-commit`) — oxlint, oxfmt --check, and `tests/compile-python`; skip with `git commit --no-verify`
 - GitHub Actions (`.github/workflows/tests.yml`) — `npm ci` and `./tests/run` on pull requests and on `main` / `stable`. Live snapshot stays skipped without `omarchy`.

@@ -1,0 +1,33 @@
+{
+  "backend": "plain",
+  "files": {
+    "watched.txt": "hello\n"
+  },
+  "request": {
+    "op": "host.stamp",
+    "paths": ["/watched.txt", "/missing.txt"]
+  },
+  "response": {
+    "ok": true,
+    "platform": {
+      "compositor": "none",
+      "family": "portable",
+      "id": "plain"
+    },
+    "result": {
+      "items": [
+        {
+          "path": "/watched.txt",
+          "sig": "6:1700000000",
+          "text": "hello\n"
+        },
+        {
+          "path": "/missing.txt",
+          "sig": "missing",
+          "text": ""
+        }
+      ]
+    },
+    "version": "0.1.0"
+  }
+}

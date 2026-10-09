@@ -1,0 +1,34 @@
+{
+  "backend": "omarchy",
+  "files": {
+    "etc/hostname": "atmos-box\n",
+    "etc/passwd": "me:x:1000:1000:Me:/home/me:/bin/bash\n",
+    "etc/group": "me:x:1000:\n",
+    "home/me/.face": "jpeg",
+    "var/lib/AccountsService/icons/me": "png"
+  },
+  "request": {
+    "op": "host.accounts",
+    "user": "me",
+    "home": "/home/me"
+  },
+  "response": {
+    "ok": true,
+    "platform": {
+      "compositor": "hyprland",
+      "family": "arch",
+      "id": "omarchy"
+    },
+    "result": {
+      "exists": {
+        "/home/me/.face": true,
+        "/home/me/.face.icon": false,
+        "/var/lib/AccountsService/icons/me": true
+      },
+      "group": "me:x:1000:\n",
+      "hostname": "atmos-box\n",
+      "passwd": "me:x:1000:1000:Me:/home/me:/bin/bash\n"
+    },
+    "version": "0.1.0"
+  }
+}

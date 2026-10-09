@@ -1,0 +1,134 @@
+{
+  "backend": "omarchy",
+  "request": {
+    "op": "agents.mcp.list"
+  },
+  "response": {
+    "ok": true,
+    "platform": {
+      "compositor": "hyprland",
+      "family": "arch",
+      "id": "omarchy"
+    },
+    "result": [
+      {
+        "id": "pi",
+        "installed": false,
+        "name": "Pi",
+        "on": false,
+        "path": "",
+        "state": "absent",
+        "writer": false
+      },
+      {
+        "id": "omp",
+        "installed": false,
+        "name": "Oh My Pi",
+        "on": false,
+        "path": "",
+        "state": "absent",
+        "writer": false
+      },
+      {
+        "id": "opencode",
+        "installed": false,
+        "name": "OpenCode",
+        "on": false,
+        "path": "",
+        "state": "absent",
+        "writer": false
+      },
+      {
+        "id": "claude",
+        "installed": false,
+        "name": "Claude Code",
+        "on": false,
+        "path": "",
+        "state": "absent",
+        "writer": true
+      },
+      {
+        "id": "codex",
+        "installed": false,
+        "name": "Codex",
+        "on": false,
+        "path": "",
+        "state": "absent",
+        "writer": false
+      },
+      {
+        "id": "grok",
+        "installed": false,
+        "name": "Grok",
+        "on": false,
+        "path": "<root>/.grok/config.toml",
+        "state": "absent",
+        "writer": true
+      },
+      {
+        "id": "gemini",
+        "installed": false,
+        "name": "Gemini",
+        "on": false,
+        "path": "",
+        "state": "absent",
+        "writer": false
+      },
+      {
+        "id": "openclaw",
+        "installed": false,
+        "name": "OpenClaw",
+        "on": false,
+        "path": "",
+        "state": "absent",
+        "writer": false
+      },
+      {
+        "id": "hermes",
+        "installed": false,
+        "name": "Hermes",
+        "on": false,
+        "path": "",
+        "state": "absent",
+        "writer": false
+      },
+      {
+        "id": "copilot",
+        "installed": false,
+        "name": "GitHub Copilot",
+        "on": false,
+        "path": "",
+        "state": "absent",
+        "writer": false
+      },
+      {
+        "id": "crush",
+        "installed": false,
+        "name": "Crush",
+        "on": false,
+        "path": "",
+        "state": "absent",
+        "writer": false
+      },
+      {
+        "id": "cursor-agent",
+        "installed": false,
+        "name": "Cursor",
+        "on": false,
+        "path": "<root>/.cursor/mcp.json",
+        "state": "absent",
+        "writer": true
+      },
+      {
+        "id": "muse",
+        "installed": false,
+        "name": "Muse",
+        "on": false,
+        "path": "",
+        "state": "absent",
+        "writer": false
+      }
+    ],
+    "version": "0.1.0"
+  }
+}

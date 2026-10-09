@@ -1,0 +1,16 @@
+{
+  "backend": "plain",
+  "request": {
+    "op": "version"
+  },
+  "response": {
+    "ok": true,
+    "platform": {
+      "compositor": "none",
+      "family": "portable",
+      "id": "plain"
+    },
+    "result": "0.1.0",
+    "version": "0.1.0"
+  }
+}

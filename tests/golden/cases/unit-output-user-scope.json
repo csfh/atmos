@@ -1,0 +1,22 @@
+{
+  "backend": "plain",
+  "request": {
+    "op": "unit.output",
+    "kind": "status",
+    "scope": "user",
+    "unit": "pipewire.service"
+  },
+  "response": {
+    "ok": true,
+    "platform": {
+      "compositor": "none",
+      "family": "portable",
+      "id": "plain"
+    },
+    "result": {
+      "exit": 0,
+      "text": "plain-unit\n"
+    },
+    "version": "0.1.0"
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "backend": "omarchy",
+  "setup": [
+    {
+      "op": "settings.set",
+      "domain": "hyprLook.gapsIn",
+      "value": 4
+    },
+    {
+      "op": "settings.set",
+      "domain": "hyprLook.blur",
+      "value": false
+    }
+  ],
+  "request": {
+    "op": "settings.snapshot",
+    "group": "look"
+  },
+  "response": {
+    "ok": true,
+    "platform": {
+      "compositor": "hyprland",
+      "family": "arch",
+      "id": "omarchy"
+    },
+    "result": {
+      "directBoot": false,
+      "fido2Configured": false,
+      "fingerprintConfigured": false,
+      "fstrimEnabled": false,
+      "hyprLook": {
+        "blur": false,
+        "gapsIn": 4
+      },
+      "hyprNoGaps": false,
+      "hyprSquareAspect": false,
+      "passwordlessSudo": false,
+      "sshdEnabled": false,
+      "sudolessDocker": false
+    },
+    "version": "0.1.0"
+  }
+}

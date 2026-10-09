@@ -1,0 +1,23 @@
+{
+  "backend": "omarchy",
+  "request": {
+    "op": "settings.set",
+    "domain": "hyprLook.activeOpacity",
+    "value": 0.85
+  },
+  "response": {
+    "ok": true,
+    "platform": {
+      "compositor": "hyprland",
+      "family": "arch",
+      "id": "omarchy"
+    },
+    "result": {
+      "domain": "hyprLook.activeOpacity",
+      "encoding": "lua",
+      "file": ".config/hypr/looknfeel.lua",
+      "value": 0.85
+    },
+    "version": "0.1.0"
+  }
+}

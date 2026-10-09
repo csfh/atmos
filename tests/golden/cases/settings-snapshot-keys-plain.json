@@ -1,0 +1,32 @@
+{
+  "backend": "plain",
+  "setup": [
+    {
+      "op": "settings.set",
+      "domain": "theme",
+      "value": "tokyo-night"
+    },
+    {
+      "op": "settings.set",
+      "domain": "font",
+      "value": "Iosevka"
+    }
+  ],
+  "request": {
+    "op": "settings.snapshot",
+    "group": "all",
+    "keys": ["theme"]
+  },
+  "response": {
+    "ok": true,
+    "platform": {
+      "compositor": "none",
+      "family": "portable",
+      "id": "plain"
+    },
+    "result": {
+      "theme": "tokyo-night"
+    },
+    "version": "0.1.0"
+  }
+}

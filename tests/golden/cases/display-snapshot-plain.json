@@ -1,0 +1,41 @@
+{
+  "backend": "plain",
+  "request": {
+    "op": "display.snapshot"
+  },
+  "response": {
+    "ok": true,
+    "platform": {
+      "compositor": "none",
+      "family": "portable",
+      "id": "plain"
+    },
+    "result": {
+      "diagnostics": {
+        "collector": "plain-diagnostics",
+        "platform": "plain"
+      },
+      "disks": {
+        "collector": "plain-disks",
+        "platform": "plain"
+      },
+      "hardware": {
+        "collector": "plain-hardware",
+        "platform": "plain"
+      },
+      "live": {
+        "collector": "plain-sampler",
+        "platform": "plain"
+      },
+      "services": {
+        "collector": "plain-services",
+        "platform": "plain"
+      },
+      "software": {
+        "collector": "plain-software",
+        "platform": "plain"
+      }
+    },
+    "version": "0.1.0"
+  }
+}

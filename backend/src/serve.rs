@@ -250,3 +250,64 @@ fn send(out: &Out, value: &Value) {
         let _ = out.flush();
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn signatures_pair_each_path_with_its_sig() {
+        let doc = json!({"items": [
+            {"path": "/a", "sig": "1", "text": "ignored"},
+            {"path": "/b", "sig": "2"},
+        ]});
+        assert_eq!(
+            signatures(&doc),
+            vec![
+                ("/a".to_string(), "1".to_string()),
+                ("/b".to_string(), "2".to_string())
+            ]
+        );
+    }
+
+    #[test]
+    fn signatures_survive_a_malformed_document() {
+        assert!(signatures(&json!({})).is_empty());
+        assert!(signatures(&json!({"items": "x"})).is_empty());
+        assert!(signatures(&Value::Null).is_empty());
+        assert_eq!(
+            signatures(&json!({"items": [{}]})),
+            vec![(String::new(), String::new())]
+        );
+        assert_eq!(
+            signatures(&json!({"items": [{"path": 7, "sig": null}]})),
+            vec![(String::new(), String::new())]
+        );
+    }
+
+    #[test]
+    fn an_event_names_itself_and_carries_the_result() {
+        assert_eq!(
+            event("stamp", json!({"n": 1})),
+            json!({"event": "stamp", "result": {"n": 1}})
+        );
+    }
+
+    #[test]
+    fn with_id_echoes_the_id_of_the_request() {
+        let reply = with_id(json!({"ok": true}), Some(json!(7)));
+        assert_eq!(reply, json!({"ok": true, "id": 7}));
+        let string_id = with_id(json!({"ok": true}), Some(json!("abc")));
+        assert_eq!(string_id["id"], "abc");
+    }
+
+    #[test]
+    fn without_an_id_the_envelope_is_unchanged() {
+        assert_eq!(with_id(json!({"ok": true}), None), json!({"ok": true}));
+    }
+
+    #[test]
+    fn an_id_cannot_be_added_to_a_non_object() {
+        assert_eq!(with_id(json!([1]), Some(json!(1))), json!([1]));
+    }
+}

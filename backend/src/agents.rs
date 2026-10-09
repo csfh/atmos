@@ -718,3 +718,137 @@ fn tool_names(stdout: &str) -> Vec<String> {
     }
     names
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::error::Kind;
+
+    fn args(list: &[&str]) -> Vec<String> {
+        list.iter().map(|s| s.to_string()).collect()
+    }
+
+    #[test]
+    fn roster_ids_are_unique_and_findable() {
+        let mut seen = std::collections::HashSet::new();
+        for spec in ROSTER {
+            assert!(seen.insert(spec.id), "duplicate agent {}", spec.id);
+            assert_eq!(find_spec(spec.id).unwrap().id, spec.id);
+        }
+    }
+
+    #[test]
+    fn an_unknown_agent_is_a_bad_request() {
+        for id in ["", "nope", "Claude"] {
+            let err = find_spec(id).err().expect("unknown agent");
+            assert_eq!(err.kind, Kind::BadRequest, "{id:?}");
+        }
+    }
+
+    #[test]
+    fn presence_names_are_the_wire_words() {
+        assert_eq!(presence_name(Presence::Absent), "absent");
+        assert_eq!(presence_name(Presence::Ours), "ours");
+        assert_eq!(presence_name(Presence::Stale), "stale");
+        assert_eq!(presence_name(Presence::Custom), "custom");
+    }
+
+    #[test]
+    fn only_atmos_or_ratmos_by_file_name_point_at_atmos() {
+        for command in ["atmos", "ratmos", "/usr/bin/atmos", "/opt/x/ratmos"] {
+            assert!(points_at_atmos(command), "{command}");
+        }
+        for command in [
+            "",
+            "atmos-old",
+            "/usr/bin/atmosphere",
+            "node",
+            "/atmos/node",
+        ] {
+            assert!(!points_at_atmos(command), "{command}");
+        }
+    }
+
+    #[test]
+    fn classify_separates_ours_stale_and_custom() {
+        let ours = Path::new("/home/u/.local/bin/atmos");
+        let mcp = args(&["mcp"]);
+        assert!(matches!(
+            classify("/home/u/.local/bin/atmos", &mcp, Some(ours)),
+            Presence::Ours
+        ));
+        // Same binary, wrong arguments: the entry is out of date.
+        assert!(matches!(
+            classify("/home/u/.local/bin/atmos", &args(&["serve"]), Some(ours)),
+            Presence::Stale
+        ));
+        assert!(matches!(
+            classify("/home/u/.local/bin/atmos", &args(&["mcp", "x"]), Some(ours)),
+            Presence::Stale
+        ));
+        // An atmos installed somewhere else is stale, not ours.
+        assert!(matches!(
+            classify("/opt/atmos", &mcp, Some(ours)),
+            Presence::Stale
+        ));
+        assert!(matches!(
+            classify("/usr/bin/other", &mcp, Some(ours)),
+            Presence::Custom
+        ));
+        // With no known install, nothing can be ours.
+        assert!(matches!(
+            classify("/home/u/.local/bin/atmos", &mcp, None),
+            Presence::Stale
+        ));
+    }
+
+    #[test]
+    fn claude_get_output_is_read_into_a_presence() {
+        let ours = Path::new("/bin/atmos");
+        let text = "omarchy:\n  Scope: User\n  Command: /bin/atmos\n  Args: mcp\n";
+        let found = parse_claude_get(text, Some(ours)).expect("found");
+        assert!(matches!(found.presence, Presence::Ours));
+        assert!(found.enabled);
+        let other = parse_claude_get("Command: node\nArgs: server.js --flag\n", Some(ours));
+        assert!(matches!(other.expect("found").presence, Presence::Custom));
+        // No Args line is an empty argument list.
+        let bare = parse_claude_get("Command: /bin/atmos\n", Some(ours)).expect("found");
+        assert!(matches!(bare.presence, Presence::Stale));
+    }
+
+    #[test]
+    fn claude_get_output_without_a_command_is_not_an_entry() {
+        assert!(parse_claude_get("", None).is_none());
+        assert!(parse_claude_get("No MCP server found with name: omarchy\n", None).is_none());
+        assert!(parse_claude_get("Args: mcp\n", None).is_none());
+    }
+
+    #[test]
+    fn tool_names_come_from_the_last_tools_reply() {
+        let out = concat!(
+            "{\"id\":1,\"result\":{\"protocolVersion\":\"x\"}}\n",
+            "not json at all\n",
+            "{\"id\":2,\"result\":{\"tools\":[{\"name\":\"a\"},{\"name\":\"b\"},{\"nope\":1}]}}\n",
+        );
+        assert_eq!(tool_names(out), vec!["a", "b"]);
+        let two = format!("{out}{{\"id\":3,\"result\":{{\"tools\":[{{\"name\":\"c\"}}]}}}}\n");
+        assert_eq!(tool_names(&two), vec!["c"]);
+    }
+
+    #[test]
+    fn tool_names_are_empty_for_output_without_tools() {
+        assert!(tool_names("").is_empty());
+        assert!(tool_names("garbage\n\n").is_empty());
+        assert!(tool_names("{\"result\":{}}\n").is_empty());
+        assert!(tool_names("{\"result\":{\"tools\":\"x\"}}\n").is_empty());
+    }
+
+    #[test]
+    fn string_list_keeps_strings_and_drops_the_rest() {
+        let doc: toml_edit::DocumentMut = "a = [\"x\", 1, \"y\"]\nb = \"s\"\n".parse().unwrap();
+        assert_eq!(string_list(doc.get("a")), vec!["x", "y"]);
+        assert!(string_list(doc.get("b")).is_empty());
+        assert!(string_list(doc.get("missing")).is_empty());
+        assert!(string_list(None).is_empty());
+    }
+}

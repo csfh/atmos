@@ -588,3 +588,178 @@ fn omarchy_key(key: &str) -> Option<Place> {
         _ => return None,
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+    use std::collections::HashSet;
+
+    const BACKENDS: [Backend; 2] = [Backend::Omarchy, Backend::Plain];
+
+    #[test]
+    fn spec_keys_are_unique_and_nonempty() {
+        let mut seen = HashSet::new();
+        for spec in specs() {
+            assert!(!spec.key.is_empty() && !spec.group.is_empty(), "{spec:?}");
+            assert!(seen.insert(spec.key), "duplicate key {}", spec.key);
+        }
+    }
+
+    #[test]
+    fn find_returns_each_spec_by_key() {
+        for spec in specs() {
+            let found = find(spec.key).unwrap_or_else(|| panic!("find lost {}", spec.key));
+            assert_eq!(found.key, spec.key);
+            assert_eq!(found.group, spec.group);
+        }
+        assert!(find("no.such.key").is_none());
+        assert!(find("").is_none());
+    }
+
+    #[test]
+    fn every_spec_has_a_place_on_every_backend() {
+        for backend in BACKENDS {
+            for spec in specs() {
+                let place = locate(backend, spec)
+                    .unwrap_or_else(|e| panic!("{} on {}: {e:?}", spec.key, backend.id()));
+                assert!(!place.rel.is_empty(), "{}", spec.key);
+                assert!(
+                    !place.rel.starts_with('/') && !place.rel.contains(".."),
+                    "{} escapes the root: {}",
+                    spec.key,
+                    place.rel
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn plain_backend_keeps_one_json_map_per_group() {
+        for spec in specs() {
+            let place = locate(Backend::Plain, spec).unwrap();
+            assert_eq!(place.encoding(), "map", "{}", spec.key);
+            assert_eq!(place.rel, format!(".config/plain/{}.json", spec.group));
+        }
+    }
+
+    #[test]
+    fn overrides_and_lua_bindings_name_real_specs() {
+        let keys: HashSet<_> = specs().iter().map(|spec| spec.key).collect();
+        let probes = [
+            "hyprNoGaps",
+            "hyprSquareAspect",
+            "doNotDisturb",
+            "mimePdf",
+            "mimeImage",
+            "mimeVideo",
+            "customDns",
+            "bluetooth",
+            "wifiRadio",
+            "suspendEnabled",
+            "crashCapture",
+            "presentationMode",
+            "chargeLimit",
+            "snapperNumberLimit",
+            "snapperTimeline",
+            "passwordlessSudo",
+            "fingerprintConfigured",
+            "fido2Configured",
+            "sshdEnabled",
+            "fstrimEnabled",
+            "directBoot",
+            "sudolessDocker",
+            "monitorScale",
+            "internalDisplay",
+            "internalMirror",
+        ];
+        for key in probes {
+            assert!(omarchy_key(key).is_some(), "{key} lost its override");
+            assert!(keys.contains(key), "override {key} has no spec");
+        }
+        assert!(omarchy_key("theme").is_none());
+        for spec in specs() {
+            if lua_bind(spec.key).is_some() {
+                assert!(
+                    matches!(spec.group, "look" | "input"),
+                    "{} binds Lua outside look/input ({})",
+                    spec.key,
+                    spec.group
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn look_and_input_specs_without_an_override_are_lua_blocks() {
+        for spec in specs() {
+            if !matches!(spec.group, "look" | "input") || omarchy_key(spec.key).is_some() {
+                continue;
+            }
+            let place = locate(Backend::Omarchy, spec).unwrap();
+            assert_eq!(place.encoding(), "lua", "{}", spec.key);
+            assert!(
+                lua_bind(spec.key).is_some(),
+                "{} lives in a Lua block but has no binding",
+                spec.key
+            );
+        }
+    }
+
+    #[test]
+    fn sentinel_markers_pair_up_per_block() {
+        for spec in specs() {
+            if let PlaceKind::Lua { begin, end } = locate(Backend::Omarchy, spec).unwrap().kind {
+                assert!(
+                    begin.ends_with(" begin") && end.ends_with(" end"),
+                    "{}",
+                    spec.key
+                );
+                assert_eq!(
+                    begin.trim_end_matches(" begin"),
+                    end.trim_end_matches(" end")
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn unknown_group_has_no_omarchy_file() {
+        let spec = Spec {
+            key: "x",
+            group: "nope",
+            ty: Ty::String,
+            effect: Effect::Document,
+        };
+        assert!(locate(Backend::Omarchy, &spec).is_err());
+        assert!(locate(Backend::Plain, &spec).is_ok());
+    }
+
+    #[test]
+    fn ty_names_and_accepts_agree() {
+        let cases = [
+            (Ty::String, "string", json!("a"), json!(1)),
+            (Ty::Int, "int", json!(3), json!(1.5)),
+            (Ty::Number, "number", json!(1.5), json!("1.5")),
+            (Ty::Bool, "bool", json!(true), json!(0)),
+            (Ty::List, "list", json!([]), json!({})),
+        ];
+        for (ty, name, good, bad) in cases {
+            assert_eq!(ty.name(), name);
+            assert!(ty.accepts(&good), "{name} should accept {good}");
+            assert!(!ty.accepts(&bad), "{name} should reject {bad}");
+            assert!(!ty.accepts(&Value::Null), "{name} should reject null");
+        }
+        assert!(Ty::Number.accepts(&json!(2)), "ints are numbers");
+    }
+
+    #[test]
+    fn place_encoding_and_prefix() {
+        let line = locate(Backend::Omarchy, find("locale").expect("locale spec")).unwrap();
+        assert_eq!(line.encoding(), "line");
+        assert_eq!(line.prefix(), "LANG=");
+        let map = locate(Backend::Omarchy, find("theme").unwrap()).unwrap();
+        assert_eq!(map.encoding(), "map");
+        assert_eq!(map.prefix(), "");
+    }
+}

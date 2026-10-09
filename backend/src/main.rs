@@ -26,3 +26,35 @@ fn wants(args: &[String], command: &str) -> bool {
     }
     false
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn argv(list: &[&str]) -> Vec<String> {
+        list.iter().map(|s| s.to_string()).collect()
+    }
+
+    #[test]
+    fn wants_finds_a_command_after_the_program_name() {
+        assert!(wants(&argv(&["ratmos", "request"]), "request"));
+        assert!(wants(
+            &argv(&["ratmos", "--root", "/x", "request"]),
+            "request"
+        ));
+    }
+
+    #[test]
+    fn wants_ignores_the_program_name_and_other_commands() {
+        assert!(!wants(&argv(&["request"]), "request"));
+        assert!(!wants(&argv(&["ratmos", "snapshot"]), "request"));
+        assert!(!wants(&argv(&["ratmos"]), "request"));
+        assert!(!wants(&[], "request"));
+    }
+
+    #[test]
+    fn wants_stops_at_the_double_dash() {
+        assert!(!wants(&argv(&["ratmos", "--", "request"]), "request"));
+        assert!(wants(&argv(&["ratmos", "request", "--", "x"]), "request"));
+    }
+}

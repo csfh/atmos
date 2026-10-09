@@ -648,3 +648,131 @@ fn usage(stderr: &mut dyn Write) {
         "usage: ratmos [--backend omarchy|plain] [--root DIR] <snapshot|request|display KIND|display-snapshot|apply -- CMD|version>"
     );
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn argv(list: &[&str]) -> Vec<String> {
+        list.iter().map(|s| s.to_string()).collect()
+    }
+
+    fn scratch(tag: &str) -> PathBuf {
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        std::env::temp_dir().join(format!("ratmos-lib-{tag}-{nanos}-{}", std::process::id()))
+    }
+
+    #[test]
+    fn no_flags_means_omarchy_and_no_root() {
+        let parsed = parse_args(&argv(&["ratmos", "snapshot", "look"]))
+            .ok()
+            .unwrap();
+        assert_eq!(parsed.backend, Backend::Omarchy);
+        assert!(parsed.root.is_none() && parsed.sampler.is_none());
+        assert_eq!(parsed.command, "snapshot");
+        assert_eq!(parsed.rest, vec!["look"]);
+    }
+
+    #[test]
+    fn flags_may_come_before_or_after_the_command() {
+        let root = scratch("flags");
+        let root_arg = root.display().to_string();
+        let parsed = parse_args(&argv(&[
+            "ratmos",
+            "--backend",
+            "plain",
+            "request",
+            "--root",
+            &root_arg,
+            "--sampler",
+            "/s",
+        ]))
+        .ok()
+        .unwrap();
+        assert_eq!(parsed.backend, Backend::Plain);
+        assert_eq!(parsed.root.as_deref(), Some(root.as_path()));
+        assert_eq!(parsed.sampler.as_deref(), Some(Path::new("/s")));
+        assert_eq!(parsed.command, "request");
+        assert!(parsed.rest.is_empty());
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn a_root_directory_is_created_on_parse() {
+        let root = scratch("create").join("nested");
+        let root_arg = root.display().to_string();
+        assert!(!root.exists());
+        parse_args(&argv(&["ratmos", "--root", &root_arg, "version"]))
+            .ok()
+            .unwrap();
+        assert!(root.is_dir());
+        std::fs::remove_dir_all(root.parent().unwrap()).unwrap();
+    }
+
+    #[test]
+    fn a_flag_without_its_value_is_an_error() {
+        for flag in ["--backend", "--root", "--sampler"] {
+            assert!(parse_args(&argv(&["ratmos", flag])).is_err(), "{flag}");
+        }
+    }
+
+    #[test]
+    fn an_unknown_flag_or_backend_is_an_error() {
+        assert!(parse_args(&argv(&["ratmos", "--nope", "version"])).is_err());
+        assert!(parse_args(&argv(&["ratmos", "--backend", "windows", "version"])).is_err());
+    }
+
+    #[test]
+    fn double_dash_turns_the_rest_into_positionals() {
+        let parsed = parse_args(&argv(&["ratmos", "run", "--", "--root", "x"]))
+            .ok()
+            .unwrap();
+        assert_eq!(parsed.command, "run");
+        assert_eq!(parsed.rest, vec!["--root", "x"]);
+        assert!(parsed.root.is_none());
+    }
+
+    #[test]
+    fn no_command_is_an_empty_command() {
+        let parsed = parse_args(&argv(&["ratmos"])).ok().unwrap();
+        assert_eq!(parsed.command, "");
+        assert!(parsed.rest.is_empty());
+    }
+
+    #[test]
+    fn scalar_arg_renders_strings_bools_and_numbers() {
+        assert_eq!(scalar_arg(&json!("x y")).unwrap(), "x y");
+        assert_eq!(scalar_arg(&json!(true)).unwrap(), "true");
+        assert_eq!(scalar_arg(&json!(false)).unwrap(), "false");
+        assert_eq!(scalar_arg(&json!(12)).unwrap(), "12");
+        assert_eq!(scalar_arg(&json!(-3)).unwrap(), "-3");
+        assert_eq!(scalar_arg(&json!(0.5)).unwrap(), "0.5");
+    }
+
+    #[test]
+    fn scalar_arg_refuses_structures_and_null() {
+        for value in [json!(null), json!([1]), json!({"a": 1})] {
+            assert!(scalar_arg(&value).is_err(), "{value}");
+        }
+    }
+
+    #[test]
+    fn wanted_matches_the_top_level_name_of_a_dotted_key() {
+        let keys = argv(&["hyprLook", "theme"]);
+        assert!(wanted("hyprLook.gapsIn", Some(&keys)));
+        assert!(wanted("theme", Some(&keys)));
+        assert!(!wanted("hyprInput.sensitivity", Some(&keys)));
+        assert!(!wanted("hyprLooks", Some(&keys)));
+        assert!(!wanted("font", Some(&keys)));
+    }
+
+    #[test]
+    fn wanted_with_no_list_wants_everything_and_with_an_empty_list_nothing() {
+        assert!(wanted("anything.at.all", None));
+        assert!(!wanted("theme", Some(&[])));
+    }
+}

@@ -139,6 +139,7 @@ impl Request {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::error::Kind;
     use serde_json::json;
 
     fn parse(value: Value) -> Result<Request> {
@@ -191,6 +192,174 @@ mod tests {
     fn optional_host_fields_default() {
         match parse(json!({"op": "speedtest.net"})).unwrap() {
             Request::SpeedtestNet(net) => assert_eq!(net.phase, "down"),
+            other => panic!("{other:?}"),
+        }
+    }
+
+    /// Exhaustive on purpose: a new `Request` variant stops compiling here
+    /// until it gets an op name, and `every_variant_has_a_round_trip_case`
+    /// then demands a body for it.
+    fn op_name(request: &Request) -> &'static str {
+        match request {
+            Request::Version => "version",
+            Request::Platform => "platform",
+            Request::SettingsList => "settings.list",
+            Request::SettingsGet { .. } => "settings.get",
+            Request::SettingsSet { .. } => "settings.set",
+            Request::SettingsSnapshot { .. } => "settings.snapshot",
+            Request::DisplayGet { .. } => "display.get",
+            Request::DisplaySnapshot => "display.snapshot",
+            Request::HostChrome => "host.chrome",
+            Request::HostThemePack(_) => "host.themePack",
+            Request::HostAccounts(_) => "host.accounts",
+            Request::HostStamp(_) => "host.stamp",
+            Request::HostRead(_) => "host.read",
+            Request::HostWrite(_) => "host.write",
+            Request::HostOpen { .. } => "host.open",
+            Request::SpeedtestDisk(_) => "speedtest.disk",
+            Request::SpeedtestNet(_) => "speedtest.net",
+            Request::UnitOutput(_) => "unit.output",
+            Request::AgentsMcpList => "agents.mcp.list",
+            Request::AgentsMcpSet { .. } => "agents.mcp.set",
+            Request::AgentsMcpCheck => "agents.mcp.check",
+        }
+    }
+
+    /// The smallest valid body for every op.
+    fn minimal_bodies() -> Vec<Value> {
+        vec![
+            json!({"op": "version"}),
+            json!({"op": "platform"}),
+            json!({"op": "settings.list"}),
+            json!({"op": "settings.get", "domain": "theme"}),
+            json!({"op": "settings.set", "domain": "theme", "value": "x"}),
+            json!({"op": "settings.snapshot"}),
+            json!({"op": "display.get", "kind": "monitors"}),
+            json!({"op": "display.snapshot"}),
+            json!({"op": "host.chrome"}),
+            json!({"op": "host.themePack"}),
+            json!({"op": "host.accounts"}),
+            json!({"op": "host.stamp", "paths": []}),
+            json!({"op": "host.read", "paths": ["a"]}),
+            json!({"op": "host.write", "path": "a"}),
+            json!({"op": "host.open", "path": "a"}),
+            json!({"op": "speedtest.disk"}),
+            json!({"op": "speedtest.net"}),
+            json!({"op": "unit.output", "kind": "status", "unit": "sshd.service"}),
+            json!({"op": "agents.mcp.list"}),
+            json!({"op": "agents.mcp.set", "agent": "claude", "on": true}),
+            json!({"op": "agents.mcp.check"}),
+        ]
+    }
+
+    #[test]
+    fn every_variant_round_trips_through_its_op_name() {
+        for body in minimal_bodies() {
+            let want = body["op"].as_str().unwrap().to_string();
+            let request = parse(body.clone()).unwrap_or_else(|e| panic!("{body}: {e}"));
+            assert_eq!(op_name(&request), want, "{body}");
+        }
+    }
+
+    #[test]
+    fn every_variant_has_a_round_trip_case() {
+        // Count the `rename` attributes above this module and compare with the
+        // table, so a new variant cannot ship without a body here.
+        let source = include_str!("request.rs");
+        let (declared, _) = source.split_once("#[cfg(test)]").unwrap();
+        let marker = ["rename = ", "\""].concat();
+        assert_eq!(declared.matches(&marker).count(), minimal_bodies().len());
+        let mut ops: Vec<_> = minimal_bodies()
+            .iter()
+            .map(|b| b["op"].as_str().unwrap().to_string())
+            .collect();
+        ops.sort();
+        ops.dedup();
+        assert_eq!(ops.len(), minimal_bodies().len(), "duplicate op in table");
+    }
+
+    #[test]
+    fn every_op_that_needs_a_field_names_it_when_missing() {
+        let needs = [
+            ("settings.get", "domain"),
+            ("settings.set", "domain"),
+            ("display.get", "kind"),
+            ("host.stamp", "paths"),
+            ("host.read", "paths"),
+            ("host.write", "path"),
+            ("host.open", "path"),
+            ("unit.output", "kind"),
+            ("agents.mcp.set", "agent"),
+        ];
+        for (op, field) in needs {
+            let err = parse(json!({ "op": op })).unwrap_err();
+            assert_eq!(err.kind, Kind::BadRequest, "{op}");
+            assert!(err.message.contains(field), "{op}: {err}");
+        }
+    }
+
+    #[test]
+    fn every_parse_failure_is_a_bad_request() {
+        let bad = [
+            json!({}),
+            json!({"op": 1}),
+            json!({"op": null}),
+            json!("settings.list"),
+            json!([]),
+            json!(null),
+            json!({"op": "nope"}),
+            json!({"op": "settings.get", "domain": 7}),
+            json!({"op": "agents.mcp.set", "agent": "a", "on": "yes"}),
+        ];
+        for body in bad {
+            let err = parse(body.clone()).unwrap_err();
+            assert_eq!(err.kind, Kind::BadRequest, "{body}");
+            assert_eq!(err.kind.code(), "bad_request");
+        }
+    }
+
+    #[test]
+    fn op_names_are_case_sensitive() {
+        assert!(parse(json!({"op": "Settings.List"})).is_err());
+        assert!(parse(json!({"op": "host.themepack"})).is_err());
+    }
+
+    #[test]
+    fn field_defaults_match_the_wire_contract() {
+        match parse(json!({"op": "unit.output", "kind": "k", "unit": "u"})).unwrap() {
+            Request::UnitOutput(u) => assert_eq!(u.scope, "system"),
+            other => panic!("{other:?}"),
+        }
+        match parse(json!({"op": "agents.mcp.set", "agent": "a", "on": false})).unwrap() {
+            Request::AgentsMcpSet { on, replace, .. } => assert!(!on && !replace),
+            other => panic!("{other:?}"),
+        }
+        match parse(json!({"op": "host.write", "path": "p"})).unwrap() {
+            Request::HostWrite(w) => assert_eq!((w.path.as_str(), w.text.as_str()), ("p", "")),
+            other => panic!("{other:?}"),
+        }
+        match parse(json!({"op": "host.accounts"})).unwrap() {
+            Request::HostAccounts(a) => assert!(a.user.is_empty() && a.home.is_empty()),
+            other => panic!("{other:?}"),
+        }
+        match parse(json!({"op": "host.themePack"})).unwrap() {
+            Request::HostThemePack(t) => assert!(t.name.is_empty() && t.part.is_empty()),
+            other => panic!("{other:?}"),
+        }
+        match parse(json!({"op": "speedtest.disk"})).unwrap() {
+            Request::SpeedtestDisk(d) => assert!(d.dir.is_empty()),
+            other => panic!("{other:?}"),
+        }
+    }
+
+    #[test]
+    fn snapshot_keys_are_carried_through() {
+        let body = json!({"op": "settings.snapshot", "group": "look", "keys": ["a", "b"]});
+        match parse(body).unwrap() {
+            Request::SettingsSnapshot { group, keys } => {
+                assert_eq!(group, "look");
+                assert_eq!(keys.unwrap(), vec!["a", "b"]);
+            }
             other => panic!("{other:?}"),
         }
     }

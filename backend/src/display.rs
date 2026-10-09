@@ -130,3 +130,52 @@ fn stamp(value: Value, platform: Backend, collector: &str) -> Value {
     map.insert("collector".into(), Value::String(collector.into()));
     Value::Object(map)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn only_listed_kinds_are_kinds() {
+        for kind in KINDS {
+            assert!(is_kind(kind), "{kind}");
+        }
+        assert!(!is_kind(""));
+        assert!(!is_kind("Live"));
+        assert!(!is_kind("live "));
+        assert!(!is_kind("../live"));
+    }
+
+    #[test]
+    fn display_documents_live_under_the_platform_state_dir() {
+        assert_eq!(
+            display_rel(Backend::Omarchy, "live"),
+            ".local/state/omarchy/display/live.json"
+        );
+        assert_eq!(
+            display_rel(Backend::Plain, "disks"),
+            ".local/state/plain/display/disks.json"
+        );
+    }
+
+    #[test]
+    fn every_kind_has_a_collector_on_every_backend() {
+        for kind in KINDS {
+            let omarchy = collector(Backend::Omarchy, kind);
+            assert!(
+                omarchy.ends_with(".py"),
+                "{kind} should use an inventory script, got {omarchy}"
+            );
+            assert!(
+                collector(Backend::Plain, kind).starts_with("plain-"),
+                "{kind}"
+            );
+        }
+    }
+
+    #[test]
+    fn an_unknown_kind_falls_back_instead_of_panicking() {
+        assert_eq!(collector(Backend::Omarchy, "nope"), "omarchy");
+        assert_eq!(collector(Backend::Plain, "nope"), "plain");
+    }
+}

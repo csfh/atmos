@@ -923,4 +923,113 @@ mod tests {
         nested_set(&mut doc, &["a", "c"], &json!(2));
         assert_eq!(nested_get(&doc, &["a", "b"]), json!(1), "siblings survive");
     }
+
+    #[test]
+    fn coerce_passes_null_through() {
+        for ty in [Ty::String, Ty::Int, Ty::Number, Ty::Bool, Ty::List] {
+            assert_eq!(coerce(Value::Null, ty).unwrap(), Value::Null);
+        }
+    }
+
+    #[test]
+    fn coerce_reads_text_by_the_declared_type() {
+        assert_eq!(coerce(json!("7"), Ty::Int).unwrap(), json!(7));
+        assert_eq!(coerce(json!("-7"), Ty::Int).unwrap(), json!(-7));
+        assert_eq!(coerce(json!("0.5"), Ty::Number).unwrap(), json!(0.5));
+        assert_eq!(coerce(json!("hi"), Ty::String).unwrap(), json!("hi"));
+        assert_eq!(coerce(json!(""), Ty::String).unwrap(), json!(""));
+    }
+
+    #[test]
+    fn coerce_bool_accepts_the_usual_words() {
+        for word in ["true", "1", "on", "yes"] {
+            assert_eq!(
+                coerce(json!(word), Ty::Bool).unwrap(),
+                json!(true),
+                "{word}"
+            );
+        }
+        for word in ["false", "0", "off", "no"] {
+            assert_eq!(
+                coerce(json!(word), Ty::Bool).unwrap(),
+                json!(false),
+                "{word}"
+            );
+        }
+        assert_eq!(coerce(json!("maybe"), Ty::Bool).unwrap(), Value::Null);
+    }
+
+    #[test]
+    fn coerce_rejects_unparseable_numbers_but_not_blanks() {
+        assert!(coerce(json!("abc"), Ty::Int).is_err());
+        assert!(coerce(json!("1.5"), Ty::Int).is_err());
+        assert!(coerce(json!("abc"), Ty::Number).is_err());
+        assert_eq!(coerce(json!(""), Ty::Int).unwrap(), Value::Null);
+        assert_eq!(coerce(json!(""), Ty::Bool).unwrap(), Value::Null);
+    }
+
+    #[test]
+    fn coerce_keeps_a_value_that_already_has_the_type_and_drops_one_that_does_not() {
+        assert_eq!(coerce(json!(3), Ty::Int).unwrap(), json!(3));
+        assert_eq!(coerce(json!(true), Ty::Bool).unwrap(), json!(true));
+        assert_eq!(coerce(json!(3), Ty::Bool).unwrap(), Value::Null);
+        assert_eq!(coerce(json!(true), Ty::String).unwrap(), Value::Null);
+        assert_eq!(coerce(json!([1]), Ty::List).unwrap(), json!([1]));
+        assert_eq!(coerce(json!("x"), Ty::List).unwrap(), Value::Null);
+    }
+
+    #[test]
+    fn parse_lua_scalar_reads_each_literal_form() {
+        assert_eq!(parse_lua_scalar("true"), json!(true));
+        assert_eq!(parse_lua_scalar("false"), json!(false));
+        assert_eq!(parse_lua_scalar("1"), json!(1));
+        assert_eq!(parse_lua_scalar("0"), json!(0));
+        assert_eq!(parse_lua_scalar("12"), json!(12));
+        assert_eq!(parse_lua_scalar("-3"), json!(-3));
+        assert_eq!(parse_lua_scalar("0.85"), json!(0.85));
+        assert_eq!(parse_lua_scalar("\"dwindle\""), json!("dwindle"));
+        assert_eq!(parse_lua_scalar("\"\""), json!(""));
+    }
+
+    #[test]
+    fn parse_lua_scalar_unescapes_quotes_and_backslashes() {
+        assert_eq!(parse_lua_scalar(r#""a\"b""#), json!("a\"b"));
+        assert_eq!(parse_lua_scalar(r#""a\\b""#), json!("a\\b"));
+    }
+
+    #[test]
+    fn parse_lua_scalar_treats_anything_else_as_unset() {
+        for token in ["", "nil", "foo", "{}", "\"open", "1,2", "True"] {
+            assert_eq!(parse_lua_scalar(token), Value::Null, "{token:?}");
+        }
+    }
+
+    #[test]
+    fn widget_matches_exact_ids_and_omarchy_suffixed_ones() {
+        assert!(widget_matches("clock", "clock"));
+        assert!(widget_matches("omarchy.clock", "omarchy.clock"));
+        assert!(widget_matches("user.clock", "omarchy.clock"));
+        assert!(!widget_matches("user.clocks", "omarchy.clock"));
+        assert!(!widget_matches("clock", "weather"));
+        assert!(
+            !widget_matches("user.clock", "clock"),
+            "only omarchy ids take a suffix"
+        );
+    }
+
+    #[test]
+    fn assignment_value_reads_a_key_even_when_commented_out() {
+        assert_eq!(assignment_value("NTP=a b", "NTP").as_deref(), Some("a b"));
+        assert_eq!(assignment_value("  NTP = a ", "NTP").as_deref(), Some("a"));
+        assert_eq!(assignment_value("# NTP=a", "NTP").as_deref(), Some("a"));
+        assert_eq!(assignment_value("NTP=", "NTP").as_deref(), Some(""));
+    }
+
+    #[test]
+    fn assignment_value_ignores_other_keys_and_non_assignments() {
+        assert_eq!(assignment_value("FallbackNTP=a", "NTP"), None);
+        assert_eq!(assignment_value("NTP a", "NTP"), None);
+        assert_eq!(assignment_value("", "NTP"), None);
+        assert_eq!(assignment_value("[Time]", "NTP"), None);
+    }
 }

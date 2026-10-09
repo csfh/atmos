@@ -129,3 +129,90 @@ fn append_command_log(dir: &Path, key: &str, argv: &[&str], value: &Value) -> Re
         .open(dir.join("commands.log"))?;
     writeln!(file, "{text}").map_err(Error::from)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    const PREFIX: &[&str] = &["omarchy", "toggle", "thing"];
+
+    #[test]
+    fn exact_ignores_the_value() {
+        let form = CommandForm::Exact(PREFIX);
+        assert_eq!(command_argv(form, &json!(true)), PREFIX);
+        assert_eq!(command_argv(form, &json!(false)), PREFIX);
+        assert_eq!(command_argv(form, &Value::Null), PREFIX);
+    }
+
+    #[test]
+    fn on_off_follows_the_bool() {
+        let form = CommandForm::OnOff {
+            prefix: PREFIX,
+            invert: false,
+        };
+        assert_eq!(command_argv(form, &json!(true)).last(), Some(&"on"));
+        assert_eq!(command_argv(form, &json!(false)).last(), Some(&"off"));
+        assert_eq!(command_argv(form, &json!(true))[..3], *PREFIX);
+    }
+
+    #[test]
+    fn on_off_inverts_when_asked() {
+        let form = CommandForm::OnOff {
+            prefix: PREFIX,
+            invert: true,
+        };
+        assert_eq!(command_argv(form, &json!(true)).last(), Some(&"off"));
+        assert_eq!(command_argv(form, &json!(false)).last(), Some(&"on"));
+    }
+
+    #[test]
+    fn a_non_bool_counts_as_false() {
+        let plain = CommandForm::OnOff {
+            prefix: PREFIX,
+            invert: false,
+        };
+        let inverted = CommandForm::OnOff {
+            prefix: PREFIX,
+            invert: true,
+        };
+        for value in [json!("true"), json!(1), Value::Null] {
+            assert_eq!(command_argv(plain, &value).last(), Some(&"off"), "{value}");
+            assert_eq!(
+                command_argv(inverted, &value).last(),
+                Some(&"on"),
+                "{value}"
+            );
+        }
+    }
+
+    #[test]
+    fn idle_maps_the_bool_to_the_two_words() {
+        let form = CommandForm::Idle(PREFIX);
+        assert_eq!(command_argv(form, &json!(true)).last(), Some(&"stay-awake"));
+        assert_eq!(
+            command_argv(form, &json!(false)).last(),
+            Some(&"allow-idle")
+        );
+        assert_eq!(command_argv(form, &Value::Null).last(), Some(&"allow-idle"));
+    }
+
+    #[test]
+    fn get_reads_the_effect_off_the_spec_row() {
+        assert_eq!(get("theme"), Some(Effect::Document));
+        assert_eq!(get("no.such.key"), None);
+    }
+
+    #[test]
+    fn every_command_row_renders_a_nonempty_argv_for_both_bools() {
+        for spec in crate::domain::specs() {
+            if let Effect::Command(form) = spec.effect {
+                for value in [json!(true), json!(false)] {
+                    let argv = command_argv(form, &value);
+                    assert!(!argv.is_empty(), "{}", spec.key);
+                    assert!(argv.iter().all(|word| !word.is_empty()), "{}", spec.key);
+                }
+            }
+        }
+    }
+}

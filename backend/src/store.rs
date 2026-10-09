@@ -324,3 +324,62 @@ fn with_read_lock<T>(path: &Path, body: impl FnOnce() -> Result<T>) -> Result<T>
     drop(held);
     result
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_fixture_root_holds_every_path() {
+        let root = Path::new("/tmp/fixture");
+        for rel in [".config/a.json", "etc/hostname", "var/lib/x", "sys/class/y"] {
+            assert_eq!(place_path(Some(root), rel), root.join(rel), "{rel}");
+        }
+    }
+
+    #[test]
+    fn live_system_paths_leave_home_alone() {
+        for rel in [
+            "etc/hostname",
+            "var/lib/AccountsService/users/x",
+            "sys/class/y",
+        ] {
+            assert_eq!(place_path(None, rel), Path::new("/").join(rel), "{rel}");
+        }
+    }
+
+    #[test]
+    fn live_user_paths_live_under_home() {
+        let home = std::env::var_os("HOME")
+            .map(PathBuf::from)
+            .unwrap_or("/".into());
+        assert_eq!(
+            place_path(None, ".config/omarchy/theme.json"),
+            home.join(".config/omarchy/theme.json")
+        );
+        // A name that merely starts like a system dir is still a user path.
+        assert_eq!(place_path(None, "etcetera/x"), home.join("etcetera/x"));
+    }
+
+    #[test]
+    fn a_flag_file_always_has_body_text_ending_in_a_newline() {
+        for rel in [
+            ".local/state/omarchy/toggles/hypr/window-no-gaps.lua",
+            ".local/state/omarchy/toggles/hypr/single-window-aspect-ratio.lua",
+        ] {
+            let text = flag_text(rel);
+            assert!(!text.trim().is_empty(), "{rel}");
+            assert!(text.ends_with('\n'), "{rel}");
+            assert!(text.contains("hl.config"), "{rel}");
+        }
+    }
+
+    #[test]
+    fn an_unknown_flag_name_gets_the_built_in_placeholder() {
+        // No Omarchy install ships this name, so only the fallback can answer.
+        assert_eq!(
+            flag_text(".local/state/omarchy/toggles/hypr/no-such-toggle.lua"),
+            "-- atmos flag no-such-toggle.lua\nhl.config({})\n"
+        );
+    }
+}

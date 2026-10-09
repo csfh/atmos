@@ -2,6 +2,7 @@ import QtQuick
 import "../components"
 import "../services"
 import "../services/HyprSunset.js" as HyprSunset
+import "../services/Requests.js" as Requests
 import "../services/RichUi.js" as RichUi
 import "../services/Theme.js" as ThemeJs
 import "appearance" as Look
@@ -214,16 +215,12 @@ PrefsPage {
             // Read-only parse of the theme's colors.toml. Never runs
             // omarchy theme set; hover and click own the commit paths.
             function loadDots() {
-              var paths = ThemeJs.themeFileCandidates(modelData, "colors.toml", Theme.home)
-              var i
-              var raw = ""
-              for (i = 0; i < paths.length; i++) {
-                raw = Theme.readPath(paths[i])
-                if (raw) break
-              }
-              if (!raw) return
-              var parsed = ThemeJs.parseColors(raw)
-              dots = [parsed.accent, parsed.foreground, parsed.muted, parsed.urgent]
+              Backend.request(Requests.hostThemePack(modelData, Theme.home, "colors.toml"), function(env) {
+                var raw = env && env.ok === true && env.result ? String(env.result.colors || "") : ""
+                if (!raw) return
+                var parsed = ThemeJs.parseColors(raw)
+                dots = [parsed.accent, parsed.foreground, parsed.muted, parsed.urgent]
+              })
             }
 
             Behavior on border.color {

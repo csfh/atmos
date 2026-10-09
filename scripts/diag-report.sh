@@ -7,6 +7,21 @@ set -euo pipefail
 MODE=${1:-copy}
 DEST=${2:-}
 
+# Reject bad arguments before the slow omarchy-debug collection below.
+case $MODE in
+  copy | agent) ;;
+  save)
+    if [[ -z $DEST || $DEST == *$'\n'* || $DEST == *$'\r'* || ${DEST:0:1} != / ]]; then
+      echo "diag-report.sh: save needs an absolute path" >&2
+      exit 1
+    fi
+    ;;
+  *)
+    echo "usage: diag-report.sh copy|save|agent [path]" >&2
+    exit 2
+    ;;
+esac
+
 CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/atmos"
 CACHE_FILE="$CACHE_DIR/diagnostic-report.txt"
 mkdir -p "$CACHE_DIR"
@@ -35,10 +50,6 @@ case $MODE in
     printf '%s\n' "$CACHE_FILE"
     ;;
   save)
-    if [[ -z $DEST || $DEST == *$'\n'* || $DEST == *$'\r'* || ${DEST:0:1} != / ]]; then
-      echo "diag-report.sh: save needs an absolute path" >&2
-      exit 1
-    fi
     cp -f "$CACHE_FILE" "$DEST"
     printf '%s\n' "$DEST"
     ;;
@@ -48,9 +59,5 @@ case $MODE in
       omarchy agent prompt "A diagnostic report from Atmos is on the clipboard and in $CACHE_FILE. Read that file and diagnose this Omarchy machine." >/dev/null 2>&1 &
     fi
     printf '%s\n' "$CACHE_FILE"
-    ;;
-  *)
-    echo "usage: diag-report.sh copy|save|agent [path]" >&2
-    exit 2
     ;;
 esac

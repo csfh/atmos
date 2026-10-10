@@ -20,6 +20,14 @@ fi
 ./tests/compile-python
 echo "ok - scripts/*.py compile"
 
+for tool in file-budget partial-index-guard; do
+  if [[ ! -x tests/$tool ]]; then
+    echo "not ok - tests/$tool is not executable"
+    exit 1
+  fi
+done
+./tests/file-budget
+
 if [[ ! -x .githooks/pre-commit ]]; then
   echo "not ok - .githooks/pre-commit is not executable"
   exit 1
@@ -44,6 +52,16 @@ if ! command -v cargo >/dev/null 2>&1; then
   echo "not ok - cargo is required to build ratmos"
   exit 1
 fi
+for component in fmt clippy; do
+  if ! cargo "$component" --version >/dev/null 2>&1; then
+    echo "not ok - cargo $component is required (rustup component add $([[ $component == fmt ]] && echo rustfmt || echo clippy))"
+    exit 1
+  fi
+done
+cargo fmt --manifest-path backend/Cargo.toml --check
+echo "ok - ratmos cargo fmt --check"
+cargo clippy --manifest-path backend/Cargo.toml --all-targets -- -D warnings
+echo "ok - ratmos clippy"
 cargo test --manifest-path backend/Cargo.toml
 echo "ok - ratmos tests"
 

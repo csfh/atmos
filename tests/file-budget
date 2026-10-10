@@ -1,0 +1,122 @@
+#!/usr/bin/env node
+// A source file stays under CAP lines. Files already past it are listed in
+// tests/file-budget.baseline with their current length, and a listed file may
+// only shrink: the baseline is a ratchet, not an allowance.
+//
+//   ./tests/file-budget            check
+//   ./tests/file-budget --update   lower or drop baseline entries after a shrink
+//
+// `--root DIR` points the check at another tree (the unit test does).
+const fs = require("fs");
+const path = require("path");
+
+const CAP = 800;
+const SCAN = ["bin", "backend/src", "components", "pages", "scripts", "services", "shell.qml"];
+const SOURCE = /\.(qml|js|rs|py|sh)$/;
+const BASELINE = "tests/file-budget.baseline";
+
+const args = process.argv.slice(2);
+const update = args.includes("--update");
+const rootAt = args.indexOf("--root");
+const root = path.resolve(rootAt >= 0 ? args[rootAt + 1] : path.join(__dirname, ".."));
+
+// A binary has no lines to count: bin/ratmos can be a local copy of the backend.
+function isBinary(file) {
+  return fs.readFileSync(file).includes(0);
+}
+
+function lineCount(file) {
+  const text = fs.readFileSync(file, "utf8");
+  if (text === "") return 0;
+  return text.split("\n").length - (text.endsWith("\n") ? 1 : 0);
+}
+
+function walk(rel, out) {
+  const abs = path.join(root, rel);
+  if (!fs.existsSync(abs)) return;
+  if (fs.statSync(abs).isFile()) {
+    if ((SOURCE.test(rel) || path.dirname(rel) === "bin") && !isBinary(abs)) out.push(rel);
+    return;
+  }
+  for (const name of fs.readdirSync(abs).sort()) walk(path.posix.join(rel, name), out);
+}
+
+function readBaseline() {
+  const file = path.join(root, BASELINE);
+  if (!fs.existsSync(file)) return null;
+  const entries = new Map();
+  for (const line of fs.readFileSync(file, "utf8").split("\n")) {
+    if (!line.trim() || line.startsWith("#")) continue;
+    const m = line.match(/^(\d+) (\S.*)$/);
+    if (!m) throw new Error(`${BASELINE}: cannot read "${line}" (want "<lines> <path>")`);
+    entries.set(m[2], Number(m[1]));
+  }
+  return entries;
+}
+
+const HEADER = [
+  `# Source files past the ${CAP}-line budget, at the length they had when listed.`,
+  "# A file here may shrink, never grow. Run ./tests/file-budget --update after a",
+  "# shrink; a file back under the budget leaves this list.",
+];
+
+function writeBaseline(entries) {
+  const rows = [...entries].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  const body = rows.map(([file, n]) => `${n} ${file}`);
+  fs.writeFileSync(path.join(root, BASELINE), [...HEADER, ...body, ""].join("\n"));
+}
+
+const baseline = readBaseline();
+if (!baseline) {
+  console.log(`not ok - ${BASELINE} is missing`);
+  process.exit(1);
+}
+
+const files = [];
+for (const rel of SCAN) walk(rel, files);
+const counts = new Map(files.map((rel) => [rel, lineCount(path.join(root, rel))]));
+
+const failures = [];
+const lower = new Map(baseline);
+let stale = 0;
+for (const [rel, n] of counts) {
+  const listed = baseline.get(rel);
+  if (listed === undefined) {
+    if (n > CAP) failures.push(`${rel} is ${n} lines, over the ${CAP}-line budget; split it`);
+  } else if (n > listed) {
+    failures.push(`${rel} grew to ${n} lines from ${listed}; it is over budget, so it may only shrink`);
+  } else if (n <= CAP) {
+    lower.delete(rel);
+    stale++;
+    failures.push(`${rel} is ${n} lines, back under budget; drop it from ${BASELINE} (--update)`);
+  } else if (n < listed) {
+    lower.set(rel, n);
+    stale++;
+    failures.push(`${rel} shrank to ${n} lines from ${listed}; lower the baseline (--update)`);
+  }
+}
+for (const rel of baseline.keys()) {
+  if (!counts.has(rel)) {
+    lower.delete(rel);
+    stale++;
+    failures.push(`${BASELINE} lists ${rel}, which is gone or renamed; drop it (--update)`);
+  }
+}
+
+if (update) {
+  const hard = failures.length - stale;
+  if (hard > 0) {
+    for (const f of failures) console.log(`not ok - ${f}`);
+    console.log("not ok - --update only lowers the baseline; fix the growth first");
+    process.exit(1);
+  }
+  writeBaseline(lower);
+  console.log(`ok - ${BASELINE} lowered for ${stale} file${stale === 1 ? "" : "s"}`);
+  process.exit(0);
+}
+
+if (failures.length) {
+  for (const f of failures) console.log(`not ok - ${f}`);
+  process.exit(1);
+}
+console.log(`ok - ${counts.size} source files fit the ${CAP}-line budget (${baseline.size} listed, none grown)`);

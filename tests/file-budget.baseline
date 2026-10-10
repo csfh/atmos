@@ -1,0 +1,18 @@
+# Source files past the 800-line budget, at the length they had when listed.
+# A file here may shrink, never grow. Run ./tests/file-budget --update after a
+# shrink; a file back under the budget leaves this list.
+3280 scripts/snapshot.sh
+3062 services/Settings.js
+2906 services/Charts.js
+2856 services/Omarchy.qml
+1646 scripts/hypr-sentinel.py
+1414 shell.qml
+1228 services/RichUi.js
+1040 scripts/live-stats.py
+1035 backend/src/patch.rs
+984 services/LiveStats.js
+979 scripts/hw-inventory.py
+919 services/Hardware.js
+898 services/Snapshot.js
+854 backend/src/agents.rs
+845 pages/SystemPage.qml

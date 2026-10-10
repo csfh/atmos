@@ -3,10 +3,11 @@
 [![Tests](https://github.com/csfh/atmos/actions/workflows/tests.yml/badge.svg)](https://github.com/csfh/atmos/actions/workflows/tests.yml)
 [![Latest release](https://img.shields.io/github/v/release/csfh/atmos?include_prereleases)](https://github.com/csfh/atmos/releases)
 [![License: MIT](https://img.shields.io/github/license/csfh/atmos)](LICENSE)
+[![Built for Omarchy](https://raw.githubusercontent.com/tcballard/omarchy-badges/85f859029e236e784e7b05ada6dbe73506d07a91/badges/v1/built-for-omarchy.svg)](https://github.com/tcballard/omarchy-badges)
 
 **Preferences for Omarchy — themes, the bar, network, power, and the rest of this machine.**
 
-A standalone [Quickshell](https://quickshell.org) preferences window for [Omarchy](https://omarchy.org). It follows the active theme and writes through `omarchy` commands and Hyprland drop-ins. There is no private prefs store: settings live in `~/.config`.
+A standalone [Quickshell](https://quickshell.org) preferences window for [Omarchy](https://omarchy.org). It follows the active theme and writes through `omarchy` commands and Hyprland drop-ins. There is no private prefs store: settings live in `~/.config`. Atmos runs on Omarchy with Hyprland only.
 
 [![Atmos Home hub with live processor, memory, network, and temperature](docs/screenshots/home.png)](https://atmos.csfh.dev)
 
@@ -15,6 +16,10 @@ Site: [atmos.csfh.dev](https://atmos.csfh.dev) · source for it in [`site/`](sit
 <p>
   <img src="docs/screenshots/monitor.png" alt="Atmos Monitor hub with live cores, memory, traffic, disk I/O, and sensors" width="360" />
   <img src="docs/screenshots/appearance.png" alt="Atmos Appearance page with the installed Omarchy theme grid" width="360" />
+</p>
+<p>
+  <img src="docs/screenshots/displays.png" alt="Atmos Displays page with resolution, refresh rate, scale, and brightness for one monitor" width="360" />
+  <img src="docs/screenshots/windows.png" alt="Atmos Windows page with gaps, border, corners, blur, and tiling layout" width="360" />
 </p>
 
 ## Features
@@ -26,36 +31,33 @@ Site: [atmos.csfh.dev](https://atmos.csfh.dev) · source for it in [`site/`](sit
 - **Concurrent windows** stay in sync through the files they share. Writes serialize on disk.
 - **Diagnostics, Omafile, agents** — copy a machine report, share settings as Markdown, install `atmos mcp`.
 
-Hubs: Home, Monitor, Favorites, Appearance, Displays, Windows, Workspaces, Bar, Notifications, Profiles, Input, Keybindings, Accessibility, Sound, Capture, Hardware, Drivers, Disks, Network, Bluetooth, Power, Idle, Defaults, Agentic, Applications, Software, Hooks, System, Tweaks, Omafile, Accounts, Security, Services.
+<details>
+<summary>All hubs</summary>
 
-## Requirements
+Home, Monitor, Favorites, Appearance, Displays, Windows, Workspaces, Bar, Notifications, Profiles, Input, Keybindings, Accessibility, Sound, Capture, Hardware, Drivers, Disks, Network, Bluetooth, Power, Idle, Defaults, Agentic, Applications, Software, Hooks, System, Tweaks, Omafile, Accounts, Security, Services.
 
-- An [Omarchy](https://omarchy.org) system (Hyprland).
-- `git`, `python3`, `cargo`, and `quickshell` (`install.sh` checks these).
-- `~/.local/bin` on `PATH`.
+</details>
 
 ## Install
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/csfh/atmos/stable/install.sh | bash
-```
+Needs an [Omarchy](https://omarchy.org) system (Hyprland) and `~/.local/bin` on `PATH`.
 
-That copies the launcher into `~/.local/bin`, the app into `~/.local/share/atmos`, a desktop file, and the Hyprland drop-in. From a clone, `./install.sh` does the same thing.
+- **Install script** follows the `stable` branch and updates from inside the app:
 
-Then run `atmos`, or open it from the app launcher.
+  ```bash
+  curl -fsSL https://raw.githubusercontent.com/csfh/atmos/stable/install.sh | bash
+  ```
 
-### From the Omarchy package repo
+  It needs `git`, `python3`, `cargo`, and `quickshell`, and checks for them.
 
-```bash
-sudo pacman -S omarchy-atmos
-atmos --setup
-```
+- **Omarchy package** updates with `omarchy update`. Hyprland integration is opt-in per user:
 
-The package installs under `/usr/lib/atmos`. Hyprland integration (the window seed and the `hypr.atmos` requires) is opt-in: `atmos --setup` adds it, `atmos --setup off` removes it, and `atmos --setup status` prints `on` or `off`. A package install updates with `omarchy update`, and System → Atmos hides Channel and Update. If you installed with `install.sh` first, remove `~/.local/share/atmos`, `~/.local/bin/atmos` and `~/.local/share/applications/atmos.desktop` so they do not shadow the package.
+  ```bash
+  sudo pacman -S omarchy-atmos
+  atmos --setup
+  ```
 
-## Update
-
-**System → Atmos** Check / Update follows the **stable** git branch. Re-running the install command does the same fetch-and-stage. If the window looks the same afterward, quit Atmos and open it again. Update also repairs an install that is missing the launcher, backend, or shell.
+Then run `atmos`, or open it from the app launcher. Details, update, and uninstall are in [docs/install.md](docs/install.md).
 
 ## Usage
 
@@ -68,29 +70,35 @@ atmos network/wifi
 
 Every launch opens its own window. Pass a hub or child page to land there. From a source checkout, `./bin/atmos` is the same launcher.
 
-## Configuration
+| Key | Does |
+| --- | --- |
+| `/` or `Ctrl+F` | Search settings |
+| `Ctrl+/` | Shortcut sheet |
+| `↓` `↑` or `Ctrl+J` `Ctrl+K` | Move through the list, even from the search field |
+| `Home` `End` | First and last row |
+| `Enter` | Open the selected row |
+| `Esc` | Back, clear search, or revert a pending display or input change |
 
-Atmos does not write a private prefs store. It reads and writes Omarchy and Hyprland files under `~/.config`.
+## Footprint
 
-- Hyprland drop-in: `~/.config/hypr/atmos.lua`, required as `hypr.atmos` from `hyprland.lua` next to `hypr.omafetch`, before `default.hypr.toggles`. `hypr.atmos_layout` wraps dwindle `layoutmsg` so scrolling workspaces do not throw.
-- Sentinel blocks: `-- atmos:look|input|autostart|bindings|windows|workspaces begin/end` in the matching Lua files, and `-- atmos:monitors begin/end` in `monitors.lua`.
-- Theme colors: `~/.local/state/omarchy/current/theme/{colors,shell}.toml` and `~/.config/omarchy/shell.toml`.
-- Install channel: `~/.config/atmos/channel` (only `stable` exists; an old `alpha` reads as `stable`).
-- **System → Atmos → Reset** strips Atmos-managed Hypr overrides. Theme, wallpaper, and `shell.json` stay as they are.
+ratmos 0.1.0, measured 10 October 2026 on one machine:
 
-## Troubleshooting
+| | |
+| --- | --- |
+| `ratmos` binary | 1.9 MB |
+| One-shot request | 566 µs |
+| `ratmos serve`, idle 10 s | 2.0 MB RSS, 0 CPU ticks |
 
-**`atmos` is not found.** The wrapper lives in `~/.local/bin`. Add that directory to `PATH`, or run `~/.local/share/atmos/bin/atmos`.
+This is the backend, not the window, and it describes one machine and workload. Method and caveats: [docs/benchmarks.md](docs/benchmarks.md).
 
-**Hyprland config-reload warnings.** After a look, input, monitor, or workspace write, Atmos runs `hyprctl reload`. A failed reload does not undo the write. If Hyprland already has config errors, those writers print `hyprctl configerrors` and the apply can look failed even though the file changed. **System → Diagnostics** lists the errors. A dirty config still runs; the errors are why a bind or monitor rule did not apply.
+## More
 
-**`hypr.atmos` is missing / the window does not tile.** Install writes the drop-in and the require. Diagnostics reports when the require is absent. Re-run `install.sh`, or restore Hyprland defaults from System (the Atmos require is written back).
-
-**Display or input change snapped back.** Mode, scale, rotation, refresh, keyboard layout, and turning the touchpad off revert after 12 seconds unless you press Keep. Escape reverts too. Quitting during those 12 seconds leaves the new value.
-
-**Install says a tool is missing.** `install.sh` needs `git`, `python3`, `cargo`, and `quickshell`. `atmos mcp` also needs `node`.
-
-**Need a report.** **System → Diagnostics → Copy report** puts an Atmos summary plus `omarchy-debug --no-sudo --print` on the clipboard.
+- [Install, update, uninstall](docs/install.md)
+- [Configuration](docs/configuration.md) — the files Atmos reads and writes
+- [Troubleshooting](docs/troubleshooting.md)
+- [Protocol](docs/protocol.md) — what the window and `ratmos` say to each other
+- [Benchmarks](docs/benchmarks.md)
+- [Changelog](CHANGELOG.md)
 
 ## Contributing
 
@@ -101,7 +109,7 @@ npm install
 ./tests/run
 ```
 
-`./tests/run` runs oxlint, oxfmt --check, `scripts/*.py` syntax, and parser tests. `npm install` points Git at `.githooks/`. Pull requests and pushes to `main` and `stable` run the same suite on GitHub Actions.
+`./tests/run` is the whole suite, and pull requests and pushes to `main` and `stable` run it on GitHub Actions. `npm install` points Git at `.githooks/`, whose pre-commit hook runs the lint, format, Rust, and file-size checks and refuses a commit that has staged files with later unstaged edits (`git commit --no-verify` skips it). [AGENTS.md](AGENTS.md) lists the checks and the rules for the code.
 
 ## License
 

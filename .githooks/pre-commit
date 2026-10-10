@@ -1,9 +1,17 @@
 #!/bin/bash
-# Block a commit when oxlint, oxfmt --check, or scripts/*.py compile fails.
+# Block a commit when the staged state is hidden by later edits, or when
+# oxlint, oxfmt --check, scripts/*.py compile, the file budget, or (when
+# backend/ is staged) cargo fmt --check or clippy fails.
 set -euo pipefail
 
 root=$(git rev-parse --show-toplevel)
 cd "$root"
+
+if [[ ! -x tests/partial-index-guard ]]; then
+  echo "pre-commit: tests/partial-index-guard is not executable" >&2
+  exit 1
+fi
+./tests/partial-index-guard
 
 if [[ ! -x node_modules/.bin/oxlint || ! -x node_modules/.bin/oxfmt ]]; then
   echo "pre-commit: npm install (oxlint/oxfmt missing)" >&2
@@ -18,3 +26,14 @@ if [[ ! -x tests/compile-python ]]; then
   exit 1
 fi
 ./tests/compile-python
+
+if [[ -n $(git diff --cached --name-only -- backend) ]]; then
+  cargo fmt --manifest-path backend/Cargo.toml --check
+  cargo clippy --manifest-path backend/Cargo.toml --all-targets -- -D warnings
+fi
+
+if [[ ! -x tests/file-budget ]]; then
+  echo "pre-commit: tests/file-budget is not executable" >&2
+  exit 1
+fi
+./tests/file-budget

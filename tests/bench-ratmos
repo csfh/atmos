@@ -1,0 +1,44 @@
+#!/bin/bash
+# Opt-in footprint of the ratmos backend: binary size, one-shot request time,
+# and `ratmos serve` memory and CPU while idle. Runs the plain backend on an
+# empty fixture root under a throwaway HOME, so it reads and writes nothing of
+# yours. It measures the backend, not the window. Method: docs/benchmarks.md.
+#
+#   ./tests/bench-ratmos [seconds idle, default 10]
+set -euo pipefail
+
+ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+IDLE=${1:-10}
+RUNS=200
+
+cargo build --release --manifest-path "$ROOT/backend/Cargo.toml" 2>/dev/null
+BIN=$ROOT/backend/target/release/ratmos
+
+work=$(mktemp -d)
+trap 'rm -rf "$work"' EXIT
+mkdir -p "$work/root" "$work/home"
+export HOME=$work/home
+export XDG_CONFIG_HOME=$HOME/.config XDG_STATE_HOME=$HOME/.local/state XDG_DATA_HOME=$HOME/.local/share
+args=(--backend plain --root "$work/root")
+
+echo "ratmos $(sed -n 's/^version = "\(.*\)"/\1/p' "$ROOT/backend/Cargo.toml" | head -n 1) @ $(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo unknown)"
+echo "kernel $(uname -r), cpu $(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2- | sed 's/^ //')"
+echo "binary: $(stat -c %s "$BIN") bytes"
+
+start=$(date +%s%N)
+for ((i = 0; i < RUNS; i++)); do
+  echo '{"op":"version"}' | "$BIN" "${args[@]}" request >/dev/null
+done
+end=$(date +%s%N)
+echo "one-shot request (version, mean of $RUNS): $(((end - start) / RUNS / 1000)) us"
+
+coproc SERVE { "$BIN" "${args[@]}" serve; }
+echo '{"id":1,"op":"version"}' >&"${SERVE[1]}"
+echo '{"op":"watch.set","paths":[],"chrome":true}' >&"${SERVE[1]}"
+sleep "$IDLE"
+pid=$SERVE_PID
+rss=$(awk '/VmRSS/ { print $2 }' "/proc/$pid/status")
+ticks=$(awk '{ print $14 + $15 }' "/proc/$pid/stat")
+echo "serve idle ${IDLE}s: ${rss} kB RSS, ${ticks} CPU ticks (1 tick = 1/$(getconf CLK_TCK) s)"
+exec {SERVE[1]}>&-
+wait "$pid" || true

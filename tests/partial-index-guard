@@ -1,0 +1,23 @@
+#!/bin/bash
+# The pre-commit checks read the working tree, so a file that is staged in one
+# state and edited again in another would be checked as the second and
+# committed as the first. Refuse that for the paths the checks read.
+#
+# Run it from inside the repository (the hook does).
+set -euo pipefail
+
+checked=(bin backend components pages scripts services tests shell.qml)
+
+staged=$(git diff --cached --name-only --diff-filter=ACMR -- "${checked[@]}")
+unstaged=$(git diff --name-only -- "${checked[@]}")
+
+[[ -n $staged && -n $unstaged ]] || exit 0
+
+both=$(grep -Fxf <(printf '%s\n' "$staged") <(printf '%s\n' "$unstaged") || true)
+[[ -n $both ]] || exit 0
+
+echo "pre-commit: these files are staged and also changed after staging:" >&2
+sed 's/^/  /' <<<"$both" >&2
+echo "The checks run on the working tree, not on what you staged." >&2
+echo "Stage the rest (git add), or stash it, or skip the hook with --no-verify." >&2
+exit 1

@@ -10,6 +10,16 @@ assert(preCommit.indexOf("tests/compile-python") !== -1, "pre-commit runs compil
 const testsRun = fs.readFileSync(path.join(__dirname, "run"), "utf8");
 assert(testsRun.indexOf("tests/compile-python") !== -1, "tests/run runs compile-python");
 assert(testsRun.indexOf("tests/*.test.js") !== -1, "tests/run runs each tests/*.test.js file");
+for (const [name, text] of [
+  ["tests/run", testsRun],
+  ["pre-commit", preCommit],
+]) {
+  assert(text.includes("cargo fmt") && text.includes("--check"), `${name} checks cargo fmt`);
+  assert(
+    text.includes("cargo clippy") && text.includes("-D warnings"),
+    `${name} denies clippy warnings`,
+  );
+}
 assert(testsRun.indexOf("parse.test.js") === -1, "tests/run no longer calls parse.test.js");
 const searchPageSrc = fs.readFileSync(
   path.join(__dirname, "..", "pages", "SearchPage.qml"),

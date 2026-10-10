@@ -16,11 +16,15 @@ Site: [atmos.csfh.dev](https://atmos.csfh.dev) · source for it in [`site/`](sit
 
 <p>
   <img src="docs/screenshots/monitor.png" alt="Atmos Monitor hub with live cores, memory, traffic, disk I/O, and sensors" width="360" />
-  <img src="docs/screenshots/appearance.png" alt="Atmos Appearance page with the installed Omarchy theme grid" width="360" />
+  <img src="docs/screenshots/windows.png" alt="Atmos Windows page with gaps, border, corners, blur, and tiling layout" width="360" />
 </p>
 <p>
-  <img src="docs/screenshots/displays.png" alt="Atmos Displays page with resolution, refresh rate, scale, and brightness for one monitor" width="360" />
-  <img src="docs/screenshots/windows.png" alt="Atmos Windows page with gaps, border, corners, blur, and tiling layout" width="360" />
+  <img src="docs/screenshots/input.png" alt="Atmos Input page with pointer, touchpad, and keyboard settings" width="360" />
+  <img src="docs/screenshots/network.png" alt="Atmos Network page with the connection, Wi-Fi, VPN, hotspot, and DNS" width="360" />
+</p>
+<p>
+  <img src="docs/screenshots/hardware.png" alt="Atmos Hardware page listing the machine, motherboard, chipset, firmware, and processor" width="360" />
+  <img src="docs/screenshots/defaults.png" alt="Atmos Defaults page with the default browser, terminal, editor, and file openers" width="360" />
 </p>
 
 ## Features

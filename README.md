@@ -3,6 +3,7 @@
 [![Tests](https://github.com/csfh/atmos/actions/workflows/tests.yml/badge.svg)](https://github.com/csfh/atmos/actions/workflows/tests.yml)
 [![Latest release](https://img.shields.io/github/v/release/csfh/atmos?include_prereleases)](https://github.com/csfh/atmos/releases)
 [![License: MIT](https://img.shields.io/github/license/csfh/atmos)](LICENSE)
+
 [![Built for Omarchy](https://raw.githubusercontent.com/tcballard/omarchy-badges/85f859029e236e784e7b05ada6dbe73506d07a91/badges/v1/built-for-omarchy.svg)](https://github.com/tcballard/omarchy-badges)
 
 **Preferences for Omarchy — themes, the bar, network, power, and the rest of this machine.**

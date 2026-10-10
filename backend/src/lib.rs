@@ -273,11 +273,7 @@ pub(crate) fn handle(
         Request::SpeedtestNet(args) => host::speed_net(backend, root, &args)?,
         Request::UnitOutput(args) => host::unit_output(backend, root, &args)?,
         Request::AgentsMcpList => agents::list(root)?,
-        Request::AgentsMcpSet {
-            agent,
-            on,
-            replace,
-        } => agents::set(root, &agent, on, replace)?,
+        Request::AgentsMcpSet { agent, on, replace } => agents::set(root, &agent, on, replace)?,
         Request::AgentsMcpCheck => agents::check(root)?,
     };
     Ok(ok_envelope(backend, result))

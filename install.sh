@@ -5,7 +5,7 @@ set -euo pipefail
 
 need() {
   command -v "$1" >/dev/null 2>&1 || {
-    echo "install.sh: $1 is not installed" >&2
+    echo "install.sh: $1 is not installed${2:+ ($2)}" >&2
     exit 1
   }
 }
@@ -13,7 +13,11 @@ need() {
 need git
 need python3
 need quickshell
-need cargo
+need cargo "install Rust to build the ratmos backend: sudo pacman -S rust"
+
+# ratmos is compiled here for this machine, so aarch64 (Apple Silicon) needs no
+# separate binary. Say so, because the build is the slow step.
+echo "Building ratmos for $(uname -m). The Rust build is the slow step."
 
 here=""
 src=${BASH_SOURCE[0]:-$0}

@@ -490,10 +490,10 @@ def read_gpus() -> list[dict]:
             continue
         driver = driver_of(dev)
         vendor_id = read_line(os.path.join(dev, "vendor")).strip().lower()
-        brand = GPU_VENDOR_NAMES.get(vendor_id, "")
+        brand = GPU_VENDOR_NAMES.get(vendor_id) or ("Apple" if driver == "asahi" else "")
         slot = slot_of(dev)
         bus = slot.split(":")[1] if slot.count(":") >= 2 else ""
-        integrated = driver == "i915" or (driver == "xe" and bus == "00")
+        integrated = driver in ("i915", "asahi") or (driver == "xe" and bus == "00")
         if driver == "nvidia":
             want_nvidia = True
         busy = None

@@ -2,6 +2,12 @@
 
 Notable changes to Atmos. Each section is a git tag on `main` and `stable`. Install and in-app Update follow the `stable` branch.
 
+## [Unreleased]
+
+### Added
+
+- Apple Silicon (Asahi Linux) support in the hardware probes. The charge limit is found on any power supply with `charge_control_end_threshold`, so `macsmc-battery` works. The `asahi` GPU is integrated and shown as Apple. The machine name falls back to `/proc/device-tree/model` when DMI is empty. docs/install.md covers the install and what to expect. Untested on Apple hardware.
+
 ## [v0.1.0] - 2026-10-08
 
 ### Changed

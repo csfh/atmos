@@ -15,7 +15,7 @@ fi
 
 found=""
 power_supply_dir=${ATMOS_POWER_SUPPLY_DIR:-/sys/class/power_supply}
-for bat in "$power_supply_dir"/BAT*/charge_control_end_threshold; do
+for bat in "$power_supply_dir"/*/charge_control_end_threshold; do
   [[ -e $bat ]] || continue
   found=$bat
   break

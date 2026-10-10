@@ -64,6 +64,8 @@ Needs an [Omarchy](https://omarchy.org) system (Hyprland) and `~/.local/bin` on 
 
 Then run `atmos`, or open it from the app launcher. Details, update, and uninstall are in [docs/install.md](docs/install.md).
 
+**Apple Silicon (aarch64, Asahi Linux):** both `atmos` and the `ratmos` backend are architecture-neutral. The install script compiles `ratmos` on your machine, so `cargo` (`sudo pacman -S rust`) is required and there is no prebuilt binary to match. The probes for the charge limit, GPU, and machine name know the Asahi names, but none of this has run on Apple hardware yet. See [Apple Silicon](docs/install.md#apple-silicon-m1-m2-and-later).
+
 ## Usage
 
 ```bash

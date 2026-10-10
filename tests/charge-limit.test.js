@@ -171,6 +171,22 @@ try {
   fs.writeFileSync(end, "80\n");
   assertSnapshot("80", "true", "snapshot reports the limit on threshold-only batteries");
 
+  // Apple Silicon names its battery macsmc-battery, not BAT*.
+  const macsmc = path.join(path.dirname(battery), "macsmc-battery");
+  fs.renameSync(battery, macsmc);
+  try {
+    fs.writeFileSync(path.join(macsmc, "charge_control_end_threshold"), "100\n");
+    assertEqual(run("80").status, 0, "writes the limit on a macsmc-battery supply");
+    assertEqual(
+      fs.readFileSync(path.join(macsmc, "charge_control_end_threshold"), "utf8"),
+      "80\n",
+      "macsmc-battery receives the threshold",
+    );
+    assertSnapshot("80", "true", "snapshot reads a macsmc-battery threshold");
+  } finally {
+    fs.renameSync(macsmc, battery);
+  }
+
   reset(null);
   fs.writeFileSync(end, "not-a-number\n");
   assertSnapshot("0", "true", "snapshot treats a non-numeric threshold as no limit");

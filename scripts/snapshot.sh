@@ -20,7 +20,7 @@ fill_sysfs_charge_limit() {
   local bat types charge_modes=""
   charge_limit=0
   charge_limit_available=false
-  for bat in "$power_supply_dir"/BAT*/charge_control_end_threshold; do
+  for bat in "$power_supply_dir"/*/charge_control_end_threshold; do
     [[ -r $bat ]] || continue
     charge_limit_available=true
     charge_limit=$(< "$bat")
@@ -2452,7 +2452,7 @@ dmi_field() {
 }
 
 dmi_vendor=$(dmi_field /sys/class/dmi/id/sys_vendor)
-dmi_product=$(dmi_field /sys/class/dmi/id/product_name)
+dmi_product=$(dmi_field /sys/class/dmi/id/product_name); [[ -n $dmi_product ]] || dmi_product=$(tr -d '\0' 2>/dev/null </proc/device-tree/model || true)
 dmi_family=$(dmi_field /sys/class/dmi/id/product_family)
 
 cpu_stat=""

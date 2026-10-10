@@ -459,4 +459,15 @@ assertEqual(hotEmit.gpus[1].driver, "i915", "live-stats.py reads i915");
 assertEqual(hotEmit.gpus[1].temp, null, "live-stats.py leaves i915 without a sensor unknown");
 assertEqual(hotEmit.gpus[1].integrated, true, "live-stats.py marks i915 integrated");
 
+// Apple Silicon: the Asahi render GPU has no PCI vendor file and is on the SoC.
+write(path.join(fixture, "sys/class/drm/card2/device/uevent"), "OF_NAME=gpu\n");
+fs.symlinkSync("asahi", path.join(fixture, "sys/class/drm/card2/device/driver"));
+const asahiPy = spawnSync("python3", [path.join(__dirname, "..", "scripts", "live-stats.py")], {
+  encoding: "utf8",
+  env: { ...process.env, ATMOS_SYS_ROOT: fixture, ATMOS_UID: "1000" },
+});
+const asahi = live.parse(asahiPy.stdout).gpus.find((gpu) => gpu.driver === "asahi");
+assertEqual(asahi.integrated, true, "live-stats.py marks the Asahi GPU integrated");
+assertEqual(asahi.name, "Apple", "live-stats.py brands the Asahi GPU without a PCI vendor");
+
 fs.rmSync(fixture, { recursive: true, force: true });

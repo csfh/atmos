@@ -2,11 +2,21 @@
 
 Notable changes to Atmos. Each section is a git tag on `main` and `stable`. Install and in-app Update follow the `stable` branch.
 
-## [Unreleased]
+## [v0.1.1] - 2026-10-11
 
 ### Added
 
 - Apple Silicon (Asahi Linux) support in the hardware probes. The charge limit is found on any power supply with `charge_control_end_threshold`, so `macsmc-battery` works. The `asahi` GPU is integrated and shown as Apple. The machine name falls back to `/proc/device-tree/model` when DMI is empty. docs/install.md covers the install and what to expect. Untested on Apple hardware.
+- `install.sh` names the missing Rust toolchain and prints the architecture it builds for.
+
+### Fixed
+
+- Theme gallery cards load their color dots again. They asked for a file read that had moved to the `host.themePack` request.
+- `diag-report.sh` checks its mode and save path before the slow `omarchy-debug` collection, not after.
+
+### Changed
+
+- Hermetic test sandbox, golden recordings of every `ratmos` reply, backend unit tests, a file-size budget, and a staged-file guard in the pre-commit hook. The README is shorter and `docs/protocol.md` documents the window-to-backend protocol.
 
 ## [v0.1.0] - 2026-10-08
 

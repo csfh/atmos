@@ -4,7 +4,7 @@
 // file the same way they load Requests.js.
 
 var SERVER_NAME = "atmos";
-var SERVER_VERSION = "0.1.0";
+var SERVER_VERSION = "0.1.1";
 var DEFAULT_PROTOCOL = "2024-11-05";
 var KNOWN_PROTOCOLS = ["2024-11-05", "2025-03-26", "2025-06-18"];
 

@@ -435,7 +435,7 @@ fn request_without_root_writes_user_files_under_home() {
     );
     let platform: Value = serde_json::from_slice(&plain_out.stdout).unwrap();
     assert_eq!(platform["platform"]["id"], "plain");
-    assert_eq!(platform["version"], "0.1.0");
+    assert_eq!(platform["version"], "0.1.1");
 
     cleanup(&home);
 }
@@ -1296,6 +1296,6 @@ fn request_at_home(
     );
     let value: Value = serde_json::from_slice(&output.stdout).expect("response json");
     assert_eq!(value["ok"], Value::Bool(true), "{value}");
-    assert_eq!(value["version"], "0.1.0", "{value}");
+    assert_eq!(value["version"], "0.1.1", "{value}");
     value
 }

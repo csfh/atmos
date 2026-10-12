@@ -7,7 +7,7 @@ This subtree is the Vite source for [atmos.csfh.dev](https://atmos.csfh.dev). Sc
 ## Local development
 
 ```bash
-cd site
+cd www
 npm install
 npm run dev
 ```
@@ -15,12 +15,12 @@ npm run dev
 That starts Vite at http://localhost:5173.
 
 ```bash
-cd site
+cd www
 npm run build
 npm run preview
 ```
 
-`npm run build` writes static files to `site/dist/`. `npm run preview` serves that output locally.
+`npm run build` writes static files to `www/dist/`. `npm run preview` serves that output locally.
 
 ## Cloudflare Pages
 
@@ -28,7 +28,7 @@ Vanilla Vite static site. No Workers or Functions. Suggested dashboard settings:
 
 | Setting | Value |
 | --- | --- |
-| Root directory | `site` |
+| Root directory | `www` |
 | Production branch | `main` |
 | Framework preset | None (or **React (Vite)** — same command and output) |
 | Build command | `npm run build` |

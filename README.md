@@ -12,7 +12,7 @@ A standalone [Quickshell](https://quickshell.org) preferences window for [Omarch
 
 [![Atmos Home hub with live processor, memory, network, and temperature](docs/screenshots/home.png)](https://atmos.csfh.dev)
 
-Site: [atmos.csfh.dev](https://atmos.csfh.dev) · source for it in [`site/`](site/).
+Site: [atmos.csfh.dev](https://atmos.csfh.dev) · source for it in [`www/`](www/).
 
 <p>
   <img src="docs/screenshots/monitor.png" alt="Atmos Monitor hub with live cores, memory, traffic, disk I/O, and sensors" width="360" />

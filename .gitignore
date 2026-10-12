@@ -3,6 +3,6 @@
 __pycache__/
 *.pyc
 node_modules/
-site/dist
+www/dist
 backend/target/
 /.worktrees/

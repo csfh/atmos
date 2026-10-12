@@ -1,5 +1,5 @@
 # Keep these out of the release tarball (git archive).
-/site export-ignore
+/www export-ignore
 /.github export-ignore
 /.githooks export-ignore
 /.gitattributes export-ignore

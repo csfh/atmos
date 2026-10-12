@@ -322,15 +322,20 @@ function groupOpen(collapsed, title, holdsCurrent) {
   return !(collapsed && collapsed[title] === true);
 }
 
+// QML hands delegates `pages` as a list wrapper, not a JS Array, so test for
+// length instead of Array.isArray.
 function groupHolds(group, pageId) {
-  var pages = group && Array.isArray(group.pages) ? group.pages : [];
+  var pages = group && group.pages && typeof group.pages.length === "number" ? group.pages : [];
   for (var i = 0; i < pages.length; i++) {
     if (pages[i] && pages[i].id === pageId) return true;
   }
   return false;
 }
 
-function toggleGroup(collapsed, title) {
+// The group holding the current page cannot be toggled: it stays open, and a
+// flag set now would only fold it the moment the user moves elsewhere.
+function toggleGroup(collapsed, title, holdsCurrent) {
+  if (holdsCurrent) return collapsed || {};
   var next = Object.assign({}, collapsed || {});
   if (next[title] === true) delete next[title];
   else next[title] = true;

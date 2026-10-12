@@ -684,7 +684,7 @@ ShellRoot {
                     enabled: !root.railMode
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
-                    onClicked: root.collapsedGroups = LayoutJs.toggleGroup(root.collapsedGroups, navGroup.groupTitle)
+                    onClicked: root.collapsedGroups = LayoutJs.toggleGroup(root.collapsedGroups, navGroup.groupTitle, LayoutJs.groupHolds(navGroup.modelData, root.currentPage))
                   }
 
                   Accessible.role: Accessible.Button

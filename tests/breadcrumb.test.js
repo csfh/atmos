@@ -30,6 +30,12 @@ assertEqual(layout.railMode(0), false, "an unknown width keeps the full sidebar"
 const group = { title: "Desktop", pages: [{ id: "appearance" }, { id: "displays" }] };
 assertEqual(layout.groupHolds(group, "displays"), true, "a group knows its pages");
 assertEqual(layout.groupHolds(group, "sound"), false, "a group rejects other pages");
+const wrapped = { title: "Desktop", pages: { length: 1, 0: { id: "appearance" } } };
+assertEqual(
+  layout.groupHolds(wrapped, "appearance"),
+  true,
+  "a QML list wrapper (not an Array) still holds its pages",
+);
 assertEqual(
   layout.groupOpen({ Desktop: true }, "Desktop", false),
   false,
@@ -44,6 +50,11 @@ assertEqual(
   layout.groupOpen({ Desktop: true }, "", false),
   true,
   "an untitled group is always open",
+);
+assertEqual(
+  JSON.stringify(layout.toggleGroup({}, "Desktop", true)),
+  "{}",
+  "the group holding the current page cannot be toggled",
 );
 const toggled = layout.toggleGroup({}, "Desktop");
 assertEqual(toggled.Desktop, true, "toggling collapses an open group");

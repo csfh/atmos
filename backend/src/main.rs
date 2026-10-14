@@ -4,6 +4,14 @@ use std::process::ExitCode;
 
 fn main() -> ExitCode {
     let args: Vec<String> = env::args().collect();
+    // Linked as `gum`, this binary answers confirm prompts (see tasks::user::gum_job).
+    if args
+        .first()
+        .and_then(|a| std::path::Path::new(a).file_name())
+        .is_some_and(|n| n == "gum")
+    {
+        ratmos::tasks::user::gum_stub(&args[1..]);
+    }
     if wants(&args, "serve") {
         return ExitCode::from(u8::try_from(ratmos::run_serve(&args)).unwrap_or(1));
     }

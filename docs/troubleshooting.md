@@ -8,6 +8,6 @@
 
 **Display or input change snapped back.** Mode, scale, rotation, refresh, keyboard layout, and turning the touchpad off revert after 12 seconds unless you press Keep. Escape reverts too. Quitting during those 12 seconds leaves the new value.
 
-**Install says a tool is missing.** `install.sh` needs `git`, `python3`, `cargo`, and `quickshell`. `atmos mcp` also needs `node`.
+**Install says a tool is missing.** `install.sh` needs `git`, `cargo`, and `quickshell`.
 
 **Need a report.** **System → Diagnostics → Copy report** puts an Atmos summary plus `omarchy-debug --no-sudo --print` on the clipboard.

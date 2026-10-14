@@ -35,37 +35,30 @@ const frontend = [
 ];
 const rustSources = walk(path.join("backend", "src"), [".rs"]);
 
-// A literal that only reads like a script name in the UI (a placeholder).
-const notScripts = new Set(["notify.sh"]);
+// --- tasks -------------------------------------------------------------------
 
-// --- scripts -----------------------------------------------------------------
+// What the window used to run as helper scripts is `ratmos task <name>`. Every
+// task the front end starts has to exist in the backend's list.
+const taskList = read("backend/src/tasks/mod.rs");
+const taskNames = new Set(
+  [...taskList.slice(taskList.indexOf("pub const NAMES")).matchAll(/^\s+"([a-z][a-z-]*)",$/gm)].map(
+    (m) => m[1],
+  ),
+);
+assert(taskNames.size > 20, "the backend lists its tasks");
 
-const scriptsDir = path.join(root, "scripts");
-const scriptFiles = fs.readdirSync(scriptsDir).filter((name) => /\.(sh|py)$/.test(name));
-
-const fromFrontend = matches(frontend, /"(?:[^"\s]*\/)?([A-Za-z0-9_-]+\.(?:sh|py))"/g);
-const fromRust = matches(rustSources, /"([A-Za-z0-9_-]+\.(?:sh|py))"/g);
-
-assert(fromFrontend.size > 20, "the front end names scripts to look for");
-assert(fromRust.size > 10, "the backend names scripts to look for");
-
-for (const [source, found] of [
-  ["QML and JS", fromFrontend],
-  ["Rust", fromRust],
-]) {
-  for (const [name, file] of found) {
-    if (notScripts.has(name)) continue;
-    assert(scriptFiles.includes(name), `${source} script ${name} exists in scripts/ (${file})`);
-  }
+const fromFrontend = matches(frontend, /Backend\.task\("([a-z][a-z-]*)"/g);
+assert(fromFrontend.size > 15, "the front end starts tasks");
+for (const [name, file] of fromFrontend) {
+  assert(taskNames.has(name), `task ${name} exists in the backend (${file})`);
 }
 
-// A script with a shebang is meant to be run, so it has to be executable.
-// Files meant to be sourced have no shebang and stay plain.
-for (const name of scriptFiles) {
-  const full = path.join(scriptsDir, name);
-  const first = fs.readFileSync(full, "utf8").split("\n", 1)[0];
-  if (!first.startsWith("#!")) continue;
-  assert((fs.statSync(full).mode & 0o111) !== 0, `scripts/${name} has a shebang and is executable`);
+// Nothing runs a helper script any more, from the window or from ratmos.
+assert(!fs.existsSync(path.join(root, "scripts")), "there is no scripts directory");
+for (const file of [...frontend, ...rustSources]) {
+  const text = read(file);
+  assert(!/\bpython3\b/.test(text), `${file} does not run Python`);
+  assert(!/scripts\/[A-Za-z0-9_-]+\.(?:sh|py)/.test(text), `${file} does not name a helper script`);
 }
 
 // --- icons -------------------------------------------------------------------

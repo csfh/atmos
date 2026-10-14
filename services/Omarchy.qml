@@ -265,6 +265,7 @@ QtObject {
   property bool bindingsManaged: false
   property var windowRules: []
   property bool windowRulesManaged: false
+  property bool windowOpaque: false
   property var workspaces: []
   property bool workspacesManaged: false
   property bool workspaceWrapSwitch: true
@@ -701,34 +702,7 @@ QtObject {
   function scriptOpts() {
     return {
       root: shellDir,
-      scripts: {
-        look: Paths.setHyprLookScript,
-        input: Paths.setHyprInputScript,
-        bindings: Paths.setHyprBindingsScript,
-        windows: Paths.setHyprWindowsScript,
-        autostart: Paths.setHyprAutostartScript,
-        workspaces: Paths.setHyprWorkspacesScript,
-        workspaceBar: Paths.setWorkspaceBarScript,
-        monitors: Paths.setHyprMonitorsScript,
-        env: Paths.setEnvScript,
-        tweaks: Paths.setTweaksScript,
-        presentation: Paths.setPresentationScript,
-        chargeLimit: Paths.setChargeLimitScript,
-        idle: Paths.setIdleScript,
-        hyprsunset: Paths.setHyprsunsetScript,
-        nightlightTemp: Paths.setNightlightTempScript,
-        mime: Paths.setMimeDefaultScript,
-        audio: Paths.setAudioScript,
-        barWidget: Paths.setBarWidgetScript,
-        hostname: Paths.setHostnameScript,
-        timezone: Paths.setTimezoneScript,
-        locale: Paths.setLocaleScript,
-        keyboard: Paths.setKeyboardLayoutScript,
-        ntp: Paths.setNtpScript,
-        fullName: Paths.setFullNameScript,
-        parallelDownloads: Paths.setParallelDownloadsScript,
-        wifiRadio: Paths.setWifiConnectionScript
-      },
+      ratmos: Backend.bin,
       tagApply: SnapshotGroups.tagApply
     }
   }
@@ -909,11 +883,7 @@ QtObject {
 
   function runGumJob(argv, kind, opts) {
     if (!(argv instanceof Array) || argv.length === 0) return
-    // shift, or "$@" still carries $1 and exec is handed the stub directory
-    // itself: prefs-job: .../scripts/stubs: Is a directory
-    var cmd = ["bash", "-c", "PATH=\"$1:$PATH\"; shift; exec \"$@\"", "prefs-job", Paths.gumStubDir]
-    for (var i = 0; i < argv.length; i++) cmd.push(argv[i])
-    runJob(cmd, "", kind, opts)
+    runJob(Backend.task("gum-job", argv), "", kind, opts)
   }
 
   // Job record: kind ("read"|"mut"|"job"), argv, stdin, key, apply, refresh,
@@ -1278,7 +1248,7 @@ QtObject {
     icon = String(icon || "application-x-executable")
     if (!name || !command) return
     if (name.indexOf("/") !== -1 || name.charAt(0) === "-") return
-    runJob(["bash", Paths.addDesktopLauncherScript, name, command, icon], "", "desktop-install")
+    runJob(Backend.task("add-desktop-launcher", [name, command, icon]), "", "desktop-install")
   }
   function installTui(name, command, style, icon) {
     name = String(name || "")
@@ -1376,7 +1346,7 @@ QtObject {
   function setCustomDns(servers) {
     servers = String(servers || "").replace(/^\s+|\s+$/g, "")
     if (!servers) return
-    runJob(["bash", Paths.setDnsCustomScript, servers], "", "dns-custom")
+    runJob(Backend.task("set-dns-custom", [servers]), "", "dns-custom")
   }
   function openAether() { launchDetached(["aether"]) }
 
@@ -1389,9 +1359,6 @@ QtObject {
     })
     runSettingCommand(SettingsJs.commandFor("idleScreensaver", saver, snap, scriptOpts()), "idleScreensaver")
   }
-
-
-
 
   function setScreensaverBranding(action) {
     if (action !== "image" && action !== "text" && action !== "reset") return
@@ -1452,7 +1419,7 @@ QtObject {
     path = String(path || "")
     if (!currentUser) return
     if (!path || path.charAt(0) !== "/" || path.indexOf("..") !== -1) return
-    runCommand(["bash", Paths.setAvatarScript, "set", currentUser, path], {
+    runCommand(Backend.task("set-avatar", ["set", currentUser, path]), {
       key: "avatar",
       apply: { avatarPath: path },
       refresh: "none",
@@ -1462,7 +1429,7 @@ QtObject {
 
   function clearAvatar() {
     if (!currentUser) return
-    runCommand(["bash", Paths.setAvatarScript, "clear", currentUser], {
+    runCommand(Backend.task("set-avatar", ["clear", currentUser]), {
       key: "avatar",
       apply: { avatarPath: "" },
       refresh: "none",
@@ -1476,32 +1443,32 @@ QtObject {
     password = String(password || "")
     if (!name || !password || password.indexOf("\n") !== -1) return
     if (!AccountsJs.isFullName(full)) return
-    runJob(["bash", Paths.manageAccountScript, "add-user", name, full, wheel === true ? "true" : "false"], password + "\n", "account-add", { sudo: true })
+    runJob(Backend.task("manage-account", ["add-user", name, full, wheel === true ? "true" : "false"]), password + "\n", "account-add", { sudo: true })
   }
 
   function removeAccountUser(name) {
     name = AccountsJs.parseUsername(name)
     if (!name || name === currentUser) return
-    runJob(["bash", Paths.manageAccountScript, "remove-user", name], "", "account-remove", { sudo: true })
+    runJob(Backend.task("manage-account", ["remove-user", name]), "", "account-remove", { sudo: true })
   }
 
   function setAccountPassword(name, password) {
     name = AccountsJs.parseUsername(name)
     password = String(password || "")
     if (!name || !password || password.indexOf("\n") !== -1) return
-    runJob(["bash", Paths.manageAccountScript, "set-password", name], password + "\n", "account-password", { sudo: true })
+    runJob(Backend.task("manage-account", ["set-password", name]), password + "\n", "account-password", { sudo: true })
   }
 
   function addAccountGroup(name) {
     name = AccountsJs.parseGroupName(name)
     if (!name) return
-    runJob(["bash", Paths.manageAccountScript, "add-group", name], "", "account-group-add", { sudo: true })
+    runJob(Backend.task("manage-account", ["add-group", name]), "", "account-group-add", { sudo: true })
   }
 
   function removeAccountGroup(name) {
     name = AccountsJs.parseGroupName(name)
     if (!name || name === "wheel" || name === "docker") return
-    runJob(["bash", Paths.manageAccountScript, "remove-group", name], "", "account-group-remove", { sudo: true })
+    runJob(Backend.task("manage-account", ["remove-group", name]), "", "account-group-remove", { sudo: true })
   }
 
   function setGroupMember(group, name, on) {
@@ -1509,7 +1476,7 @@ QtObject {
     name = AccountsJs.parseUsername(name)
     if (!group || !name) return
     if (on !== true && group === "wheel" && name === currentUser) return
-    runCommand(["bash", Paths.manageAccountScript, "set-member", group, name, on === true ? "on" : "off"], {
+    runCommand(Backend.task("manage-account", ["set-member", group, name, on === true ? "on" : "off"]), {
       key: "account-member-" + group + "-" + name,
       refresh: "all",
       sudo: true
@@ -1542,7 +1509,7 @@ QtObject {
 
   function resetHyprLook() {
     if (!hyprLookManaged) return
-    runCommand(["bash", Paths.setHyprLookScript, "--reset"], {
+    runCommand(Backend.task("reset-hypr", ["look"]), {
       key: "hyprLookManaged",
       apply: { hyprLookManaged: false },
       refresh: "none"
@@ -1590,7 +1557,7 @@ QtObject {
   }
   function resetHyprInput() {
     if (!hyprInputManaged) return
-    runCommand(["bash", Paths.setHyprInputScript, "--reset"], {
+    runCommand(Backend.task("reset-hypr", ["input"]), {
       key: "hyprInputManaged",
       apply: { hyprInputManaged: false },
       refresh: "none"
@@ -1625,7 +1592,7 @@ QtObject {
   }
   function disableSshd() {
     if (!sshdEnabled && !sshdActive) return
-    runJob(["bash", Paths.setSshdScript, "disable"], "", "security-sshd-disable", { sudo: true })
+    runJob(Backend.task("set-sshd", ["disable"]), "", "security-sshd-disable", { sudo: true })
   }
   function enablePasswordlessSudo(minutes, password) {
     minutes = Math.round(Number(minutes))
@@ -1638,14 +1605,14 @@ QtObject {
     if (password.indexOf("\n") !== -1) return
     sudoEnabling = true
     runJob(
-      ["bash", "-c", "export ATMOS_SUDO_ASK=1; exec \"$1\" on \"$2\"", "atmos-sudo", Paths.setPasswordlessSudoScript, String(minutes)],
+      Backend.task("set-passwordless-sudo", ["on", String(minutes), "--sudo-ask"]),
       password + "\n",
       "passwordless-sudo"
     )
   }
   function disablePasswordlessSudo() {
     if (!passwordlessSudo) return
-    runJob(["bash", Paths.setPasswordlessSudoScript, "off"], "", "passwordless-sudo-off", { sudo: true })
+    runJob(Backend.task("set-passwordless-sudo", ["off"]), "", "passwordless-sudo-off", { sudo: true })
   }
   function setupSudolessDocker() {
     runGumJob(["omarchy", "setup", "security", "sudoless", "docker"], "security-docker", { sudo: true })
@@ -1669,17 +1636,17 @@ QtObject {
   function setAtmosChannel(name) {
     if (AtmosUpdate.parseChannel(name) !== "stable") return
     if (name === atmosChannel) return
-    runCommand(["bash", Paths.setAtmosChannelScript, "stable"], {
+    runCommand(Backend.task("set-atmos-channel", ["stable"]), {
       key: "atmosChannel",
       apply: { atmosChannel: "stable" },
       refresh: "none"
     })
   }
   function checkAtmosUpdate() {
-    runJob(["bash", Paths.updateAtmosScript, "check"], "", "atmos-update-check")
+    runJob(Backend.task("update-atmos", ["check"]), "", "atmos-update-check")
   }
   function runAtmosUpdate() {
-    runJob(["bash", Paths.updateAtmosScript, "apply"], "", "atmos-update")
+    runJob(Backend.task("update-atmos", ["apply"]), "", "atmos-update")
   }
   function updateFirmware() {
     runGumJob(["omarchy", "update", "firmware"], "update-firmware", { sudo: true })
@@ -1729,7 +1696,7 @@ QtObject {
   function setSnapperNumberLimit(n) {
     n = Math.round(Number(n))
     if (!isFinite(n) || n < 1 || n > 50 || n === snapperNumberLimit) return
-    runCommand(["bash", Paths.setSnapperPolicyScript, "number-limit", String(n)], {
+    runCommand(Backend.task("set-snapper-policy", ["number-limit", String(n)]), {
       key: "snapperNumberLimit",
       apply: { snapperNumberLimit: n },
       refresh: "none",
@@ -1738,7 +1705,7 @@ QtObject {
   }
   function setSnapperTimeline(on) {
     if (on === snapperTimeline) return
-    runCommand(["bash", Paths.setSnapperPolicyScript, "timeline", on ? "on" : "off"], {
+    runCommand(Backend.task("set-snapper-policy", ["timeline", on ? "on" : "off"]), {
       key: "snapperTimeline",
       apply: { snapperTimeline: on },
       refresh: "none",
@@ -1747,7 +1714,7 @@ QtObject {
   }
   function setFstrim(on) {
     if (on === fstrimEnabled) return
-    runCommand(["bash", Paths.setFstrimScript, on ? "on" : "off"], {
+    runCommand(Backend.task("set-fstrim", [on ? "on" : "off"]), {
       key: "fstrimEnabled",
       apply: { fstrimEnabled: on },
       refresh: "none",
@@ -1852,34 +1819,34 @@ QtObject {
   function setConnectionMetered(uuid, value) {
     var argv = NetworkPrefs.argvFor("metered", { uuid: uuid, value: value })
     if (!argv) return
-    runCommand(["bash", Paths.setWifiConnectionScript].concat(argv), { key: "wifi-metered:" + uuid, refresh: "network" })
+    runCommand(Backend.task("set-wifi-connection", argv), { key: "wifi-metered:" + uuid, refresh: "network" })
   }
   function setConnectionPriority(uuid, value) {
     var argv = NetworkPrefs.argvFor("priority", { uuid: uuid, value: value })
     if (!argv) return
-    runCommand(["bash", Paths.setWifiConnectionScript].concat(argv), { key: "wifi-priority:" + uuid, refresh: "network" })
+    runCommand(Backend.task("set-wifi-connection", argv), { key: "wifi-priority:" + uuid, refresh: "network" })
   }
   function setConnectionMac(uuid, value) {
     var argv = NetworkPrefs.argvFor("mac", { uuid: uuid, value: value })
     if (!argv) return
-    runCommand(["bash", Paths.setWifiConnectionScript].concat(argv), { key: "wifi-mac:" + uuid, refresh: "network" })
+    runCommand(Backend.task("set-wifi-connection", argv), { key: "wifi-mac:" + uuid, refresh: "network" })
   }
   function setConnectionIpv4(uuid, spec) {
     spec = spec && typeof spec === "object" ? spec : {}
     spec.uuid = uuid
     var argv = NetworkPrefs.argvFor("ipv4", spec)
     if (!argv) return
-    runCommand(["bash", Paths.setWifiConnectionScript].concat(argv), { key: "wifi-ipv4:" + uuid, refresh: "network" })
+    runCommand(Backend.task("set-wifi-connection", argv), { key: "wifi-ipv4:" + uuid, refresh: "network" })
   }
   function importWireGuard(path) {
     var argv = NetworkPrefs.argvFor("wireguard-import", { path: path })
     if (!argv) return
-    runCommand(["bash", Paths.setWifiConnectionScript].concat(argv), { key: "wireguard-import", refresh: "network" })
+    runCommand(Backend.task("set-wifi-connection", argv), { key: "wireguard-import", refresh: "network" })
   }
   function setHotspot(on, ssid, password) {
     var argv = NetworkPrefs.argvFor("hotspot", { on: on === true, ssid: ssid, password: password })
     if (!argv) return
-    runCommand(["bash", Paths.setWifiConnectionScript].concat(argv), { key: "wifi-hotspot", refresh: "network" })
+    runCommand(Backend.task("set-wifi-connection", argv), { key: "wifi-hotspot", refresh: "network" })
   }
   function applyMonitorLayout(name) {
     var key = String(name || "")
@@ -1897,7 +1864,7 @@ QtObject {
   function toggleFavorite(row) {
     var next = FavoritesJs.toggleItem(favoriteItems, row)
     favoriteItems = next
-    runCommand(["bash", Paths.setFavoritesScript, "write", FavoritesJs.serialize(next)], { key: "favorites" })
+    runCommand(Backend.task("set-favorites", ["write", FavoritesJs.serialize(next)]), { key: "favorites" })
   }
 
   function setPresentationMode(on) {
@@ -1919,7 +1886,7 @@ QtObject {
     dispatchSetting("tweaks." + String(id || ""), on === true)
   }
   function signalProcess(pid, signal) {
-    var argv = ProcessesJs.signalArgv(pid, signal, Paths.signalProcessScript)
+    var argv = ProcessesJs.signalArgv(pid, signal, Backend.task("signal-process", []))
     if (!argv) return
     runCommand(argv, { key: "process:" + pid, refresh: "none" })
   }
@@ -1950,7 +1917,7 @@ QtObject {
   function copyDiagnosticReport() {
     var header = DiagnosticsJs.reportText(diagnostics)
     if (!header) return
-    runJob(["bash", Paths.diagReportScript, "copy"], header, "diag-report", { refresh: "none" })
+    runJob(Backend.task("diag-report", ["copy"]), header, "diag-report", { refresh: "none" })
   }
 
   function saveDiagnosticReport(path) {
@@ -1958,13 +1925,13 @@ QtObject {
     if (!dest || dest.indexOf("\n") !== -1 || dest.charAt(0) !== "/") return
     var header = DiagnosticsJs.reportText(diagnostics)
     if (!header) return
-    runJob(["bash", Paths.diagReportScript, "save", dest], header, "diag-report", { refresh: "none" })
+    runJob(Backend.task("diag-report", ["save", dest]), header, "diag-report", { refresh: "none" })
   }
 
   function askAgentAboutDiagnostics() {
     var header = DiagnosticsJs.reportText(diagnostics)
     if (!header) return
-    runJob(["bash", Paths.diagReportScript, "agent"], header, "diag-report", { refresh: "none" })
+    runJob(Backend.task("diag-report", ["agent"]), header, "diag-report", { refresh: "none" })
   }
 
   function clearLastError() {
@@ -1988,7 +1955,7 @@ QtObject {
     if (!ssid || !identity || !password) return
     if (ssid.length > 64 || identity.length > 256 || password.length > 256) return
     if (/[\r\n\0]/.test(ssid) || /[\r\n\0]/.test(identity) || /[\r\n\0]/.test(password)) return
-    runJob(["bash", Paths.enterpriseWifiScript, ssid, identity], password + "\n", "wifi-enterprise")
+    runJob(Backend.task("enterprise-wifi-connect", [ssid, identity]), password + "\n", "wifi-enterprise")
   }
   function wifiUuidForSsid(ssid) {
     ssid = String(ssid || "")
@@ -2011,7 +1978,7 @@ QtObject {
       activateWifiConnection(uuid)
       return
     }
-    runJob(["bash", Paths.setWifiConnectionScript, "join", ssid], password.length ? password + "\n" : "", "wifi-join")
+    runJob(Backend.task("set-wifi-connection", ["join", ssid]), password.length ? password + "\n" : "", "wifi-join")
   }
   function activateWifiConnection(uuid) {
     uuid = String(uuid || "")
@@ -2025,7 +1992,7 @@ QtObject {
         break
       }
     }
-    runCommand(["bash", Paths.setWifiConnectionScript, "up", uuid], {
+    runCommand(Backend.task("set-wifi-connection", ["up", uuid]), {
       key: "wifi:" + uuid,
       apply: {
         wifiConnections: SnapshotJs.patchWifiActive(wifiConnections, uuid, true),
@@ -2039,7 +2006,7 @@ QtObject {
   function deactivateWifiConnection(uuid) {
     uuid = String(uuid || "")
     if (!/^[0-9a-fA-F-]{36}$/.test(uuid)) return
-    runCommand(["bash", Paths.setWifiConnectionScript, "down", uuid], {
+    runCommand(Backend.task("set-wifi-connection", ["down", uuid]), {
       key: "wifi:" + uuid,
       apply: {
         wifiConnections: SnapshotJs.patchWifiActive(wifiConnections, uuid, false),
@@ -2068,7 +2035,7 @@ QtObject {
       forgetApply.netKind = "disconnected"
       forgetApply.netSsid = ""
     }
-    runCommand(["bash", Paths.setWifiConnectionScript, "delete", uuid], {
+    runCommand(Backend.task("set-wifi-connection", ["delete", uuid]), {
       key: "wifi:" + uuid,
       apply: forgetApply,
       refresh: "none"
@@ -2082,7 +2049,7 @@ QtObject {
       deactivateWifiConnection(uuid)
       return
     }
-    runCommand(["bash", Paths.setWifiConnectionScript, "down-ssid", ssid], {
+    runCommand(Backend.task("set-wifi-connection", ["down-ssid", ssid]), {
       key: "wifi:" + ssid,
       refresh: "all"
     })
@@ -2095,7 +2062,7 @@ QtObject {
       forgetWifiConnection(uuid)
       return
     }
-    runCommand(["bash", Paths.setWifiConnectionScript, "delete-ssid", ssid], {
+    runCommand(Backend.task("set-wifi-connection", ["delete-ssid", ssid]), {
       key: "wifi:" + ssid,
       refresh: "all"
     })
@@ -2227,7 +2194,7 @@ QtObject {
     newPass = String(newPass || "")
     if (!device || device.charAt(0) !== "/" || device.indexOf("..") !== -1) return
     if (!currentPass || !newPass) return
-    runJob(["bash", Paths.luksChangeKeyScript], device + "\n" + currentPass + "\n" + newPass + "\n", "luks", { sudo: true })
+    runJob(Backend.task("luks-change-key", []), device + "\n" + currentPass + "\n" + newPass + "\n", "luks", { sudo: true })
   }
   function createSnapshot() {
     runJob(["omarchy", "snapshot", "create"], "", "snapshot-create", { sudo: true })
@@ -2237,13 +2204,13 @@ QtObject {
     id = String(id || "")
     if (!/^[A-Za-z0-9_-]+$/.test(config)) return
     if (!/^[0-9]+$/.test(id)) return
-    runJob(["bash", Paths.rollbackSnapshotScript, config, id], "", "snapshot-rollback", { sudo: true })
+    runJob(Backend.task("rollback-snapshot", [config, id]), "", "snapshot-rollback", { sudo: true })
   }
   function setupHibernation() {
     runJob(["omarchy", "hibernation", "setup", "--force"], "", "hibernation-setup", { sudo: true })
   }
   function removeHibernation() {
-    runJob(["bash", "-c", "PATH=\"$1:$PATH\" exec omarchy hibernation remove", "hibernation-remove", Paths.gumStubDir], "", "hibernation-remove", { sudo: true })
+    runJob(Backend.task("gum-job", ["omarchy", "hibernation", "remove"]), "", "hibernation-remove", { sudo: true })
   }
 
 
@@ -2478,7 +2445,7 @@ QtObject {
     if (!isHookId(type) || !name || !command) return
     var dest = hookDest(type, name)
     if (!dest) return
-    runCommand(["bash", Paths.createHookScript, type, name, command], {
+    runCommand(Backend.task("create-hook", [type, name, command]), {
       key: "hook:" + dest,
       apply: {
         hooks: SnapshotJs.patchAppendHook(hooks, {
@@ -2510,7 +2477,7 @@ QtObject {
     path = String(path || "")
     var root = Quickshell.env("HOME") + "/.config/omarchy/hooks/"
     if (path.indexOf(root) !== 0 || path.indexOf("..") !== -1) return
-    runCommand(["bash", Paths.setHookSampleScript, enabled ? "enable" : "disable", path], {
+    runCommand(Backend.task("set-hook-sample", [enabled ? "enable" : "disable", path]), {
       key: "hook:" + path,
       apply: { hooks: SnapshotJs.patchHookSample(hooks, path, enabled === true) },
       refresh: "none"
@@ -2771,7 +2738,7 @@ QtObject {
   }
 
   function refreshHyprland() {
-    runJob(["bash", Paths.refreshHyprlandScript], "", "refresh-hyprland")
+    runJob(Backend.task("refresh-hyprland", []), "", "refresh-hyprland")
   }
 
   function refreshShell() {
@@ -2779,7 +2746,7 @@ QtObject {
   }
 
   function resetAtmos() {
-    runJob(["bash", Paths.resetAtmosScript], "", "reset-atmos")
+    runJob(Backend.task("reset-atmos", []), "", "reset-atmos")
   }
 
   function setPlymouth(name) {

@@ -2,6 +2,7 @@ const { spawnSync } = require("child_process");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
+const { ratmosBinary } = require("./sandbox");
 const { load, assert, assertEqual } = require("./harness");
 
 const hypr = load("services/HyprPrefs.js");
@@ -299,7 +300,7 @@ assert(
   "resetLookFile strips a leftover omarchy-prefs look block",
 );
 
-// The live writer is hypr-sentinel.py. JS serializeLook/serializeInput is
+// The live writer is ratmos sentinel. JS serializeLook/serializeInput is
 // what Node tests. They drifted once (scroll inertia). Fail if they do again.
 function pythonSentinel(kind, payload) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "atmos-sentinel-"));
@@ -308,17 +309,16 @@ function pythonSentinel(kind, payload) {
   let text = "";
   try {
     fs.writeFileSync(file, "");
-    const result = spawnSync(
-      "python3",
-      [path.join(__dirname, "..", "scripts", "hypr-sentinel.py"), kind, "apply", file],
-      { input: JSON.stringify(payload), encoding: "utf8" },
-    );
+    const result = spawnSync(ratmosBinary(), ["sentinel", kind, "apply", file], {
+      input: JSON.stringify(payload),
+      encoding: "utf8",
+    });
     status = result.status;
     if (status === 0) text = fs.readFileSync(file, "utf8").replace(/\s+$/, "");
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
-  assertEqual(status, 0, "hypr-sentinel.py " + kind + " apply exits 0");
+  assertEqual(status, 0, "ratmos sentinel " + kind + " apply exits 0");
   return text;
 }
 
@@ -347,7 +347,7 @@ const lookLock = {
 assertEqual(
   pythonSentinel("look", lookLock),
   hypr.serializeLook(lookLock),
-  "hypr-sentinel.py look matches serializeLook",
+  "ratmos sentinel look matches serializeLook",
 );
 assert(
   hypr.serializeLook({ cursorWarpOnFocus: true }).indexOf("warp_on_focus_change") === -1,
@@ -355,7 +355,7 @@ assert(
 );
 assert(
   pythonSentinel("look", { cursorWarpOnFocus: true }).indexOf("warp_on_focus_change") === -1,
-  "hypr-sentinel.py look ignores leftover cursorWarpOnFocus in look JSON",
+  "ratmos sentinel look ignores leftover cursorWarpOnFocus in look JSON",
 );
 const windowsPageSrc = fs.readFileSync(
   path.join(__dirname, "..", "pages", "WindowsPage.qml"),
@@ -398,7 +398,7 @@ const inputLock = {
 assertEqual(
   pythonSentinel("input", inputLock),
   hypr.serializeInput(inputLock),
-  "hypr-sentinel.py input matches serializeInput",
+  "ratmos sentinel input matches serializeInput",
 );
 
 const spacedInput = Object.assign({}, inputLock, {
@@ -408,7 +408,7 @@ const spacedInput = Object.assign({}, inputLock, {
 assertEqual(
   pythonSentinel("input", spacedInput),
   hypr.serializeInput(spacedInput),
-  "hypr-sentinel.py input matches serializeInput with spaced layout lists",
+  "ratmos sentinel input matches serializeInput with spaced layout lists",
 );
 assert(
   hypr.serializeInput(spacedInput).indexOf('kb_layout = "us,dk"') !== -1,
@@ -425,12 +425,10 @@ function pythonInputGesture(text) {
   let parsed = { workspaceGesture: false, workspaceGestureManaged: false };
   try {
     fs.writeFileSync(file, text);
-    const result = spawnSync(
-      "python3",
-      [path.join(__dirname, "..", "scripts", "hypr-sentinel.py"), "input", "list", file],
-      { encoding: "utf8" },
-    );
-    assertEqual(result.status, 0, "hypr-sentinel.py input list exits 0");
+    const result = spawnSync(ratmosBinary(), ["sentinel", "input", "list", file], {
+      encoding: "utf8",
+    });
+    assertEqual(result.status, 0, "ratmos sentinel input list exits 0");
     parsed = JSON.parse(String(result.stdout || "").replace(/^\s+|\s+$/g, "") || "{}");
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
@@ -444,12 +442,11 @@ function pythonApplyInput(existing, payload) {
   let text = "";
   try {
     fs.writeFileSync(file, existing);
-    const result = spawnSync(
-      "python3",
-      [path.join(__dirname, "..", "scripts", "hypr-sentinel.py"), "input", "apply", file],
-      { input: JSON.stringify(payload), encoding: "utf8" },
-    );
-    assertEqual(result.status, 0, "hypr-sentinel.py input apply exits 0");
+    const result = spawnSync(ratmosBinary(), ["sentinel", "input", "apply", file], {
+      input: JSON.stringify(payload),
+      encoding: "utf8",
+    });
+    assertEqual(result.status, 0, "ratmos sentinel input apply exits 0");
     text = fs.readFileSync(file, "utf8");
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
@@ -496,7 +493,7 @@ assertGestureState(
 assertGestureState(
   pythonInputGesture(liveGesture),
   onManaged,
-  "hypr-sentinel.py input list sees a live managed gesture",
+  "ratmos sentinel input list sees a live managed gesture",
 );
 assertGestureState(
   hypr.inputWorkspaceGestureState(hypr.serializeInput({ workspaceGesture: false })),
@@ -519,7 +516,7 @@ assertGestureState(
 assertGestureState(
   pythonInputGesture(commentedGesture),
   off,
-  "hypr-sentinel.py input list skips a commented gesture in the sentinel",
+  "ratmos sentinel input list skips a commented gesture in the sentinel",
 );
 
 const trailingGesture = `-- atmos:input begin
@@ -534,7 +531,7 @@ assertGestureState(
 assertGestureState(
   pythonInputGesture(trailingGesture),
   onManaged,
-  "hypr-sentinel.py input list keeps a live gesture with a trailing comment",
+  "ratmos sentinel input list keeps a live gesture with a trailing comment",
 );
 
 const stringDashGesture = `-- atmos:input begin
@@ -549,7 +546,7 @@ assertGestureState(
 assertGestureState(
   pythonInputGesture(stringDashGesture),
   onManaged,
-  "hypr-sentinel.py input list keeps a gesture after -- inside a string",
+  "ratmos sentinel input list keeps a gesture after -- inside a string",
 );
 
 const unmanagedGesture = `hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })
@@ -572,7 +569,7 @@ assertGestureState(
 assertGestureState(
   pythonInputGesture(unmanagedGesture),
   onUnmanaged,
-  "hypr-sentinel.py input list reports a bare gesture as on and not managed",
+  "ratmos sentinel input list reports a bare gesture as on and not managed",
 );
 
 const legacyGesture = `-- omarchy-prefs:input begin
@@ -587,7 +584,7 @@ assertGestureState(
 assertGestureState(
   pythonInputGesture(legacyGesture),
   onManaged,
-  "hypr-sentinel.py input list reads a leftover omarchy-prefs input gesture as managed",
+  "ratmos sentinel input list reads a leftover omarchy-prefs input gesture as managed",
 );
 
 const leftoverAtmosOff = [
@@ -609,7 +606,7 @@ assertGestureState(
 assertGestureState(
   pythonInputGesture(leftoverAtmosOff),
   off,
-  "hypr-sentinel.py input list prefers the atmos sentinel over a leftover gesture",
+  "ratmos sentinel input list prefers the atmos sentinel over a leftover gesture",
 );
 assertGestureState(
   hypr.inputWorkspaceGestureState(""),
@@ -631,7 +628,7 @@ assertGestureState(
 assertGestureState(
   pythonInputGesture(bareStock),
   onUnmanaged,
-  "hypr-sentinel.py input list treats a live stock line as on and not managed",
+  "ratmos sentinel input list treats a live stock line as on and not managed",
 );
 
 const commentedStock = `-- Enable touchpad gestures for changing workspaces.
@@ -645,7 +642,7 @@ assertGestureState(
 assertGestureState(
   pythonInputGesture(commentedStock),
   off,
-  "hypr-sentinel.py input list ignores the commented Omarchy stock line",
+  "ratmos sentinel input list ignores the commented Omarchy stock line",
 );
 
 const unmanagedWritten = hypr.applyInputFile(unmanagedGesture, {
@@ -683,7 +680,7 @@ const unmanagedPython = pythonApplyInput(unmanagedGesture, {
 assertEqual(
   unmanagedPython.replace(/\s+$/, ""),
   unmanagedWritten.replace(/\s+$/, ""),
-  "hypr-sentinel.py apply matches applyInputFile when deferring to an unmanaged gesture",
+  "ratmos sentinel apply matches applyInputFile when deferring to an unmanaged gesture",
 );
 
 const managedOnlyWritten = hypr.applyInputFile("-- keep input comments\n", {
@@ -704,7 +701,7 @@ const managedOnlyPython = pythonApplyInput("-- keep input comments\n", { workspa
 assertEqual(
   managedOnlyPython.replace(/\s+$/, ""),
   managedOnlyWritten.replace(/\s+$/, ""),
-  "hypr-sentinel.py apply matches applyInputFile on the managed-only path",
+  "ratmos sentinel apply matches applyInputFile on the managed-only path",
 );
 
 const commentedStockWritten = hypr.applyInputFile(commentedStock, { workspaceGesture: true });
@@ -727,7 +724,7 @@ assertGestureState(
 assertEqual(
   pythonApplyInput(commentedStock, { workspaceGesture: true }).replace(/\s+$/, ""),
   commentedStockWritten.replace(/\s+$/, ""),
-  "hypr-sentinel.py apply matches applyInputFile over a commented stock line",
+  "ratmos sentinel apply matches applyInputFile over a commented stock line",
 );
 
 const commentedOutUnmanaged = unmanagedWritten.replace(

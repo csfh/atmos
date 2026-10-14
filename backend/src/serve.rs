@@ -35,7 +35,6 @@ use crate::{error_envelope, handle, host};
 pub struct Config {
     pub backend: Backend,
     pub root: Option<PathBuf>,
-    pub sampler: Option<PathBuf>,
 }
 
 type Out = Arc<Mutex<Box<dyn Write + Send>>>;
@@ -89,12 +88,7 @@ pub fn serve(config: Config, input: impl BufRead, out: Box<dyn Write + Send>) {
         }
         let (config, out) = (Arc::clone(&config), Arc::clone(&out));
         thread::spawn(move || {
-            let envelope = match handle(
-                config.backend,
-                config.root.as_deref(),
-                &value,
-                config.sampler.as_deref(),
-            ) {
+            let envelope = match handle(config.backend, config.root.as_deref(), &value) {
                 Ok(envelope) => envelope,
                 Err(err) => error_envelope(config.backend, &err),
             };

@@ -86,7 +86,7 @@ pub(super) fn mime_script(kind: &str, value: &Value) -> Result<()> {
     if desktop.is_empty() {
         return Ok(());
     }
-    let _ = run_bash(false, "set-mime-default.sh", &[kind, desktop]);
+    let _ = crate::tasks::user::mime_default(kind, desktop);
     Ok(())
 }
 

@@ -1,32 +1,32 @@
 # Agent notes
 
-Atmos is a standalone Quickshell preferences app for Omarchy. Do not import `qs.Ui` or `qs.Commons` from `$OMARCHY_PATH/shell`.
+Atmos is a standalone Quickshell preferences app for Omarchy. The window is QML and everything else is Rust (`ratmos`). There is no Python and there are no helper scripts: `bin/atmos` and `install.sh` are the only shell, and both hand off to `ratmos` at once (`ratmos launch`, `ratmos install`). Do not import `qs.Ui` or `qs.Commons` from `$OMARCHY_PATH/shell`.
 
 ## Run
 
 - `./bin/atmos` — launch (each launch is its own window)
 - `npm install` — oxlint and oxfmt; also sets `core.hooksPath` to `.githooks`
 - `npm run lint` / `npm run fmt` — lint and format `services` and `tests`
-- `./tests/run` — oxlint, oxfmt --check, `scripts/*.py` syntax, `cargo fmt --check`, `cargo clippy -D warnings`, parser tests, plus a live snapshot check when `omarchy` is present
-- `tests/sandbox.js` — any test that runs a script or `ratmos` goes through `createSandbox()`: throwaway HOME/XDG, a PATH of fakes that record argv (`box.calls()`), and a guard that throws on the real home or a real tool. An unscripted fake exits 97. `backendWrapper()` gives an `ATMOS_BACKEND` pinned to a fixture `--root` (ratmos only; run the app itself under `box.env()` too).
+- `./tests/run` — oxlint, oxfmt --check, `cargo fmt --check`, `cargo clippy -D warnings`, parser tests, plus a live snapshot check when `omarchy` is present
+- `tests/sandbox.js` — any test that runs a `ratmos task` or `ratmos` goes through `createSandbox()`: throwaway HOME/XDG, a PATH of fakes that record argv (`box.calls()`), and a guard that throws on the real home or a real tool. An unscripted fake exits 97. `backendWrapper()` gives an `ATMOS_BACKEND` pinned to a fixture `--root` (ratmos only; run the app itself under `box.env()` too).
 - `tests/golden/` — recorded `ratmos` replies for every op, replayed over `request` and `serve` with bodies from `Requests.js`. After an intended protocol change: `ATMOS_GOLDEN_RECORD=1 node tests/golden.test.js`, then review the diff.
 - `./tests/smoke [seconds]` — opt-in: launches the real app, checks the log is clean and that one `ratmos serve` runs with no idle one-shot requests. Needs a Wayland session; run it before tagging a release.
 - `./tests/file-budget` — source files stay under 800 lines. A file already past that is listed in `tests/file-budget.baseline` and may only shrink; run `./tests/file-budget --update` after a shrink, and split a file instead of raising its line.
 - `./tests/bench-ratmos` — opt-in backend footprint; put new numbers in `docs/benchmarks.md` and the README Footprint table with the date, version and commit.
-- pre-commit (`.githooks/pre-commit`) — `tests/partial-index-guard` (a staged file edited again fails), oxlint, oxfmt --check, `tests/compile-python`, `tests/file-budget`, and `cargo fmt --check` plus clippy when `backend/` is staged; skip with `git commit --no-verify`
+- pre-commit (`.githooks/pre-commit`) — `tests/partial-index-guard` (a staged file edited again fails), oxlint, oxfmt --check, `tests/file-budget`, and `cargo fmt --check` plus clippy when `backend/` is staged; skip with `git commit --no-verify`
 - GitHub Actions (`.github/workflows/tests.yml`) — `npm ci` and `./tests/run` on pull requests and on `main` / `stable`. Live snapshot stays skipped without `omarchy`.
 
 ## Rules
 
-- Mutations go through `omarchy` commands, `scripts/set-idle.sh` which sources `omarchy-shell-config`, or the Hyprland sentinel writers `scripts/set-hypr-look.sh`, `scripts/set-hypr-input.sh`, `scripts/set-hypr-autostart.sh`, `scripts/set-hypr-bindings.sh`, `scripts/set-hypr-windows.sh`, and `scripts/set-hyprsunset.sh`.
+- Mutations go through `omarchy` commands, `ratmos task <name>` (`backend/src/tasks`, privileged steps re-exec as `ratmos root <task>` through sudo or pkexec), or the Hyprland sentinel writers in `backend/src/hyprland` (`ratmos sentinel <kind> apply|list|reset`). New work is a Rust task, never a script.
 - Do not write a private prefs store.
 - Hyprland drop-in is `~/.config/hypr/atmos.lua` required as `hypr.atmos` next to `hypr.omafetch`, before `default.hypr.toggles`. `hypr.atmos_layout` wraps dwindle `layoutmsg` so scrolling workspaces do not throw. Sentinel blocks are `-- atmos:look|input|autostart|bindings|windows|workspaces begin/end` in `atmos.lua` / `looknfeel.lua` / `input.lua` / `autostart.lua` / `bindings.lua`, and `-- atmos:monitors begin/end` in `monitors.lua`.
-- A `PACKAGED` file in the app root marks a package-manager install: no Check/Update, no writes under the app root. Per-user Hyprland setup is opt-in through `atmos --setup` (`scripts/setup-atmos.sh`); never run it implicitly from the app.
+- A `PACKAGED` file in the app root marks a package-manager install: no Check/Update, no writes under the app root. Per-user Hyprland setup is opt-in through `atmos --setup` (`ratmos task setup-atmos`); never run it implicitly from the app.
 - Theme colors come from `~/.local/state/omarchy/current/theme/{colors,shell}.toml` and `~/.config/omarchy/shell.toml`.
-- Diagnostics inventory is `scripts/diag-inventory.py`. Copy/save/agent append `omarchy-debug --no-sudo --print` via `scripts/diag-report.sh`.
+- Diagnostics and the hardware, disk, service, app, and live inventories are Rust (`backend/src/inventory`). Copy/save/agent append `omarchy-debug --no-sudo --print` through `ratmos task diag-report`.
 - Keep parsers in `services/*.js` so Node can test them without Quickshell.
 - Do not import `qs.Ui`. Restyle Qt Quick Controls through `Prefs*` wrappers. Visual language lives in `services/Theme.qml`; use those tokens instead of one-off sizes.
 - QML reaches `ratmos` only through `services/Backend.qml` with bodies from `services/Requests.js`. Do not add a `Process` that runs `ratmos request`, and do not poll with a `Timer`: watch through `Backend.watch` and listen for `Backend.stamp|chrome|accounts`. Long jobs that stream output stay on `ratmos apply`. A new op needs its `Request` variant in `backend/src/request.rs` its builder in `Requests.js` (`tests/requests.test.js` checks the two lists match), and its row in `docs/protocol.md` (`tests/protocol-doc.test.js` checks it).
 - Rust errors are `crate::error::Error` (kind + message + context), never `String`. Child processes go through `crate::runner::Run`, file replacement through `crate::fsutil::atomic_write`, and user-chosen paths through `host::confine`.
 - Do not launch floating terminals for settings work. Long jobs use `Omarchy.runJob` or an in-page `Process`.
-- Concurrent Atmos windows are allowed. Writers serialize with flock + atomic rename (`hypr-sentinel.py` `_patch` merge, shared `shell.json` lock, and sidecar locks on env/hyprsunset/tweaks/avatar/presentation). Do not reintroduce `instance-lock.sh`, `lostInstanceLock`, `quickshell -n`, or launcher `focus_existing`.
+- Concurrent Atmos windows are allowed. Writers serialize with flock + atomic rename (`backend/src/hyprland` `_patch` merge, shared `shell.json` lock, and sidecar locks on env/hyprsunset/tweaks/avatar/presentation). Do not reintroduce `instance-lock.sh`, `lostInstanceLock`, `quickshell -n`, or launcher `focus_existing`.

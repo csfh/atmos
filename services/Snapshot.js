@@ -18,12 +18,8 @@ function mergeSnapshot(current, patch) {
   var src = isPlainObject(current) ? current : {};
   var add = isPlainObject(patch) ? patch : {};
   var key;
-  for (key in src) {
-    if (Object.prototype.hasOwnProperty.call(src, key)) out[key] = src[key];
-  }
-  for (key in add) {
-    if (Object.prototype.hasOwnProperty.call(add, key)) out[key] = add[key];
-  }
+  for (key in src) if (hasOwn(src, key)) out[key] = src[key];
+  for (key in add) if (hasOwn(add, key)) out[key] = add[key];
   return out;
 }
 
@@ -411,6 +407,7 @@ var BOOL_ON_KEYS = {
   autostartManaged: true,
   bindingsManaged: true,
   windowRulesManaged: true,
+  windowOpaque: true,
   cupsActive: true,
   printerSetup: true,
   nightlightNightOn: true,

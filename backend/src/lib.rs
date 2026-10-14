@@ -14,13 +14,20 @@ mod effects;
 pub mod error;
 mod fsutil;
 mod host;
+mod hyprland;
+mod inventory;
+mod launch;
+mod mcp;
 mod patch;
 mod platform;
 mod request;
 mod runner;
-mod scripts;
+mod search;
 pub mod serve;
+mod snapshot;
 mod store;
+pub mod tasks;
+mod wsbar;
 
 use crate::error::{Error, Result};
 use crate::platform::Backend;
@@ -31,7 +38,7 @@ use crate::request::Request;
 use crate::runner::Run;
 use serde_json::{Map, Value};
 
-pub const VERSION: &str = "0.1.1";
+pub const VERSION: &str = "0.2.0";
 
 pub fn run(args: &[String], stdin: &str, stdout: &mut dyn Write, stderr: &mut dyn Write) -> i32 {
     match dispatch(args, stdin, stdout, stderr) {
@@ -58,7 +65,7 @@ fn dispatch(
         }
         "snapshot" => {
             let root = parsed.root.ok_or("snapshot needs --root")?;
-            let doc = snapshot_document(parsed.backend, &root, parsed.sampler.as_deref())?;
+            let doc = snapshot_document(parsed.backend, &root)?;
             write_json(stdout, &doc)?;
             Ok(0)
         }
@@ -71,12 +78,7 @@ fn dispatch(
                     return Ok(1);
                 }
             };
-            let response = match handle(
-                parsed.backend,
-                parsed.root.as_deref(),
-                &request,
-                parsed.sampler.as_deref(),
-            ) {
+            let response = match handle(parsed.backend, parsed.root.as_deref(), &request) {
                 Ok(response) => response,
                 Err(err) => error_envelope(parsed.backend, &err),
             };
@@ -93,12 +95,7 @@ fn dispatch(
             if kind.is_empty() {
                 return Err("display needs a kind".into());
             }
-            let value = display::load(
-                parsed.root.as_deref(),
-                parsed.backend,
-                kind,
-                parsed.sampler.as_deref(),
-            )?;
+            let value = display::load(parsed.root.as_deref(), parsed.backend, kind)?;
             write_json(stdout, &value)?;
             Ok(0)
         }
@@ -113,12 +110,7 @@ fn dispatch(
                     return Err(format!("unknown display kind {kind}").into());
                 }
             }
-            let display = load_displays(
-                parsed.backend,
-                parsed.root.as_deref(),
-                parsed.sampler.as_deref(),
-                &kinds,
-            );
+            let display = load_displays(parsed.backend, parsed.root.as_deref(), &kinds);
             write_json(stdout, &display)?;
             Ok(0)
         }
@@ -128,6 +120,68 @@ fn dispatch(
             stdout,
             stderr,
         )),
+        // `sentinel KIND apply|reset|list FILE [JSON]`: the Hyprland blocks Atmos
+        // manages, on any file. Tests and bug reports use it; the window does not.
+        "sentinel" => {
+            let r = &parsed.rest;
+            let (kind, action, file) = (r[0].as_str(), r[1].as_str(), std::path::Path::new(&r[2]));
+            if kind == "require" {
+                let packaged = platform::packaged();
+                let act = match action {
+                    "enable" => hyprland::require::Action::Enable,
+                    "reset" => hyprland::require::Action::Reset,
+                    _ => hyprland::require::Action::Apply,
+                };
+                hyprland::require::run(act, file, packaged)?;
+                return Ok(0);
+            }
+            let kind = hyprland::Kind::parse(kind).ok_or("bad kind")?;
+            if action == "list" {
+                write_json(stdout, &hyprland::list_file(kind, file)?)?;
+                return Ok(0);
+            }
+            let payload: Value = match r.get(3) {
+                Some(raw) => serde_json::from_str(raw)?,
+                None if action == "apply" => {
+                    let text = String::from_utf8_lossy(&tasks::stdin_all()).into_owned();
+                    serde_json::from_str(if text.trim().is_empty() { "{}" } else { &text })?
+                }
+                None => Value::Null,
+            };
+            hyprland::apply_file(kind, file, &payload, action == "reset")?;
+            Ok(0)
+        }
+        "task" => Ok(tasks::run(&parsed.rest, stdout, stderr)),
+        "root" => Ok(tasks::run_root(&parsed.rest, stderr)),
+        "mcp" => {
+            let (mut backend, mut root) = (Backend::Omarchy, None);
+            let mut it = parsed.rest.iter();
+            while let Some(flag) = it.next() {
+                match flag.as_str() {
+                    "--backend" => {
+                        backend = Backend::parse(it.next().ok_or("--backend needs a name")?)?
+                    }
+                    "--root" => root = it.next().map(PathBuf::from),
+                    _ => {}
+                }
+            }
+            mcp::serve(
+                backend,
+                root.as_deref(),
+                std::io::stdin().lock(),
+                std::io::stdout(),
+            );
+            Ok(0)
+        }
+        "launch" => launch::run(&parsed.rest),
+        "install" => {
+            let source = parsed
+                .rest
+                .first()
+                .ok_or("install needs a source directory")?;
+            tasks::app::install(Path::new(source))?;
+            Ok(0)
+        }
         "" => {
             let _ = writeln!(stderr, "ratmos: missing command");
             usage(stderr);
@@ -156,7 +210,6 @@ pub fn run_serve(args: &[String]) -> i32 {
         serve::Config {
             backend: parsed.backend,
             root: parsed.root,
-            sampler: parsed.sampler,
         },
         stdin.lock(),
         Box::new(std::io::stdout()),
@@ -167,7 +220,6 @@ pub fn run_serve(args: &[String]) -> i32 {
 struct Parsed {
     backend: Backend,
     root: Option<PathBuf>,
-    sampler: Option<PathBuf>,
     command: String,
     rest: Vec<String>,
 }
@@ -175,7 +227,6 @@ struct Parsed {
 fn parse_args(args: &[String]) -> Result<Parsed> {
     let mut backend = Backend::Omarchy;
     let mut root = None;
-    let mut sampler = None;
     let mut positionals = Vec::new();
     let mut index = 1;
     while index < args.len() {
@@ -197,18 +248,21 @@ fn parse_args(args: &[String]) -> Result<Parsed> {
             index += 1;
             continue;
         }
-        if arg == "--sampler" {
-            index += 1;
-            let value = args.get(index).cloned().ok_or("--sampler needs a path")?;
-            sampler = Some(PathBuf::from(value));
-            index += 1;
-            continue;
-        }
         if arg.starts_with('-') {
             return Err(format!("unknown argument {arg}").into());
         }
         positionals.push(arg.clone());
         index += 1;
+        // These commands take their own flags, so everything after the command is theirs.
+        if positionals.len() == 1
+            && matches!(
+                arg.as_str(),
+                "task" | "root" | "install" | "mcp" | "launch" | "sentinel"
+            )
+        {
+            positionals.extend(args[index..].iter().cloned());
+            break;
+        }
     }
     if let Some(dir) = &root {
         std::fs::create_dir_all(dir)?;
@@ -222,18 +276,12 @@ fn parse_args(args: &[String]) -> Result<Parsed> {
     Ok(Parsed {
         backend,
         root,
-        sampler,
         command,
         rest,
     })
 }
 
-pub(crate) fn handle(
-    backend: Backend,
-    root: Option<&Path>,
-    request: &Value,
-    sampler: Option<&Path>,
-) -> Result<Value> {
+pub(crate) fn handle(backend: Backend, root: Option<&Path>, request: &Value) -> Result<Value> {
     let request = Request::parse(request.clone())?;
     let result = match request {
         Request::Version => Value::String(VERSION.into()),
@@ -260,8 +308,11 @@ pub(crate) fn handle(
             doc.retain(|_, value| !value.is_null());
             Value::Object(doc)
         }
-        Request::DisplayGet { kind } => display::load(root, backend, &kind, sampler)?,
-        Request::DisplaySnapshot => load_displays(backend, root, sampler, display::KINDS),
+        Request::DisplayGet { kind } => display::load(root, backend, &kind)?,
+        Request::SearchQuery { query, context } => {
+            search::query(&context, &platform::app_root(), &query)
+        }
+        Request::DisplaySnapshot => load_displays(backend, root, display::KINDS),
         Request::HostChrome => host::chrome(backend, root)?,
         Request::HostThemePack(args) => host::theme_pack(backend, root, &args)?,
         Request::HostAccounts(args) => host::accounts(backend, root, &args)?,
@@ -296,7 +347,7 @@ fn settings_list(backend: Backend) -> Result<Vec<Value>> {
     Ok(out)
 }
 
-fn read_domain(backend: Backend, root: Option<&Path>, key: &str) -> Result<Value> {
+pub(crate) fn read_domain(backend: Backend, root: Option<&Path>, key: &str) -> Result<Value> {
     let spec = domain::find(key).ok_or_else(|| format!("unknown domain {key}"))?;
     if backend == Backend::Omarchy {
         if let Some(effect::Effect::Command(_)) = effect::get(key) {
@@ -307,12 +358,18 @@ fn read_domain(backend: Backend, root: Option<&Path>, key: &str) -> Result<Value
     store::read_place(root, &place, spec.key, spec.ty)
 }
 
-fn write_domain(backend: Backend, root: Option<&Path>, key: &str, value: &Value) -> Result<()> {
+pub(crate) fn write_domain(
+    backend: Backend,
+    root: Option<&Path>,
+    key: &str,
+    value: &Value,
+) -> Result<()> {
     let spec = domain::find(key).ok_or_else(|| format!("unknown domain {key}"))?;
     if !spec.ty.accepts(value) {
         return Err(format!("{key} expects {}", spec.ty.name()).into());
     }
     if backend == Backend::Omarchy {
+        wsbar::before_write(root, key)?;
         if let Some(effect::Effect::Command(form)) = effect::get(key) {
             return effect::apply_command(root, key, form, value);
         }
@@ -343,14 +400,10 @@ fn write_domain(backend: Backend, root: Option<&Path>, key: &str, value: &Value)
             spawn_command("omarchy", &["restart", "hyprsunset"]);
         }
         run_live_command(key, value);
-        if key == "tweaks.swappiness" {
-            let flag = if value.as_bool() == Some(true) {
-                "on"
-            } else {
-                "off"
-            };
-            let _ = run_script("set-tweaks.sh", &["swappiness", flag]);
+        if key == "workspaces" {
+            tasks::user::rename_workspaces(value);
         }
+        tasks::system::tweak_setting(key, value);
     }
     Ok(())
 }
@@ -358,13 +411,13 @@ fn write_domain(backend: Backend, root: Option<&Path>, key: &str, value: &Value)
 fn delegate_root_script(key: &str, value: &Value) -> Result<()> {
     let rendered = scalar_arg(value)?;
     match key {
-        "hostname" => run_script("set-hostname.sh", &[&rendered]),
-        "timezone" => run_script("set-timezone.sh", &[&rendered]),
-        "locale" => run_script("set-locale.sh", &[&rendered]),
-        "keyboardLayout" => run_script("set-keyboard-layout.sh", &[&rendered]),
-        "ntp" => run_script("set-ntp.sh", &[&rendered]),
-        "fullName" => run_script("set-full-name.sh", &[&rendered]),
-        "parallelDownloads" => run_script("set-parallel-downloads.sh", &[&rendered]),
+        "hostname" => tasks::system::hostname(&rendered),
+        "timezone" => tasks::system::timezone(&rendered),
+        "locale" => tasks::system::locale(&rendered),
+        "keyboardLayout" => tasks::system::keyboard_layout(&rendered),
+        "ntp" => tasks::system::ntp(&rendered),
+        "fullName" => tasks::system::full_name(&rendered),
+        "parallelDownloads" => tasks::system::parallel_downloads(&rendered),
         "plymouth" => run_command("omarchy", &["plymouth", "set", "by", "theme", &rendered]),
         _ => Err(format!("cannot write {key} without permission").into()),
     }
@@ -378,18 +431,6 @@ fn scalar_arg(value: &Value) -> Result<String> {
         Value::Number(number) => Ok(number.to_string()),
         _ => Err("live writer needs a scalar".into()),
     }
-}
-
-/// A repo script that may need the user (polkit, a password), so it has no
-/// time limit.
-fn run_script(name: &str, args: &[&str]) -> Result<()> {
-    let path = scripts::repo_script(name)?;
-    Run::new("bash")
-        .arg(&path)
-        .args(args)
-        .checked()
-        .map(|_| ())
-        .map_err(|err| err.with_context(name))
 }
 
 fn run_command(program: &str, args: &[&str]) -> Result<()> {
@@ -475,10 +516,8 @@ fn settings_snapshot(backend: Backend, root: Option<&Path>) -> Result<Map<String
 /// reaches this path, so fixture launches stay file-only and deterministic.
 fn live_settings_snapshot(group: &str, keys: Option<&[String]>) -> Result<Map<String, Value>> {
     let mut snapshot = Map::new();
-    if let Ok(text) = capture_snapshot_sh(group) {
-        if let Ok(Value::Object(map)) = serde_json::from_str::<Value>(&text) {
-            snapshot = map;
-        }
+    if let Ok(Value::Object(map)) = snapshot::capture(group) {
+        snapshot = map;
     }
     let group_name = if group.is_empty() { "all" } else { group };
     snapshot.insert("group".into(), Value::String(group_name.into()));
@@ -541,30 +580,15 @@ fn wanted(key: &str, keys: Option<&[String]>) -> bool {
     keys.iter().any(|name| name == head)
 }
 
-fn capture_snapshot_sh(group: &str) -> Result<String> {
-    let script = scripts::repo_script("snapshot.sh")?;
-    let output = Run::new("bash")
-        .arg(&script)
-        .arg(group)
-        .timeout(std::time::Duration::from_secs(60))
-        .checked()?;
-    Ok(output.stdout_text())
-}
-
 /// One failing inventory stays on its own kind. The other documents still return.
-fn load_displays(
-    backend: Backend,
-    root: Option<&Path>,
-    sampler: Option<&Path>,
-    kinds: &[&str],
-) -> Value {
-    // The inventories are independent scripts, so run them side by side.
+fn load_displays(backend: Backend, root: Option<&Path>, kinds: &[&str]) -> Value {
+    // The inventories are independent, so run them side by side.
     let loaded: Vec<(String, Value)> = std::thread::scope(|scope| {
         let handles: Vec<_> = kinds
             .iter()
             .map(|kind| {
                 scope.spawn(move || {
-                    let value = match display::load(root, backend, kind, sampler) {
+                    let value = match display::load(root, backend, kind) {
                         Ok(value) => value,
                         Err(err) => stamp_error(backend, kind, &err),
                     };
@@ -584,12 +608,12 @@ fn load_displays(
     Value::Object(display)
 }
 
-fn snapshot_document(backend: Backend, root: &Path, sampler: Option<&Path>) -> Result<Value> {
+fn snapshot_document(backend: Backend, root: &Path) -> Result<Value> {
     Ok(serde_json::json!({
         "version": VERSION,
         "platform": platform(backend)?,
         "settings": Value::Object(settings_snapshot(backend, Some(root))?),
-        "display": load_displays(backend, Some(root), sampler, display::KINDS),
+        "display": load_displays(backend, Some(root), display::KINDS),
     }))
 }
 
@@ -668,7 +692,7 @@ mod tests {
             .ok()
             .unwrap();
         assert_eq!(parsed.backend, Backend::Omarchy);
-        assert!(parsed.root.is_none() && parsed.sampler.is_none());
+        assert!(parsed.root.is_none());
         assert_eq!(parsed.command, "snapshot");
         assert_eq!(parsed.rest, vec!["look"]);
     }
@@ -684,14 +708,11 @@ mod tests {
             "request",
             "--root",
             &root_arg,
-            "--sampler",
-            "/s",
         ]))
         .ok()
         .unwrap();
         assert_eq!(parsed.backend, Backend::Plain);
         assert_eq!(parsed.root.as_deref(), Some(root.as_path()));
-        assert_eq!(parsed.sampler.as_deref(), Some(Path::new("/s")));
         assert_eq!(parsed.command, "request");
         assert!(parsed.rest.is_empty());
         std::fs::remove_dir_all(&root).unwrap();
@@ -711,7 +732,7 @@ mod tests {
 
     #[test]
     fn a_flag_without_its_value_is_an_error() {
-        for flag in ["--backend", "--root", "--sampler"] {
+        for flag in ["--backend", "--root"] {
             assert!(parse_args(&argv(&["ratmos", flag])).is_err(), "{flag}");
         }
     }

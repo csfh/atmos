@@ -5,21 +5,18 @@ const { load, assert, assertEqual } = require("./harness");
 const hubs = load("services/Hubs.js");
 const iconsDir = path.join(__dirname, "..", "icons");
 const pagesDir = path.join(__dirname, "..", "pages");
-const atmosSrc = fs.readFileSync(path.join(__dirname, "..", "bin", "atmos"), "utf8");
+const launchSrc = fs.readFileSync(
+  path.join(__dirname, "..", "backend", "src", "launch.rs"),
+  "utf8",
+);
 
 function atmosHubIds() {
-  const line = atmosSrc.split("\n").find(function (row) {
-    return /\$HUB != appearance/.test(row);
-  });
-  const ids = [];
-  const re = /\$HUB != ([A-Za-z0-9_-]+)/g;
-  let m;
-  while (line && (m = re.exec(line))) ids.push(m[1]);
-  return ids;
+  const list = launchSrc.slice(launchSrc.indexOf("const HUBS"), launchSrc.indexOf("];"));
+  return [...list.matchAll(/"([a-z]+)"/g)].map((m) => m[1]);
 }
 
 function atmosSuffixes() {
-  const m = atmosSrc.match(/\[\/([a-z0-9_|]+)\]/);
+  const m = launchSrc.match(/\[\/([a-z0-9_|]+)\]/);
   return m ? m[1].split("|") : [];
 }
 

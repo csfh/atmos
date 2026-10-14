@@ -14,13 +14,13 @@ assertEqual(proc.parsePid("2201"), 2201, "parsePid accepts a user pid");
 assertEqual(proc.signalName("term"), "TERM", "signalName accepts TERM");
 assertEqual(proc.signalName("SIGKILL"), "KILL", "signalName accepts SIGKILL");
 assertEqual(proc.signalName("STOP"), "", "signalName refuses STOP");
-assertEqual(proc.signalArgv(1, "TERM", "/x"), null, "signalArgv refuses pid 1");
-assertEqual(proc.signalArgv(9, "STOP", "/x"), null, "signalArgv refuses STOP");
-assertEqual(proc.signalArgv(9, "TERM", ""), null, "signalArgv needs a script");
+assertEqual(proc.signalArgv(1, "TERM", ["/x"]), null, "signalArgv refuses pid 1");
+assertEqual(proc.signalArgv(9, "STOP", ["/x"]), null, "signalArgv refuses STOP");
+assertEqual(proc.signalArgv(9, "TERM", []), null, "signalArgv needs a task prefix");
 assertEqual(
-  proc.signalArgv(9, "TERM", "/tmp/signal-process.sh").join(" "),
-  "bash /tmp/signal-process.sh 9 TERM",
-  "signalArgv is bash script pid TERM",
+  proc.signalArgv(9, "TERM", ["/x/ratmos", "task", "signal-process"]).join(" "),
+  "/x/ratmos task signal-process 9 TERM",
+  "signalArgv is the task, pid, then TERM",
 );
 
 const rows = [
@@ -68,8 +68,7 @@ assert(
   "overflow drops Force quit for another uid",
 );
 
-const script = path.join(__dirname, "..", "scripts", "signal-process.sh");
-assert(fs.existsSync(script), "signal-process.sh exists");
+const { ratmosBinary } = require("./sandbox");
 
 function write(file, text) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -95,40 +94,40 @@ function run(args, extraEnv) {
     XDG_RUNTIME_DIR: fixture,
   };
   if (extraEnv) Object.assign(env, extraEnv);
-  return spawnSync("bash", [script].concat(args), {
+  return spawnSync(ratmosBinary(), ["task", "signal-process"].concat(args), {
     encoding: "utf8",
     env: env,
   });
 }
 
 const ok = run(["2201", "TERM"]);
-assertEqual(ok.status, 0, "signal-process.sh dry-runs a user pid");
-assertEqual(ok.stdout.trim(), "kill -s TERM 2201", "signal-process.sh prints the kill line");
+assertEqual(ok.status, 0, "signal-process dry-runs a user pid");
+assertEqual(ok.stdout.trim(), "kill -s TERM 2201", "signal-process prints the kill line");
 
 const setuid = run(["2202", "TERM"]);
-assertEqual(setuid.status, 0, "signal-process.sh signals a setuid helper this user started");
+assertEqual(setuid.status, 0, "signal-process signals a setuid helper this user started");
 assertEqual(
   setuid.stdout.trim(),
   "kill -s TERM 2202",
-  "signal-process.sh reads the real uid, not the effective one",
+  "signal-process reads the real uid, not the effective one",
 );
 
 const dropped = run(["2203", "TERM"]);
-assert(dropped.status !== 0, "signal-process.sh refuses a root process with a dropped euid");
+assert(dropped.status !== 0, "signal-process refuses a root process with a dropped euid");
 
 const init = run(["1", "TERM"]);
-assert(init.status !== 0, "signal-process.sh refuses pid 1");
+assert(init.status !== 0, "signal-process refuses pid 1");
 
 const other = run(["9", "KILL"]);
-assert(other.status !== 0, "signal-process.sh refuses another uid");
+assert(other.status !== 0, "signal-process refuses another uid");
 
 const missing = run(["404", "TERM"]);
-assert(missing.status !== 0, "signal-process.sh refuses a missing pid");
+assert(missing.status !== 0, "signal-process refuses a missing pid");
 
 const badSig = run(["2201", "STOP"]);
-assert(badSig.status !== 0, "signal-process.sh refuses STOP");
+assert(badSig.status !== 0, "signal-process refuses STOP");
 
 const self = run(["2201", "TERM"], { ATMOS_SELF_PID: "2201" });
-assert(self.status !== 0, "signal-process.sh refuses ATMOS_SELF_PID");
+assert(self.status !== 0, "signal-process refuses ATMOS_SELF_PID");
 
 fs.rmSync(fixture, { recursive: true, force: true });

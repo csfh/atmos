@@ -1,0 +1,48 @@
+{
+  "backend": "plain",
+  "request": {
+    "op": "search.query",
+    "query": "FON",
+    "hubs": [
+      {
+        "id": "appearance",
+        "title": "Appearance",
+        "description": "Theme and font",
+        "keywords": ["font", "theme"]
+      },
+      {
+        "id": "network",
+        "title": "Network",
+        "description": "Wi-Fi and DNS",
+        "keywords": ["wifi"]
+      }
+    ],
+    "files": {},
+    "prefixes": [],
+    "titles": {}
+  },
+  "response": {
+    "ok": true,
+    "platform": {
+      "compositor": "none",
+      "family": "portable",
+      "id": "plain"
+    },
+    "result": {
+      "hits": [
+        {
+          "description": "Theme and font",
+          "detail": "",
+          "hint": "",
+          "hub": "appearance",
+          "hubTitle": "Appearance",
+          "id": "appearance",
+          "keywords": ["font", "theme"],
+          "label": "Appearance"
+        }
+      ],
+      "query": "FON"
+    },
+    "version": "0.2.0"
+  }
+}

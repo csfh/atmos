@@ -3,6 +3,7 @@ const os = require("os");
 const path = require("path");
 const { spawnSync } = require("child_process");
 const { assert, assertEqual, load } = require("./harness");
+const { ratmosBinary } = require("./sandbox");
 
 const root = path.join(__dirname, "..");
 const atmosUpdate = load("services/AtmosUpdate.js");
@@ -26,8 +27,10 @@ try {
   fs.mkdirSync(stubs);
   fs.writeFileSync(path.join(stubs, "hyprctl"), "#!/bin/bash\nexit 0\n", { mode: 0o755 });
   const withStubs = stubs + ":" + process.env.PATH;
+  const ratmos = ratmosBinary();
+  const task = (name) => name.replace(/\.sh$/, "");
   const run = (script, args, env) =>
-    spawnSync("bash", [path.join(root, "scripts", script), ...args], {
+    spawnSync(ratmos, ["task", task(script), ...args], {
       encoding: "utf8",
       env: Object.assign(
         {},
@@ -41,30 +44,30 @@ try {
   const app = path.join(fixture, "app");
   fs.mkdirSync(app);
   fs.writeFileSync(path.join(app, "PACKAGED"), "0.1.0-1\n");
-  const check = run("update-atmos.sh", ["check"], {
+  const check = run("update-atmos", ["check"], {
     ATMOS_ROOT: app,
     PATH: path.join(fixture, "nogit") + ":/usr/bin:/bin",
   });
-  assertEqual(check.status, 0, "update-atmos.sh check exits 0 when packaged");
-  assert(/^status packaged$/m.test(check.stdout), "update-atmos.sh check reports packaged");
-  const apply = run("update-atmos.sh", ["apply"], { ATMOS_ROOT: app });
-  assert(/^status packaged$/m.test(apply.stdout), "update-atmos.sh apply stays out of a package");
+  assertEqual(check.status, 0, "update-atmos check exits 0 when packaged");
+  assert(/^status packaged$/m.test(check.stdout), "update-atmos check reports packaged");
+  const apply = run("update-atmos", ["apply"], { ATMOS_ROOT: app });
+  assert(/^status packaged$/m.test(apply.stdout), "update-atmos apply stays out of a package");
 
   // atmos --setup [on|off|status] edits only the user's Hyprland files.
   fs.writeFileSync(
     path.join(hypr, "hyprland.lua"),
     'require("default.hypr.omarchy")\nrequire("default.hypr.toggles")\n',
   );
-  assertEqual(run("setup-atmos.sh", ["status"]).stdout.trim(), "off", "setup status starts off");
-  const on = run("setup-atmos.sh", ["on"]);
+  assertEqual(run("setup-atmos", ["status"]).stdout.trim(), "off", "setup status starts off");
+  const on = run("setup-atmos", ["on"]);
   assertEqual(on.status, 0, "setup on exits 0");
   const lua = fs.readFileSync(path.join(hypr, "hyprland.lua"), "utf8");
   assert(lua.includes('require("hypr.atmos")'), "setup on requires hypr.atmos");
   assert(lua.includes('require("hypr.atmos_layout")'), "setup on requires hypr.atmos_layout");
   assert(fs.existsSync(path.join(hypr, "atmos.lua")), "setup on writes atmos.lua");
   assert(fs.existsSync(path.join(hypr, "atmos_layout.lua")), "setup on writes atmos_layout.lua");
-  assertEqual(run("setup-atmos.sh", ["status"]).stdout.trim(), "on", "setup status reads on");
-  const again = run("setup-atmos.sh", ["on"]);
+  assertEqual(run("setup-atmos", ["status"]).stdout.trim(), "on", "setup status reads on");
+  const again = run("setup-atmos", ["on"]);
   assertEqual(again.status, 0, "setup on is idempotent");
   assertEqual(
     fs.readFileSync(path.join(hypr, "hyprland.lua"), "utf8"),
@@ -72,7 +75,7 @@ try {
     "a second setup on leaves hyprland.lua alone",
   );
 
-  const off = run("setup-atmos.sh", ["off"]);
+  const off = run("setup-atmos", ["off"]);
   assertEqual(off.status, 0, "setup off exits 0");
   assertEqual(
     fs.readFileSync(path.join(hypr, "hyprland.lua"), "utf8"),
@@ -82,45 +85,29 @@ try {
   assert(!fs.existsSync(path.join(hypr, "atmos_layout.lua")), "setup off removes atmos_layout.lua");
   assert(!fs.existsSync(path.join(hypr, "atmos.lua")), "setup off removes an untouched atmos.lua");
 
-  run("setup-atmos.sh", ["on"]);
+  run("setup-atmos", ["on"]);
   fs.appendFileSync(path.join(hypr, "atmos.lua"), '\no.window("mine", { float = true })\n');
-  run("setup-atmos.sh", ["off"]);
+  run("setup-atmos", ["off"]);
   assert(
     fs.existsSync(path.join(hypr, "atmos.lua")),
     "setup off keeps an atmos.lua the user edited",
   );
 
-  assertEqual(run("setup-atmos.sh", ["bogus"]).status, 2, "setup rejects an unknown action");
-
-  // alpha was the only channel before stable; a config that still says alpha follows stable.
-  const configHome = path.join(fixture, "xdg-config");
-  fs.mkdirSync(path.join(configHome, "atmos"), { recursive: true });
-  const channelOf = (value) => {
-    fs.writeFileSync(path.join(configHome, "atmos", "channel"), value);
-    return spawnSync(
-      "bash",
-      ["-c", `. "${path.join(root, "scripts", "atmos-xdg.sh")}"; atmos_channel`],
-      { encoding: "utf8", env: Object.assign({}, process.env, { XDG_CONFIG_HOME: configHome }) },
-    ).stdout.trim();
-  };
-  assertEqual(channelOf("alpha\n"), "stable", "a legacy alpha channel reads as stable");
-  assertEqual(channelOf("stable\n"), "stable", "the stable channel reads as stable");
-  assertEqual(channelOf("main\n"), "stable", "an unknown channel falls back to stable");
+  assertEqual(run("setup-atmos", ["bogus"]).status, 2, "setup rejects an unknown action");
 
   // In a package install only --setup switches the integration on. Reset and
   // every look/windows/workspaces write call `require apply`, which must leave
   // a bare hyprland.lua bare, and must keep healing one the user opted into.
   const pkgApp = path.join(fixture, "pkg");
   fs.mkdirSync(pkgApp);
-  for (const item of ["scripts", "packaging"])
-    fs.cpSync(path.join(root, item), path.join(pkgApp, item), { recursive: true });
+  fs.cpSync(path.join(root, "packaging"), path.join(pkgApp, "packaging"), { recursive: true });
   fs.writeFileSync(path.join(pkgApp, "PACKAGED"), "0.1.0-1\n");
   const bare = 'require("default.hypr.omarchy")\nrequire("default.hypr.toggles")\n';
   const hyprland = path.join(hypr, "hyprland.lua");
   fs.rmSync(path.join(hypr, "atmos.lua"), { force: true });
   fs.writeFileSync(hyprland, bare);
   const pkgRun = (script, args) =>
-    spawnSync("bash", [path.join(pkgApp, "scripts", script), ...args], {
+    spawnSync(ratmos, ["task", task(script), ...args], {
       encoding: "utf8",
       env: Object.assign({}, process.env, {
         HOME: fixture,
@@ -129,31 +116,32 @@ try {
         PATH: withStubs,
       }),
     });
-  const sentinel = path.join(pkgApp, "scripts", "hypr-sentinel.py");
-  spawnSync("python3", [sentinel, "require", "apply", hyprland]);
+  spawnSync(ratmos, ["sentinel", "require", "apply", hyprland], {
+    env: Object.assign({}, process.env, { HOME: fixture, ATMOS_ROOT: pkgApp }),
+  });
   assertEqual(fs.readFileSync(hyprland, "utf8"), bare, "packaged require apply does not opt in");
-  const lookWrite = pkgRun("set-hypr-look.sh", ["--reset"]);
-  assertEqual(lookWrite.status, 0, "packaged set-hypr-look.sh runs");
+  const lookWrite = pkgRun("reset-hypr", ["look"]);
+  assertEqual(lookWrite.status, 0, "packaged reset-hypr runs");
   assertEqual(fs.readFileSync(hyprland, "utf8"), bare, "a look write does not opt in");
-  const reset = pkgRun("reset-atmos.sh", []);
-  assertEqual(reset.status, 0, "packaged reset-atmos.sh runs");
+  const reset = pkgRun("reset-atmos", []);
+  assertEqual(reset.status, 0, "packaged reset-atmos runs");
   assertEqual(fs.readFileSync(hyprland, "utf8"), bare, "Reset does not opt in");
   assert(
     !fs.existsSync(path.join(hypr, "atmos_layout.lua")),
     "Reset does not write atmos_layout.lua",
   );
 
-  assertEqual(pkgRun("setup-atmos.sh", ["on"]).status, 0, "packaged setup on runs");
+  assertEqual(pkgRun("setup-atmos", ["on"]).status, 0, "packaged setup on runs");
   assert(
     fs.readFileSync(hyprland, "utf8").includes('require("hypr.atmos")'),
     "packaged setup on opts in",
   );
-  pkgRun("reset-atmos.sh", []);
+  pkgRun("reset-atmos", []);
   assert(
     fs.readFileSync(hyprland, "utf8").includes('require("hypr.atmos")'),
     "Reset keeps an integration the user opted into",
   );
-  pkgRun("setup-atmos.sh", ["off"]);
+  pkgRun("setup-atmos", ["off"]);
   assert(!fs.readFileSync(hyprland, "utf8").includes("hypr.atmos"), "packaged setup off opts out");
 
   // The launcher routes --setup without quickshell on PATH.
@@ -162,6 +150,7 @@ try {
     env: Object.assign({}, process.env, {
       HOME: fixture,
       ATMOS_HYPR_DIR: hypr,
+      ATMOS_BACKEND: ratmos,
       PATH: withStubs,
     }),
   });

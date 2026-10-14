@@ -316,6 +316,12 @@ const SPECS: &[Spec] = &specs![
         Effect::Sentinel { kind: "windows" }
     ),
     (
+        "windowOpaque",
+        "windows",
+        Bool,
+        Effect::Sentinel { kind: "windows" }
+    ),
+    (
         "workspaces",
         "workspaces",
         List,

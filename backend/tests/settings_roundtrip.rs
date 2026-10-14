@@ -289,6 +289,11 @@ fn hypr_file_contains(key: &str, text: &str, value: &Value) -> bool {
     match key {
         "bindings" => text.contains("o.bind(\"SUPER+A\", \"Probe\", \"true\")"),
         "windowRules" => text.contains("o.window(\"probe-window\""),
+        "windowOpaque" => {
+            value.as_bool() == Some(true)
+                && text.contains("-- atmos:windowOpaque = true")
+                && text.contains("{ tag = \"default-opacity\" }")
+        }
         "workspaces" => text.contains("default_name = \"ProbeWs\""),
         "autostart" => text.contains("o.launch_on_start(\"probe-autostart\")"),
         "monitorRules" => text.contains("output = \"DP-1\""),
@@ -435,7 +440,7 @@ fn request_without_root_writes_user_files_under_home() {
     );
     let platform: Value = serde_json::from_slice(&plain_out.stdout).unwrap();
     assert_eq!(platform["platform"]["id"], "plain");
-    assert_eq!(platform["version"], "0.1.1");
+    assert_eq!(platform["version"], "0.2.0");
 
     cleanup(&home);
 }
@@ -1038,7 +1043,7 @@ fn expected_command(key: &str, on: bool) -> Option<&'static [&'static str]> {
 fn expected_sentinel(key: &str) -> Option<&'static str> {
     match key {
         "bindings" => Some("bindings"),
-        "windowRules" => Some("windows"),
+        "windowRules" | "windowOpaque" => Some("windows"),
         "autostart" => Some("autostart"),
         "monitorRules" => Some("monitors"),
         "workspaces" | "workspaceWrapSwitch" | "workspaceWheelSwitch" => Some("workspaces"),
@@ -1296,6 +1301,6 @@ fn request_at_home(
     );
     let value: Value = serde_json::from_slice(&output.stdout).expect("response json");
     assert_eq!(value["ok"], Value::Bool(true), "{value}");
-    assert_eq!(value["version"], "0.1.1", "{value}");
+    assert_eq!(value["version"], "0.2.0", "{value}");
     value
 }

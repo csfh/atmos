@@ -6,7 +6,7 @@
 # Run it from inside the repository (the hook does).
 set -euo pipefail
 
-checked=(bin backend components pages scripts services tests shell.qml)
+checked=(bin backend components pages packaging services tests shell.qml)
 
 staged=$(git diff --cached --name-only --diff-filter=ACMR -- "${checked[@]}")
 unstaged=$(git diff --name-only -- "${checked[@]}")

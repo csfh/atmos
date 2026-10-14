@@ -27,7 +27,13 @@ function pathJoin() {
 }
 assert(
   cmds.some(function (cmd) {
-    return cmd && cmd.argv && cmd.argv.join(" ").indexOf("set-hypr-look.sh") !== -1;
+    return (
+      cmd &&
+      cmd.argv &&
+      cmd.argv.indexOf("hypr-apply") !== -1 &&
+      cmd.argv.indexOf("look") !== -1 &&
+      cmd.argv.join(" ").indexOf("animations") !== -1
+    );
   }),
   "profile apply uses the look writer",
 );

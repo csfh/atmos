@@ -992,6 +992,13 @@
         "type": "bool"
       },
       {
+        "domain": "windowOpaque",
+        "encoding": "map",
+        "file": ".config/plain/windows.json",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
         "domain": "windowRules",
         "encoding": "map",
         "file": ".config/plain/windows.json",
@@ -1034,6 +1041,6 @@
         "type": "list"
       }
     ],
-    "version": "0.1.1"
+    "version": "0.2.0"
   }
 }

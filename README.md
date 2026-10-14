@@ -53,7 +53,7 @@ Needs an [Omarchy](https://omarchy.org) system (Hyprland) and `~/.local/bin` on 
   curl -fsSL https://raw.githubusercontent.com/csfh/atmos/stable/install.sh | bash
   ```
 
-  It needs `git`, `python3`, `cargo`, and `quickshell`, and checks for them.
+  It needs `git`, `cargo`, and `quickshell`, and checks for them.
 
 - **Omarchy package** updates with `omarchy update`. Hyprland integration is opt-in per user:
 

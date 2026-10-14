@@ -8,7 +8,8 @@ const root = path.join(__dirname, "..");
 const omarchy = fs.readFileSync(path.join(root, "services", "Omarchy.qml"), "utf8");
 const live = fs.readFileSync(path.join(root, "services", "LiveStatsStore.qml"), "utf8");
 const launcher = fs.readFileSync(path.join(root, "bin", "atmos"), "utf8");
-const xdg = fs.readFileSync(path.join(root, "scripts", "atmos-xdg.sh"), "utf8");
+const install = fs.readFileSync(path.join(root, "backend", "src", "tasks", "app.rs"), "utf8");
+const launch = fs.readFileSync(path.join(root, "backend", "src", "launch.rs"), "utf8");
 const settings = require(path.join(root, "services", "Settings.js"));
 
 function body(src, name, next) {
@@ -51,11 +52,13 @@ assert(
   "live stats load through the Rust backend without a script path",
 );
 assert(
-  launcher.indexOf("exec quickshell") !== -1 && launcher.indexOf("ATMOS_BACKEND") !== -1,
-  "bin/atmos still launches Quickshell and points it at the backend",
+  launcher.indexOf('"$candidate" launch') !== -1 &&
+    launch.indexOf('"quickshell"') !== -1 &&
+    launch.indexOf("ATMOS_BACKEND") !== -1,
+  "atmos still launches Quickshell and points it at the backend",
 );
 assert(
-  xdg.indexOf("atmos_build_backend") !== -1 && xdg.indexOf("ratmos") !== -1,
+  install.indexOf("fn build_backend") !== -1 && install.indexOf("bin/ratmos") !== -1,
   "the per-user install builds ratmos",
 );
 
@@ -75,7 +78,7 @@ const bin = backendBin();
 assert(bin.length > 0, "ratmos is built");
 const version = spawnSync(bin, ["version"], { encoding: "utf8" });
 assertEqual(version.status, 0, "ratmos version exits 0");
-assertEqual(String(version.stdout).trim(), "0.1.1", "ratmos reports 0.1.1");
+assertEqual(String(version.stdout).trim(), "0.2.0", "ratmos reports 0.2.0");
 
 const fixture = fs.mkdtempSync(path.join(os.tmpdir(), "ratmos-list-"));
 const listed = spawnSync(bin, ["--backend", "omarchy", "--root", fixture, "request"], {
@@ -85,7 +88,7 @@ const listed = spawnSync(bin, ["--backend", "omarchy", "--root", fixture, "reque
 fs.rmSync(fixture, { recursive: true, force: true });
 assertEqual(listed.status, 0, "settings.list exits 0");
 const payload = JSON.parse(listed.stdout);
-assertEqual(payload.version, "0.1.1", "settings.list reports 0.1.1");
+assertEqual(payload.version, "0.2.0", "settings.list reports 0.2.0");
 assertEqual(payload.platform.id, "omarchy", "settings.list names the omarchy platform");
 const domains = new Set(payload.result.map((row) => row.domain));
 settings.settingsCatalog().forEach(function (entry) {

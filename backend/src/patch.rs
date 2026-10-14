@@ -27,6 +27,7 @@ pub fn shell_get(doc: &Value, key: &str) -> Value {
             Value::String(text) => Value::Bool(text == "On" || text == "true"),
             _ => Value::Null,
         },
+        Slot::WorkspaceBar(field) => crate::wsbar::get(doc, field),
         Slot::Extra => get_path(doc, &["atmos", "extra"]),
     }
 }
@@ -55,6 +56,7 @@ pub fn shell_set(doc: &mut Value, key: &str, value: &Value) {
                 Value::String(text.into()),
             );
         }
+        Slot::WorkspaceBar(field) => crate::wsbar::set(doc, field, value),
         Slot::Extra => set_path(doc, &["atmos", "extra"], value.clone()),
     }
 }
@@ -175,6 +177,7 @@ enum Slot {
         alt: bool,
     },
     Sync,
+    WorkspaceBar(&'static str),
     /// Unmapped shell keys stay under `atmos`, never as a sibling of `bar`.
     Extra,
 }
@@ -255,14 +258,8 @@ fn slot(key: &str) -> Slot {
             id: "omarchy.tray",
             field: "pinned",
         },
-        "workspaceBarNames" => Slot::Widget {
-            id: "omarchy.workspaces",
-            field: "showNames",
-        },
-        "workspaceBarCount" => Slot::Widget {
-            id: "omarchy.workspaces",
-            field: "count",
-        },
+        "workspaceBarNames" => Slot::WorkspaceBar("showNames"),
+        "workspaceBarCount" => Slot::WorkspaceBar("count"),
         _ => Slot::Extra,
     }
 }

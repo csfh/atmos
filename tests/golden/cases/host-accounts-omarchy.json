@@ -29,6 +29,6 @@
       "hostname": "atmos-box\n",
       "passwd": "me:x:1000:1000:Me:/home/me:/bin/bash\n"
     },
-    "version": "0.1.1"
+    "version": "0.2.0"
   }
 }

@@ -1,4 +1,4 @@
-// User-process list for Home. Signals go through signal-process.sh.
+// User-process list for Home. Signals go through `ratmos task signal-process`.
 
 var ROW_CAP = 80;
 
@@ -19,12 +19,12 @@ function signalName(raw) {
   return "";
 }
 
-function signalArgv(pid, signal, script) {
+// `task` is the argv prefix that runs the signal task, from Backend.task.
+function signalArgv(pid, signal, task) {
   var p = parsePid(pid);
   var sig = signalName(signal);
-  var path = String(script || "");
-  if (!p || !sig || !path) return null;
-  return ["bash", path, String(p), sig];
+  if (!p || !sig || !Array.isArray(task) || task.length === 0) return null;
+  return task.concat([String(p), sig]);
 }
 
 function normalize(row) {

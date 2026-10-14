@@ -102,6 +102,7 @@ function settingsCatalog() {
     }),
     entry("hyprNoGaps", "windows", "No gaps when alone", "look", { type: "boolean" }),
     entry("hyprSquareAspect", "windows", "Square single window", "look", { type: "boolean" }),
+    entry("windowOpaque", "windows", "Opaque windows", "look", { type: "boolean" }),
 
     // Bar
     entry("barPosition", "bar", "Bar position", "look", {
@@ -551,7 +552,7 @@ function entry(key, section, label, tier, opts) {
     choices: Array.isArray(o.choices) && o.choices.length > 0 ? o.choices.slice() : null,
     format: String(o.format || ""),
     hostBound: o.hostBound === true,
-    // Written by a script that raises privileges (as-root.sh or sudo), so
+    // Written by a ratmos task that raises privileges (sudo or pkexec), so
     // applying it goes through Atmos sudo mode.
     needsRoot: o.needsRoot === true,
     extraConfirm: o.extraConfirm === true,
@@ -2020,7 +2021,7 @@ function shownValue(value) {
   return displayValue(value);
 }
 
-// The plan as the executor reads it. `scripts/apply-settings.sh` takes this
+// The plan as the executor reads it. `ratmos task settings-apply` takes this
 // on stdin, so the review screen and the executor cannot disagree about what
 // is being applied. Each change carries `from` as well as `value`, which is
 // what lets the executor write an undo plan before it touches anything.
@@ -2037,37 +2038,10 @@ function planToJson(plan) {
 // Write dispatch
 // ---------------------------------------------------------------------------
 //
-// Catalog rows own the writer. QML setters and apply-settings.sh both call
-// commandFor / planCommands so argv cannot drift between live UI and import.
-
-var SCRIPT_FILES = {
-  look: "set-hypr-look.sh",
-  input: "set-hypr-input.sh",
-  bindings: "set-hypr-bindings.sh",
-  windows: "set-hypr-windows.sh",
-  autostart: "set-hypr-autostart.sh",
-  workspaces: "set-hypr-workspaces.sh",
-  workspaceBar: "set-workspace-bar.sh",
-  monitors: "set-hypr-monitors.sh",
-  env: "set-env.sh",
-  tweaks: "set-tweaks.sh",
-  idle: "set-idle.sh",
-  presentation: "set-presentation.sh",
-  chargeLimit: "set-charge-limit.sh",
-  hyprsunset: "set-hyprsunset.sh",
-  nightlightTemp: "set-nightlight-temp.sh",
-  mime: "set-mime-default.sh",
-  audio: "set-audio.sh",
-  barWidget: "set-bar-widget.sh",
-  hostname: "set-hostname.sh",
-  timezone: "set-timezone.sh",
-  locale: "set-locale.sh",
-  keyboard: "set-keyboard-layout.sh",
-  ntp: "set-ntp.sh",
-  fullName: "set-full-name.sh",
-  parallelDownloads: "set-parallel-downloads.sh",
-  wifiRadio: "set-wifi-connection.sh",
-};
+// Catalog rows own the writer. QML setters and the settings-apply task both
+// call commandFor / planCommands so the write cannot drift between the live UI
+// and an import. A script writer's argv is `ratmos task settings-set KEY JSON`,
+// or `ratmos task hypr-apply look|input JSON` for a Hyprland group.
 
 var WRITERS;
 
@@ -2108,17 +2082,9 @@ function writers() {
     },
     barPosition: omarchyArgv(["omarchy", "bar", "position"]),
     barTransparent: omarchyArgv(["omarchy", "bar", "transparent"], "true-false"),
-    barVisible: {
-      kind: "toggle-inverted",
-      prefix: ["omarchy", "toggle", "bar"],
-      invert: true,
-    },
+    barVisible: { kind: "toggle-inverted", prefix: ["omarchy", "toggle", "bar"], invert: true },
     clockFormat: { kind: "clock-format", base: "format", backup: "clock" },
-    clockFormatAlt: {
-      kind: "clock-format",
-      base: "formatAlt",
-      backup: "clock",
-    },
+    clockFormatAlt: { kind: "clock-format", base: "formatAlt", backup: "clock" },
     browser: omarchyArgv(["omarchy", "default", "browser"]),
     terminal: omarchyArgv(["omarchy", "default", "terminal"]),
     editor: omarchyArgv(["omarchy", "default", "editor"]),
@@ -2138,14 +2104,8 @@ function writers() {
       kind: "toggle-flip",
       prefix: ["omarchy", "toggle", "notification", "silencing"],
     },
-    nightlight: {
-      kind: "toggle-flip",
-      prefix: ["omarchy", "toggle", "nightlight"],
-    },
-    nightlightTemperature: {
-      kind: "nightlight-temp",
-      backup: "nightlightTemp",
-    },
+    nightlight: { kind: "toggle-flip", prefix: ["omarchy", "toggle", "nightlight"] },
+    nightlightTemperature: { kind: "nightlight-temp", backup: "nightlightTemp" },
     nightlightDay: {
       kind: "nightlight-schedule",
       backup: "nightlightSchedule",
@@ -2257,6 +2217,12 @@ function writers() {
     },
     bindings: { kind: "list-stdin", script: "bindings", backup: "bindings" },
     windowRules: { kind: "list-stdin", script: "windows", backup: "windowRules" },
+    windowOpaque: {
+      kind: "script",
+      script: "windows",
+      field: "windowOpaque",
+      backup: "windowRules",
+    },
     autostart: { kind: "list-stdin", script: "autostart", backup: "autostart" },
     workspaces: { kind: "list-stdin", script: "workspaces", backup: "workspaces" },
     workspaceWrapSwitch: {
@@ -2352,28 +2318,11 @@ function writerSpec(key) {
   return writers()[key] || null;
 }
 
-function scriptPath(opts, name) {
-  var scripts = (opts && opts.scripts) || {};
-  if (scripts[name]) return String(scripts[name]);
-  var file = SCRIPT_FILES[name] || name;
-  var root = opts && opts.root ? String(opts.root).replace(/\/$/, "") : "";
-  if (root) return root + "/scripts/" + file;
-  return file;
-}
+// Marks the argv of a writer that ratmos performs; commandFor swaps in the task.
+var TASK_MARK = "task:writer";
 
 function bashScript(opts, name) {
-  return ["bash", scriptPath(opts, name)];
-}
-
-function scriptsFromRoot(scriptsRoot) {
-  var root = String(scriptsRoot || "").replace(/\/$/, "");
-  var out = {};
-  var k;
-  for (k in SCRIPT_FILES) {
-    if (Object.prototype.hasOwnProperty.call(SCRIPT_FILES, k))
-      out[k] = root + "/" + SCRIPT_FILES[k];
-  }
-  return out;
+  return [TASK_MARK, name];
 }
 
 function copyObject(src) {
@@ -2560,6 +2509,7 @@ function mergeId(spec) {
 }
 
 function argvValue(value, spec) {
+  if (spec && spec.field) return JSON.stringify({ [spec.field]: value });
   if (spec && spec.bool) return formatBool(value, spec.bool);
   if (spec && spec.syncMode) return value === true ? "On" : "Off";
   if (typeof value === "boolean") return value ? "true" : "false";
@@ -2567,6 +2517,23 @@ function argvValue(value, spec) {
 }
 
 function commandFor(key, value, snapshot, opts) {
+  var cmd = buildCommand(key, value, snapshot, opts);
+  if (cmd && cmd.argv && cmd.argv[0] === TASK_MARK) {
+    var bin = opts && opts.ratmos ? String(opts.ratmos) : "ratmos";
+    var spec = writerSpec(key);
+    if (spec && spec.kind === "hypr-group" && cmd.stdin) {
+      // A Hyprland group write carries every field of its _patch, so several
+      // coalesced changes reach the file in one write.
+      cmd.argv = [bin, "task", "hypr-apply", String(spec.script), cmd.stdin];
+    } else {
+      cmd.argv = [bin, "task", "settings-set", String(key), JSON.stringify(value)];
+      cmd.stdin = "";
+    }
+  }
+  return cmd;
+}
+
+function buildCommand(key, value, snapshot, opts) {
   var item = catalogByKey()[key];
   if (!item || !item.importable) return null;
   var spec = writerSpec(key);
@@ -2956,74 +2923,6 @@ function volumeIn(changes, key) {
   return false;
 }
 
-function runCommandsCli(argv) {
-  var planPath = "";
-  var snapshotPath = "";
-  var scriptsRoot = "";
-  var i;
-  for (i = 0; i < argv.length; i++) {
-    var arg = argv[i];
-    if (arg === "commands") continue;
-    if (arg === "--plan") {
-      planPath = String(argv[++i] || "");
-      continue;
-    }
-    if (arg === "--snapshot") {
-      snapshotPath = String(argv[++i] || "");
-      continue;
-    }
-    if (arg === "--scripts-root") {
-      scriptsRoot = String(argv[++i] || "");
-      continue;
-    }
-    console.error("Settings.js: unknown argument " + arg);
-    process.exit(2);
-  }
-  if (!planPath || !snapshotPath || !scriptsRoot) {
-    console.error(
-      "Usage: Settings.js commands --plan <file> --snapshot <file> --scripts-root <scripts dir>",
-    );
-    process.exit(2);
-  }
-  var fs = require("fs");
-  var path = require("path");
-  var plan;
-  var snapshot;
-  try {
-    plan = JSON.parse(fs.readFileSync(planPath, "utf8"));
-    snapshot = JSON.parse(fs.readFileSync(snapshotPath, "utf8"));
-  } catch (e) {
-    console.error("apply-settings.sh: could not read plan or snapshot");
-    process.exit(1);
-  }
-  if (!snapshot || typeof snapshot !== "object" || Array.isArray(snapshot)) snapshot = {};
-  var changes = plan && Array.isArray(plan.changes) ? plan.changes : [];
-  var opts = { root: path.dirname(scriptsRoot), scripts: scriptsFromRoot(scriptsRoot) };
-  var inputFile =
-    process.env.ATMOS_INPUT_FILE || path.join(process.env.HOME || "", ".config/hypr/input.lua");
-  try {
-    if (fs.existsSync(inputFile)) {
-      var listed = require("child_process").spawnSync(
-        "python3",
-        [path.join(scriptsRoot, "hypr-sentinel.py"), "input", "list", inputFile],
-        { encoding: "utf8" },
-      );
-      if (listed.status === 0) {
-        var parsed = JSON.parse(String(listed.stdout || "").replace(/^\s+|\s+$/g, "") || "{}");
-        opts.workspaceGestureUnmanaged = parsed.workspaceGestureUnmanaged === true;
-      }
-    }
-  } catch (e) {}
-  for (i = 0; i < changes.length; i++) {
-    var key = String(changes[i].key || "");
-    if (!commandFor(key, changes[i].value, snapshot, opts)) {
-      console.error("apply-settings.sh: no writer for " + key);
-      process.exit(1);
-    }
-  }
-  process.stdout.write(JSON.stringify(planCommands(changes, snapshot, opts)) + "\n");
-}
-
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     SETTINGS_SCHEMA: SETTINGS_SCHEMA,
@@ -3055,8 +2954,4 @@ if (typeof module !== "undefined" && module.exports) {
     fileSummary: fileSummary,
     exportFileName: exportFileName,
   };
-}
-
-if (typeof require !== "undefined" && typeof module !== "undefined" && require.main === module) {
-  runCommandsCli(process.argv.slice(2));
 }

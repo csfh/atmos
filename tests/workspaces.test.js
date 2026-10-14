@@ -2,6 +2,7 @@ const { spawnSync } = require("child_process");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
+const { ratmosBinary } = require("./sandbox");
 const { load, assert, assertEqual } = require("./harness");
 
 const ws = load("services/Workspaces.js");
@@ -234,41 +235,18 @@ assert(
   lua.indexOf("hyprctl dispatch workspace") === -1,
   "serialize does not spawn hyprctl per wheel tick",
 );
-const wsSh = fs.readFileSync(
-  path.join(__dirname, "..", "scripts", "set-hypr-workspaces.sh"),
-  "utf8",
-);
+const barRs = fs.readFileSync(path.join(__dirname, "..", "backend", "src", "wsbar.rs"), "utf8");
 assert(
-  wsSh.indexOf("hl.dsp.workspace.rename") !== -1,
-  "set-hypr-workspaces.sh renames live numbered workspaces so the bar shows the name",
-);
-assert(
-  wsSh.indexOf("omarchy plugin clone") === -1,
-  "set-hypr-workspaces.sh does not swap the bar widget",
-);
-const barSh = fs.readFileSync(
-  path.join(__dirname, "..", "scripts", "set-workspace-bar.sh"),
-  "utf8",
-);
-assert(
-  barSh.indexOf("clonedFrom") !== -1 &&
-    barSh.indexOf("retarget") !== -1 &&
-    barSh.indexOf("count") !== -1,
-  "set-workspace-bar.sh installs and swaps the named workspace widget",
-);
-assert(
-  barSh.indexOf("reloadConfig") === -1 &&
-    barSh.indexOf("rescanPlugins") === -1 &&
-    barSh.indexOf("omarchy plugin clone") === -1 &&
-    barSh.indexOf("setBarWidget") !== -1 &&
-    barSh.indexOf("qs ipc") !== -1 &&
-    barSh.indexOf("install_clone") !== -1 &&
-    barSh.indexOf("cmp -s") !== -1 &&
-    barSh.indexOf("if [[ ! -f $clone_dir/Workspaces.qml ]]") === -1,
-  "set-workspace-bar.sh refreshes the clone without reloading the shell",
+  barRs.indexOf("clonedFrom") !== -1 &&
+    barRs.indexOf("setBarWidget") !== -1 &&
+    barRs.indexOf('"qs"') !== -1 &&
+    barRs.indexOf("reloadConfig") === -1 &&
+    barRs.indexOf("rescanPlugins") === -1 &&
+    barRs.indexOf("omarchy plugin clone") === -1,
+  "ratmos installs and swaps the named workspace widget without reloading the shell",
 );
 const barQml = fs.readFileSync(
-  path.join(__dirname, "..", "scripts", "workspace-bar", "Workspaces.qml"),
+  path.join(__dirname, "..", "packaging", "workspace-bar", "Workspaces.qml"),
   "utf8",
 );
 assert(
@@ -339,21 +317,25 @@ assertEqual(parsedFlags.wheelSwitch, false, "parseFile reads wheelSwitch false")
 const tmp = path.join(os.tmpdir(), "atmos-ws-" + process.pid + ".lua");
 fs.writeFileSync(tmp, "");
 const py = spawnSync(
-  "python3",
-  [
-    path.join(__dirname, "..", "scripts", "hypr-sentinel.py"),
-    "workspaces",
-    "apply",
-    tmp,
-    JSON.stringify(state),
-  ],
+  ratmosBinary(),
+  ["sentinel", "workspaces", "apply", tmp, JSON.stringify(state)],
   { encoding: "utf8" },
 );
-assertEqual(py.status, 0, "hypr-sentinel.py workspaces apply exits 0");
+assertEqual(py.status, 0, "ratmos sentinel workspaces apply exits 0");
 const pyText = fs.readFileSync(tmp, "utf8");
 assertEqual(
   pyText.replace(/\s+$/, ""),
   lua.replace(/\s+$/, ""),
-  "Python workspaces serialize matches JS",
+  "Rust workspaces serialize matches JS",
 );
 fs.unlinkSync(tmp);
+
+const hyprlandSrc = fs.readFileSync(
+  path.join(__dirname, "..", "backend", "src", "tasks", "user.rs"),
+  "utf8",
+);
+assert(
+  hyprlandSrc.indexOf("hl.dsp.workspace.rename") !== -1 &&
+    hyprlandSrc.indexOf("omarchy plugin clone") === -1,
+  "ratmos renames live numbered workspaces so the bar shows the name",
+);

@@ -1,4 +1,4 @@
-// A sandbox for tests that run real scripts or the real ratmos binary.
+// A sandbox for tests that run real ratmos tasks or the real ratmos binary.
 //
 // The machine running the tests is somebody's live desktop, so nothing above
 // unit level may reach it. A sandbox gives a test:
@@ -19,7 +19,7 @@
 //   const box = createSandbox({
 //     fakes: { sudo: [{ argv: ["-n", "true"], status: 0 }, { status: 0 }] },
 //   });
-//   const r = box.run("rollback-snapshot.sh", ["root", "5"]);
+//   const r = box.task("rollback-snapshot", ["root", "5"]);
 //   box.calls("sudo");  // [{ cmd: "sudo", argv: ["snapper", "-c", "root", ...] }]
 //   box.cleanup();
 const fs = require("fs");
@@ -28,10 +28,9 @@ const path = require("path");
 const { spawnSync } = require("child_process");
 
 const repo = path.join(__dirname, "..");
-const scriptsDir = path.join(repo, "scripts");
 
-// Plain tools a script needs before it reaches the part under test. Anything
-// not listed here is not on the sandbox PATH.
+// Plain tools a task needs before it reaches the part under test. Anything not
+// listed here is not on the sandbox PATH.
 const PLAIN_TOOLS = [
   "bash",
   "sh",
@@ -60,12 +59,15 @@ const PLAIN_TOOLS = [
   "date",
   "sleep",
   "readlink",
-  "python3",
+  "getent",
+  "uname",
 ];
 
 // Commands that must never run for real from a test. They are fakes by
-// default, so a script that reaches one records the call and fails.
+// default, so a task that reaches one records the call and fails. python3 is
+// here because nothing in Atmos runs it any more.
 const DEFAULT_TRAPS = [
+  "python3",
   "sudo",
   "pkexec",
   "snapper",
@@ -233,10 +235,10 @@ function createSandbox({ fakes = {}, traps = DEFAULT_TRAPS, env = {}, tools = PL
     resetCalls() {
       fs.rmSync(callsFile, { force: true });
     },
-    // Run a script from scripts/ under bash, with the sandbox environment.
-    run(script, args = [], { input = "", env: extra = {}, keepCalls = false } = {}) {
+    // Run a ratmos task with the sandbox environment.
+    task(name, args = [], { input = "", env: extra = {}, keepCalls = false } = {}) {
       if (!keepCalls) box.resetCalls();
-      const result = spawnSync(box.bash, [path.join(scriptsDir, script), ...args], {
+      const result = spawnSync(ratmosBinary(), ["task", name, ...args], {
         input,
         encoding: "utf8",
         timeout: 20000,
@@ -307,7 +309,6 @@ module.exports = {
   backendWrapper,
   ratmosBinary,
   hostWhich,
-  scriptsDir,
   repo,
   UNEXPECTED,
   DEFAULT_TRAPS,

@@ -3,24 +3,27 @@ const fs = require("fs");
 const os = require("os");
 const path = require("path");
 const { assert, assertEqual } = require("./harness");
+const { ratmosBinary } = require("./sandbox");
 
 const fixture = fs.mkdtempSync(path.join(os.tmpdir(), "atmos-charge-limit-"));
 const battery = path.join(fixture, "power_supply", "BAT0");
 const end = path.join(battery, "charge_control_end_threshold");
 const start = path.join(battery, "charge_control_start_threshold");
 const modes = path.join(battery, "charge_types");
-const script = path.join(fixture, "set-charge-limit.sh");
+const stubs = path.join(fixture, "bin");
 const adaptive = "Trickle Fast Standard [Adaptive] Custom\n";
 fs.mkdirSync(battery, { recursive: true });
-fs.copyFileSync(path.join(__dirname, "..", "scripts", "set-charge-limit.sh"), script);
+fs.mkdirSync(stubs, { recursive: true });
 const elevations = path.join(fixture, "elevations");
 // Never elevate in tests. The stub counts calls and grants write access to the
 // battery files for the one command, except a mode write it is told to reject.
 fs.writeFileSync(
-  path.join(fixture, "as-root.sh"),
+  path.join(stubs, "sudo"),
   [
     "#!/bin/bash",
     "set -euo pipefail",
+    // The `sudo -n true` probe passes; everything after it is the elevation.
+    "if [[ $1 == -n && $2 == true ]]; then exit 0; fi",
     'echo call >>"$ATMOS_TEST_ELEVATIONS"',
     'files=("$ATMOS_POWER_SUPPLY_DIR"/BAT0/charge_control_end_threshold)',
     "if [[ ${ATMOS_TEST_REJECT_MODE:-0} != 1 ]]; then",
@@ -33,6 +36,7 @@ fs.writeFileSync(
     'exit "$status"',
     "",
   ].join("\n"),
+  { mode: 0o755 },
 );
 
 function elevationCount() {
@@ -40,12 +44,14 @@ function elevationCount() {
 }
 
 function run(limit, extraEnv) {
-  return spawnSync("bash", [script, limit], {
+  return spawnSync(ratmosBinary(), ["task", "set-charge-limit", limit], {
     encoding: "utf8",
     env: Object.assign(
       {},
       process.env,
       {
+        PATH: stubs + ":" + (process.env.PATH || ""),
+        ATMOS_ROOT_TEST: "1",
         ATMOS_POWER_SUPPLY_DIR: path.dirname(battery),
         ATMOS_TEST_ELEVATIONS: elevations,
         ATMOS_TEST_REJECT_MODE: "0",
@@ -67,22 +73,6 @@ function reset(modeText) {
   } else {
     fs.writeFileSync(modes, modeText);
   }
-}
-
-function snapshotCharge() {
-  return spawnSync("bash", [path.join(__dirname, "..", "scripts", "snapshot.sh")], {
-    encoding: "utf8",
-    env: Object.assign({}, process.env, {
-      ATMOS_POWER_SUPPLY_DIR: path.dirname(battery),
-      ATMOS_CHARGE_LIMIT_PROBE: "1",
-    }),
-  });
-}
-
-function assertSnapshot(limit, available, description) {
-  const snap = snapshotCharge();
-  assertEqual(snap.status, 0, `${description} (exit)`);
-  assertEqual(snap.stdout.trim(), `${limit} ${available}`, description);
 }
 
 try {
@@ -151,26 +141,7 @@ try {
     assertEqual(fs.readFileSync(end, "utf8"), "100\n", "mode failure aborts the threshold write");
   }
 
-  reset(adaptive);
-  fs.writeFileSync(end, "80\n");
-  assertSnapshot("0", "true", "snapshot hides an Adaptive stored threshold");
-
-  reset("Standard Adaptive [Custom]\n");
-  fs.writeFileSync(end, "80\n");
-  assertSnapshot("80", "true", "snapshot reports the limit when Custom is active");
-
-  reset("[Custom] Adaptive\n");
-  fs.writeFileSync(end, "80\n");
-  assertSnapshot("80", "true", "snapshot reports the limit when [Custom] is first");
-
-  reset("[Standard] Fast\n");
-  fs.writeFileSync(end, "80\n");
-  assertSnapshot("80", "true", "snapshot reports the limit without Custom");
-
   reset(null);
-  fs.writeFileSync(end, "80\n");
-  assertSnapshot("80", "true", "snapshot reports the limit on threshold-only batteries");
-
   // Apple Silicon names its battery macsmc-battery, not BAT*.
   const macsmc = path.join(path.dirname(battery), "macsmc-battery");
   fs.renameSync(battery, macsmc);
@@ -182,19 +153,13 @@ try {
       "80\n",
       "macsmc-battery receives the threshold",
     );
-    assertSnapshot("80", "true", "snapshot reads a macsmc-battery threshold");
   } finally {
     fs.renameSync(macsmc, battery);
   }
 
-  reset(null);
-  fs.writeFileSync(end, "not-a-number\n");
-  assertSnapshot("0", "true", "snapshot treats a non-numeric threshold as no limit");
-
   fs.unlinkSync(end);
   result = run("80");
   assertEqual(result.status, 1, "reports a battery without threshold support");
-  assertSnapshot("0", "false", "snapshot reports no charge limit without a threshold");
 } finally {
   fs.rmSync(fixture, { recursive: true, force: true });
 }

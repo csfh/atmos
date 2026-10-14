@@ -2,7 +2,8 @@ const { spawnSync } = require("child_process");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
-const { load, assert, assertEqual } = require("./harness");
+const { ratmosBinary } = require("./sandbox");
+const { load, assert, assertEqual, canon } = require("./harness");
 
 const binds = load("services/Bindings.js");
 assertEqual(
@@ -205,12 +206,10 @@ function pythonList(kind, text) {
   let parsed = [];
   try {
     fs.writeFileSync(file, text);
-    const result = spawnSync(
-      "python3",
-      [path.join(__dirname, "..", "scripts", "hypr-sentinel.py"), kind, "list", file],
-      { encoding: "utf8" },
-    );
-    assertEqual(result.status, 0, "hypr-sentinel.py " + kind + " list exits 0");
+    const result = spawnSync(ratmosBinary(), ["sentinel", kind, "list", file], {
+      encoding: "utf8",
+    });
+    assertEqual(result.status, 0, "ratmos sentinel " + kind + " list exits 0");
     parsed = JSON.parse(result.stdout);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
@@ -219,9 +218,9 @@ function pythonList(kind, text) {
 }
 
 assertEqual(
-  JSON.stringify(pythonList("bindings", omarchyBindings)),
-  JSON.stringify(liveBinds),
-  "hypr-sentinel.py bindings list matches parseFile on commented examples",
+  canon(pythonList("bindings", omarchyBindings)),
+  canon(liveBinds),
+  "ratmos sentinel bindings list matches parseFile on commented examples",
 );
 
 const tableBinds = `
@@ -257,9 +256,9 @@ assertEqual(
   "parseFile expands { tui, focus }",
 );
 assertEqual(
-  JSON.stringify(pythonList("bindings", tableBinds)),
-  JSON.stringify(tableParsed),
-  "hypr-sentinel.py bindings list matches parseFile on table-form binds",
+  canon(pythonList("bindings", tableBinds)),
+  canon(tableParsed),
+  "ratmos sentinel bindings list matches parseFile on table-form binds",
 );
 
 const innerCommentBinds = `
@@ -284,9 +283,9 @@ assertEqual(
 assertEqual(innerParsed[1].keys, "SUPER + T", "parseFile skips a comment between bind args");
 assertEqual(innerParsed[2].keys, "SUPER + H", "parseFile keeps a bind after -- inside a string");
 assertEqual(
-  JSON.stringify(pythonList("bindings", innerCommentBinds)),
-  JSON.stringify(innerParsed),
-  "hypr-sentinel.py bindings list matches parseFile on comments inside calls",
+  canon(pythonList("bindings", innerCommentBinds)),
+  canon(innerParsed),
+  "ratmos sentinel bindings list matches parseFile on comments inside calls",
 );
 
 assertEqual(
@@ -333,7 +332,7 @@ assertEqual(
   "parseFile keeps a bind with a Lua tab",
 );
 assertEqual(
-  JSON.stringify(pythonList("bindings", luaEscapesBinds)),
-  JSON.stringify(luaEscapesBindParsed),
-  "hypr-sentinel.py bindings list matches parseFile on Lua string escapes",
+  canon(pythonList("bindings", luaEscapesBinds)),
+  canon(luaEscapesBindParsed),
+  "ratmos sentinel bindings list matches parseFile on Lua string escapes",
 );

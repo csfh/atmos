@@ -259,6 +259,7 @@ var REST_EXTRAS = Object.freeze([
   "bindingsManaged",
   "windowRules",
   "windowRulesManaged",
+  "windowOpaque",
   "tweaks",
   "systemdUnits",
   "keybindings",
@@ -472,7 +473,7 @@ var ACCOUNT_BAG_KEYS = Object.freeze([
   "groups",
 ]);
 
-// Adopted onto the Omarchy bag, not Emitted by snapshot.sh.
+// Adopted onto the Omarchy bag, not Emitted by `ratmos snapshot`.
 var DERIVED_BAG_KEYS = Object.freeze(["audioSink", "audioSource"]);
 
 function copyableBagKeys() {

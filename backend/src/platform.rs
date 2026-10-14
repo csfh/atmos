@@ -43,6 +43,31 @@ impl Backend {
     }
 }
 
+/// The app root: `ATMOS_ROOT`, else the nearest parent of the binary holding shell.qml.
+pub fn app_root() -> std::path::PathBuf {
+    use std::path::{Path, PathBuf};
+    if let Ok(root) = std::env::var("ATMOS_ROOT") {
+        if !root.is_empty() {
+            return PathBuf::from(root);
+        }
+    }
+    let mut dir = std::env::current_exe()
+        .ok()
+        .and_then(|e| e.parent().map(Path::to_path_buf));
+    while let Some(current) = dir {
+        if current.join("shell.qml").is_file() {
+            return current;
+        }
+        dir = current.parent().map(Path::to_path_buf);
+    }
+    PathBuf::new()
+}
+
+/// A package manager owns the app when the packager left a PACKAGED marker in the app root.
+pub fn packaged() -> bool {
+    app_root().join("PACKAGED").is_file()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

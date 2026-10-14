@@ -30,6 +30,7 @@ var SIMPLE = {
   terminal: "string",
   touchscreenEnabled: "bool",
   wifiRadio: "bool",
+  windowOpaque: "bool",
 };
 
 // What Omarchy.set(key, value) should do. { known: false } for a key that is

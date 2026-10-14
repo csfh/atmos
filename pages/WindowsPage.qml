@@ -311,6 +311,19 @@ PrefsPage {
     }
 
     SettingRow {
+      label: "Opaque windows"
+      description: "Turn off Omarchy's default window transparency, so unfocused windows stop looking faded."
+      hint: "~/.config/hypr/atmos.lua · tag default-opacity"
+      query: root.query
+      keywords: ["opacity", "transparent", "transparency", "inactive", "faded", "dim"]
+
+      PrefsToggle {
+        checked: Omarchy.windowOpaque
+        onToggled: Omarchy.set("windowOpaque", !Omarchy.windowOpaque)
+      }
+    }
+
+    SettingRow {
       label: "This workspace"
       description: Omarchy.hyprWorkspaceLayout === "scrolling"
         ? "This workspace is scrolling. Switch layout turns it to dwindle."

@@ -177,7 +177,7 @@ assertEqual(box.calls("omarchy").length, 1, "calls can be narrowed to one comman
 
 {
   // as-root.sh prefers `sudo -n true` as its probe, then runs the command.
-  const r = box.run("rollback-snapshot.sh", ["root", "5"]);
+  const r = box.task("rollback-snapshot", ["root", "5"]);
   assertEqual(r.status, 0, "rollback-snapshot.sh succeeds with a cooperative sudo");
   assertEqual(
     JSON.stringify(box.callLines()),
@@ -186,7 +186,7 @@ assertEqual(box.calls("omarchy").length, 1, "calls can be narrowed to one comman
   );
 }
 {
-  const r = box.run("rollback-snapshot.sh", ["../root", "5"]);
+  const r = box.task("rollback-snapshot", ["../root", "5"]);
   assertEqual(r.status, 1, "rollback-snapshot.sh rejects a bad config");
   assertEqual(box.calls().length, 0, "and runs nothing at all");
 }
@@ -195,7 +195,7 @@ assertEqual(box.calls("omarchy").length, 1, "calls can be narrowed to one comman
   const nosudo = createSandbox({
     fakes: { sudo: [{ argv: ["-n", "true"], status: 1 }], pkexec: [{ status: 0 }] },
   });
-  const r = nosudo.run("rollback-snapshot.sh", ["root", "7"]);
+  const r = nosudo.task("rollback-snapshot", ["root", "7"]);
   assertEqual(r.status, 0, "rollback-snapshot.sh falls back to pkexec");
   assertEqual(
     JSON.stringify(nosudo.callLines("pkexec")),
@@ -219,7 +219,7 @@ assertEqual(box.calls("omarchy").length, 1, "calls can be narrowed to one comman
       ],
     },
   });
-  const r = ask.run("rollback-snapshot.sh", ["root", "5"], {
+  const r = ask.task("rollback-snapshot", ["root", "5"], {
     input: "hunter2\n",
     env: { ATMOS_SUDO_ASK: "1" },
   });
@@ -241,7 +241,7 @@ assertEqual(box.calls("omarchy").length, 1, "calls can be narrowed to one comman
   const wrapped = backendWrapper(box.root);
   assert(fs.existsSync(wrapped.file), "the wrapper script exists");
   const version = box.spawn(wrapped.file, ["version"]);
-  assertEqual(version.out.trim(), "0.1.1", "the wrapper runs the real ratmos");
+  assertEqual(version.out.trim(), "0.2.0", "the wrapper runs the real ratmos");
 
   const set = box.spawn(wrapped.file, ["--backend", "plain", "request"], {
     input: JSON.stringify({ op: "settings.set", domain: "theme", value: "tokyo-night" }),

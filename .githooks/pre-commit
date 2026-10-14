@@ -1,6 +1,6 @@
 #!/bin/bash
 # Block a commit when the staged state is hidden by later edits, or when
-# oxlint, oxfmt --check, scripts/*.py compile, the file budget, or (when
+# oxlint, oxfmt --check, the file budget, or (when
 # backend/ is staged) cargo fmt --check or clippy fails.
 set -euo pipefail
 
@@ -20,12 +20,6 @@ fi
 
 ./node_modules/.bin/oxlint services tests
 ./node_modules/.bin/oxfmt --check services tests
-
-if [[ ! -x tests/compile-python ]]; then
-  echo "pre-commit: tests/compile-python is not executable" >&2
-  exit 1
-fi
-./tests/compile-python
 
 if [[ -n $(git diff --cached --name-only -- backend) ]]; then
   cargo fmt --manifest-path backend/Cargo.toml --check

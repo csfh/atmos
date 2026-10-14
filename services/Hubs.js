@@ -24,6 +24,17 @@ function keywordList(text, extra) {
   return uniqueWords(parts);
 }
 
+// Pages in these folders belong to the hub of the same name.
+var FILE_PREFIXES = [
+  ["appearance/", "appearance"],
+  ["network/", "network"],
+  ["windows/", "windows"],
+  ["applications/", "applications"],
+  ["agentic/", "agentic"],
+  ["system/", "system"],
+  ["monitor/", "monitor"],
+];
+
 function child(id, title, file) {
   return { id: id, title: title, file: file };
 }
@@ -558,13 +569,9 @@ function fileHub(rel) {
       if (kids[j].file === base) return kids[j].id;
     }
   }
-  if (base.indexOf("appearance/") === 0) return "appearance";
-  if (base.indexOf("network/") === 0) return "network";
-  if (base.indexOf("windows/") === 0) return "windows";
-  if (base.indexOf("applications/") === 0) return "applications";
-  if (base.indexOf("agentic/") === 0) return "agentic";
-  if (base.indexOf("system/") === 0) return "system";
-  if (base.indexOf("monitor/") === 0) return "monitor";
+  for (i = 0; i < FILE_PREFIXES.length; i++) {
+    if (base.indexOf(FILE_PREFIXES[i][0]) === 0) return FILE_PREFIXES[i][1];
+  }
   return "";
 }
 
@@ -605,6 +612,25 @@ function searchHubs() {
     });
   }
   return out;
+}
+
+// What the backend needs to search the pages: the hub rows, each hub's page
+// file, the folder rules, and every hub or child title.
+function searchContext() {
+  var list = hubs();
+  var files = {};
+  var titles = {};
+  var i, j, kids;
+  for (i = 0; i < list.length; i++) {
+    files[list[i].file] = list[i].id;
+    titles[list[i].id] = list[i].title;
+    kids = list[i].children || [];
+    for (j = 0; j < kids.length; j++) {
+      files[kids[j].file] = kids[j].id;
+      titles[kids[j].id] = kids[j].title;
+    }
+  }
+  return { hubs: searchHubs(), files: files, prefixes: FILE_PREFIXES, titles: titles };
 }
 
 function childIds() {
@@ -649,6 +675,7 @@ if (typeof module !== "undefined" && module.exports) {
     snapshotGroupForHub: snapshotGroupForHub,
     navPages: navPages,
     searchHubs: searchHubs,
+    searchContext: searchContext,
     childIds: childIds,
     launcherSuffixes: launcherSuffixes,
   };

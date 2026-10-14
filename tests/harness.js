@@ -24,4 +24,20 @@ function assertEqual(actual, expected, description) {
   assert(actual === expected, description, `expected: ${expected}\nactual:   ${actual}`);
 }
 
-module.exports = { load, assert, assertEqual };
+// JSON text with object keys in sorted order, so two writers that differ only
+// in key order compare equal.
+function canon(value) {
+  return JSON.stringify(value, function (key, val) {
+    if (val && typeof val === "object" && !Array.isArray(val)) {
+      return Object.keys(val)
+        .sort()
+        .reduce(function (out, k) {
+          out[k] = val[k];
+          return out;
+        }, {});
+    }
+    return val;
+  });
+}
+
+module.exports = { load, assert, assertEqual, canon };

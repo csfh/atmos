@@ -60,6 +60,16 @@ QtObject {
     return cmd
   }
 
+  // What used to be a helper script is a ratmos task: `ratmos task <name> [args]`.
+  // Run it as a job or a command, which wrap it in `ratmos apply`.
+  function task(name, args) {
+    var cmd = [root.bin, "task", String(name)]
+    var list = args instanceof Array ? args : []
+    var i
+    for (i = 0; i < list.length; i++) cmd.push(String(list[i]))
+    return cmd
+  }
+
   function request(body, callback) {
     var cb = typeof callback === "function" ? callback : function() {}
     if (root.link === "starting") {

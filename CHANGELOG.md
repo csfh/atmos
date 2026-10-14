@@ -2,6 +2,22 @@
 
 Notable changes to Atmos. Each section is a git tag on `main` and `stable`. Install and in-app Update follow the `stable` branch.
 
+## [v0.2.0] - 2026-10-14
+
+### Changed
+
+- No Python and no helper scripts. Everything that was a Bash or Python script is now Rust inside `ratmos`: the Hyprland sentinel writers, the hardware, disk, service, app, account, and live inventories, the snapshot, search, and MCP server, and every `set-*` action (`ratmos task <name>`, with privileged steps re-run as `ratmos root`). `bin/atmos` and `install.sh` stay as one-line hand-offs to `ratmos launch` and `ratmos install`. `install.sh` and `atmos mcp` no longer need `python3` or `node`.
+- Settings imports write through the same path as the window, so the file-backed tweaks (middle-click paste, Electron on Wayland, XWayland scaling) are applied by both.
+- Changing workspace names renames the live workspaces from the window as well as from an import.
+
+### Fixed
+
+- The nightlight schedule and temperature are read from `hyprsunset.conf` the way they are written.
+
+### Added
+
+- Windows → Behavior → Opaque windows. Omarchy tags every window `default-opacity` and fades unfocused ones to 0.96, which looks like dimming and ignores both "Dim others" and the inactive-opacity slider. The toggle writes an override for that tag into the `atmos:windows` block (`-- atmos:windowOpaque = true`). Rule edits keep it, and Reset removes it.
+
 ## [v0.1.1] - 2026-10-11
 
 ### Added

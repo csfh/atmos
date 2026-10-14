@@ -1,120 +1,12 @@
 #!/bin/bash
-# Open an Atmos window. Every launch is its own instance: run this twice
-# and two windows open, each with its own engine and Omarchy queue.
-# Instances converge through the files they share. Writes serialize in
-# hypr-sentinel.py (flock + atomic rename) and the shell.json writers, so
-# concurrent edits cannot tear a file. File watchers re-read what another
-# window wrote, so all open windows settle on the same state.
-
+# Open Atmos. The launch itself is `ratmos launch`; this only finds the binary.
 set -euo pipefail
 
-SCRIPT=$(readlink -f -- "${BASH_SOURCE[0]}")
-ROOT=$(cd -- "$(dirname -- "$SCRIPT")/.." && pwd)
-PAGE=${1:-}
-
-if [[ ${ATMOS_PRINT_ROOT:-0} == 1 ]]; then
-  printf '%s\n' "$ROOT"
-  exit 0
-fi
-
-resolve_backend() {
-  if [[ -n ${ATMOS_BACKEND:-} && -x ${ATMOS_BACKEND} ]]; then
-    printf '%s\n' "$ATMOS_BACKEND"
-    return 0
+ROOT=$(cd -- "$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")/.." && pwd)
+for candidate in "${ATMOS_BACKEND:-}" "$ROOT/bin/ratmos" "$ROOT/backend/target/release/ratmos" "$ROOT/backend/target/debug/ratmos"; do
+  if [[ -n $candidate && -x $candidate ]]; then
+    ATMOS_ROOT=$ROOT exec "$candidate" launch "$@"
   fi
-  local candidate
-  for candidate in \
-    "$ROOT/bin/ratmos" \
-    "$ROOT/backend/target/release/ratmos" \
-    "$ROOT/backend/target/debug/ratmos"
-  do
-    if [[ -x $candidate ]]; then
-      printf '%s\n' "$candidate"
-      return 0
-    fi
-  done
-  return 1
-}
-
-# Agents speak MCP on stdin and stdout. This does not open a window.
-if [[ ${1:-} == mcp ]]; then
-  BACKEND=$(resolve_backend) || {
-    echo "atmos: missing ratmos. Build it with: cargo build --manifest-path \"$ROOT/backend/Cargo.toml\"" >&2
-    exit 1
-  }
-  if ! command -v node >/dev/null 2>&1; then
-    echo "atmos: node is not installed" >&2
-    exit 1
-  fi
-  export ATMOS_BACKEND=$BACKEND
-  shift
-  exec node "$ROOT/services/McpServer.js" "$@"
-fi
-
-# Per-user Hyprland integration, opt-in. This does not open a window.
-if [[ ${1:-} == --setup ]]; then
-  exec bash "$ROOT/scripts/setup-atmos.sh" "${2:-on}"
-fi
-
-if [[ ! -f $ROOT/shell.qml ]]; then
-  echo "atmos: missing $ROOT/shell.qml" >&2
-  exit 1
-fi
-
-if ! command -v quickshell >/dev/null 2>&1; then
-  echo "atmos: quickshell is not installed" >&2
-  exit 1
-fi
-
-# The chart grid moved onto Monitor. Keep the old launcher word working.
-if [[ $PAGE == dashboard || $PAGE == dashboard/* ]]; then
-  PAGE=monitor
-fi
-# Machine used to be its own System page. Identity lives on Hardware.
-if [[ $PAGE == machine || $PAGE == system/machine ]]; then
-  PAGE=hardware
-fi
-# Agent tools moved under Agentic. Keep the first launcher path working.
-if [[ $PAGE == defaults/agents ]]; then
-  PAGE=agentic/mcp
-fi
-
-HUB=${PAGE%%/*}
-if [[ -n $PAGE && $HUB != home && $HUB != monitor && $HUB != favorites && $HUB != appearance && $HUB != display && $HUB != windows && $HUB != workspaces && $HUB != bar && $HUB != notifications && $HUB != profiles && $HUB != input && $HUB != keybindings && $HUB != accessibility && $HUB != sound && $HUB != capture && $HUB != hardware && $HUB != drivers && $HUB != disks && $HUB != network && $HUB != bluetooth && $HUB != power && $HUB != idle && $HUB != defaults && $HUB != agentic && $HUB != applications && $HUB != software && $HUB != hooks && $HUB != system && $HUB != tweaks && $HUB != export && $HUB != accounts && $HUB != security && $HUB != services ]]; then
-  echo "Usage: atmos [home|monitor|favorites|appearance|display|hardware|drivers|windows|workspaces|input|keybindings|accessibility|sound|capture|disks|bar|notifications|profiles|defaults|agentic|applications|software|network|bluetooth|power|idle|security|accounts|hooks|tweaks|services|system|export][/theme|background|boot|gpu|cpu|npu|speedtest|wifi|bindings|rules|startup|environment|kernel|diagnostics|history|processes|memory|disk|traffic|sensors|mcp]" >&2
-  exit 1
-fi
-
-if [[ -n $PAGE ]]; then
-  export ATMOS_PAGE=$PAGE
-fi
-
-BACKEND=$(resolve_backend) || {
-  echo "atmos: missing ratmos. Build it with: cargo build --manifest-path \"$ROOT/backend/Cargo.toml\"" >&2
-  exit 1
-}
-export ATMOS_BACKEND=$BACKEND
-export ATMOS_BACKEND_ID=${ATMOS_BACKEND_ID:-omarchy}
-export ATMOS_ROOT=$ROOT
-export QS_APP_ID=dev.csfh.atmos
-# Qt logs this on every launch when xdg-desktop-portal already has a connection
-# for the desktop file name. It does not stop the window from opening.
-export QT_LOGGING_RULES="${QT_LOGGING_RULES:-qt.qpa.services=false}"
-
-# Every picker in Atmos is a native dialog, and Omarchy sets
-# QT_QPA_PLATFORMTHEME=gtk3 for the whole session
-# (/usr/share/omarchy/default/hypr/envs.lua). That combination dlopens
-# libgtk-3 into a quickshell linked against jemalloc, and the first picker
-# aborts the process in g_malloc -- "failed to allocate 8 bytes" with
-# gigabytes free -- so Omafile, Hooks, Background, Boot, Network, Bar,
-# Accounts and Diagnostics all take the window down with them.
-# The portal dialog runs out of process, so the allocators never meet.
-# Upstream: quickshell-mirror/quickshell#1010.
-if [[ ${QT_QPA_PLATFORMTHEME:-} == gtk3 ]]; then
-  export QT_QPA_PLATFORMTHEME=xdgdesktopportal
-fi
-
-# No -n duplicate refusal and no focus-stealing: each launch owns its
-# window. The shared QS_APP_ID keeps the Hyprland window rule matching;
-# concurrent engines with the same id open fine (the portal log is noise).
-exec quickshell -p "$ROOT"
+done
+echo "atmos: missing ratmos. Build it with: cargo build --release --manifest-path \"$ROOT/backend/Cargo.toml\"" >&2
+exit 1

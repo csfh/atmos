@@ -1,120 +1,68 @@
-const { load, assert, assertEqual } = require("./harness");
+// `ratmos mcp` end to end: JSON-RPC lines in, JSON-RPC lines out, on the plain
+// backend under a fixture root so nothing touches the machine running the test.
+const fs = require("fs");
+const os = require("os");
+const path = require("path");
+const { spawnSync } = require("child_process");
+const { assert, assertEqual } = require("./harness");
+const { ratmosBinary } = require("./sandbox");
 
-const mcp = load("services/Mcp.js");
-
-function round(line, call) {
-  let out = "missing";
-  mcp.handleMessage(mcp.decodeMessage(line), call || function () {}, function (response) {
-    out = response;
-  });
-  return out;
-}
-
-function callMessage(id, name, args) {
-  return JSON.stringify({
+const root = fs.mkdtempSync(path.join(os.tmpdir(), "atmos-mcp-"));
+const lines = [
+  { jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-06-18" } },
+  { jsonrpc: "2.0", method: "notifications/initialized" },
+  { jsonrpc: "2.0", id: 2, method: "tools/list" },
+  { jsonrpc: "2.0", id: 3, method: "tools/call", params: { name: "list", arguments: {} } },
+  {
     jsonrpc: "2.0",
-    id: id,
+    id: 4,
     method: "tools/call",
-    params: { name: name, arguments: args || {} },
-  });
-}
-
-function textOf(response) {
-  return JSON.parse(response.result.content[0].text);
-}
-
-const init = round(
-  JSON.stringify({
-    jsonrpc: "2.0",
-    id: 1,
-    method: "initialize",
-    params: { protocolVersion: "2025-06-18", capabilities: {} },
-  }),
-);
-assertEqual(init.result.protocolVersion, "2025-06-18", "initialize echoes a known version");
-assertEqual(init.result.serverInfo.name, "atmos", "initialize names the atmos server");
-
-const fallback = round(
-  JSON.stringify({
-    jsonrpc: "2.0",
-    id: "abc",
-    method: "initialize",
-    params: { protocolVersion: "1999-01-01" },
-  }),
-);
-assertEqual(fallback.id, "abc", "initialize keeps a string id");
-assertEqual(fallback.result.protocolVersion, "2024-11-05", "an unknown version falls back");
-
-const listed = round(JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list" }));
-const names = listed.result.tools.map(function (tool) {
-  return tool.name;
-});
-assertEqual(
-  names.join(","),
-  "list,snapshot,get,set,displays,sample,diagnostics",
-  "tools/list names the seven tools",
-);
-
-let snapshotBody = null;
-const snapshot = round(
-  callMessage(3, "snapshot", { group: "look", keys: ["theme"] }),
-  function (body, done) {
-    snapshotBody = body;
-    done({ ok: true, result: { theme: "x" } });
+    params: { name: "set", arguments: { domain: "theme", value: "tokyo-night" } },
   },
-);
-assertEqual(snapshotBody.op, "settings.snapshot", "snapshot encodes settings.snapshot");
-assertEqual(snapshotBody.group, "look", "snapshot keeps the group");
-assertEqual(snapshotBody.keys[0], "theme", "snapshot keeps the keys");
-assertEqual(textOf(snapshot).theme, "x", "snapshot returns the serve result");
+  {
+    jsonrpc: "2.0",
+    id: 5,
+    method: "tools/call",
+    params: { name: "set", arguments: { domain: "passwordlessSudo", value: true } },
+  },
+  {
+    jsonrpc: "2.0",
+    id: 6,
+    method: "tools/call",
+    params: { name: "get", arguments: { domain: "theme" } },
+  },
+];
 
-let trustCalls = 0;
-const trust = round(callMessage(4, "set", { domain: "sshdEnabled", value: true }), function () {
-  trustCalls += 1;
-});
-assertEqual(trustCalls, 0, "a trust set does not call serve");
-assert(trust.result.isError === true, "a trust set is a tool error");
-assert(
-  textOf(trust).error.message.indexOf("sshdEnabled is refused") !== -1,
-  "a trust set says the domain is refused",
-);
-
-const bodies = [];
-const set = round(callMessage(5, "set", { domain: "theme", value: "next" }), function (body, done) {
-  bodies.push(body.op);
-  if (body.op === "settings.get") done({ ok: true, result: "old" });
-  else
-    done({
-      ok: true,
-      result: { domain: "theme", value: "next", file: "theme", encoding: "map" },
-    });
-});
-assertEqual(bodies.join(","), "settings.get,settings.set", "a set reads before it writes");
-assertEqual(textOf(set).previous, "old", "a set returns the previous value");
-assertEqual(textOf(set).value, "next", "a set returns the value serve read back");
-
-const failed = round(callMessage(6, "get", { domain: "theme" }), function (body, done) {
-  done({ ok: false, error: { code: "denied", message: "no" } });
-});
-assert(failed.result.isError === true, "a failed envelope sets isError");
-assertEqual(textOf(failed).error.message, "no", "a failed envelope keeps the message");
-
-const note = round(
-  JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" }),
-  function () {},
-);
-assertEqual(note, null, "a notification returns null");
-
-assertEqual(mcp.decodeMessage("nonsense").type, "invalid", "junk is invalid");
-
-const tagged = round(callMessage(7, "list"), function (body, done) {
-  done({
-    ok: true,
-    result: [
-      { domain: "theme", type: "string" },
-      { domain: "sshdEnabled", type: "bool" },
-    ],
+try {
+  const run = spawnSync(ratmosBinary(), ["--backend", "plain", "--root", root, "mcp"], {
+    encoding: "utf8",
+    input: lines.map((l) => JSON.stringify(l)).join("\n") + "\n",
+    timeout: 20000,
   });
-});
-assertEqual(textOf(tagged)[0].writable, true, "an ordinary domain is writable");
-assertEqual(textOf(tagged)[1].writable, false, "a trust domain is tagged writable false");
+  assertEqual(run.status, 0, "ratmos mcp exits when its input closes");
+  const replies = run.stdout
+    .split("\n")
+    .filter(Boolean)
+    .map((l) => JSON.parse(l));
+  const byId = (id) => replies.find((r) => r.id === id);
+  assertEqual(replies.length, 6, "a notification gets no reply");
+  assertEqual(byId(1).result.protocolVersion, "2025-06-18", "initialize negotiates the version");
+  assertEqual(byId(2).result.tools.length, 7, "seven tools are listed");
+  const payload = (id) => JSON.parse(byId(id).result.content[0].text);
+  const list = payload(3);
+  assert(
+    list.some((row) => row.domain === "theme" && row.writable === true),
+    "list tags theme writable",
+  );
+  assert(
+    list.some((row) => row.domain === "passwordlessSudo" && row.writable === false),
+    "list tags a trust domain read-only",
+  );
+  const set = payload(4);
+  assertEqual(set.value, "tokyo-night", "set writes through the real writer");
+  assert("previous" in set, "set reports the previous value");
+  assertEqual(byId(5).result.isError, true, "a trust domain is refused");
+  assertEqual(payload(6), "tokyo-night", "get reads the value back");
+} finally {
+  fs.rmSync(root, { recursive: true, force: true });
+}

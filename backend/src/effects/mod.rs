@@ -11,7 +11,7 @@
 
 use crate::error::{Error, Result};
 use crate::fsutil::atomic_write_text as atomic_text;
-use crate::runner::{Run, COMMAND_TIMEOUT};
+use crate::runner::Run;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -33,7 +33,6 @@ pub use self::live::after_write;
 
 use self::audio::*;
 use self::env::*;
-use self::live::*;
 use self::mime::*;
 use self::sunset::*;
 use self::system::*;

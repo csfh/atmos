@@ -1,7 +1,3 @@
-const { spawnSync } = require("child_process");
-const fs = require("fs");
-const os = require("os");
-const path = require("path");
 const { load, assert, assertEqual } = require("./harness");
 
 const sunset = load("services/HyprSunset.js");
@@ -109,55 +105,3 @@ assertEqual(
   "06:30",
   "parseConf strips an inline comment after a time",
 );
-
-// snapshot.sh's look dump uses the same rules. Fail if the inline Python
-// starts treating a commented night profile as live again.
-function pythonParseConf(text) {
-  const sh = fs.readFileSync(path.join(__dirname, "..", "scripts", "snapshot.sh"), "utf8");
-  const fn = sh.indexOf("parse_hyprsunset_conf()");
-  assert(fn !== -1, "snapshot.sh defines parse_hyprsunset_conf");
-  const marker = sh.indexOf("<<'PY'", fn);
-  const begin = sh.indexOf("\n", marker) + 1;
-  const end = sh.indexOf("\nPY\n", begin);
-  const py = sh.substring(begin, end);
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "atmos-sunset-"));
-  const file = path.join(dir, "hyprsunset.conf");
-  let line = "";
-  try {
-    fs.writeFileSync(file, text);
-    const result = spawnSync("python3", ["-", file], { input: py, encoding: "utf8" });
-    assertEqual(result.status, 0, "snapshot.sh hyprsunset parser exits 0");
-    line = String(result.stdout || "").replace(/^\s+|\s+$/g, "");
-  } finally {
-    fs.rmSync(dir, { recursive: true, force: true });
-  }
-  const parts = line.split("\t");
-  return {
-    day: parts[0] || "",
-    night: parts[1] || "",
-    nightOn: parts[2] === "true",
-    temperature: Number(parts[3] || 0),
-  };
-}
-
-const fromPython = pythonParseConf(omarchyDefault);
-assertEqual(fromPython.day, "07:00", "snapshot.sh reads a live day profile next to comments");
-assertEqual(fromPython.nightOn, false, "snapshot.sh ignores Omarchy's commented-out night profile");
-assertEqual(
-  fromPython.night,
-  "",
-  "snapshot.sh leaves night empty when the night profile is commented",
-);
-const liveNight = pythonParseConf(`
-profile {
-    time = 06:30
-    identity = true
-}
-profile {
-    time = 21:00
-    temperature = 3800
-}
-`);
-assertEqual(liveNight.nightOn, true, "snapshot.sh still sees a live night profile");
-assertEqual(liveNight.night, "21:00", "snapshot.sh pads and keeps a live night time");
-assertEqual(liveNight.temperature, 3800, "snapshot.sh reads a live night temperature");

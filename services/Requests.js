@@ -12,6 +12,7 @@ var OPS = [
   "settings.snapshot",
   "display.get",
   "display.snapshot",
+  "search.query",
   "host.chrome",
   "host.themePack",
   "host.accounts",
@@ -47,6 +48,19 @@ function displayGet(kind) {
 
 function displaySnapshot() {
   return { op: "display.snapshot" };
+}
+
+// context is Hubs.searchContext(): the hubs, page files, folder rules and titles.
+function searchQuery(query, context) {
+  var ctx = context && typeof context === "object" ? context : {};
+  return {
+    op: "search.query",
+    query: String(query || ""),
+    hubs: Array.isArray(ctx.hubs) ? ctx.hubs : [],
+    files: ctx.files && typeof ctx.files === "object" ? ctx.files : {},
+    prefixes: Array.isArray(ctx.prefixes) ? ctx.prefixes : [],
+    titles: ctx.titles && typeof ctx.titles === "object" ? ctx.titles : {},
+  };
 }
 
 function hostChrome() {

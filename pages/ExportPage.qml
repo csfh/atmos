@@ -15,7 +15,6 @@ PrefsPage {
   description: "An Omafile is this Omarchy system's configuration as a Markdown file. Write one to share the desktop, or apply one from another machine. Review every change before anything happens."
 
   readonly property string home: Quickshell.env("HOME")
-  readonly property string applyScript: Omarchy.shellDir + "/scripts/apply-settings.sh"
   // Regenerated on use rather than held, so the stamp is the moment you
   // exported and not the moment the page happened to load.
   function suggestedName() {
@@ -184,7 +183,7 @@ PrefsPage {
   }
 
   // One queued job. enqueueIo prompts for sudo when the plan needs root,
-  // then apply-settings.sh --progress names each change on stdout.
+  // then `ratmos settings-apply --progress` names each change on stdout.
   function doApply() {
     if (!root.planHasChanges) return
     root.pendingApply = true
@@ -194,7 +193,7 @@ PrefsPage {
     root.stepTotal = root.plan.changes.length
     root.stepKey = ""
     root.lastUndoNeedsRoot = SettingsJs.passwordCount(root.plan) > 0
-    Omarchy.runJob(["bash", root.applyScript, "--progress"], SettingsJs.planToJson(root.plan), "settings-import", {
+    Omarchy.runJob(Backend.task("settings-apply", ["--progress"]), SettingsJs.planToJson(root.plan), "settings-import", {
       sudo: root.lastUndoNeedsRoot,
       onStdoutLine: root.onApplyStdout,
       onFinished: root.onApplyFinished
@@ -211,7 +210,7 @@ PrefsPage {
     root.stepKey = ""
     // --no-backup, or undoing would leave a way back of its own and a
     // second undo would put the import straight back.
-    Omarchy.runJob(["bash", root.applyScript, "--no-backup", "--plan", root.lastBackupDir + "/undo.json"], "", "settings-undo", {
+    Omarchy.runJob(Backend.task("settings-apply", ["--no-backup", "--plan", root.lastBackupDir + "/undo.json"]), "", "settings-undo", {
       sudo: root.lastUndoNeedsRoot,
       onStdoutLine: root.onApplyStdout,
       onFinished: root.onApplyFinished

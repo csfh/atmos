@@ -38,23 +38,38 @@ fn display_kinds_return_fixture_identity() {
 }
 
 #[test]
-fn display_finds_scripts_without_atmos_root() {
-    let output = Command::new(env!("CARGO_BIN_EXE_ratmos"))
-        .env_remove("ATMOS_ROOT")
-        .args(["--backend", "omarchy", "display", "diagnostics"])
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .output()
-        .expect("spawn ratmos");
-    let err = String::from_utf8_lossy(&output.stderr);
-    assert!(
-        !err.contains("ATMOS_ROOT is not set"),
-        "display should walk to scripts/\n{err}"
-    );
-    if output.status.success() {
+fn display_collects_natively_without_atmos_root_or_scripts() {
+    for kind in [
+        "live",
+        "hardware",
+        "disks",
+        "services",
+        "software",
+        "diagnostics",
+    ] {
+        let output = Command::new(env!("CARGO_BIN_EXE_ratmos"))
+            .env_remove("ATMOS_ROOT")
+            .env("PATH", "/nonexistent")
+            .args(["--backend", "omarchy", "display", kind])
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .output()
+            .expect("spawn ratmos");
+        let err = String::from_utf8_lossy(&output.stderr);
+        assert!(output.status.success(), "{kind} failed\n{err}");
         let value: serde_json::Value =
             serde_json::from_slice(&output.stdout).expect("display json");
-        assert_eq!(value["collector"], "diag-inventory.py");
+        assert_eq!(
+            value["collector"],
+            format!(
+                "omarchy-{}",
+                match kind {
+                    "live" => "sampler",
+                    other => other,
+                }
+            )
+        );
+        assert!(value.is_object(), "{kind} is not an object");
     }
 }

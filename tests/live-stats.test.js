@@ -2,6 +2,7 @@ const fs = require("fs");
 const os = require("os");
 const path = require("path");
 const { spawnSync } = require("child_process");
+const { ratmosBinary } = require("./sandbox");
 const { load, assert, assertEqual } = require("./harness");
 
 const live = load("services/LiveStats.js");
@@ -360,76 +361,76 @@ write(
 write(path.join(fixture, "proc/202/status"), "Name:\troot\nUid:\t0\t0\t0\t0\nVmRSS:\t10 kB\n");
 write(path.join(fixture, "proc/202/cmdline"), "sshd\0");
 
-const py = spawnSync("python3", [path.join(__dirname, "..", "scripts", "live-stats.py")], {
+const py = spawnSync(ratmosBinary(), ["--backend", "omarchy", "display", "live"], {
   encoding: "utf8",
   env: { ...process.env, ATMOS_SYS_ROOT: fixture, ATMOS_UID: "1000" },
 });
-assertEqual(py.status, 0, "live-stats.py exits 0 on a fixture");
+assertEqual(py.status, 0, "ratmos live exits 0 on a fixture");
 const emitted = live.parse(py.stdout);
-assertEqual(emitted.cpuIdle, 80, "live-stats.py idle is idle+iowait");
-assertEqual(emitted.cpuTotal, 100, "live-stats.py total is the first eight fields");
-assertEqual(emitted.memUsed, 600, "live-stats.py used is total-available");
-assertEqual(emitted.netRx, 500, "live-stats.py skips loopback rx");
-assert(emitted.processes.length >= 1, "live-stats.py emits readable processes");
+assertEqual(emitted.cpuIdle, 80, "ratmos live idle is idle+iowait");
+assertEqual(emitted.cpuTotal, 100, "ratmos live total is the first eight fields");
+assertEqual(emitted.memUsed, 600, "ratmos live used is total-available");
+assertEqual(emitted.netRx, 500, "ratmos live skips loopback rx");
+assert(emitted.processes.length >= 1, "ratmos live emits readable processes");
 const firefox = emitted.processes.find(function (row) {
   return row.pid === 200;
 });
-assert(!!firefox, "live-stats.py emits firefox");
-assertEqual(firefox.ticks, 40, "live-stats.py ticks are utime+stime");
-assertEqual(firefox.state, "S", "live-stats.py reads process state");
-assertEqual(firefox.mine, true, "live-stats.py marks this user's process mine");
-assertEqual(firefox.threads, 1, "live-stats.py reads thread count");
+assert(!!firefox, "ratmos live emits firefox");
+assertEqual(firefox.ticks, 40, "ratmos live ticks are utime+stime");
+assertEqual(firefox.state, "S", "ratmos live reads process state");
+assertEqual(firefox.mine, true, "ratmos live marks this user's process mine");
+assertEqual(firefox.threads, 1, "ratmos live reads thread count");
 const kworker = emitted.processes.find(function (row) {
   return row.pid === 201;
 });
-assert(!!kworker && kworker.kthread === true, "live-stats.py keeps a kthread flagged");
-assertEqual(emitted.cpuTemp, null, "live-stats.py has no thermal on a bare fixture");
-assertEqual(Array.isArray(emitted.gpus), true, "live-stats.py emits a GPU list");
-assertEqual(emitted.gpus.length, 0, "live-stats.py has no DRM cards on a bare fixture");
-assertEqual(Array.isArray(emitted.cpus), true, "live-stats.py emits per-core counters");
-assertEqual(emitted.cpus.length, 2, "live-stats.py reads cpu0 and cpu1");
-assertEqual(emitted.load1, 0.5, "live-stats.py reads loadavg");
-assertEqual(emitted.ifaces.length, 1, "live-stats.py keeps non-loopback interfaces");
-assertEqual(emitted.ifaces[0].name, "eth0", "live-stats.py names eth0");
-assertEqual(emitted.disks.length, 1, "live-stats.py skips partition sda1");
-assertEqual(emitted.disks[0].name, "sda", "live-stats.py keeps the whole disk");
-assertEqual(emitted.disks[0].readSectors, 2000, "live-stats.py reads sectors");
-assertEqual(emitted.psi.cpu, 1.25, "live-stats.py reads PSI avg10");
-assertEqual(emitted.tcp.listen, 1, "live-stats.py counts LISTEN");
-assertEqual(emitted.tcp.established, 1, "live-stats.py counts ESTABLISHED");
-assertEqual(Array.isArray(emitted.sensors), true, "live-stats.py emits sensors");
-assertEqual(emitted.memSlab, 40, "live-stats.py reads Slab");
-assertEqual(emitted.memFile, 50, "live-stats.py sums Active(file) and Inactive(file)");
+assert(!!kworker && kworker.kthread === true, "ratmos live keeps a kthread flagged");
+assertEqual(emitted.cpuTemp, null, "ratmos live has no thermal on a bare fixture");
+assertEqual(Array.isArray(emitted.gpus), true, "ratmos live emits a GPU list");
+assertEqual(emitted.gpus.length, 0, "ratmos live has no DRM cards on a bare fixture");
+assertEqual(Array.isArray(emitted.cpus), true, "ratmos live emits per-core counters");
+assertEqual(emitted.cpus.length, 2, "ratmos live reads cpu0 and cpu1");
+assertEqual(emitted.load1, 0.5, "ratmos live reads loadavg");
+assertEqual(emitted.ifaces.length, 1, "ratmos live keeps non-loopback interfaces");
+assertEqual(emitted.ifaces[0].name, "eth0", "ratmos live names eth0");
+assertEqual(emitted.disks.length, 1, "ratmos live skips partition sda1");
+assertEqual(emitted.disks[0].name, "sda", "ratmos live keeps the whole disk");
+assertEqual(emitted.disks[0].readSectors, 2000, "ratmos live reads sectors");
+assertEqual(emitted.psi.cpu, 1.25, "ratmos live reads PSI avg10");
+assertEqual(emitted.tcp.listen, 1, "ratmos live counts LISTEN");
+assertEqual(emitted.tcp.established, 1, "ratmos live counts ESTABLISHED");
+assertEqual(Array.isArray(emitted.sensors), true, "ratmos live emits sensors");
+assertEqual(emitted.memSlab, 40, "ratmos live reads Slab");
+assertEqual(emitted.memFile, 50, "ratmos live sums Active(file) and Inactive(file)");
 assert(
   emitted.interrupts && emitted.interrupts.rows.length >= 2,
-  "live-stats.py reads /proc/interrupts",
+  "ratmos live reads /proc/interrupts",
 );
-assertEqual(emitted.interrupts.rows[0].values[0], 10, "live-stats.py keeps per-CPU IRQ counts");
+assertEqual(emitted.interrupts.rows[0].values[0], 10, "ratmos live keeps per-CPU IRQ counts");
 assert(
   emitted.softirqs && emitted.softirqs.rows[0].id === "NET_RX",
-  "live-stats.py reads /proc/softirqs",
+  "ratmos live reads /proc/softirqs",
 );
-assertEqual(emitted.buddy[0], 1, "live-stats.py reads /proc/buddyinfo order 0");
-assert(emitted.tcpSockets.length >= 2, "live-stats.py lists TCP sockets");
-assertEqual(firefox.fds, 2, "live-stats.py counts /proc/pid/fd");
+assertEqual(emitted.buddy[0], 1, "ratmos live reads /proc/buddyinfo order 0");
+assert(emitted.tcpSockets.length >= 2, "ratmos live lists TCP sockets");
+assertEqual(firefox.fds, 2, "ratmos live counts /proc/pid/fd");
 assert(
   emitted.cgroups && emitted.cgroups.value === 1000,
-  "live-stats.py reads cgroup memory.current",
+  "ratmos live reads cgroup memory.current",
 );
-assertEqual(emitted.rapl[0].uj, 5000000, "live-stats.py reads RAPL energy_uj");
-assertEqual(emitted.slabs[0].name, "kmalloc-8", "live-stats.py reads /proc/slabinfo");
-assertEqual(emitted.ifaces[0].rxPackets, 0, "live-stats.py reads netdev packet counters");
+assertEqual(emitted.rapl[0].uj, 5000000, "ratmos live reads RAPL energy_uj");
+assertEqual(emitted.slabs[0].name, "kmalloc-8", "ratmos live reads /proc/slabinfo");
+assertEqual(emitted.ifaces[0].rxPackets, 0, "ratmos live reads netdev packet counters");
 
 write(path.join(fixture, "sys/class/hwmon/hwmon0/name"), "coretemp\n");
 write(path.join(fixture, "sys/class/hwmon/hwmon0/temp1_input"), "0\n");
 write(path.join(fixture, "sys/class/thermal/thermal_zone0/type"), "acpitz\n");
 write(path.join(fixture, "sys/class/thermal/thermal_zone0/temp"), "41000\n");
-const zeroPy = spawnSync("python3", [path.join(__dirname, "..", "scripts", "live-stats.py")], {
+const zeroPy = spawnSync(ratmosBinary(), ["--backend", "omarchy", "display", "live"], {
   encoding: "utf8",
   env: { ...process.env, ATMOS_SYS_ROOT: fixture, ATMOS_UID: "1000" },
 });
-assertEqual(zeroPy.status, 0, "live-stats.py exits 0 when hwmon is zero");
-assertEqual(live.parse(zeroPy.stdout).cpuTemp, null, "live-stats.py does not invent 0 °C");
+assertEqual(zeroPy.status, 0, "ratmos live exits 0 when hwmon is zero");
+assertEqual(live.parse(zeroPy.stdout).cpuTemp, null, "ratmos live does not invent 0 °C");
 
 write(path.join(fixture, "sys/class/hwmon/hwmon0/temp1_input"), "83400\n");
 write(path.join(fixture, "sys/class/drm/card0/device/vendor"), "0x1002\n");
@@ -443,31 +444,31 @@ write(path.join(fixture, "sys/class/drm/card1/device/uevent"), "PCI_SLOT_NAME=00
 fs.symlinkSync("i915", path.join(fixture, "sys/class/drm/card1/device/driver"));
 write(path.join(fixture, "sys/class/drm/card0-DP-1/device/vendor"), "0x1002\n");
 
-const hotPy = spawnSync("python3", [path.join(__dirname, "..", "scripts", "live-stats.py")], {
+const hotPy = spawnSync(ratmosBinary(), ["--backend", "omarchy", "display", "live"], {
   encoding: "utf8",
   env: { ...process.env, ATMOS_SYS_ROOT: fixture, ATMOS_UID: "1000" },
 });
-assertEqual(hotPy.status, 0, "live-stats.py exits 0 with thermal fixtures");
+assertEqual(hotPy.status, 0, "ratmos live exits 0 with thermal fixtures");
 const hotEmit = live.parse(hotPy.stdout);
-assertEqual(hotEmit.cpuTemp, 83, "live-stats.py reads coretemp");
-assertEqual(hotEmit.gpus.length, 2, "live-stats.py skips DRM connectors");
-assertEqual(hotEmit.gpus[0].pciId, "1002:73ff", "live-stats.py emits a GPU pciId");
-assertEqual(hotEmit.gpus[0].driver, "amdgpu", "live-stats.py reads the DRM driver");
-assertEqual(hotEmit.gpus[0].temp, 61, "live-stats.py reads amdgpu hwmon");
-assertEqual(hotEmit.gpus[0].integrated, false, "live-stats.py marks amdgpu discrete");
-assertEqual(hotEmit.gpus[1].driver, "i915", "live-stats.py reads i915");
-assertEqual(hotEmit.gpus[1].temp, null, "live-stats.py leaves i915 without a sensor unknown");
-assertEqual(hotEmit.gpus[1].integrated, true, "live-stats.py marks i915 integrated");
+assertEqual(hotEmit.cpuTemp, 83, "ratmos live reads coretemp");
+assertEqual(hotEmit.gpus.length, 2, "ratmos live skips DRM connectors");
+assertEqual(hotEmit.gpus[0].pciId, "1002:73ff", "ratmos live emits a GPU pciId");
+assertEqual(hotEmit.gpus[0].driver, "amdgpu", "ratmos live reads the DRM driver");
+assertEqual(hotEmit.gpus[0].temp, 61, "ratmos live reads amdgpu hwmon");
+assertEqual(hotEmit.gpus[0].integrated, false, "ratmos live marks amdgpu discrete");
+assertEqual(hotEmit.gpus[1].driver, "i915", "ratmos live reads i915");
+assertEqual(hotEmit.gpus[1].temp, null, "ratmos live leaves i915 without a sensor unknown");
+assertEqual(hotEmit.gpus[1].integrated, true, "ratmos live marks i915 integrated");
 
 // Apple Silicon: the Asahi render GPU has no PCI vendor file and is on the SoC.
 write(path.join(fixture, "sys/class/drm/card2/device/uevent"), "OF_NAME=gpu\n");
 fs.symlinkSync("asahi", path.join(fixture, "sys/class/drm/card2/device/driver"));
-const asahiPy = spawnSync("python3", [path.join(__dirname, "..", "scripts", "live-stats.py")], {
+const asahiPy = spawnSync(ratmosBinary(), ["--backend", "omarchy", "display", "live"], {
   encoding: "utf8",
   env: { ...process.env, ATMOS_SYS_ROOT: fixture, ATMOS_UID: "1000" },
 });
 const asahi = live.parse(asahiPy.stdout).gpus.find((gpu) => gpu.driver === "asahi");
-assertEqual(asahi.integrated, true, "live-stats.py marks the Asahi GPU integrated");
-assertEqual(asahi.name, "Apple", "live-stats.py brands the Asahi GPU without a PCI vendor");
+assertEqual(asahi.integrated, true, "ratmos live marks the Asahi GPU integrated");
+assertEqual(asahi.name, "Apple", "ratmos live brands the Asahi GPU without a PCI vendor");
 
 fs.rmSync(fixture, { recursive: true, force: true });

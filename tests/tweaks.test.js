@@ -96,11 +96,10 @@ const bootPage = fs.readFileSync(
 );
 assert(bootPage.indexOf("Direct EFI boot") === -1, "Boot screen no longer hosts Direct EFI boot");
 
-const script = path.join(__dirname, "..", "scripts", "set-tweaks.sh");
-assert(fs.existsSync(script), "set-tweaks.sh exists");
+const { ratmosBinary } = require("./sandbox");
 
 function runTweaks(action, mode, env) {
-  return spawnSync("bash", [script, action, mode], {
+  return spawnSync(ratmosBinary(), ["task", "set-tweaks", action, mode], {
     encoding: "utf8",
     env: Object.assign({}, process.env, env),
   });
@@ -160,10 +159,14 @@ result = runTweaks("swappiness", "off", { ATMOS_SYSCTL_FILE: sysctlFile });
 assertEqual(result.status, 0, "swappiness off exits 0");
 assertEqual(fs.existsSync(sysctlFile), false, "swappiness off removes the drop-in");
 
-const threeArg = spawnSync("bash", [script, "gtk-middle-paste", "unused", "off"], {
-  encoding: "utf8",
-  env: Object.assign({}, process.env, { ATMOS_GTK4_FILE: gtkFile }),
-});
+const threeArg = spawnSync(
+  ratmosBinary(),
+  ["task", "set-tweaks", "gtk-middle-paste", "unused", "off"],
+  {
+    encoding: "utf8",
+    env: Object.assign({}, process.env, { ATMOS_GTK4_FILE: gtkFile }),
+  },
+);
 assertEqual(threeArg.status, 0, "a leftover $3 off does not abort");
 assertEqual(fs.existsSync(gtkFile), true, "mode is $2, so a $3 off does not take the reset path");
 

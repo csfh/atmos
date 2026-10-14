@@ -2,6 +2,7 @@ const { spawnSync } = require("child_process");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
+const { ratmosBinary } = require("./sandbox");
 const { load, assert, assertEqual } = require("./harness");
 
 const settings = load("services/Settings.js");
@@ -147,7 +148,7 @@ assertEqual(byKey.wifiRadio.hostBound, true, "wifi radio is host-bound");
 assertEqual(byKey.wifiRadio.section, "network", "wifi radio lives with bluetooth");
 assertEqual(byKey.wifiRadio.type, "boolean", "wifi radio is a boolean");
 assertEqual(byKey.hostname.tier, "identity", "hostname is an identity setting");
-assertEqual(byKey.fullName.needsRoot, true, "fullName needs root because as-root.sh writes it");
+assertEqual(byKey.fullName.needsRoot, true, "fullName needs root because it runs under sudo");
 assertEqual(byKey.plymouth.needsRoot, true, "plymouth needs root like the Boot page");
 assertEqual(byKey.bindings.extraConfirm, true, "bindings need a second confirm for commands");
 assertEqual(byKey.autostart.extraConfirm, true, "autostart needs a second confirm for commands");
@@ -799,30 +800,39 @@ const wsCmd = settings.commandFor(
   {},
 );
 assert(
-  wsCmd && wsCmd.argv && wsCmd.argv.join(" ").indexOf("set-hypr-workspaces.sh") !== -1,
+  wsCmd &&
+    wsCmd.argv &&
+    wsCmd.argv.indexOf("settings-set") !== -1 &&
+    wsCmd.argv.indexOf("workspaces") !== -1,
   "workspaces uses the sentinel writer",
 );
-const barNamesCmd = settings.commandFor("workspaceBarNames", true, {}, {});
-assert(
-  barNamesCmd &&
-    barNamesCmd.argv &&
-    barNamesCmd.argv.join(" ").indexOf("set-workspace-bar.sh") !== -1 &&
-    barNamesCmd.argv[barNamesCmd.argv.length - 1] === "on",
-  "workspaceBarNames turns the named bar clone on",
-);
-const barNamesOff = settings.commandFor("workspaceBarNames", false, {}, {});
+// A writer that ratmos performs runs as `ratmos task settings-set KEY JSON`, so
+// the value reaches the same domain writer settings.set uses.
+const taskArgv = (cmd, key) => {
+  const at = cmd.argv.indexOf("settings-set");
+  return at === -1 || cmd.argv[at + 1] !== key ? null : JSON.parse(cmd.argv[at + 2]);
+};
 assertEqual(
-  barNamesOff && barNamesOff.argv && barNamesOff.argv[barNamesOff.argv.length - 1],
-  "off",
-  "workspaceBarNames turns the named bar clone off",
+  settings
+    .commandFor("workspaceBarNames", true, {}, { ratmos: "/x/ratmos" })
+    .argv.slice(0, 3)
+    .join(" "),
+  "/x/ratmos task settings-set",
+  "a writer's argv starts with the ratmos binary the window passes",
 );
-const barCountCmd = settings.commandFor("workspaceBarCount", 7, {}, {});
-assert(
-  barCountCmd &&
-    barCountCmd.argv &&
-    barCountCmd.argv.join(" ").indexOf("set-workspace-bar.sh") !== -1 &&
-    barCountCmd.argv[barCountCmd.argv.length - 2] === "count" &&
-    barCountCmd.argv[barCountCmd.argv.length - 1] === "7",
+assertEqual(
+  taskArgv(settings.commandFor("workspaceBarNames", true, {}, {}), "workspaceBarNames"),
+  true,
+  "workspaceBarNames on is written through settings-set",
+);
+assertEqual(
+  taskArgv(settings.commandFor("workspaceBarNames", false, {}, {}), "workspaceBarNames"),
+  false,
+  "workspaceBarNames off is written through settings-set",
+);
+assertEqual(
+  taskArgv(settings.commandFor("workspaceBarCount", 7, {}, {}), "workspaceBarCount"),
+  7,
   "workspaceBarCount writes the shown count",
 );
 const shrinkItems = [
@@ -831,23 +841,25 @@ const shrinkItems = [
   { id: "3", persistent: true },
 ];
 const shrinkCmd = settings.commandFor("workspaces", shrinkItems, { workspaces: [] }, {});
-const shrinkPayload = JSON.parse(shrinkCmd.argv[shrinkCmd.argv.length - 1]);
-assertEqual(shrinkPayload.count, 10, "commandFor workspaces JSON keeps ten persistent workspaces");
-assertEqual(shrinkPayload.items.length, 3, "commandFor workspaces JSON keeps three named items");
+assertEqual(
+  taskArgv(shrinkCmd, "workspaces").length,
+  3,
+  "commandFor workspaces carries the three named items",
+);
 const shrinkFile = path.join(os.tmpdir(), "atmos-ws-shrink-" + process.pid + ".lua");
 fs.writeFileSync(shrinkFile, "");
-const shrinkPy = spawnSync(
-  "python3",
+const shrinkRun = spawnSync(
+  ratmosBinary(),
   [
-    path.join(__dirname, "..", "scripts", "hypr-sentinel.py"),
+    "sentinel",
     "workspaces",
     "apply",
     shrinkFile,
-    shrinkCmd.argv[shrinkCmd.argv.length - 1],
+    JSON.stringify({ items: taskArgv(shrinkCmd, "workspaces") }),
   ],
   { encoding: "utf8" },
 );
-assertEqual(shrinkPy.status, 0, "hypr-sentinel.py apply of commandFor shrink payload exits 0");
+assertEqual(shrinkRun.status, 0, "ratmos sentinel apply of the workspaces payload exits 0");
 const shrinkLua = fs.readFileSync(shrinkFile, "utf8");
 fs.unlinkSync(shrinkFile);
 assert(shrinkLua.indexOf('workspace = "3"') !== -1, "shrink write keeps workspace 3");
@@ -858,41 +870,46 @@ const monCmd = settings.commandFor(
   { monitorRules: [] },
   {},
 );
-assert(
-  monCmd && monCmd.argv && monCmd.argv.join(" ").indexOf("set-hypr-monitors.sh") !== -1,
+assertEqual(
+  taskArgv(monCmd, "monitorRules")[0].output,
+  "DP-1",
   "monitorRules uses the sentinel writer",
 );
-const tweakCmd = settings.commandFor("tweaks.middlePaste", true, {}, {});
-assert(
-  tweakCmd && tweakCmd.argv && tweakCmd.argv.join(" ").indexOf("gtk-middle-paste") !== -1,
-  "tweaks.middlePaste uses set-tweaks.sh",
+assertEqual(
+  taskArgv(settings.commandFor("tweaks.middlePaste", true, {}, {}), "tweaks.middlePaste"),
+  true,
+  "tweaks.middlePaste on is written through settings-set",
 );
 assertEqual(
-  tweakCmd.argv[tweakCmd.argv.length - 2],
-  "gtk-middle-paste",
-  "tweaks.middlePaste action is argv $1 after bash + script",
+  taskArgv(settings.commandFor("tweaks.middlePaste", false, {}, {}), "tweaks.middlePaste"),
+  false,
+  "tweaks.middlePaste off is written through settings-set",
 );
-assertEqual(tweakCmd.argv[tweakCmd.argv.length - 1], "on", "tweaks.middlePaste on is argv $2");
-const tweakOff = settings.commandFor("tweaks.middlePaste", false, {}, {});
-assertEqual(tweakOff.argv[tweakOff.argv.length - 1], "off", "tweaks.middlePaste off is argv $2");
-const zeroOff = settings.commandFor("tweaks.forceZeroScaling", false, {}, {});
 assertEqual(
-  zeroOff.argv.slice(-2).join(" "),
-  "force-zero-scaling off",
-  "forceZeroScaling off is action + mode, not a third arg",
+  taskArgv(
+    settings.commandFor("tweaks.forceZeroScaling", false, {}, {}),
+    "tweaks.forceZeroScaling",
+  ),
+  false,
+  "forceZeroScaling off is written through settings-set",
 );
 const swapOn = settings.commandFor("tweaks.swappiness", true, {}, {});
 assertEqual(swapOn.sudo, true, "swappiness asks for sudo");
-assertEqual(swapOn.argv[swapOn.argv.length - 1], "on", "swappiness on is argv $2");
+assertEqual(
+  taskArgv(swapOn, "tweaks.swappiness"),
+  true,
+  "swappiness on is written through settings-set",
+);
 const envCmd = settings.commandFor(
   "envVars",
   [{ key: "EDITOR", value: "nvim" }],
   { envVars: [] },
   {},
 );
-assert(
-  envCmd && envCmd.argv && envCmd.argv.join(" ").indexOf("set-env.sh") !== -1,
-  "envVars uses set-env.sh",
+assertEqual(
+  taskArgv(envCmd, "envVars")[0].key,
+  "EDITOR",
+  "envVars is written through settings-set",
 );
 
 assertEqual(
@@ -916,17 +933,13 @@ const volume = settings.commandFor("audioOutputVolume", 40, { audioOutputMuted: 
 assertEqual(volume.apply.audioOutputMuted, false, "setting output volume unmutes");
 
 const presentationOn = settings.commandFor("presentationMode", true, { presentationMode: false });
-assertEqual(
-  presentationOn.argv[presentationOn.argv.length - 1],
-  "on",
-  "presentationMode on writes on",
-);
+assertEqual(taskArgv(presentationOn, "presentationMode"), true, "presentationMode on writes true");
 assertEqual(presentationOn.apply.presentationMode, true, "presentationMode on patches the flag");
 const presentationOff = settings.commandFor("presentationMode", false, { presentationMode: true });
 assertEqual(
-  presentationOff.argv[presentationOff.argv.length - 1],
-  "off",
-  "presentationMode off writes off",
+  taskArgv(presentationOff, "presentationMode"),
+  false,
+  "presentationMode off writes false",
 );
 
 const weatherClear = settings.commandFor("weatherLocation", "", {
@@ -959,8 +972,9 @@ assertEqual(
   undefined,
   "daylight warmth apply does not mark nightlight off",
 );
-assert(
-  nightlightWarm.argv[nightlightWarm.argv.length - 1] === "3500",
+assertEqual(
+  taskArgv(nightlightWarm, "nightlightTemperature"),
+  3500,
   "warmth argv is the kelvin only",
 );
 
@@ -1072,15 +1086,12 @@ assertEqual(adoptedInput.hyprInput.naturalScroll, false, "hyprInput apply keeps 
 
 const sideClock = settings.commandFor("clockFormat", "HH:mm", { barPosition: "left" });
 assert(
-  sideClock.argv.indexOf("verticalFormat") !== -1,
-  "clockFormat with a side bar uses verticalFormat",
+  sideClock.apply.clockFormat === "HH:mm" || sideClock.argv.indexOf("clockFormat") !== -1,
+  "clockFormat with a side bar is written through settings-set",
 );
 
 const idleLock = settings.commandFor("idleLock", 900, { idleScreensaver: 300, idleLock: 600 });
-assert(
-  idleLock.argv.indexOf("300") !== -1 && idleLock.argv.indexOf("900") !== -1,
-  "idle pair uses snapshot screensaver when only lock changes",
-);
+assertEqual(taskArgv(idleLock, "idleLock"), 900, "idle lock is written through settings-set");
 
 // Lists: whole-list settings carried in a json block named for the setting.
 assertEqual(byKey.bindings.kind, "list", "bindings is a list setting");

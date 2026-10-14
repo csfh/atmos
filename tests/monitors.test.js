@@ -2,6 +2,7 @@ const { spawnSync } = require("child_process");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
+const { ratmosBinary } = require("./sandbox");
 const { load, assert, assertEqual } = require("./harness");
 
 const mon = load("services/Monitors.js");
@@ -64,17 +65,11 @@ const tmp = path.join(os.tmpdir(), "atmos-mon-" + process.pid + ".lua");
 fs.writeFileSync(tmp, "");
 const payload = { items: [row] };
 const py = spawnSync(
-  "python3",
-  [
-    path.join(__dirname, "..", "scripts", "hypr-sentinel.py"),
-    "monitors",
-    "apply",
-    tmp,
-    JSON.stringify(payload),
-  ],
+  ratmosBinary(),
+  ["sentinel", "monitors", "apply", tmp, JSON.stringify(payload)],
   { encoding: "utf8" },
 );
-assertEqual(py.status, 0, "hypr-sentinel.py monitors apply exits 0");
+assertEqual(py.status, 0, "ratmos sentinel monitors apply exits 0");
 const pyText = fs.readFileSync(tmp, "utf8");
 assertEqual(
   pyText.replace(/\s+$/, ""),

@@ -72,7 +72,7 @@ pub(super) fn audio_script(fixture: bool, action: &str, value: &Value) -> Result
         .as_i64()
         .ok_or_else(|| format!("{action} expects an int"))?
         .to_string();
-    run_bash(fixture, "set-audio.sh", &[action, &number])
+    crate::tasks::user::audio_with(action, &number, fixture)
 }
 
 #[cfg(test)]

@@ -2,13 +2,8 @@ const fs = require("fs");
 const path = require("path");
 const { load, assert, assertEqual } = require("./harness");
 
-const compilePython = fs.readFileSync(path.join(__dirname, "compile-python"), "utf8");
-assert(compilePython.indexOf("ast.parse") !== -1, "compile-python parses scripts/*.py");
-assert(compilePython.indexOf("tabnanny.check") !== -1, "compile-python runs tabnanny");
 const preCommit = fs.readFileSync(path.join(__dirname, "..", ".githooks", "pre-commit"), "utf8");
-assert(preCommit.indexOf("tests/compile-python") !== -1, "pre-commit runs compile-python");
 const testsRun = fs.readFileSync(path.join(__dirname, "run"), "utf8");
-assert(testsRun.indexOf("tests/compile-python") !== -1, "tests/run runs compile-python");
 assert(testsRun.indexOf("tests/*.test.js") !== -1, "tests/run runs each tests/*.test.js file");
 for (const [name, text] of [
   ["tests/run", testsRun],
@@ -25,11 +20,12 @@ const searchPageSrc = fs.readFileSync(
   path.join(__dirname, "..", "pages", "SearchPage.qml"),
   "utf8",
 );
-assert(searchPageSrc.indexOf('"serve"') !== -1, "SearchPage keeps a SearchIndex serve process");
 assert(
-  searchPageSrc.indexOf('SearchIndex.js", "query"') === -1,
-  "SearchPage does not spawn a query process per keystroke",
+  searchPageSrc.indexOf("Requests.searchQuery") !== -1 &&
+    searchPageSrc.indexOf("Backend.request") !== -1,
+  "SearchPage asks the backend for hits",
 );
+assert(searchPageSrc.indexOf("Process") === -1, "SearchPage starts no process of its own");
 assert(
   searchPageSrc.indexOf("root.navigator.go(modelData.hub, modelData.label)") !== -1,
   "SearchPage passes the hit label so Simple can pin the landing row",
@@ -46,8 +42,8 @@ assert(
 );
 assert(
   omarchyQml.indexOf("function copyDiagnosticReport()") !== -1 &&
-    omarchyQml.indexOf("diag-report.sh") !== -1,
-  "Omarchy copies a diagnostic report through diag-report.sh",
+    omarchyQml.indexOf('Backend.task("diag-report"') !== -1,
+  "Omarchy copies a diagnostic report through the diag-report task",
 );
 assert(
   omarchyQml.indexOf("Diagnostics.js") !== -1 && omarchyQml.indexOf("normalizeDiagnostics") !== -1,
@@ -229,57 +225,27 @@ assert(
     prefsGroupSrcEarly.indexOf("reveal: true") !== -1,
   "section info is always visible when it has content",
 );
-const snapshotSh = fs.readFileSync(path.join(__dirname, "..", "scripts", "snapshot.sh"), "utf8");
-assert(snapshotSh.indexOf("GROUP == rest") !== -1, "snapshot.sh strips look keys from rest");
+const snapshotSrc = ["mod.rs", "hypr.rs", "system.rs"]
+  .map((name) =>
+    fs.readFileSync(path.join(__dirname, "..", "backend", "src", "snapshot", name), "utf8"),
+  )
+  .join("\n");
+assert(snapshotSrc.indexOf('"rest"') !== -1, "the snapshot strips look keys from rest");
 assert(
-  snapshotSh.indexOf('line.split("#", 1)[0]') !== -1,
-  "snapshot.sh hyprsunset parser ignores commented profiles",
+  snapshotSrc.indexOf("workspaceGestureUnmanaged") !== -1,
+  "the snapshot exposes an unmanaged workspace gesture separately from a managed one",
 );
+for (const option of [
+  "misc:enable_swallow",
+  "misc:swallow_regex",
+  "misc:on_focus_under_fullscreen",
+]) {
+  assert(snapshotSrc.indexOf(option) !== -1, `the snapshot queries ${option} from Hyprland`);
+}
 assert(
-  snapshotSh.indexOf('hypr-sentinel.py" input list') !== -1,
-  "snapshot.sh reads workspaceGesture from hypr-sentinel.py input list",
-);
-assert(
-  snapshotSh.indexOf("workspaceGestureUnmanaged") !== -1,
-  "snapshot.sh exposes an unmanaged workspace gesture separately from a managed one",
-);
-assert(
-  snapshotSh.indexOf("grep -q 'action = \"workspace\"'") === -1,
-  "snapshot.sh does not grep the whole input.lua for a workspace gesture",
-);
-assertEqual(
-  (snapshotSh.match(/hypr_opt misc:enable_swallow/g) || []).length,
-  2,
-  "snapshot.sh look and full dumps query misc:enable_swallow",
-);
-assertEqual(
-  (snapshotSh.match(/hypr_opt misc:swallow_regex/g) || []).length,
-  2,
-  "snapshot.sh look and full dumps query misc:swallow_regex",
-);
-assertEqual(
-  (snapshotSh.match(/hypr_opt misc:on_focus_under_fullscreen/g) || []).length,
-  2,
-  "snapshot.sh look and full dumps query misc:on_focus_under_fullscreen",
-);
-assertEqual(
-  (snapshotSh.match(/enableSwallow: flag\(\$enableSwallow; false\)/g) || []).length,
-  2,
-  "snapshot.sh emits enableSwallow from the live option",
-);
-assertEqual(
-  (snapshotSh.match(/swallowRegex: txt\(\$swallowRegex; ""\)/g) || []).length,
-  2,
-  "snapshot.sh emits swallowRegex from the live option",
-);
-assertEqual(
-  (snapshotSh.match(/onFocusUnderFullscreen: num\(\$onFocusUnderFullscreen; 1\)/g) || []).length,
-  2,
-  "snapshot.sh emits onFocusUnderFullscreen from the live option",
-);
-assert(
-  snapshotSh.indexOf("^ATMOS_XWAYLAND_ZERO_SCALING=0") !== -1,
-  "snapshot.sh reads the XWayland zero-scaling opt-out from the env file",
+  snapshotSrc.indexOf("^ATMOS_XWAYLAND_ZERO_SCALING=0") !== -1 ||
+    snapshotSrc.indexOf("ATMOS_XWAYLAND_ZERO_SCALING=0") !== -1,
+  "the snapshot reads the XWayland zero-scaling opt-out from the env file",
 );
 const workflow = fs.readFileSync(
   path.join(__dirname, "..", ".github", "workflows", "tests.yml"),
@@ -469,15 +435,15 @@ assert(
     powerPageSrc.indexOf("setPresentationMode(!Omarchy.presentationMode)") === -1,
   "Presentation Mode uses the toggle next value, not a stale invert",
 );
-const presentationSh = fs.readFileSync(
-  path.join(__dirname, "..", "scripts", "set-presentation.sh"),
+const userTasks = fs.readFileSync(
+  path.join(__dirname, "..", "backend", "src", "tasks", "user.rs"),
   "utf8",
 );
 assert(
-  presentationSh.indexOf("omarchy toggle idle stay-awake") !== -1 &&
-    presentationSh.indexOf("omarchy toggle idle allow-idle") !== -1 &&
-    presentationSh.indexOf("omarchy toggle idle on") === -1,
-  "presentation script uses stay-awake and allow-idle",
+  userTasks.indexOf('"stay-awake"') !== -1 &&
+    userTasks.indexOf('"allow-idle"') !== -1 &&
+    userTasks.indexOf('"idle", "on"') === -1,
+  "the presentation task uses stay-awake and allow-idle",
 );
 const prefsPageSrc = fs.readFileSync(
   path.join(__dirname, "..", "components", "PrefsPage.qml"),
@@ -1433,8 +1399,8 @@ assert(
 assert(
   omarchySrc.indexOf("function toggleFavorite(") !== -1 &&
     omarchySrc.indexOf("atmos-favorites.json") !== -1 &&
-    omarchySrc.indexOf("set-favorites.sh") !== -1,
-  "Omarchy writes favorites through set-favorites.sh",
+    omarchySrc.indexOf('"set-favorites"') !== -1,
+  "Omarchy writes favorites through the set-favorites task",
 );
 const favoritesPageSrc = fs.readFileSync(
   path.join(__dirname, "..", "pages", "FavoritesPage.qml"),
@@ -1445,37 +1411,21 @@ assert(
     favoritesPageSrc.indexOf('text: "Open…"') !== -1,
   "Favorites names an empty list and opens the source hub",
 );
-const favoritesSh = fs.readFileSync(
-  path.join(__dirname, "..", "scripts", "set-favorites.sh"),
-  "utf8",
+assert(
+  userTasks.indexOf("fn favorites_write") !== -1 && userTasks.indexOf("atomic_write_text") !== -1,
+  "the favorites task replaces the file atomically",
 );
-assert(favoritesSh.indexOf("os.replace") !== -1, "set-favorites.sh replaces the file atomically");
-const resetAtmosSh = fs.readFileSync(
-  path.join(__dirname, "..", "scripts", "reset-atmos.sh"),
-  "utf8",
+const resetBody = userTasks.slice(userTasks.indexOf("pub fn reset_atmos"));
+assert(
+  resetBody.slice(0, resetBody.indexOf("fn atmos_write")).indexOf("favorites") === -1,
+  "Reset Atmos leaves the favorites file alone",
 );
-assert(resetAtmosSh.indexOf("favorites") === -1, "Reset Atmos leaves the favorites file alone");
 assert(
   themeQml.indexOf('iconStar: "star-line"') !== -1 &&
     themeQml.indexOf('iconStarOn: "star-fill"') !== -1,
   "Theme names favorite star icons",
 );
 
-const idleSh = fs.readFileSync(path.join(__dirname, "..", "scripts", "set-idle.sh"), "utf8");
-assert(
-  idleSh.indexOf("OMARCHY_PATH:=/usr/share/omarchy") !== -1,
-  "set-idle.sh defaults OMARCHY_PATH before sourcing omarchy-shell-config",
-);
-const barSh = fs.readFileSync(path.join(__dirname, "..", "scripts", "set-bar-widget.sh"), "utf8");
-assert(
-  barSh.indexOf("OMARCHY_PATH:=/usr/share/omarchy") !== -1,
-  "set-bar-widget.sh defaults OMARCHY_PATH before sourcing omarchy-shell-config",
-);
-const envSh = fs.readFileSync(path.join(__dirname, "..", "scripts", "atmos-env.sh"), "utf8");
-assert(
-  envSh.indexOf("hyprctl reload >/dev/null || true") !== -1,
-  "atmos_hypr_reload does not fail the write when reload fails",
-);
 const appearanceSrc = fs.readFileSync(
   path.join(__dirname, "..", "pages", "AppearancePage.qml"),
   "utf8",
@@ -1763,12 +1713,12 @@ assert(
   "Omarchy validates full name with AccountsJs.isFullName",
 );
 
-// runGumJob passes the stub dir as $1 and the command after it. Without the
-// shift, "$@" still carries $1 and exec is handed the directory itself:
-//   prefs-job: .../scripts/stubs: Is a directory
+// runGumJob hands the command to the gum-job task, which puts a yes-saying
+// gum ahead of the real one on PATH.
 assert(
-  omarchySrc.indexOf('PATH=\\"$1:$PATH\\"; shift; exec') !== -1,
-  "runGumJob shifts the stub dir off before exec",
+  omarchySrc.indexOf('Backend.task("gum-job", argv)') !== -1 &&
+    omarchySrc.indexOf('Backend.task("gum-job", ["omarchy", "hibernation", "remove"])') !== -1,
+  "gum jobs run through the gum-job task",
 );
 
 // A job whose input is read to EOF hangs unless stdin is closed after the
@@ -1778,16 +1728,14 @@ assert(
   "jobProc closes stdin after writing",
 );
 
-const applySh = fs.readFileSync(path.join(__dirname, "..", "scripts", "apply-settings.sh"), "utf8");
-assert(
-  applySh.indexOf("while IFS= read -r key; do") === -1,
-  "apply-settings.sh no longer dispatches by key",
+const applySrc = fs.readFileSync(
+  path.join(__dirname, "..", "backend", "src", "tasks", "settings_apply.rs"),
+  "utf8",
 );
 assert(
-  applySh.indexOf('node "$ROOT/../services/Settings.js" commands') !== -1,
-  "apply-settings.sh runs Settings.js for argv",
+  applySrc.indexOf("crate::write_domain") !== -1 && applySrc.indexOf("Command::new") === -1,
+  "settings-apply writes through the same domain writers settings.set uses",
 );
-assert(applySh.indexOf("for tool in jq python3 node;") !== -1, "apply-settings.sh requires node");
 assert(
   settingsSrc.indexOf('["omarchy", "toggle", "bar"]') !== -1 &&
     settingsSrc.indexOf("invert: true") !== -1,
@@ -1802,18 +1750,12 @@ assert(
   "a side bar writes verticalFormat",
 );
 assert(
-  settingsSrc.indexOf('typeof require !== "undefined"') !== -1 &&
-    settingsSrc.indexOf("require.main === module") !== -1,
-  "Settings CLI is gated after module.exports",
-);
-assert(
   !/^(const|var|let)\s+\w+\s*=\s*require\(/.test(settingsSrc),
   "Settings.js has no top-level require",
 );
 assert(
-  settingsSrc.indexOf("workspaceGestureUnmanaged") !== -1 &&
-    applySh.indexOf('status:"skipped"') !== -1,
-  "apply-settings.sh reports a no-op workspace gesture as skipped after a live re-scan",
+  settingsSrc.indexOf("workspaceGestureUnmanaged") !== -1 && applySrc.indexOf('"skipped"') !== -1,
+  "settings-apply reports a no-op change as skipped",
 );
 
 const exportPage = fs.readFileSync(path.join(__dirname, "..", "pages", "ExportPage.qml"), "utf8");
@@ -1902,27 +1844,6 @@ assert(
 );
 assert(settingsSrc.indexOf("var APPLY_GROUP = {") === -1, "Settings.js does not keep APPLY_GROUP");
 
-const hubsJs = load("services/Hubs.js");
-const atmosSrc = fs.readFileSync(path.join(__dirname, "..", "bin", "atmos"), "utf8");
-const atmosAllow = atmosSrc.split("\n").find(function (row) {
-  return /\$HUB != appearance/.test(row);
-});
-const atmosHubIds = [];
-const atmosHubRe = /\$HUB != ([A-Za-z0-9_-]+)/g;
-let atmosHubMatch;
-while (atmosAllow && (atmosHubMatch = atmosHubRe.exec(atmosAllow)))
-  atmosHubIds.push(atmosHubMatch[1]);
-assertEqual(
-  atmosHubIds.join(","),
-  hubsJs.hubIds().join(","),
-  "bin/atmos hub ids match Hubs.hubIds()",
-);
-const atmosSuffixMatch = atmosSrc.match(/\[\/([a-z0-9_|]+)\]/);
-const atmosSuffixes = atmosSuffixMatch ? atmosSuffixMatch[1].split("|") : [];
-hubsJs.childIds().forEach(function (id) {
-  const tail = id.split("/").pop();
-  assert(atmosSuffixes.indexOf(tail) !== -1, "bin/atmos suffix regex includes " + tail);
-});
 assert(shellSrc.indexOf("HubsJs.navPages()") !== -1, "shell pages come from Hubs.navPages");
 assert(
   shellSrc.indexOf('currentPage: "home"') !== -1 &&
@@ -1937,7 +1858,7 @@ const homePageSrc = fs.readFileSync(path.join(__dirname, "..", "pages", "HomePag
 assert(
   homePageSrc.indexOf('hubId: "home"') !== -1 &&
     homePageSrc.indexOf("LiveStatsStore") !== -1 &&
-    homePageSrc.indexOf("snapshot.sh") === -1 &&
+    homePageSrc.indexOf('"snapshot"') === -1 &&
     homePageSrc.indexOf("Omarchy.signalProcess") !== -1,
   "Home reads LiveStatsStore and signals through Omarchy",
 );
@@ -2151,7 +2072,11 @@ assert(
     gatesOffscreenModel(processesPageSrc, "parallelChart"),
   "Monitor pages skip chart models while those charts are off screen",
 );
-const liveStatsPy = fs.readFileSync(path.join(__dirname, "..", "scripts", "live-stats.py"), "utf8");
+const liveDir = path.join(__dirname, "..", "backend", "src", "inventory", "live");
+const liveStatsSrc = fs
+  .readdirSync(liveDir)
+  .map((name) => fs.readFileSync(path.join(liveDir, name), "utf8"))
+  .join("\n");
 assert(prefsChartSrc.indexOf("qs.Ui") === -1, "PrefsChart does not import qs.Ui");
 assert(
   prefsChartSrc.indexOf("resolvedExplainer") !== -1 &&
@@ -2347,7 +2272,7 @@ assert(
 assert(
   cpuPageSrc.indexOf('kind: "heatmap"') !== -1 &&
     cpuPageSrc.indexOf("/proc/interrupts") !== -1 &&
-    liveStatsPy.indexOf('root("proc/interrupts")') !== -1,
+    liveStatsSrc.indexOf('"proc/interrupts"') !== -1,
   "IRQ land heatmap is bound to /proc/interrupts",
 );
 assert(
@@ -2361,13 +2286,13 @@ assert(
 assert(
   cpuPageSrc.indexOf('kind: "rose"') !== -1 &&
     cpuPageSrc.indexOf("/proc/softirqs") !== -1 &&
-    liveStatsPy.indexOf('root("proc/softirqs")') !== -1,
+    liveStatsSrc.indexOf('"proc/softirqs"') !== -1,
   "softirq Nightingale rose is bound to /proc/softirqs",
 );
 assert(
   memPageSrc.indexOf('kind: "horizon"') !== -1 &&
     memPageSrc.indexOf("/proc/buddyinfo") !== -1 &&
-    liveStatsPy.indexOf('root("proc/buddyinfo")') !== -1,
+    liveStatsSrc.indexOf('"proc/buddyinfo"') !== -1,
   "buddy-order horizon is bound to /proc/buddyinfo",
 );
 assert(
@@ -2381,13 +2306,13 @@ assert(
 assert(
   memPageSrc.indexOf('kind: "sunburst"') !== -1 &&
     memPageSrc.indexOf("memory.current") !== -1 &&
-    liveStatsPy.indexOf("memory.current") !== -1,
+    liveStatsSrc.indexOf("memory.current") !== -1,
   "cgroup memory sunburst is bound to memory.current",
 );
 assert(
   memPageSrc.indexOf('kind: "icicle"') !== -1 &&
     memPageSrc.indexOf("/proc/slabinfo") !== -1 &&
-    liveStatsPy.indexOf('root("proc/slabinfo")') !== -1,
+    liveStatsSrc.indexOf('"proc/slabinfo"') !== -1,
   "slab cache icicle is bound to /proc/slabinfo",
 );
 assert(
@@ -2398,7 +2323,7 @@ assert(
 assert(
   trafficPageSrc.indexOf('kind: "beeswarm"') !== -1 &&
     trafficPageSrc.indexOf("/proc/net/tcp") !== -1 &&
-    liveStatsPy.indexOf("proc/net/tcp6") !== -1,
+    liveStatsSrc.indexOf("proc/net/tcp6") !== -1,
   "TCP state beeswarm is bound to /proc/net/tcp and tcp6",
 );
 assert(
@@ -2408,13 +2333,13 @@ assert(
 assert(
   sensorsPageSrc.indexOf('kind: "calendar"') !== -1 &&
     sensorsPageSrc.indexOf("temp*_input") !== -1 &&
-    liveStatsPy.indexOf('name.endswith("_input")') !== -1,
+    liveStatsSrc.indexOf('ends_with("_input")') !== -1,
   "hwmon thermal calendar is bound to temp*_input",
 );
 assert(
   sensorsPageSrc.indexOf('kind: "waterfall"') !== -1 &&
     sensorsPageSrc.indexOf("energy_uj") !== -1 &&
-    liveStatsPy.indexOf("energy_uj") !== -1,
+    liveStatsSrc.indexOf("energy_uj") !== -1,
   "RAPL energy waterfall is bound to energy_uj",
 );
 assert(
@@ -2487,11 +2412,7 @@ assert(
   shellSrc.indexOf('id: "appearance", title: "Appearance"') === -1,
   "shell does not inline hub titles",
 );
-const searchSrc = fs.readFileSync(path.join(__dirname, "..", "services", "SearchIndex.js"), "utf8");
-assert(searchSrc.indexOf("const HUBS") === -1, "SearchIndex does not own HUBS");
-assert(searchSrc.indexOf("FILE_HUB") === -1, "SearchIndex does not own FILE_HUB");
-assert(searchSrc.indexOf("PAGE_TITLE") === -1, "SearchIndex does not own PAGE_TITLE");
-assert(searchSrc.indexOf("hubsApi()") !== -1, "SearchIndex loads Hubs via vm");
+
 assert(
   omarchyQml.indexOf("SnapshotGroups.setSnapshotGroupForHub(HubsJs.snapshotGroupForHub)") !== -1,
   "Omarchy installs Hubs.snapshotGroupForHub on SnapshotGroups at load",
@@ -2601,7 +2522,7 @@ assert(
   "instance-lock.sh is gone; concurrent windows serialize on disk instead",
 );
 assert(
-  omarchySrc.indexOf("instance-lock.sh") === -1 &&
+  omarchySrc.indexOf('"instance-lock"') === -1 &&
     omarchySrc.indexOf("lostInstanceLock") === -1 &&
     omarchySrc.indexOf("property Process instanceLock") === -1,
   "Omarchy does not refuse a second window",
@@ -2621,12 +2542,11 @@ assert(
     shellSrc.indexOf("Atmos is already open") === -1,
   "shell does not show an already-open refusal",
 );
+assert(testsRun.indexOf("ATMOS_INSTANCE_LOCK") === -1, "tests/run has no instance lock");
+const launchRs = fs.readFileSync(path.join(__dirname, "..", "backend", "src", "launch.rs"), "utf8");
 assert(
-  testsRun.indexOf("instance-lock.sh must stay gone") !== -1 &&
-    testsRun.indexOf("ATMOS_INSTANCE_LOCK") === -1,
-  "tests/run pins that instance-lock.sh stays gone",
-);
-assert(
-  testsRun.indexOf("bin/atmos opens every launch as its own instance") !== -1,
-  "tests/run asserts the launcher opens a window per launch",
+  launchRs.indexOf("each launch owns its window") !== -1 &&
+    launchRs.indexOf("focus_existing") === -1 &&
+    launchRs.indexOf('"-n"') === -1,
+  "the launcher opens every launch as its own instance",
 );

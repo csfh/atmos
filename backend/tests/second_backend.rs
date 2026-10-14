@@ -83,7 +83,7 @@ fn the_same_requests_hit_plain_with_a_different_platform() {
         omarchy_display["result"]["cpuModel"],
         plain_display["result"]["cpuModel"]
     );
-    assert_eq!(omarchy_display["result"]["collector"], "hw-inventory.py");
+    assert_eq!(omarchy_display["result"]["collector"], "omarchy-hardware");
     assert_eq!(plain_display["result"]["collector"], "plain-hardware");
     assert_ne!(
         omarchy_display["result"]["platform"],

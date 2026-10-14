@@ -992,6 +992,13 @@
         "type": "bool"
       },
       {
+        "domain": "windowOpaque",
+        "encoding": "hypr",
+        "file": ".config/hypr/atmos.lua",
+        "prefix": "",
+        "type": "bool"
+      },
+      {
         "domain": "windowRules",
         "encoding": "hypr",
         "file": ".config/hypr/atmos.lua",
@@ -1034,6 +1041,6 @@
         "type": "list"
       }
     ],
-    "version": "0.1.1"
+    "version": "0.2.0"
   }
 }

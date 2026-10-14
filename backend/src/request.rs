@@ -54,6 +54,13 @@ pub enum Request {
     SpeedtestNet(SpeedNet),
     #[serde(rename = "unit.output")]
     UnitOutput(UnitOutput),
+    #[serde(rename = "search.query")]
+    SearchQuery {
+        #[serde(default)]
+        query: String,
+        #[serde(flatten)]
+        context: crate::search::Context,
+    },
     #[serde(rename = "agents.mcp.list")]
     AgentsMcpList,
     #[serde(rename = "agents.mcp.set")]
@@ -209,6 +216,7 @@ mod tests {
             Request::SettingsSnapshot { .. } => "settings.snapshot",
             Request::DisplayGet { .. } => "display.get",
             Request::DisplaySnapshot => "display.snapshot",
+            Request::SearchQuery { .. } => "search.query",
             Request::HostChrome => "host.chrome",
             Request::HostThemePack(_) => "host.themePack",
             Request::HostAccounts(_) => "host.accounts",
@@ -236,6 +244,7 @@ mod tests {
             json!({"op": "settings.snapshot"}),
             json!({"op": "display.get", "kind": "monitors"}),
             json!({"op": "display.snapshot"}),
+            json!({"op": "search.query", "query": "x"}),
             json!({"op": "host.chrome"}),
             json!({"op": "host.themePack"}),
             json!({"op": "host.accounts"}),

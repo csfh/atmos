@@ -73,7 +73,7 @@ pub fn write_place(
     }
     let path = place_path(root, &place.rel);
     if let PlaceKind::Hypr { kind } = &place.kind {
-        // hypr-sentinel.py locks this same file. Taking the lock here first deadlocks the child.
+        // The block writer takes this file's lock itself; taking it here first would deadlock.
         return effects::write_hypr(&path, kind, key, value);
     }
     with_lock(&path, || match &place.kind {

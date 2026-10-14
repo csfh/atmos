@@ -5,34 +5,37 @@ The window and `ratmos`, the Rust backend, talk in JSON. QML reaches `ratmos` on
 ## Running ratmos
 
 ```
-ratmos [--backend omarchy|plain] [--root DIR] [--sampler FILE] <command>
+ratmos [--backend omarchy|plain] [--root DIR] <command>
 ```
 
 | Flag | Meaning |
 | --- | --- |
 | `--backend` | `omarchy` (default) talks to the real machine through `omarchy`, `hyprctl` and the Hyprland sentinels. `plain` keeps the same keys in its own config tree and answers host reads with stand-in data. |
 | `--root DIR` | A fixture root. Every path, absolute ones too, is re-rooted under `DIR`, and the commands a write would run are appended to `DIR/commands.log` instead. Tests use it. |
-| `--sampler FILE` | A script to run in place of the bundled collector for `display.get` `live`. |
 
 | Command | What it does |
 | --- | --- |
 | `request` | Read one JSON request from stdin, print one reply, exit. |
 | `serve` | Read requests line by line from stdin until it closes. One process per window. |
 | `apply -- CMD ARGS...` | Run a host command with its streams attached; used for long jobs. |
-| `snapshot`, `display KIND`, `display-snapshot`, `version` | Whole documents for scripts and tests, without a request body. |
+| `snapshot`, `display KIND`, `display-snapshot`, `version` | Whole documents for tests, without a request body. |
+| `task NAME ARGS...` | One of the jobs the window runs through `apply`: accounts, avatars, Wi-Fi, hooks, updates, imports (`settings-apply`) and the rest. `ratmos task` with no name lists them. Failures print the reason on stderr and exit non-zero. |
+| `root TASK ARGS...` | The privileged half of a few settings. `task` starts it through polkit or sudo; it refuses to run unless it is root. |
+| `mcp` | Atmos for agents: newline-delimited JSON-RPC on stdio (`atmos mcp`). |
+| `install DIR` | Stage Atmos from a source tree into the XDG directories. `install.sh` runs it once the binary is built. |
 
 ## Replies
 
 Every reply is an envelope:
 
 ```json
-{"ok": true, "version": "0.1.1", "platform": {"id": "plain", "compositor": "none", "family": "portable"}, "result": "0.1.1"}
+{"ok": true, "version": "0.2.0", "platform": {"id": "plain", "compositor": "none", "family": "portable"}, "result": "0.2.0"}
 ```
 
 A failure keeps the same shape, with `result` null and an `error` in place of the answer:
 
 ```json
-{"ok": false, "version": "0.1.1", "platform": {"...": "..."}, "result": null,
+{"ok": false, "version": "0.2.0", "platform": {"...": "..."}, "result": null,
  "error": {"code": "denied", "message": "path may not contain ..", "context": "/../escape"}}
 ```
 
@@ -92,14 +95,14 @@ This is a real run with `--backend plain`, a fixture root holding `/note.txt`, a
 ```
 > {"id":1,"op":"version"}
 > {"id":2,"op":"watch.set","paths":["/note.txt"]}
-< {"id":2,"ok":true,"result":{"watching":true},"version":"0.1.1"}
+< {"id":2,"ok":true,"result":{"watching":true},"version":"0.2.0"}
 < {"event":"stamp","result":{"items":[{"path":"/note.txt","sig":"3:1700000000","text":"hi\n"}]}}
-< {"id":1,"ok":true,"result":"0.1.1","version":"0.1.1"}
+< {"id":1,"ok":true,"result":"0.2.0","version":"0.2.0"}
 < {"event":"stamp","result":{"items":[{"path":"/note.txt","sig":"8:1700000000","text":"changed\n"}]}}
 > not json
-< {"ok":false,"error":{"code":"bad_request","context":null,"message":"request: expected ident at line 1 column 2"},"result":null,"version":"0.1.1"}
+< {"ok":false,"error":{"code":"bad_request","context":null,"message":"request: expected ident at line 1 column 2"},"result":null,"version":"0.2.0"}
 > {"id":3,"op":"nope"}
-< {"id":3,"ok":false,"error":{"code":"bad_request","context":null,"message":"unknown variant `nope`, expected one of ..."},"result":null,"version":"0.1.1"}
+< {"id":3,"ok":false,"error":{"code":"bad_request","context":null,"message":"unknown variant `nope`, expected one of ..."},"result":null,"version":"0.2.0"}
 ```
 
 Reply 2 came before reply 1. That is allowed.
@@ -144,6 +147,12 @@ A domain is one named setting, such as `theme` or `hyprLook.gapsIn`.
 | --- | --- | --- |
 | `display.get` | `kind`: `live`, `hardware`, `disks`, `services`, `software` or `diagnostics` | One inventory. An unknown kind is a `failed` reply. |
 | `display.snapshot` | | An object holding every kind above, each as `display.get` returns it. One failing inventory stays on its own key. |
+
+### Search
+
+| Op | Fields | Result |
+| --- | --- | --- |
+| `search.query` | `query`; `hubs`: `[{id, title, description, keywords}]`; `files`: page file to hub id; `prefixes`: `[[folder, hub]]`; `titles`: hub or child id to title | `{query, hits}`. The catalog is the hub rows plus the labelled rows ratmos finds by reading the page sources under the app root; a hit is a row whose text contains the query, case-insensitive, ordered by hub then label. The window sends the hub fields it already holds from `Hubs.js`. |
 
 ### Host
 

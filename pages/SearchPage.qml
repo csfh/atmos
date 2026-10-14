@@ -1,7 +1,8 @@
 import QtQuick
-import Quickshell.Io
 import "../components"
 import "../services"
+import "../services/Hubs.js" as HubsJs
+import "../services/Requests.js" as Requests
 
 Item {
   id: root
@@ -58,10 +59,6 @@ Item {
       flick.contentY = Math.max(0, Math.min(maxY, bottom - viewH))
   }
 
-  function sendQuery(text) {
-    searchProc.write(JSON.stringify({ cmd: "query", query: text }) + "\n")
-  }
-
   function runQuery() {
     if (root.query.length === 0) {
       root.hits = []
@@ -69,12 +66,19 @@ Item {
       root.pendingQuery = ""
       return
     }
-    root.pendingQuery = root.query
-    if (!searchProc.running) {
-      searchProc.running = true
-      return
-    }
-    root.sendQuery(root.pendingQuery)
+    var asked = root.query
+    root.pendingQuery = asked
+    Backend.request(Requests.searchQuery(asked, HubsJs.searchContext()), function(env) {
+      // A newer query has replaced this one.
+      if (asked !== root.query) return
+      if (!env || env.ok !== true) {
+        root.hits = []
+        root.searchError = String((env && env.error && env.error.message) || "Search failed")
+        return
+      }
+      root.searchError = ""
+      root.hits = Array.isArray(env.result.hits) ? env.result.hits : []
+    })
   }
 
   onQueryChanged: {
@@ -90,38 +94,6 @@ Item {
   }
 
   Component.onCompleted: root.runQuery()
-
-  Process {
-    id: searchProc
-    command: ["node", Omarchy.shellDir + "/services/SearchIndex.js", "serve", "--root", Omarchy.shellDir]
-    stdinEnabled: true
-    stdout: SplitParser {
-      onRead: function(line) {
-        try {
-          var parsed = JSON.parse(String(line || "{}"))
-          if (String(parsed.query || "") !== root.query) return
-          root.searchError = ""
-          root.hits = Array.isArray(parsed.hits) ? parsed.hits : []
-        } catch (e) {
-          root.hits = []
-          root.searchError = "Search returned invalid JSON"
-        }
-      }
-    }
-    stderr: StdioCollector {
-      id: searchErr
-      waitForEnd: false
-    }
-    onStarted: {
-      if (root.pendingQuery.length > 0) root.sendQuery(root.pendingQuery)
-    }
-    onExited: function(code) {
-      if (code !== 0 && root.query.length > 0) {
-        root.hits = []
-        root.searchError = String(searchErr.text || "Search failed").replace(/^\s+|\s+$/g, "")
-      }
-    }
-  }
 
   PrefsFlickable {
     id: flick

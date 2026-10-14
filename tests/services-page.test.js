@@ -46,8 +46,11 @@ assert(
   "PrefsMenu closes on release outside so a second click on … can toggle",
 );
 
-const snapshot = fs.readFileSync(path.join(__dirname, "..", "scripts", "snapshot.sh"), "utf8");
+const snapshotSrc = fs.readFileSync(
+  path.join(__dirname, "..", "backend", "src", "snapshot", "system.rs"),
+  "utf8",
+);
 assert(
-  snapshot.indexOf("systemd-inventory.py") !== -1,
-  "snapshot collects units through systemd-inventory.py",
+  snapshotSrc.indexOf("services::collect") !== -1,
+  "snapshot collects units through the native services inventory",
 );

@@ -8,6 +8,9 @@ pub fn read_hypr(path: &Path, kind: &str, key: &str) -> Result<Value> {
     match key {
         "workspaceWrapSwitch" => Ok(flag_comment(&text, "wrapSwitch")),
         "workspaceWheelSwitch" => Ok(flag_comment(&text, "wheelSwitch")),
+        "windowOpaque" => Ok(Value::Bool(
+            flag_comment(&text, "windowOpaque") == Value::Bool(true),
+        )),
         _ => {
             let begin = sentinel_begin(kind);
             if !text.contains(begin) && !text_has_calls(&text, kind) {
@@ -57,6 +60,8 @@ pub fn write_hypr(path: &Path, kind: &str, key: &str, value: &Value) -> Result<(
             };
             serde_json::json!({ "items": items, "wrapSwitch": wrap, "wheelSwitch": wheel })
         }
+        // The writer keeps the rules and merges the flag into the block.
+        "windowOpaque" => serde_json::json!({ "windowOpaque": value }),
         other => return Err(format!("no hypr block for {other}").into()),
     };
     hypr_apply(kind, path, &payload)
@@ -108,30 +113,13 @@ pub(super) fn keep_managed(value: &Value) -> Value {
 }
 
 pub(super) fn hypr_apply(kind: &str, path: &Path, payload: &Value) -> Result<()> {
-    let script = crate::scripts::repo_script("hypr-sentinel.py")?;
-    let json = serde_json::to_string(payload)?;
-    Run::new("python3")
-        .arg(&script)
-        .arg(kind)
-        .arg("apply")
-        .arg(path)
-        // On stdin, not argv: a long bindings list would hit the argument limit.
-        .input(json)
-        .timeout(COMMAND_TIMEOUT)
-        .checked()
-        .map(|_| ())
-        .map_err(|err| err.with_context(format!("hypr-sentinel.py {kind}")))
+    let kind =
+        crate::hyprland::Kind::parse(kind).ok_or_else(|| format!("no hypr block for {kind}"))?;
+    crate::hyprland::apply_file(kind, path, payload, false)
 }
 
 pub(super) fn hypr_list(kind: &str, path: &Path) -> Result<Value> {
-    let script = crate::scripts::repo_script("hypr-sentinel.py")?;
-    let output = Run::new("python3")
-        .arg(&script)
-        .arg(kind)
-        .arg("list")
-        .arg(path)
-        .timeout(COMMAND_TIMEOUT)
-        .checked()
-        .map_err(|err| err.with_context(format!("hypr-sentinel.py {kind} list")))?;
-    serde_json::from_slice(&output.stdout).map_err(Error::from)
+    let kind =
+        crate::hyprland::Kind::parse(kind).ok_or_else(|| format!("no hypr block for {kind}"))?;
+    crate::hyprland::list_file(kind, path)
 }

@@ -10,7 +10,7 @@
 
 **Adopt** — `Snapshot.adopt(current, patch, adapters)` merges a patch into the last record, clamps only patched keys, and keeps unpatched object/array references.
 
-**Emit** — Producing snapshot JSON for a group (`scripts/snapshot.sh`, later SnapshotGroups).
+**Emit** — Producing snapshot JSON for a group (`ratmos snapshot`, keyed by SnapshotGroups).
 
 **Apply** — Copying an adopted record onto Omarchy properties (`copyRecord`), or an optimistic `job.apply` patch on an enqueueIo job.
 
@@ -24,19 +24,19 @@
 
 **Interface** — The functions tests eval. The test surface is the interface.
 
-**Sentinel** — `-- atmos:look|input|autostart|bindings|windows begin/end` blocks in Hypr Lua.
+**Sentinel** — `-- atmos:look|input|autostart|bindings|windows|workspaces|monitors begin/end` blocks in Hypr Lua.
 
 **hypr.atmos** — `~/.config/hypr/atmos.lua`, required as `hypr.atmos` next to `hypr.omafetch`, before `default.hypr.toggles`.
 
-**ATMOS_SKIP_HYPR** — Shell env that skips Hypr writes. Lives in `atmos-env.sh` / `apply-settings.sh`, not in JS.
+**ATMOS_SKIP_HYPR** — Shell env that skips Hypr writes. Read by `ratmos` (`tasks::user`, `settings-apply`), not by JS.
 
-**Writer lock** — Concurrent Atmos windows serialize on disk. `hypr-sentinel.py` takes a per-destination flock sidecar, merges `_patch` onto the on-disk block, and publishes with atomic rename. `set-idle.sh` / `set-bar-widget.sh` / `set-workspace-bar.sh` share `shell.json.atmos.lock`. Remaining writers (`set-env.sh`, `set-hyprsunset.sh`, `set-nightlight-temp.sh`, `set-presentation.sh`, `set-tweaks.sh`, `set-avatar.sh`) lock and publish atomically. Watchers on `gtkSettingsFile` / `swappinessFile` and a second `envFile`→rest watch keep open windows in sync.
+**Writer lock** — Concurrent Atmos windows serialize on disk. `backend/src/hyprland` takes a per-destination flock sidecar (`store::with_lock`), merges `_patch` onto the on-disk block, and publishes with atomic rename. The `shell.json` writers (idle, bar widgets) share `shell.json.atmos.lock`. The remaining writers (env, hyprsunset, nightlight, presentation, tweaks, avatar) lock and publish atomically. Watchers on `gtkSettingsFile` / `swappinessFile` and a second `envFile`→rest watch keep open windows in sync.
 
 **Look payload** — A snapshot (or `job.apply`) whose group is `look`. Not the Appearance hub.
 
 **job.apply** — Optional object on an enqueueIo job (`kind` `mut` or `job`). `mutProc` and `jobProc` adopt it on success as an object (no JSON round-trip through the Emit parser), then enqueue the job's refresh group.
 
-**emitKeys** — Snapshot key identity in SnapshotGroups. `allowedKey`, `copyableBagKeys`, `groupForKey`, and `tagApply` read it. snapshot.sh remains the live Emit adapter that fills values.
+**emitKeys** — Snapshot key identity in SnapshotGroups. `allowedKey`, `copyableBagKeys`, `groupForKey`, and `tagApply` read it. `ratmos snapshot` is the live Emit adapter that fills values.
 
 **Backend (QML)** — `services/Backend.qml`, the one connection to `ratmos`. It owns a single `ratmos serve` process, `request(body, callback)`, and `watch(owner, spec)`. If the server cannot run it falls back to one process per request and a once-a-second poll. Builders for every request live in `services/Requests.js`; the line protocol is `services/BackendProtocol.js`.
 

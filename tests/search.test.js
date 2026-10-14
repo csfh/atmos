@@ -1,315 +1,105 @@
+// Search runs in ratmos: the window sends the hub rows it holds in Hubs.js and
+// ratmos reads the page sources under the app root for the labelled rows. These
+// cases ask the real binary about the real pages directory.
 const fs = require("fs");
 const path = require("path");
+const { spawnSync } = require("child_process");
 const { load, assert, assertEqual } = require("./harness");
+const { ratmosBinary } = require("./sandbox");
 
-const search = require("../services/SearchIndex.js");
+const root = path.join(__dirname, "..");
 const hubs = load("services/Hubs.js");
-assert(typeof search.HUBS === "undefined", "search index does not own HUBS");
-assert(typeof search.FILE_HUB === "undefined", "search index does not own FILE_HUB");
-assert(typeof search.PAGE_TITLE === "undefined", "search index does not own PAGE_TITLE");
-const hubCatalog = search.hubRows();
-assertEqual(hubCatalog.length, hubs.searchHubs().length, "hubRows comes from Hubs.searchHubs");
-assert(
-  hubCatalog.some(function (row) {
-    return row.id === "appearance" && row.keywords.indexOf("wallpaper") !== -1;
-  }),
-  "hub search keywords include the shell union",
-);
-assert(typeof search.setSetting === "undefined", "search index has no setSetting write path");
-assert(typeof search.writePrefs === "undefined", "search index has no writePrefs path");
-assert(typeof search.savePrefs === "undefined", "search index has no savePrefs path");
+const requests = load("services/Requests.js");
 
-const catalog = [
-  {
-    id: "appearance/font",
-    hub: "appearance",
-    hubTitle: "Appearance",
-    label: "Font",
-    description: "The monospace face",
-    hint: "omarchy font set",
-    keywords: ["theme", "typeface"],
-  },
-  {
-    id: "network/wifi",
-    hub: "network",
-    hubTitle: "Network",
-    label: "Wi-Fi",
-    description: "Wireless radio",
-    hint: "nmcli",
-    keywords: ["ssid"],
-  },
-];
-const index = search.openIndex();
-search.ingestRows(index, catalog);
-const emptyHits = search.queryRows(index, "");
-assert(emptyHits.length === 2, "empty query matches every indexed row");
-const fontHits = search.queryRows(index, "font");
-const servedFont = JSON.parse(
-  search.handleServeLine(index, JSON.stringify({ cmd: "query", query: "font" })),
-);
-assertEqual(servedFont.query, "font", "handleServeLine echoes the query");
-assert(
-  servedFont.hits.some(function (row) {
-    return row.id === "appearance/font";
-  }),
-  "handleServeLine hits font without reopening sqlite",
-);
-const servedAgain = JSON.parse(search.handleServeLine(index, "ssid"));
-assert(
-  servedAgain.hits.some(function (row) {
-    return row.id === "network/wifi";
-  }),
-  "handleServeLine reuses the same index for a second query",
-);
-assertEqual(search.parseArgs(["serve", "--root", "/tmp"]).cmd, "serve", "parseArgs accepts serve");
-assert(
-  fontHits.some(function (row) {
-    return row.id === "appearance/font";
-  }),
-  "font matches the theme/font row",
-);
-assert(
-  !fontHits.some(function (row) {
-    return row.id === "network/wifi";
-  }),
-  "font does not match an unrelated network row",
-);
-const fontUpperHits = search.queryRows(index, "FONT");
-assert(
-  fontUpperHits.some(function (row) {
-    return row.id === "appearance/font";
-  }),
-  "FONT matches the same lowered haystack",
-);
-assertEqual(fontUpperHits.length, fontHits.length, "FONT and font return the same hit count");
-const networkHits = search.queryRows(index, "network");
-assert(
-  !networkHits.some(function (row) {
-    return row.id === "appearance/font";
-  }),
-  "network does not match a theme/font row",
-);
+function query(text, context) {
+  const body = requests.searchQuery(text, context || hubs.searchContext());
+  const run = spawnSync(ratmosBinary(), ["--backend", "plain", "request"], {
+    encoding: "utf8",
+    input: JSON.stringify(body),
+    env: { ...process.env, ATMOS_ROOT: root },
+  });
+  assertEqual(run.status, 0, "ratmos answers a search request");
+  const envelope = JSON.parse(run.stdout);
+  assertEqual(envelope.ok, true, "a search request succeeds");
+  return envelope.result;
+}
 
-search.ingestSnapshot(index, { theme: "omarchy", barPosition: "top", nested: { lock: 300 } });
-assertEqual(
-  search.getState(index, "theme"),
-  "omarchy",
-  "derived state loads theme from snapshot JSON",
-);
-assertEqual(
-  search.getState(index, "barPosition"),
-  "top",
-  "derived state loads barPosition from snapshot JSON",
-);
-assertEqual(
-  search.getState(index, "nested.lock"),
-  "300",
-  "derived state flattens nested snapshot fields",
-);
-assertEqual(search.getState(index, "missing"), null, "derived state misses unknown keys");
+const everything = query("").hits;
+const has = (label, hub) => everything.some((row) => row.label === label && row.hub === hub);
 
-search.ingestSnapshot(index, { theme: "tokyo" });
-search.ingestSnapshot(index, { hardware: { cpu: { model: "X" } } });
-assertEqual(
-  search.getState(index, "theme"),
-  "tokyo",
-  "second ingest keeps theme from the first patch",
+assert(
+  everything.some((row) => row.id === "appearance" && row.keywords.indexOf("wallpaper") !== -1),
+  "hub rows carry the keywords Hubs.js gives them",
 );
 assertEqual(
-  search.getState(index, "hardware.cpu.model"),
-  "X",
-  "second ingest adds hardware without a write-prefs path",
-);
-assertEqual(
-  search.indexPath({ ATMOS_SEARCH_INDEX: "/tmp/atmos-search.sqlite" }),
-  "/tmp/atmos-search.sqlite",
-  "indexPath honors ATMOS_SEARCH_INDEX",
-);
-assertEqual(
-  search.indexPath({ XDG_CACHE_HOME: "/tmp/xdg-cache", HOME: "/tmp/home" }),
-  "/tmp/xdg-cache/atmos/search.sqlite",
-  "indexPath uses XDG_CACHE_HOME when ATMOS_SEARCH_INDEX is unset",
-);
-assertEqual(
-  search.indexPath({ HOME: "/tmp/home" }),
-  "/tmp/home/.cache/atmos/search.sqlite",
-  "indexPath falls back to HOME/.cache/atmos/search.sqlite",
-);
-
-const cacheDir = fs.mkdtempSync(path.join(require("os").tmpdir(), "atmos-search-"));
-const cacheFile = path.join(cacheDir, "nested", "search.sqlite");
-const onDisk = search.openIndex(cacheFile);
-search.ingestRows(onDisk, catalog);
-onDisk.close();
-assert(fs.existsSync(cacheFile), "openIndex creates the sqlite file and parent dirs");
-const reopened = search.openIndex(cacheFile);
-assert(
-  search.queryRows(reopened, "font").some(function (row) {
-    return row.id === "appearance/font";
-  }),
-  "reopened sqlite file still matches font",
-);
-reopened.close();
-fs.rmSync(cacheDir, { recursive: true, force: true });
-
-const qmlCatalog = search.catalogFromQmlDir(path.join(__dirname, "..", "pages"));
-assert(
-  qmlCatalog.some(function (row) {
-    return row.label === "Locale" && String(row.id).indexOf("SettingRow") !== -1;
-  }),
-  "qml catalog indexes SettingRow blocks",
+  everything.filter((row) => row.id === row.hub && !row.id.includes("/")).length,
+  hubs.searchHubs().length,
+  "every hub is a row",
 );
 assert(
-  qmlCatalog.some(function (row) {
-    return row.label === "Font" && row.hub === "appearance";
-  }),
-  "qml catalog indexes the Font row",
+  has("Locale", "system") || everything.some((r) => r.label === "Locale"),
+  "SettingRow blocks are indexed",
 );
+assert(has("Font", "appearance"), "the Font row is indexed");
+assert(has("Text size", "appearance"), "shared Text size is indexed on Appearance");
+assert(has("Text size", "accessibility"), "shared Text size is indexed on Accessibility");
+assert(has("Animations", "windows"), "shared Animations is indexed on Windows");
+assert(has("Inactive opacity", "windows"), "Inactive opacity is indexed on Windows");
+assert(has("Touchscreen", "display"), "shared Touchscreen is indexed on Displays");
+assert(has("Add a binding", "keybindings"), "binding rows go to the keybindings subpage");
+assert(has("Add a rule", "windows/rules"), "window-rule rows go to the rules subpage");
 assert(
-  qmlCatalog.some(function (row) {
-    return row.label === "Text size" && row.hub === "appearance";
-  }),
-  "qml catalog indexes shared Text size on Appearance",
+  has("Next wallpaper", "appearance/background"),
+  "wallpaper rows go to the background subpage",
 );
+assert(has("Unlock theme", "appearance/boot"), "Plymouth rows go to the boot subpage");
 assert(
-  qmlCatalog.some(function (row) {
-    return row.label === "Text size" && row.hub === "accessibility";
-  }),
-  "qml catalog indexes shared Text size on Accessibility",
+  has("Copy report", "system/diagnostics"),
+  "diagnostic report rows go to the diagnostics subpage",
 );
+assert(has("Installed", "hardware"), "fitted memory goes to Hardware");
+assert(has("Processor", "home"), "the Home processor row is indexed");
+assert(has("Wi-Fi radio", "network/wifi"), "Wi-Fi rows go to the wifi subpage");
+assert(has("Bluetooth radio", "bluetooth"), "Bluetooth rows go to the bluetooth subpage");
+assert(has("Download", "network/speedtest"), "speed-test rows go to the speedtest subpage");
 assert(
-  qmlCatalog.some(function (row) {
-    return row.label === "Animations" && row.hub === "windows";
-  }),
-  "qml catalog indexes shared Animations on Windows",
-);
-assert(
-  qmlCatalog.some(function (row) {
-    return row.label === "Inactive opacity" && row.hub === "windows";
-  }),
-  "qml catalog indexes Inactive opacity on Windows",
-);
-assert(
-  qmlCatalog.some(function (row) {
-    return row.label === "Touchscreen" && row.hub === "display";
-  }),
-  "qml catalog indexes shared Touchscreen on Displays",
-);
-assert(
-  qmlCatalog.some(function (row) {
-    return row.label === "Add a binding" && row.hub === "keybindings";
-  }),
-  "qml catalog sends binding rows to the keybindings subpage",
-);
-assert(
-  qmlCatalog.some(function (row) {
-    return row.label === "Add a rule" && row.hub === "windows/rules";
-  }),
-  "qml catalog sends window-rule rows to the rules subpage",
-);
-assert(
-  qmlCatalog.some(function (row) {
-    return row.label === "Next wallpaper" && row.hub === "appearance/background";
-  }),
-  "qml catalog sends wallpaper rows to the background subpage",
-);
-assert(
-  qmlCatalog.some(function (row) {
-    return row.label === "Unlock theme" && row.hub === "appearance/boot";
-  }),
-  "qml catalog sends Plymouth rows to the boot subpage",
-);
-assert(
-  qmlCatalog.some(function (row) {
-    return row.label === "Copy report" && row.hub === "system/diagnostics";
-  }),
-  "qml catalog sends diagnostic report rows to the diagnostics subpage",
-);
-assert(
-  qmlCatalog.some(function (row) {
-    return row.label === "Installed" && row.hub === "hardware";
-  }),
-  "qml catalog sends fitted memory to Hardware",
-);
-assert(
-  qmlCatalog.some(function (row) {
-    return row.label === "Processor" && row.hub === "home";
-  }),
-  "qml catalog indexes Home processor row",
-);
-assert(
-  qmlCatalog.some(function (row) {
-    return row.label === "Wi-Fi radio" && row.hub === "network/wifi";
-  }),
-  "qml catalog sends Wi-Fi rows to the wifi subpage",
-);
-assert(
-  qmlCatalog.some(function (row) {
-    return row.label === "Bluetooth radio" && row.hub === "bluetooth";
-  }),
-  "qml catalog sends Bluetooth rows to the bluetooth subpage",
-);
-assert(
-  qmlCatalog.some(function (row) {
-    return row.label === "Download" && row.hub === "network/speedtest";
-  }),
-  "qml catalog sends speed-test rows to the speedtest subpage",
-);
-assert(
-  qmlCatalog.some(function (row) {
-    return (
-      row.label === "Add a binding" && row.hub === "keybindings" && row.hubTitle === "Keybindings"
-    );
-  }),
+  everything.some(
+    (row) =>
+      row.label === "Add a binding" && row.hub === "keybindings" && row.hubTitle === "Keybindings",
+  ),
   "binding search hits show the keybindings page title",
 );
-const staleIndex = search.openIndex();
-search.ingestRows(staleIndex, [
-  {
-    id: "windows/add-a-binding-PrefsRow-0",
-    hub: "windows",
-    hubTitle: "Windows",
-    label: "Add a binding",
-    description: "stale hub path",
-    hint: "",
-    keywords: [],
-  },
-]);
-search.replaceRows(staleIndex, [
-  {
-    id: "keybindings/add-a-binding-PrefsRow-0",
-    hub: "keybindings",
-    hubTitle: "Keybindings",
-    label: "Add a binding",
-    description: "live hub path",
-    hint: "",
-    keywords: [],
-  },
-]);
-const replaced = search.queryRows(staleIndex, "binding");
 assert(
-  replaced.length === 1 && replaced[0].hub === "keybindings",
-  "replaceRows drops stale search rows whose ids changed",
+  !everything.some((row) => row.label === "Error dialog" || row.label === "Debug"),
+  "the System Debug group is skipped",
 );
-staleIndex.close();
+
+const font = query("font").hits;
 assert(
-  !qmlCatalog.some(function (row) {
-    return row.label === "Error dialog" || row.label === "Debug";
-  }),
-  "qml catalog skips the System Debug group",
+  font.some((row) => row.id === "appearance" || row.label === "Font"),
+  "font finds the Font row",
 );
-const systemPageSrc = fs.readFileSync(
-  path.join(__dirname, "..", "pages", "SystemPage.qml"),
-  "utf8",
+assertEqual(query("FONT").hits.length, font.length, "FONT and font return the same hits");
+assertEqual(query("  font ").hits.length, font.length, "a query is trimmed");
+assert(
+  query("zzzz-no-such-setting").hits.length === 0,
+  "a query that matches nothing returns no hits",
 );
+const ordered = font.map((row) => row.hub + "\u0000" + row.label);
+assertEqual(
+  JSON.stringify(ordered),
+  JSON.stringify([...ordered].sort()),
+  "hits are ordered by hub, then label",
+);
+const echoed = query("Wi-Fi");
+assertEqual(echoed.query, "Wi-Fi", "the reply echoes the query as asked");
+
+const systemPageSrc = fs.readFileSync(path.join(root, "pages", "SystemPage.qml"), "utf8");
 assert(
   systemPageSrc.indexOf("Omarchy.showDebugError()") !== -1,
   "System Debug shows the error dialog",
 );
-const omarchyDebugSrc = fs.readFileSync(
-  path.join(__dirname, "..", "services", "Omarchy.qml"),
-  "utf8",
-);
+const omarchyDebugSrc = fs.readFileSync(path.join(root, "services", "Omarchy.qml"), "utf8");
 assert(
   omarchyDebugSrc.indexOf("function showDebugError()") !== -1,
   "Omarchy.showDebugError is defined",

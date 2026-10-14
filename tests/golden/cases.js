@@ -85,6 +85,23 @@ const cases = [
   { name: "display-get-plain", backend: "plain", request: R.displayGet("hardware") },
   { name: "display-snapshot-plain", backend: "plain", request: R.displaySnapshot() },
 
+  // Search: only the hub rows, so the reply does not depend on the page sources.
+  {
+    name: "search-query-hubs",
+    backend: "plain",
+    request: R.searchQuery("FON", {
+      hubs: [
+        {
+          id: "appearance",
+          title: "Appearance",
+          description: "Theme and font",
+          keywords: ["font", "theme"],
+        },
+        { id: "network", title: "Network", description: "Wi-Fi and DNS", keywords: ["wifi"] },
+      ],
+    }),
+  },
+
   // Host reads and writes.
   { name: "host-chrome-plain", backend: "plain", request: R.hostChrome() },
   {

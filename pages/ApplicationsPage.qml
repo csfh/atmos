@@ -320,7 +320,7 @@ PrefsPage {
     SettingRow {
       label: "Desktop"
       description: "A launcher for a command on this machine."
-      hint: "add-desktop-launcher.sh"
+      hint: "~/.local/share/applications"
       query: root.query
       keywords: ["add", "install", "create", "desktop", "launcher"]
 

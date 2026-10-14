@@ -241,7 +241,7 @@ assertEqual(box.calls("omarchy").length, 1, "calls can be narrowed to one comman
   const wrapped = backendWrapper(box.root);
   assert(fs.existsSync(wrapped.file), "the wrapper script exists");
   const version = box.spawn(wrapped.file, ["version"]);
-  assertEqual(version.out.trim(), "0.2.0", "the wrapper runs the real ratmos");
+  assertEqual(version.out.trim(), "0.2.1", "the wrapper runs the real ratmos");
 
   const set = box.spawn(wrapped.file, ["--backend", "plain", "request"], {
     input: JSON.stringify({ op: "settings.set", domain: "theme", value: "tokyo-night" }),

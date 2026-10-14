@@ -2,6 +2,13 @@
 
 Notable changes to Atmos. Each section is a git tag on `main` and `stable`. Install and in-app Update follow the `stable` branch.
 
+## [v0.2.1] - 2026-10-14
+
+### Fixed
+
+- Updating from an install older than 0.2.0 failed. That updater copies `scripts/` from the new tree and runs `scripts/hypr-sentinel.py` to switch the Hyprland drop-in on, and both were gone. `scripts/` is back with a README and a shim that hands to `ratmos sentinel`; neither is used by Atmos itself and both can go once those installs are gone.
+- The settings round trip no longer needs an Omarchy install to write the named workspace bar.
+
 ## [v0.2.0] - 2026-10-14
 
 ### Changed

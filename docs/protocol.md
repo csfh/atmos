@@ -29,13 +29,13 @@ ratmos [--backend omarchy|plain] [--root DIR] <command>
 Every reply is an envelope:
 
 ```json
-{"ok": true, "version": "0.2.0", "platform": {"id": "plain", "compositor": "none", "family": "portable"}, "result": "0.2.0"}
+{"ok": true, "version": "0.2.1", "platform": {"id": "plain", "compositor": "none", "family": "portable"}, "result": "0.2.1"}
 ```
 
 A failure keeps the same shape, with `result` null and an `error` in place of the answer:
 
 ```json
-{"ok": false, "version": "0.2.0", "platform": {"...": "..."}, "result": null,
+{"ok": false, "version": "0.2.1", "platform": {"...": "..."}, "result": null,
  "error": {"code": "denied", "message": "path may not contain ..", "context": "/../escape"}}
 ```
 
@@ -95,14 +95,14 @@ This is a real run with `--backend plain`, a fixture root holding `/note.txt`, a
 ```
 > {"id":1,"op":"version"}
 > {"id":2,"op":"watch.set","paths":["/note.txt"]}
-< {"id":2,"ok":true,"result":{"watching":true},"version":"0.2.0"}
+< {"id":2,"ok":true,"result":{"watching":true},"version":"0.2.1"}
 < {"event":"stamp","result":{"items":[{"path":"/note.txt","sig":"3:1700000000","text":"hi\n"}]}}
-< {"id":1,"ok":true,"result":"0.2.0","version":"0.2.0"}
+< {"id":1,"ok":true,"result":"0.2.1","version":"0.2.1"}
 < {"event":"stamp","result":{"items":[{"path":"/note.txt","sig":"8:1700000000","text":"changed\n"}]}}
 > not json
-< {"ok":false,"error":{"code":"bad_request","context":null,"message":"request: expected ident at line 1 column 2"},"result":null,"version":"0.2.0"}
+< {"ok":false,"error":{"code":"bad_request","context":null,"message":"request: expected ident at line 1 column 2"},"result":null,"version":"0.2.1"}
 > {"id":3,"op":"nope"}
-< {"id":3,"ok":false,"error":{"code":"bad_request","context":null,"message":"unknown variant `nope`, expected one of ..."},"result":null,"version":"0.2.0"}
+< {"id":3,"ok":false,"error":{"code":"bad_request","context":null,"message":"unknown variant `nope`, expected one of ..."},"result":null,"version":"0.2.1"}
 ```
 
 Reply 2 came before reply 1. That is allowed.

@@ -38,7 +38,7 @@ use crate::request::Request;
 use crate::runner::Run;
 use serde_json::{Map, Value};
 
-pub const VERSION: &str = "0.2.0";
+pub const VERSION: &str = "0.2.1";
 
 pub fn run(args: &[String], stdin: &str, stdout: &mut dyn Write, stderr: &mut dyn Write) -> i32 {
     match dispatch(args, stdin, stdout, stderr) {

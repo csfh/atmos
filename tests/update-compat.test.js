@@ -2,7 +2,7 @@ const fs = require("fs");
 const path = require("path");
 const { assertEqual } = require("./harness");
 
-// Installs older than 0.2.0 update by running their own updater, which copies
+// Installs older than 0.2.1 update by running their own updater, which copies
 // `scripts/` out of the new tree and fails when it is missing. Keep the
 // directory, and keep it free of code: Atmos has no helper scripts.
 const dir = path.join(__dirname, "..", "scripts");

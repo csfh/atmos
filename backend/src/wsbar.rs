@@ -183,7 +183,8 @@ pub fn install_clone(root: Option<&Path>) -> Result<()> {
         Path::new(&omarchy_path()).join("shell/plugins/bar/widgets/Workspaces.manifest.json");
     if let Ok(text) = std::fs::read_to_string(&stock) {
         install(&manifest, &clone_manifest(&text, &id)?)?;
-    } else if !manifest.is_file() {
+    } else if !manifest.is_file() && root.is_none() {
+        // A fixture root has no Omarchy to copy the manifest from.
         return Err(Error::command(format!("cannot install {id}")));
     }
     install(&dir.join("Workspaces.qml"), WIDGET)

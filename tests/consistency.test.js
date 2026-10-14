@@ -54,7 +54,11 @@ for (const [name, file] of fromFrontend) {
 }
 
 // Nothing runs a helper script any more, from the window or from ratmos.
-assert(!fs.existsSync(path.join(root, "scripts")), "there is no scripts directory");
+// scripts/ is only the update shim for older installs (tests/update-compat.test.js).
+assert(
+  fs.readdirSync(path.join(root, "scripts")).sort().join() === "README.md,hypr-sentinel.py",
+  "scripts/ holds only the update shim",
+);
 for (const file of [...frontend, ...rustSources]) {
   const text = read(file);
   assert(!/\bpython3\b/.test(text), `${file} does not run Python`);

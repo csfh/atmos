@@ -1,6 +1,6 @@
 # Agent notes
 
-Atmos is a standalone Quickshell preferences app for Omarchy. The window is QML and everything else is Rust (`ratmos`). There is no Python and there are no helper scripts: `bin/atmos` and `install.sh` are the only shell, and both hand off to `ratmos` at once (`ratmos launch`, `ratmos install`). Do not import `qs.Ui` or `qs.Commons` from `$OMARCHY_PATH/shell`.
+Atmos is a standalone Quickshell preferences app for Omarchy. The window is QML and everything else is Rust (`ratmos`). There is no Python and there are no helper scripts: `bin/atmos` and `install.sh` are the only shell, and both hand off to `ratmos` at once (`ratmos launch`, `ratmos install`). `scripts/` holds a README and `hypr-sentinel.py`, a shim that hands to `ratmos sentinel`: the updater in installs older than 0.2.0 copies that directory and runs the shim, and fails without them (`tests/update-compat.test.js`). Add nothing else there. Do not import `qs.Ui` or `qs.Commons` from `$OMARCHY_PATH/shell`.
 
 ## Run
 

@@ -140,6 +140,41 @@ function serialize(raw) {
   return lines.join("\n");
 }
 
+// A managed per-output rule shadows Omarchy's generic fallback for that
+// output on every reload, while `omarchy hyprland monitor scaling` only
+// persists the fallback. After a focused-output scale change the rule has
+// to carry the same scale, or the change looks applied and then snaps back.
+// Returns fresh items with the output's row on the new scale, or null when
+// there is no row for the output or it already matches (no write needed).
+function syncRuleScale(raw, output, scale) {
+  var name = sanitizeOutput(output);
+  var n = Number(scale);
+  if (!name || !isFinite(n) || n <= 0) return null;
+  var want = clampScale(n);
+  var list = Array.isArray(raw) ? raw : [];
+  var i;
+  var row = null;
+  for (i = 0; i < list.length; i++) {
+    if (list[i] && String(list[i].output || "") === name) {
+      row = list[i];
+      break;
+    }
+  }
+  if (!row || clampScale(row.scale) === want) return null;
+  var next = [];
+  for (i = 0; i < list.length; i++) {
+    var item = list[i] || {};
+    if (String(item.output || "") === name) {
+      var patched = {};
+      var k;
+      for (k in item) patched[k] = item[k];
+      patched.scale = want;
+      next.push(patched);
+    } else next.push(item);
+  }
+  return next;
+}
+
 function sentinelBounds(text) {
   var src = String(text || "");
   var start = src.indexOf(BEGIN);
@@ -306,6 +341,7 @@ if (typeof module !== "undefined" && module.exports) {
     normalizeItem: normalizeItem,
     clampState: clampState,
     serialize: serialize,
+    syncRuleScale: syncRuleScale,
     parseFile: parseFile,
     applyFile: applyFile,
     layoutNames: layoutNames,

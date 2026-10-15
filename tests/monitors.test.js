@@ -110,3 +110,50 @@ assertEqual(
 assertEqual(mon.patchRules(rules, [], "", {}, null), null, "an empty output name is refused");
 const bare = mon.patchRules([], [], "DP-2", {}, null);
 assertEqual(bare[0].mode, "preferred", "an unseen output defaults to preferred");
+
+const ruleItems = [
+  {
+    output: "eDP-2",
+    mode: "2880x1620@120",
+    position: "auto",
+    scale: 1.667,
+    transform: 0,
+    disabled: false,
+    vrr: 0,
+    bitdepth: 10,
+    cm: "",
+  },
+];
+const synced = mon.syncRuleScale(ruleItems, "eDP-2", 2);
+assert(synced !== null && synced.length === 1, "syncRuleScale patches the matching rule");
+assertEqual(synced[0].scale, 2, "syncRuleScale carries the new scale");
+assertEqual(synced[0].mode, "2880x1620@120", "syncRuleScale keeps the other fields");
+assertEqual(synced[0].bitdepth, 10, "syncRuleScale keeps bitdepth");
+assertEqual(ruleItems[0].scale, 1.667, "syncRuleScale does not mutate its input");
+assertEqual(
+  mon.syncRuleScale(ruleItems, "eDP-2", 1.667),
+  null,
+  "syncRuleScale writes nothing when the rule already matches",
+);
+assertEqual(
+  mon.syncRuleScale(ruleItems, "eDP-2", 1.66667),
+  null,
+  "syncRuleScale treats Omarchy clean scales as matching",
+);
+assertEqual(mon.syncRuleScale([], "eDP-2", 2), null, "syncRuleScale writes nothing without a rule");
+assertEqual(
+  mon.syncRuleScale(ruleItems, "DP-1", 2),
+  null,
+  "syncRuleScale writes nothing for an output without a rule",
+);
+assertEqual(
+  mon.syncRuleScale(ruleItems, "eDP-2;rm -rf", 2),
+  null,
+  "syncRuleScale rejects an unsafe output",
+);
+assertEqual(mon.syncRuleScale(ruleItems, "eDP-2", 0), null, "syncRuleScale rejects a bad scale");
+assertEqual(
+  mon.syncRuleScale(ruleItems, "eDP-2", "bogus"),
+  null,
+  "syncRuleScale rejects a non-numeric scale",
+);

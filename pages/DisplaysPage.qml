@@ -378,35 +378,9 @@ PrefsPage {
           onChanged: function(value) {
             if (value !== root.scaleValue(modelData)) {
               if (modelData.focused === true) Omarchy.setMonitorScale(value)
-              else {
-                var rules = []
-                var list = Omarchy.monitorRules || []
-                var found = false
-                for (var i = 0; i < list.length; i++) {
-                  var row = list[i] || {}
-                  if (row.output === modelData.name) {
-                    var next = {}
-                    for (var k in row) next[k] = row[k]
-                    next.scale = Number(value)
-                    rules.push(next)
-                    found = true
-                  } else rules.push(row)
-                }
-                if (!found) {
-                  rules.push({
-                    output: modelData.name,
-                    mode: "preferred",
-                    position: "auto",
-                    scale: Number(value),
-                    transform: 0,
-                    disabled: modelData.enabled === false,
-                    vrr: 0,
-                    bitdepth: 8,
-                    cm: ""
-                  })
-                }
-                Omarchy.writeMonitorRules(rules)
-              }
+              // A new rule inherits the live mode and transform; building it
+              // here by hand once hardcoded transform 0, vrr 0, and 8-bit.
+              else Omarchy.patchMonitorRule(modelData.name, { scale: Number(value) })
             }
           }
         }

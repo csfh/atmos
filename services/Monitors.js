@@ -53,6 +53,81 @@ function clampScale(raw) {
   return Math.round(n * 1000) / 1000;
 }
 
+// Omarchy's clean scales: Hyprland only accepts scales where the mode
+// divides into whole logical pixels (in 1/120 steps), so a requested scale
+// is rounded up to the nearest clean value. Port of the clean_scale awk in
+// omarchy-hyprland-monitor-scaling; the segmented Scale control labels each
+// preset with what Hyprland will actually render (1.6 reads as 1.67x).
+function cleanScale(scale, width, height) {
+  var w = Math.round(Number(width));
+  var h = Math.round(Number(height));
+  var s = Number(scale);
+  if (!isFinite(w) || !isFinite(h) || w <= 0 || h <= 0) return Number(scale);
+  if (!isFinite(s) || s <= 0) return s;
+  var a = w * 120;
+  var b = h * 120;
+  var t = 0;
+  while (b) {
+    t = a % b;
+    a = b;
+    b = t;
+  }
+  var g = a;
+  var k = Math.floor(s * 120 + 0.5);
+  if (!(k >= 1)) k = 1;
+  if (k > g) k = g;
+  while (g % k !== 0) k++;
+  return k / 120;
+}
+
+function scaleLabel(value) {
+  var n = Number(value);
+  if (!isFinite(n)) return "";
+  return String(Math.round(n * 100) / 100) + "x";
+}
+
+var SCALE_PRESETS = ["1", "1.25", "1.6", "2", "3", "4"];
+
+// One segment per Omarchy preset, labelled with the effective scale on an
+// output this size. Without live dimensions the labels fall back to the
+// preset itself.
+function scaleSegments(width, height) {
+  var w = Math.round(Number(width));
+  var h = Math.round(Number(height));
+  var live = isFinite(w) && isFinite(h) && w > 0 && h > 0;
+  var out = [];
+  var i;
+  for (i = 0; i < SCALE_PRESETS.length; i++) {
+    out.push({
+      value: SCALE_PRESETS[i],
+      label: live ? scaleLabel(cleanScale(SCALE_PRESETS[i], w, h)) : scaleLabel(SCALE_PRESETS[i]),
+    });
+  }
+  return out;
+}
+
+// The preset whose effective scale sits closest to the live one, so the
+// segmented control can highlight it. "" when the live scale is unknown.
+function presetForScale(live, width, height) {
+  var n = Number(live);
+  if (!isFinite(n) || n <= 0) return "";
+  var w = Math.round(Number(width));
+  var h = Math.round(Number(height));
+  var liveDims = isFinite(w) && isFinite(h) && w > 0 && h > 0;
+  var best = "";
+  var bestDiff = Infinity;
+  var i;
+  for (i = 0; i < SCALE_PRESETS.length; i++) {
+    var eff = liveDims ? cleanScale(SCALE_PRESETS[i], w, h) : Number(SCALE_PRESETS[i]);
+    var diff = Math.abs(n - eff);
+    if (diff < bestDiff) {
+      bestDiff = diff;
+      best = SCALE_PRESETS[i];
+    }
+  }
+  return best;
+}
+
 function clampTransform(raw) {
   var n = Math.round(Number(raw));
   if (!isFinite(n) || n < 0) n = 0;
@@ -342,6 +417,10 @@ if (typeof module !== "undefined" && module.exports) {
     clampState: clampState,
     serialize: serialize,
     syncRuleScale: syncRuleScale,
+    cleanScale: cleanScale,
+    scaleLabel: scaleLabel,
+    scaleSegments: scaleSegments,
+    presetForScale: presetForScale,
     parseFile: parseFile,
     applyFile: applyFile,
     layoutNames: layoutNames,

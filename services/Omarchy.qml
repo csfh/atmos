@@ -1105,10 +1105,12 @@ QtObject {
     var list = monitors instanceof Array ? monitors : []
     var i
     var previous = ""
+    var focused = ""
     for (i = 0; i < list.length; i++) {
       if (list[i] && list[i].focused === true) {
         if (!root.reverting && Number(list[i].scale) === n) return
         previous = String(list[i].scale)
+        focused = String(list[i].name || "")
         break
       }
     }
@@ -1120,6 +1122,14 @@ QtObject {
     if (!root.reverting && previous)
       opts.guard = { id: "monitorScale", revert: { kind: "monitorScale", scale: previous } }
     runCommand(["omarchy", "hyprland", "monitor", "scaling", scale], opts)
+    // A managed per-output rule shadows the fallback this command persists,
+    // so keep that rule on the same scale or the change snaps back on every
+    // reload. No rule for this output means the fallback governs it: sync
+    // nothing. This runs second so the revert bar restores the rules first.
+    if (!root.reverting && focused) {
+      var synced = MonitorsJs.syncRuleScale(monitorRules, focused, n)
+      if (synced) writeMonitorRules(synced)
+    }
   }
   function setDisplayBrightness(name, percent) {
     name = String(name || "")

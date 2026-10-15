@@ -110,3 +110,95 @@ assertEqual(
 assertEqual(mon.patchRules(rules, [], "", {}, null), null, "an empty output name is refused");
 const bare = mon.patchRules([], [], "DP-2", {}, null);
 assertEqual(bare[0].mode, "preferred", "an unseen output defaults to preferred");
+
+const ruleItems = [
+  {
+    output: "eDP-2",
+    mode: "2880x1620@120",
+    position: "auto",
+    scale: 1.667,
+    transform: 0,
+    disabled: false,
+    vrr: 0,
+    bitdepth: 10,
+    cm: "",
+  },
+];
+const synced = mon.syncRuleScale(ruleItems, "eDP-2", 2);
+assert(synced !== null && synced.length === 1, "syncRuleScale patches the matching rule");
+assertEqual(synced[0].scale, 2, "syncRuleScale carries the new scale");
+assertEqual(synced[0].mode, "2880x1620@120", "syncRuleScale keeps the other fields");
+assertEqual(synced[0].bitdepth, 10, "syncRuleScale keeps bitdepth");
+assertEqual(ruleItems[0].scale, 1.667, "syncRuleScale does not mutate its input");
+assertEqual(
+  mon.syncRuleScale(ruleItems, "eDP-2", 1.667),
+  null,
+  "syncRuleScale writes nothing when the rule already matches",
+);
+assertEqual(
+  mon.syncRuleScale(ruleItems, "eDP-2", 1.66667),
+  null,
+  "syncRuleScale treats Omarchy clean scales as matching",
+);
+assertEqual(mon.syncRuleScale([], "eDP-2", 2), null, "syncRuleScale writes nothing without a rule");
+assertEqual(
+  mon.syncRuleScale(ruleItems, "DP-1", 2),
+  null,
+  "syncRuleScale writes nothing for an output without a rule",
+);
+assertEqual(
+  mon.syncRuleScale(ruleItems, "eDP-2;rm -rf", 2),
+  null,
+  "syncRuleScale rejects an unsafe output",
+);
+assertEqual(mon.syncRuleScale(ruleItems, "eDP-2", 0), null, "syncRuleScale rejects a bad scale");
+assertEqual(
+  mon.syncRuleScale(ruleItems, "eDP-2", "bogus"),
+  null,
+  "syncRuleScale rejects a non-numeric scale",
+);
+
+assertEqual(mon.cleanScale(1, 1920, 1080), 1, "cleanScale keeps 1x");
+assertEqual(mon.cleanScale(2, 1920, 1080), 2, "cleanScale keeps 2x");
+assertEqual(mon.cleanScale(4, 2880, 1620), 4, "cleanScale keeps 4x");
+assertEqual(
+  Math.round(mon.cleanScale(1.6, 2880, 1620) * 100000),
+  166667,
+  "cleanScale snaps 1.6 to the renderable 1.66667",
+);
+assertEqual(
+  Math.round(mon.cleanScale(1.25, 2880, 1620) * 100000),
+  125000,
+  "cleanScale keeps 1.25 on this panel",
+);
+assertEqual(mon.scaleLabel(1), "1x", "scaleLabel writes 1x");
+assertEqual(mon.scaleLabel(1.25), "1.25x", "scaleLabel writes 1.25x");
+assertEqual(mon.scaleLabel(1.66667), "1.67x", "scaleLabel writes 1.67x");
+assertEqual(mon.scaleLabel(2), "2x", "scaleLabel writes 2x");
+const segments = mon.scaleSegments(2880, 1620);
+assertEqual(
+  segments.map((s) => s.label).join(","),
+  "1x,1.25x,1.67x,2x,3x,4x",
+  "scaleSegments labels each preset with its effective scale",
+);
+assertEqual(
+  segments.map((s) => s.value).join(","),
+  "1,1.25,1.6,2,3,4",
+  "scaleSegments keeps Omarchy preset values",
+);
+assertEqual(
+  mon
+    .scaleSegments(0, 0)
+    .map((s) => s.label)
+    .join(","),
+  "1x,1.25x,1.6x,2x,3x,4x",
+  "scaleSegments falls back to presets without dimensions",
+);
+assertEqual(
+  mon.presetForScale(1.6666666, 2880, 1620),
+  "1.6",
+  "presetForScale matches the live scale to its preset",
+);
+assertEqual(mon.presetForScale(2, 2880, 1620), "2", "presetForScale matches 2x");
+assertEqual(mon.presetForScale(1, 0, 0), "1", "presetForScale works without dimensions");
+assertEqual(mon.presetForScale("bogus", 2880, 1620), "", "presetForScale rejects junk");

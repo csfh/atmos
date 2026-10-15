@@ -11,28 +11,18 @@ PrefsPage {
   title: "Displays"
   description: "Each monitor keeps its own resolution and refresh rate. Scale and brightness apply to the one you are looking at. On a laptop you also get the built-in panel and its input devices. GPU switching is on Drivers."
 
-  readonly property var scalePresets: [
-    { value: "1", label: "100%" },
-    { value: "1.25", label: "125%" },
-    { value: "1.6", label: "160%" },
-    { value: "2", label: "200%" },
-    { value: "3", label: "300%" },
-    { value: "4", label: "400%" }
-  ]
-
-  function scaleValue(monitor) {
-    var n = Number(monitor && monitor.scale)
-    if (!isFinite(n) || n <= 0) return "1"
-    return String(n)
+  // Segments carry Omarchy presets; the label is the effective scale on an
+  // output this size, which is what Hyprland renders (1.6 reads as 1.67x).
+  function scaleSegments(monitor) {
+    return MonJs.scaleSegments(
+      monitor ? monitor.width : 0,
+      monitor ? monitor.height : 0
+    )
   }
 
-  function scaleOptions(monitor) {
-    var current = root.scaleValue(monitor)
-    var list = root.scalePresets.slice()
-    for (var i = 0; i < list.length; i++) {
-      if (list[i].value === current) return list
-    }
-    return list.concat([{ value: current, label: current }])
+  function scaleSelection(monitor) {
+    if (!monitor) return ""
+    return MonJs.presetForScale(monitor.scale, monitor.width, monitor.height)
   }
 
   function monitorTitle(monitor) {
@@ -367,46 +357,20 @@ PrefsPage {
         label: "Scale"
         description: "How large the interface looks on this monitor. The focused output uses omarchy hyprland monitor scaling. Other outputs write a monitor rule."
         hint: "omarchy hyprland monitor scaling"
-        detail: "Scale is Hyprland's factor of UI pixels over physical pixels. 200% on a 4K panel makes chrome and text about the size they would be at 1080p. Hyprland snaps to a factor it can render cleanly, so 125% or 160% can land a little off the number you pick. This control only applies to the focused output. Other monitors keep their own scale."
+        detail: "Scale is Hyprland's factor of UI pixels over physical pixels. 2x on a 4K panel makes chrome and text about the size they would be at 1080p. Hyprland snaps to a factor it can render cleanly, so 1.25x or 1.6x can land a little off the number you pick, and the segment reads what it lands on. This control only applies to the focused output. Other monitors keep their own scale."
         query: root.query
         keywords: ["scale", "hidpi", "fractional", "dpi"]
 
-        PrefsSelect {
-          value: root.scaleValue(modelData)
-          options: root.scaleOptions(modelData)
+        PrefsSegment {
+          value: root.scaleSelection(modelData)
+          options: root.scaleSegments(modelData)
           enabled: !!(modelData && modelData.name)
           onChanged: function(value) {
-            if (value !== root.scaleValue(modelData)) {
+            if (value !== root.scaleSelection(modelData)) {
               if (modelData.focused === true) Omarchy.setMonitorScale(value)
-              else {
-                var rules = []
-                var list = Omarchy.monitorRules || []
-                var found = false
-                for (var i = 0; i < list.length; i++) {
-                  var row = list[i] || {}
-                  if (row.output === modelData.name) {
-                    var next = {}
-                    for (var k in row) next[k] = row[k]
-                    next.scale = Number(value)
-                    rules.push(next)
-                    found = true
-                  } else rules.push(row)
-                }
-                if (!found) {
-                  rules.push({
-                    output: modelData.name,
-                    mode: "preferred",
-                    position: "auto",
-                    scale: Number(value),
-                    transform: 0,
-                    disabled: modelData.enabled === false,
-                    vrr: 0,
-                    bitdepth: 8,
-                    cm: ""
-                  })
-                }
-                Omarchy.writeMonitorRules(rules)
-              }
+              // A new rule inherits the live mode and transform; building it
+              // here by hand once hardcoded transform 0, vrr 0, and 8-bit.
+              else Omarchy.patchMonitorRule(modelData.name, { scale: Number(value) })
             }
           }
         }

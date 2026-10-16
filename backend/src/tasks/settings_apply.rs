@@ -35,10 +35,7 @@ fn backup_file(key: &str, home: &str) -> Option<PathBuf> {
         "windowRules" | "windowOpaque" | "workspaces" => hypr("atmos.lua"),
         "monitorRules" => hypr("monitors.lua"),
         "nightlightDay" | "nightlightNight" | "nightlightNightOn" | "nightlightTemperature" => {
-            std::env::var("ATMOS_HYPRSUNSET_FILE")
-                .ok()
-                .filter(|v| !v.is_empty())
-                .map_or_else(|| hypr("hyprsunset.conf"), PathBuf::from)
+            crate::host::env_path("ATMOS_HYPRSUNSET_FILE", hypr("hyprsunset.conf"))
         }
         k if k.starts_with("clock")
             || k.starts_with("bar")

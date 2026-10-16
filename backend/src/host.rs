@@ -15,6 +15,15 @@ use serde_json::{json, Map, Value};
 const TEXT_CAP: usize = 1_000_000;
 const WALK_CAP: usize = 4000;
 
+/// `$name` when it is set and not empty, otherwise `default`.
+/// An empty value is how a fixture clears an override.
+pub fn env_path(name: &str, default: impl Into<PathBuf>) -> PathBuf {
+    match std::env::var(name) {
+        Ok(value) if !value.is_empty() => PathBuf::from(value),
+        _ => default.into(),
+    }
+}
+
 pub fn chrome(backend: Backend, root: Option<&Path>) -> Result<Value> {
     if backend == Backend::Plain {
         return Ok(json!({

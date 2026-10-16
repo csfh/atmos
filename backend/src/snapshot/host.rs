@@ -621,47 +621,37 @@ pub fn focus_and_print(f: &mut Map<String, Value>) {
 }
 
 pub fn marker_flags(f: &mut Map<String, Value>, home: &str) {
-    let env = |name: &str, default: String| {
-        std::env::var(name)
-            .ok()
-            .filter(|v| !v.is_empty())
-            .unwrap_or(default)
-    };
-    let autostart = env(
+    let autostart = crate::host::env_path(
         "ATMOS_AUTOSTART_FILE",
         format!("{home}/.config/hypr/autostart.lua"),
     );
-    let bindings = env(
+    let bindings = crate::host::env_path(
         "ATMOS_BINDINGS_FILE",
         format!("{home}/.config/hypr/bindings.lua"),
     );
-    let windows = env(
+    let windows = crate::host::env_path(
         "ATMOS_WINDOWS_FILE",
         format!("{home}/.config/hypr/atmos.lua"),
     );
-    let list =
-        |kind, file: &str| crate::hyprland::list_file(kind, Path::new(file)).unwrap_or(json!([]));
+    let list = |kind, file: &Path| crate::hyprland::list_file(kind, file).unwrap_or(json!([]));
     use crate::hyprland::Kind;
     f.insert("autostart".into(), list(Kind::Autostart, &autostart));
     f.insert(
         "autostartManaged".into(),
-        json!(file_has(Path::new(&autostart), Kind::Autostart.begin())),
+        json!(file_has(&autostart, Kind::Autostart.begin())),
     );
     f.insert("bindings".into(), list(Kind::Bindings, &bindings));
     f.insert(
         "bindingsManaged".into(),
-        json!(file_has(Path::new(&bindings), Kind::Bindings.begin())),
+        json!(file_has(&bindings, Kind::Bindings.begin())),
     );
     f.insert("windowRules".into(), list(Kind::Windows, &windows));
     f.insert(
         "windowRulesManaged".into(),
-        json!(file_has(Path::new(&windows), Kind::Windows.begin())),
+        json!(file_has(&windows, Kind::Windows.begin())),
     );
     f.insert(
         "windowOpaque".into(),
-        json!(file_has(
-            Path::new(&windows),
-            "-- atmos:windowOpaque = true"
-        )),
+        json!(file_has(&windows, "-- atmos:windowOpaque = true")),
     );
 }

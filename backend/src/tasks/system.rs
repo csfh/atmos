@@ -291,10 +291,8 @@ fn swappiness_at(dest: &str, mode: &str) -> Result<()> {
 }
 
 fn tweak_path(var: &str, tail: &str) -> std::path::PathBuf {
-    match std::env::var(var) {
-        Ok(v) if !v.is_empty() => std::path::PathBuf::from(v),
-        _ => std::path::PathBuf::from(std::env::var("HOME").unwrap_or_default()).join(tail),
-    }
+    let home = std::env::var("HOME").unwrap_or_default();
+    crate::host::env_path(var, std::path::PathBuf::from(home).join(tail))
 }
 
 /// Drop every line that starts with `prefix`, then add `extra` when given. A

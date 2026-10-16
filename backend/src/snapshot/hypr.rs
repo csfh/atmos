@@ -364,10 +364,10 @@ pub fn reminders() -> (u64, bool, Value) {
 /// The nightlight schedule from hyprsunset.conf. Commented profile blocks
 /// (Omarchy ships the night example that way) are not live.
 pub fn nightlight_conf(home: &str) -> (String, String, bool) {
-    let file = std::env::var("ATMOS_HYPRSUNSET_FILE")
-        .ok()
-        .filter(|v| !v.is_empty())
-        .unwrap_or_else(|| format!("{home}/.config/hypr/hyprsunset.conf"));
+    let file = crate::host::env_path(
+        "ATMOS_HYPRSUNSET_FILE",
+        format!("{home}/.config/hypr/hyprsunset.conf"),
+    );
     parse_nightlight_conf(&std::fs::read_to_string(&file).unwrap_or_default())
 }
 

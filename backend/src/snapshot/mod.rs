@@ -14,7 +14,6 @@ pub use merge::{settings, settings_snapshot};
 use crate::error::Result;
 use serde_json::{json, Map, Value};
 use sh::{lines, omarchy, out};
-use std::path::Path;
 
 struct Env {
     home: String,
@@ -158,16 +157,16 @@ fn look_surface(env: &Env, f: &mut Map<String, Value>) {
 
 /// Hyprland input and the managed workspace gesture, which the full snapshot adds.
 fn input_surface(env: &Env, f: &mut Map<String, Value>) {
-    let input_file = std::env::var("ATMOS_INPUT_FILE")
-        .ok()
-        .filter(|v| !v.is_empty())
-        .unwrap_or_else(|| format!("{}/.config/hypr/input.lua", env.home));
-    let (gesture, managed, unmanaged) = hypr::gesture(Path::new(&input_file));
+    let input_file = crate::host::env_path(
+        "ATMOS_INPUT_FILE",
+        format!("{}/.config/hypr/input.lua", env.home),
+    );
+    let (gesture, managed, unmanaged) = hypr::gesture(&input_file);
     f.insert("hyprInput".into(), hypr::input(gesture));
     f.insert(
         "hyprInputManaged".into(),
         json!(sh::file_has(
-            Path::new(&input_file),
+            &input_file,
             crate::hyprland::Kind::Input.begin()
         )),
     );

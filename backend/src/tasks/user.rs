@@ -27,15 +27,6 @@ fn home() -> String {
     std::env::var("HOME").unwrap_or_default()
 }
 
-fn env_path(name: &str, default: String) -> PathBuf {
-    PathBuf::from(
-        std::env::var(name)
-            .ok()
-            .filter(|v| !v.is_empty())
-            .unwrap_or(default),
-    )
-}
-
 fn quiet(program: &str, args: &[&str]) -> bool {
     Run::new(program)
         .args(args)
@@ -53,7 +44,7 @@ fn text_of(program: &str, args: &[&str]) -> String {
 
 /// Session Presentation Mode: stay awake, DND, screensaver off.
 pub fn presentation(on_off: &str, minutes: Option<&str>) -> Result<()> {
-    let state = env_path(
+    let state = crate::host::env_path(
         "ATMOS_PRESENTATION_FILE",
         format!("{}/.local/state/omarchy/atmos-presentation.json", home()),
     );
@@ -122,7 +113,7 @@ pub fn mime_default(kind: &str, desktop: &str) -> Result<()> {
     if !re(r"^[A-Za-z0-9._-]+\.desktop$").is_match(desktop) {
         return Err(usage());
     }
-    let data = env_path("XDG_DATA_HOME", format!("{}/.local/share", home()));
+    let data = crate::host::env_path("XDG_DATA_HOME", format!("{}/.local/share", home()));
     let found = [
         data.join("applications"),
         "/usr/local/share/applications".into(),
@@ -217,7 +208,8 @@ pub fn add_desktop_launcher(name: &str, command: &str, icon: &str) -> Result<()>
     {
         return Err(usage());
     }
-    let dir = env_path("XDG_DATA_HOME", format!("{}/.local/share", home())).join("applications");
+    let dir = crate::host::env_path("XDG_DATA_HOME", format!("{}/.local/share", home()))
+        .join("applications");
     std::fs::create_dir_all(&dir)?;
     let file = dir.join(format!("{name}.desktop"));
     let body = format!(
@@ -238,7 +230,7 @@ pub fn add_desktop_launcher(name: &str, command: &str, icon: &str) -> Result<()>
 
 /// Write the Favorites list. UI chrome, not Omarchy settings.
 pub fn favorites_write(raw: &str) -> Result<()> {
-    let file = env_path(
+    let file = crate::host::env_path(
         "ATMOS_FAVORITES_FILE",
         format!("{}/.local/state/omarchy/atmos-favorites.json", home()),
     );
@@ -411,7 +403,7 @@ pub fn signal_process(pid: &str, sig: &str) -> Result<()> {
             "signal-process: pid {pid} is not owned by this user"
         )));
     }
-    let lock = env_path(
+    let lock = crate::host::env_path(
         "XDG_RUNTIME_DIR",
         std::env::var("TMPDIR").unwrap_or_else(|_| "/tmp".into()),
     )
@@ -446,7 +438,7 @@ pub fn diag_report(mode: &str, dest: &str) -> Result<()> {
         }
         _ => return Err(usage_error("usage: diag-report copy|save|agent [path]")),
     }
-    let cache = env_path("XDG_CACHE_HOME", format!("{}/.cache", home())).join("atmos");
+    let cache = crate::host::env_path("XDG_CACHE_HOME", format!("{}/.cache", home())).join("atmos");
     std::fs::create_dir_all(&cache)?;
     let file = cache.join("diagnostic-report.txt");
     let header = String::from_utf8_lossy(&stdin_all()).into_owned();
@@ -496,7 +488,7 @@ pub fn diag_report(mode: &str, dest: &str) -> Result<()> {
 }
 
 fn hypr_file(var: &str, name: &str) -> PathBuf {
-    env_path(var, format!("{}/.config/hypr/{name}", home()))
+    crate::host::env_path(var, format!("{}/.config/hypr/{name}", home()))
 }
 
 /// Restore Hyprland Lua defaults, then put back the drop-in require.
@@ -638,7 +630,7 @@ pub fn gum_job(args: &[String]) -> Result<i32> {
     let Some((program, rest)) = args.split_first() else {
         return Err(bad("Usage: gum-job <command> [args...]"));
     };
-    let base = env_path(
+    let base = crate::host::env_path(
         "XDG_RUNTIME_DIR",
         std::env::temp_dir().to_string_lossy().into_owned(),
     );

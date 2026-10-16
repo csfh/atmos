@@ -207,54 +207,47 @@ pub struct Control {
 /// Workspaces, monitor rules, presentation, env, tweaks, and power extras.
 pub fn control(home: &str, scope_all: bool) -> Control {
     use crate::hyprland::{self, Kind};
-    let env = |name: &str, default: String| {
-        std::env::var(name)
-            .ok()
-            .filter(|v| !v.is_empty())
-            .unwrap_or(default)
-    };
-    let windows_file = env(
+    let windows_file = crate::host::env_path(
         "ATMOS_WINDOWS_FILE",
         format!("{home}/.config/hypr/atmos.lua"),
     );
-    let monitors_file = env(
+    let monitors_file = crate::host::env_path(
         "ATMOS_MONITORS_FILE",
         format!("{home}/.config/hypr/monitors.lua"),
     );
-    let env_file = env(
+    let env_file = crate::host::env_path(
         "ATMOS_ENV_FILE",
         format!("{home}/.config/environment.d/10-atmos.conf"),
     );
-    let gtk_file = env(
+    let gtk_file = crate::host::env_path(
         "ATMOS_GTK4_FILE",
         format!("{home}/.config/gtk-4.0/settings.ini"),
     );
-    let presentation = env(
+    let presentation = crate::host::env_path(
         "ATMOS_PRESENTATION_FILE",
         format!("{home}/.local/state/omarchy/atmos-presentation.json"),
     );
-    let (windows_file, monitors_file) = (Path::new(&windows_file), Path::new(&monitors_file));
     let list = |kind, file: &Path| hyprland::list_file(kind, file).unwrap_or(json!([]));
     let mut f = Map::new();
-    f.insert("workspaces".into(), list(Kind::Workspaces, windows_file));
-    f.insert("monitorRules".into(), list(Kind::Monitors, monitors_file));
+    f.insert("workspaces".into(), list(Kind::Workspaces, &windows_file));
+    f.insert("monitorRules".into(), list(Kind::Monitors, &monitors_file));
     f.insert(
         "workspacesManaged".into(),
-        json!(file_has(windows_file, Kind::Workspaces.begin())),
+        json!(file_has(&windows_file, Kind::Workspaces.begin())),
     );
     f.insert(
         "workspaceWrapSwitch".into(),
-        json!(!file_has(windows_file, "-- atmos:wrapSwitch = false")),
+        json!(!file_has(&windows_file, "-- atmos:wrapSwitch = false")),
     );
     f.insert(
         "workspaceWheelSwitch".into(),
-        json!(!file_has(windows_file, "-- atmos:wheelSwitch = false")),
+        json!(!file_has(&windows_file, "-- atmos:wheelSwitch = false")),
     );
     f.insert(
         "monitorRulesManaged".into(),
-        json!(file_has(monitors_file, Kind::Monitors.begin())),
+        json!(file_has(&monitors_file, Kind::Monitors.begin())),
     );
-    let on = serde_json::from_str::<Value>(&read(Path::new(&presentation)))
+    let on = serde_json::from_str::<Value>(&read(&presentation))
         .ok()
         .and_then(|v| v.get("on").cloned())
         .is_some_and(|v| v == Value::Bool(true));
@@ -271,11 +264,11 @@ pub fn control(home: &str, scope_all: bool) -> Control {
     f.insert("netGateway".into(), json!(""));
     f.insert("netDnsServers".into(), json!([]));
     if scope_all {
-        let env_text = read(Path::new(&env_file));
+        let env_text = read(&env_file);
         f.insert("envPathPrepend".into(), json!(env_path_prepend(&env_text)));
         f.insert("envVars".into(), env_vars(&env_text));
         f.insert("envDetected".into(), env_detected());
-        let gtk = read(Path::new(&gtk_file));
+        let gtk = read(&gtk_file);
         f.insert(
             "tweaks".into(),
             json!({

@@ -30,6 +30,7 @@ mod system;
 pub use self::docs::{read_doc, write_doc};
 pub use self::hypr::{read_hypr, write_hypr};
 pub use self::live::after_write;
+pub(crate) use self::live::spawn;
 
 use self::audio::*;
 use self::env::*;

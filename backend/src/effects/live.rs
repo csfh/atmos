@@ -111,11 +111,50 @@ pub fn after_write(root: Option<&Path>, key: &str, value: &Value) -> Result<()> 
                 Ok(())
             }
         }
-        _ => Ok(()),
+        // Group-file keys. The fixture arm above has already returned.
+        _ => {
+            run_argv(key, value);
+            Ok(())
+        }
     }
 }
 
-pub(super) fn spawn(program: &str, args: &[&str]) {
+fn run_argv(key: &str, value: &Value) {
+    let Ok(rendered) = crate::scalar_arg(value) else {
+        return;
+    };
+    let args: &[&str] = match key {
+        "theme" => &["theme", "set"],
+        "background" => &["theme", "bg", "set"],
+        "barPosition" => &["bar", "position"],
+        "barTransparent" => &["bar", "transparent"],
+        "font" => &["font", "set"],
+        "textSize" => &["display", "text", "size"],
+        "browser" => &["default", "browser"],
+        "terminal" => &["default", "terminal"],
+        "editor" => &["default", "editor"],
+        "agent" => &["default", "agent"],
+        "dns" => &["dns"],
+        "powerProfile" => &["powerprofiles", "set", "autodetect"],
+        "powerProfileAc" => &["powerprofiles", "set", "ac"],
+        "powerProfileBattery" => &["powerprofiles", "set", "battery"],
+        "audioTuningOn" => {
+            let flag = if value.as_bool() == Some(true) {
+                "on"
+            } else {
+                "off"
+            };
+            spawn("omarchy", &["audio", "tuning", flag]);
+            return;
+        }
+        _ => return,
+    };
+    let mut owned: Vec<&str> = args.to_vec();
+    owned.push(&rendered);
+    spawn("omarchy", &owned);
+}
+
+pub(crate) fn spawn(program: &str, args: &[&str]) {
     // Fire and forget, but not silently: a command that cannot start is logged.
     if let Err(err) = Run::new(program).args(args).detach() {
         eprintln!("ratmos: {err}");

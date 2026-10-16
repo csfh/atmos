@@ -385,14 +385,13 @@ pub(crate) fn write_domain(
                 | domain::PlaceKind::Flag
                 | domain::PlaceKind::Hypr { .. }
         ) {
-            spawn_command("hyprctl", &["reload"]);
+            effects::spawn("hyprctl", &["reload"]);
         }
         // Schedule and temperature land in hyprsunset.conf. The nightlight
         // switch is `omarchy toggle nightlight` and must not reload that file.
         if key.starts_with("nightlight") && key != "nightlight" {
-            spawn_command("omarchy", &["restart", "hyprsunset"]);
+            effects::spawn("omarchy", &["restart", "hyprsunset"]);
         }
-        run_live_command(key, value);
         if key == "workspaces" {
             tasks::user::rename_workspaces(value);
         }
@@ -416,7 +415,7 @@ fn delegate_root_script(key: &str, value: &Value) -> Result<()> {
     }
 }
 
-fn scalar_arg(value: &Value) -> Result<String> {
+pub(crate) fn scalar_arg(value: &Value) -> Result<String> {
     match value {
         Value::String(text) => Ok(text.clone()),
         Value::Bool(true) => Ok("true".into()),
@@ -428,48 +427,6 @@ fn scalar_arg(value: &Value) -> Result<String> {
 
 fn run_command(program: &str, args: &[&str]) -> Result<()> {
     Run::new(program).args(args).checked().map(|_| ())
-}
-
-fn run_live_command(key: &str, value: &Value) {
-    let Ok(rendered) = scalar_arg(value) else {
-        return;
-    };
-    let args: &[&str] = match key {
-        "theme" => &["theme", "set"],
-        "background" => &["theme", "bg", "set"],
-        "barPosition" => &["bar", "position"],
-        "barTransparent" => &["bar", "transparent"],
-        "font" => &["font", "set"],
-        "textSize" => &["display", "text", "size"],
-        "browser" => &["default", "browser"],
-        "terminal" => &["default", "terminal"],
-        "editor" => &["default", "editor"],
-        "agent" => &["default", "agent"],
-        "dns" => &["dns"],
-        "powerProfile" => &["powerprofiles", "set", "autodetect"],
-        "powerProfileAc" => &["powerprofiles", "set", "ac"],
-        "powerProfileBattery" => &["powerprofiles", "set", "battery"],
-        "audioTuningOn" => {
-            let flag = if value.as_bool() == Some(true) {
-                "on"
-            } else {
-                "off"
-            };
-            spawn_command("omarchy", &["audio", "tuning", flag]);
-            return;
-        }
-        _ => return,
-    };
-    let mut owned: Vec<&str> = args.to_vec();
-    owned.push(&rendered);
-    spawn_command("omarchy", &owned);
-}
-
-fn spawn_command(program: &str, args: &[&str]) {
-    // Fire and forget, but a command that cannot start is not silent.
-    if let Err(err) = Run::new(program).args(args).detach() {
-        eprintln!("ratmos: {err}");
-    }
 }
 
 fn place_for(backend: Backend, key: &str) -> Result<domain::Place> {

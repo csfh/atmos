@@ -378,6 +378,25 @@ pub fn put_text(
     out.insert(key.into(), Value::String(text.clone()));
 }
 
+/// Visit each `mark` call that is not inside a line comment.
+/// A commented call resumes just after `mark`, so text inside it is scanned again.
+pub fn live_calls(text: &str, mark: &str, mut visit: impl FnMut(&[Value])) {
+    let mut i = 0;
+    while let Some(rel) = text[i..].find(mark) {
+        let at = i + rel;
+        if in_line_comment(text, at) {
+            i = at + mark.len();
+            continue;
+        }
+        let Some((args, end)) = parse_call_args(text, at + mark.len()) else {
+            i = at + mark.len();
+            continue;
+        };
+        visit(&args);
+        i = end;
+    }
+}
+
 /// The arguments of a call whose `(` was just consumed, and the index after `)`.
 pub fn parse_call_args(text: &str, i: usize) -> Option<(Vec<Value>, usize)> {
     let mut args = Vec::new();

@@ -133,22 +133,10 @@ pub fn parse(text: &str) -> Value {
         _ => "",
     };
     let mut out = Vec::new();
-    let mut i = 0;
-    let mark = "hl.workspace_rule(";
-    while let Some(rel) = body[i..].find(mark) {
-        let at = i + rel;
-        if in_line_comment(body, at) {
-            i = at + mark.len();
-            continue;
-        }
-        let Some((args, end)) = parse_call_args(body, at + mark.len()) else {
-            i = at + mark.len();
-            continue;
-        };
+    live_calls(body, "hl.workspace_rule(", |args| {
         if let Some(row) = workspace_row(args.first()) {
             out.push(row);
         }
-        i = end;
-    }
+    });
     Value::Array(out)
 }

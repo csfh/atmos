@@ -262,23 +262,9 @@ fn row_from_args(args: &[Value]) -> Option<Row> {
 
 fn calls(src: &str) -> Vec<Row> {
     let mut out = Vec::new();
-    let mut i = 0;
-    while i < src.len() {
-        let Some(rel) = src[i..].find("o.window(") else {
-            break;
-        };
-        let at = i + rel;
-        if in_line_comment(src, at) {
-            i = at + 9;
-            continue;
-        }
-        let Some((args, end)) = parse_call_args(src, at + 9) else {
-            i = at + 9;
-            continue;
-        };
-        out.extend(row_from_args(&args));
-        i = end;
-    }
+    live_calls(src, "o.window(", |args| {
+        out.extend(row_from_args(args));
+    });
     out
 }
 

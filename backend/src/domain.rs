@@ -180,6 +180,9 @@ const SPECS: &[Spec] = &specs![
     ("agentsSyncDeviceId", "shell", String),
     ("trayHidden", "shell", List),
     ("trayPinned", "shell", List),
+    ("sentinelCpuPercent", "shell", Int),
+    ("sentinelMemoryPercent", "shell", Int),
+    ("sentinelPortAgeDays", "shell", Int),
     ("idleScreensaver", "shell", Int),
     ("idleLock", "shell", Int),
     (

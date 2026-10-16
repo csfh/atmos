@@ -145,7 +145,7 @@ A domain is one named setting, such as `theme` or `hyprLook.gapsIn`.
 
 | Op | Fields | Result |
 | --- | --- | --- |
-| `display.get` | `kind`: `live`, `hardware`, `disks`, `services`, `software` or `diagnostics` | One inventory. An unknown kind is a `failed` reply. |
+| `display.get` | `kind`: `live`, `hardware`, `disks`, `services`, `software` or `diagnostics` | One inventory. An unknown kind is a `failed` reply. `live` also carries `uptimeSec`, a `startTicks` per process, and `tcpSockets` rows with `addr`, `port`, `uid` and `pid` (`null` when the owner's `/proc/<pid>/fd` is unreadable), listeners first. |
 | `display.snapshot` | | An object holding every kind above, each as `display.get` returns it. One failing inventory stays on its own key. |
 
 ### Search

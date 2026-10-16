@@ -13,6 +13,9 @@ QtObject {
   property int userIntervalMs: 2000
   property var intervalHolds: ({})
   property bool paused: false
+  // Pages that read samples without drawing a chart hold the poll open here,
+  // instead of retaining FrameClock, which would also run the vsync tick.
+  property int pollHolds: 0
   property string lastError: ""
   // When the sample in flight was started, so a wedged one can be noticed.
   property double startedAt: 0
@@ -70,6 +73,15 @@ QtObject {
     root.applyInterval()
   }
 
+  function holdPoll() {
+    root.pollHolds += 1
+    if (root.pollHolds === 1) root.poll()
+  }
+
+  function releasePoll() {
+    if (root.pollHolds > 0) root.pollHolds -= 1
+  }
+
   function setPaused(on) {
     root.paused = !!on
     if (!root.paused) root.poll()
@@ -103,7 +115,7 @@ QtObject {
 
   property Timer pollTimer: Timer {
     interval: root.intervalMs
-    running: !root.paused && FrameClock.holds > 0
+    running: !root.paused && (FrameClock.holds > 0 || root.pollHolds > 0)
     repeat: true
     onTriggered: root.poll()
   }

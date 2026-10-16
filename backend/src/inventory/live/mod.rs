@@ -2,6 +2,7 @@
 
 mod gpu;
 mod procs;
+mod sockets;
 mod system;
 
 use crate::inventory::read_text;
@@ -388,68 +389,14 @@ fn psi_file(sys: &Sys, kind: &str) -> Value {
     Value::Null
 }
 
-fn tcp_lines(sys: &Sys) -> Vec<String> {
-    ["proc/net/tcp", "proc/net/tcp6"]
-        .iter()
-        .flat_map(|f| {
-            sys.text(f)
-                .lines()
-                .skip(1)
-                .map(String::from)
-                .collect::<Vec<_>>()
-        })
-        .collect()
-}
-
-fn read_tcp(sys: &Sys) -> Value {
-    let (mut established, mut listen, mut time_wait, mut close_wait, mut total) = (0, 0, 0, 0, 0);
-    for line in tcp_lines(sys) {
-        let cols: Vec<&str> = line.split_whitespace().collect();
-        if cols.len() < 4 {
-            continue;
-        }
-        total += 1;
-        match cols[3].to_uppercase().as_str() {
-            "01" => established += 1,
-            "0A" => listen += 1,
-            "06" => time_wait += 1,
-            "08" => close_wait += 1,
-            _ => {}
-        }
-    }
-    json!({
-        "established": established, "listen": listen, "timeWait": time_wait,
-        "closeWait": close_wait, "total": total,
-    })
-}
-
-fn read_tcp_sockets(sys: &Sys) -> Vec<Value> {
-    let mut out = Vec::new();
-    for line in tcp_lines(sys) {
-        let cols: Vec<&str> = line.split_whitespace().collect();
-        if cols.len() < 10 {
-            continue;
-        }
-        let state = match cols[3].to_uppercase().as_str() {
-            "01" => "ESTABLISHED",
-            "02" => "SYN_SENT",
-            "03" => "SYN_RECV",
-            "04" => "FIN_WAIT1",
-            "05" => "FIN_WAIT2",
-            "06" => "TIME_WAIT",
-            "07" => "CLOSE",
-            "08" => "CLOSE_WAIT",
-            "09" => "LAST_ACK",
-            "0A" => "LISTEN",
-            "0B" => "CLOSING",
-            _ => continue,
-        };
-        out.push(json!({"inode": cols[9], "state": state}));
-        if out.len() >= 240 {
-            break;
-        }
-    }
-    out
+/// Seconds since boot, the first column of /proc/uptime.
+fn read_uptime(sys: &Sys) -> Value {
+    sys.line("proc/uptime")
+        .split_whitespace()
+        .next()
+        .and_then(|s| s.parse::<f64>().ok())
+        .filter(|n| n.is_finite() && *n >= 0.0)
+        .map_or(Value::Null, |n| json!(n))
 }
 
 pub fn collect() -> Value {
@@ -478,8 +425,12 @@ fn collect_from(sys: &Sys) -> Value {
         "psi".into(),
         json!({"cpu": psi_file(sys, "cpu"), "memory": psi_file(sys, "memory"), "io": psi_file(sys, "io")}),
     );
-    out.insert("tcp".into(), read_tcp(sys));
-    out.insert("tcpSockets".into(), Value::Array(read_tcp_sockets(sys)));
+    out.insert("tcp".into(), sockets::read_tcp(sys));
+    out.insert(
+        "tcpSockets".into(),
+        Value::Array(sockets::read_tcp_sockets(sys)),
+    );
+    out.insert("uptimeSec".into(), read_uptime(sys));
     out.insert(
         "interrupts".into(),
         system::irq_table(&sys.text("proc/interrupts")),

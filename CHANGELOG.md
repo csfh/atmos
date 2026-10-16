@@ -2,6 +2,13 @@
 
 Notable changes to Atmos. Each section is a git tag on `main` and `stable`. Install and in-app Update follow the `stable` branch.
 
+## [Unreleased]
+
+### Added
+
+- Sentinel hub, after Monitor. It flags processes that stay over a CPU limit, hold a large share of memory, or keep a TCP port listening for days (by the age of the owning process, since Linux does not record when a socket opened), and lists every listening port with the address it is bound to. End and Force quit work on your own processes; ports owned by root services show without a process. The three limits are stored in `shell.json` under `atmos.sentinel`.
+- The live sample carries `uptimeSec`, each process's `startTicks`, and per-socket `addr`, `port`, `uid` and `pid`.
+
 ## [v0.2.1] - 2026-10-14
 
 ### Fixed

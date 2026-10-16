@@ -9,6 +9,8 @@ struct Stat {
     comm: String,
     flags: i64,
     ticks: i64,
+    /// Clock ticks after boot when the process started (stat field 22).
+    start: Option<i64>,
     state: String,
     ppid: i64,
     nice: i64,
@@ -33,6 +35,7 @@ fn parse_stat(text: &str) -> Option<Stat> {
         comm: text[start + 1..end].to_string(),
         flags: int(6)?,
         ticks: int(11)? + int(12)?,
+        start: rest.get(19).and_then(|c| c.parse().ok()),
         state: rest[0].chars().take(1).collect(),
         ppid: int(1)?,
         nice,
@@ -105,6 +108,7 @@ pub fn processes(sys: &Sys, want_uid: i64) -> Vec<Value> {
             "uid": uid,
             "rssKb": rss,
             "ticks": stat.ticks,
+            "startTicks": stat.start,
             "state": stat.state,
             "threads": stat.threads,
             "nice": stat.nice,
@@ -132,7 +136,14 @@ mod tests {
             (1, 10, 0, 4)
         );
         assert_eq!(stat.state, "S");
+        assert_eq!(stat.start, Some(99));
         assert!(parse_stat("1 (x) S 1").is_none());
+    }
+
+    #[test]
+    fn a_short_stat_line_has_no_start_time() {
+        let line = "7 (x) S 1 7 7 0 -1 0 0 0 0 0 1 2 0";
+        assert_eq!(parse_stat(line).unwrap().start, None);
     }
 
     #[test]

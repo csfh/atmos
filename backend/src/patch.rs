@@ -44,11 +44,8 @@ pub fn shell_set(doc: &mut Value, key: &str, value: &Value) {
             set_widget(doc, "omarchy.clock", &field, value.clone());
         }
         Slot::Sync => {
-            let text = if value.as_bool() == Some(true) {
-                "On"
-            } else {
-                "Off"
-            };
+            let on = value.as_bool() == Some(true);
+            let text = if on { "On" } else { "Off" };
             set_widget(
                 doc,
                 "omarchy.agents",
@@ -258,6 +255,9 @@ fn slot(key: &str) -> Slot {
             id: "omarchy.tray",
             field: "pinned",
         },
+        "sentinelCpuPercent" => Slot::Path(&["atmos", "sentinel", "cpuPercent"]),
+        "sentinelMemoryPercent" => Slot::Path(&["atmos", "sentinel", "memoryPercent"]),
+        "sentinelPortAgeDays" => Slot::Path(&["atmos", "sentinel", "portAgeDays"]),
         "workspaceBarNames" => Slot::WorkspaceBar("showNames"),
         "workspaceBarCount" => Slot::WorkspaceBar("count"),
         _ => Slot::Extra,

@@ -289,6 +289,7 @@ write(
   "cpu  10 0 10 70 10 0 0 0 0 0\ncpu0 10 0 10 70 10 0 0 0 0 0\ncpu1 5 0 5 35 5 0 0 0 0 0\n",
 );
 write(path.join(fixture, "proc/loadavg"), "0.50 0.40 0.30 1/200 99\n");
+write(path.join(fixture, "proc/uptime"), "5000.25 4000.00\n");
 write(
   path.join(fixture, "proc/diskstats"),
   "   8       0 sda 100 0 2000 0 50 0 800 0 0 0 0 0 0 0\n" +
@@ -299,7 +300,8 @@ write(
   path.join(fixture, "proc/net/tcp"),
   "  sl  local_address rem_address   st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode\n" +
     "   0: 0100007F:0016 00000000:0000 0A 00000000:00000000 00:00000000 00000000     0        0 1\n" +
-    "   1: 0100007F:01BB 0100007F:C001 01 00000000:00000000 00:00000000 00000000  1000        0 2\n",
+    "   1: 0100007F:01BB 0100007F:C001 01 00000000:00000000 00:00000000 00000000  1000        0 2\n" +
+    "   2: 00000000:1F90 00000000:0000 0A 00000000:00000000 00:00000000 00000000  1000        0 3\n",
 );
 write(
   path.join(fixture, "proc/meminfo"),
@@ -324,6 +326,7 @@ write(
 );
 write(path.join(fixture, "proc/200/fd/0"), "");
 write(path.join(fixture, "proc/200/fd/1"), "");
+fs.symlinkSync("socket:[3]", path.join(fixture, "proc/200/fd/3"));
 write(path.join(fixture, "sys/fs/cgroup/memory.current"), "1000\n");
 write(path.join(fixture, "sys/fs/cgroup/user.slice/memory.current"), "800\n");
 write(path.join(fixture, "sys/class/powercap/intel-rapl:0/name"), "package-0\n");
@@ -341,7 +344,7 @@ write(
 );
 write(
   path.join(fixture, "proc/200/stat"),
-  "200 (firefox) S 1 200 200 0 -1 4194304 0 0 0 0 30 10 0 0 20 0 1 0\n",
+  "200 (firefox) S 1 200 200 0 -1 4194304 0 0 0 0 30 10 0 0 20 0 1 0 1500\n",
 );
 write(
   path.join(fixture, "proc/200/status"),
@@ -396,7 +399,7 @@ assertEqual(emitted.disks.length, 1, "ratmos live skips partition sda1");
 assertEqual(emitted.disks[0].name, "sda", "ratmos live keeps the whole disk");
 assertEqual(emitted.disks[0].readSectors, 2000, "ratmos live reads sectors");
 assertEqual(emitted.psi.cpu, 1.25, "ratmos live reads PSI avg10");
-assertEqual(emitted.tcp.listen, 1, "ratmos live counts LISTEN");
+assertEqual(emitted.tcp.listen, 2, "ratmos live counts LISTEN");
 assertEqual(emitted.tcp.established, 1, "ratmos live counts ESTABLISHED");
 assertEqual(Array.isArray(emitted.sensors), true, "ratmos live emits sensors");
 assertEqual(emitted.memSlab, 40, "ratmos live reads Slab");
@@ -412,7 +415,22 @@ assert(
 );
 assertEqual(emitted.buddy[0], 1, "ratmos live reads /proc/buddyinfo order 0");
 assert(emitted.tcpSockets.length >= 2, "ratmos live lists TCP sockets");
-assertEqual(firefox.fds, 2, "ratmos live counts /proc/pid/fd");
+assertEqual(firefox.fds, 3, "ratmos live counts /proc/pid/fd");
+assertEqual(emitted.uptimeSec, 5000.25, "ratmos live reads /proc/uptime");
+assertEqual(firefox.startTicks, 1500, "ratmos live reads the process start time");
+assertEqual(kworker.startTicks, null, "ratmos live leaves a missing start time unknown");
+const mine = emitted.tcpSockets.find((row) => row.port === 8080);
+assert(
+  !!mine && mine.state === "LISTEN" && mine.addr === "0.0.0.0" && mine.uid === 1000,
+  "ratmos live gives a listener its address, port and uid",
+);
+assertEqual(mine.pid, 200, "ratmos live resolves a listener to the process holding its socket");
+const sshd = emitted.tcpSockets.find((row) => row.port === 22);
+assert(
+  !!sshd && sshd.pid === null && sshd.uid === 0,
+  "ratmos live leaves an unreadable owner unknown",
+);
+assertEqual(emitted.tcpSockets[0].state, "LISTEN", "ratmos live lists listeners first");
 assert(
   emitted.cgroups && emitted.cgroups.value === 1000,
   "ratmos live reads cgroup memory.current",

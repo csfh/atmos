@@ -24,7 +24,9 @@
 
 **Interface** — The functions tests eval. The test surface is the interface.
 
-**Sentinel** — `-- atmos:look|input|autostart|bindings|windows|workspaces|monitors begin/end` blocks in Hypr Lua.
+**Sentinel** — `-- atmos:look|input|autostart|bindings|windows|workspaces|monitors begin/end` blocks in Hypr Lua. Not the Sentinel hub.
+
+**Sentinel hub** — The hub that flags processes over a CPU or memory limit and listening ports held by long-running processes. Unrelated to the Hypr Lua blocks above and to `ratmos sentinel`.
 
 **hypr.atmos** — `~/.config/hypr/atmos.lua`, required as `hypr.atmos` next to `hypr.omafetch`, before `default.hypr.toggles`.
 

@@ -1,6 +1,5 @@
-// Live CPU, memory, network, thermal, and process samples for Home.
-// Counters come from live-stats.py. Percents, rates, and temps stay unknown
-// when a sample is missing instead of painting as 0 or 0°.
+// Live CPU, memory, network, thermal, and process samples from ratmos.
+// Percents, rates, and temps stay unknown when missing instead of painting 0.
 
 var SAMPLE_CAP = 60;
 // Rows that still carry their process list: the newest, plus the one before
@@ -62,8 +61,6 @@ function parseProcess(row) {
   if (!isFinite(pid) || pid <= 0) return null;
   var comm = String(row.comm || "").replace(/^\s+|\s+$/g, "");
   if (!comm) return null;
-  var rssKb = nonNeg(row.rssKb);
-  var ticks = nonNeg(row.ticks);
   var state = String(row.state || "")
     .replace(/^\s+|\s+$/g, "")
     .charAt(0);
@@ -75,8 +72,9 @@ function parseProcess(row) {
     comm: comm,
     cmdline: String(row.cmdline || ""),
     uid: finiteNumber(row.uid),
-    rssKb: rssKb,
-    ticks: ticks,
+    rssKb: nonNeg(row.rssKb),
+    ticks: nonNeg(row.ticks),
+    startTicks: nonNeg(row.startTicks),
     cpu: nonNeg(row.cpu),
     state: state,
     threads: nonNeg(row.threads),
@@ -204,14 +202,15 @@ function parseTcpSockets(raw) {
   var src = Array.isArray(raw) ? raw : [];
   var out = [];
   var i;
-  var state;
   for (i = 0; i < src.length; i++) {
-    if (!src[i]) continue;
-    state = String(src[i].state || "");
-    if (!state) continue;
+    if (!src[i] || !src[i].state) continue;
     out.push({
       inode: src[i].inode != null ? String(src[i].inode) : String(i),
-      state: state,
+      state: String(src[i].state),
+      addr: src[i].addr != null ? String(src[i].addr) : null,
+      port: nonNeg(src[i].port),
+      uid: finiteNumber(src[i].uid),
+      pid: nonNeg(src[i].pid),
     });
   }
   return out;
@@ -355,6 +354,7 @@ function parse(raw) {
     rapl: parseRapl(data.rapl),
     slabs: parseSlabs(data.slabs),
     clkTck: nonNeg(data.clkTck) || 100,
+    uptimeSec: nonNeg(data.uptimeSec),
     cpuTemp: parseTemp(data.cpuTemp),
     gpus: parseGpus(data.gpus),
     sensors: mapList(data.sensors, parseSensor),
@@ -438,12 +438,10 @@ function decorateProcesses(prev, sample, dtMs) {
   var out = [];
   var row;
   var last;
-  var cpu;
   for (i = 0; i < list.length; i++) {
     row = list[i];
     if (!row) continue;
     last = Object.prototype.hasOwnProperty.call(prevMap, row.pid) ? prevMap[row.pid] : null;
-    cpu = processCpu(last ? last.ticks : null, row.ticks, dtMs, clk);
     out.push({
       pid: row.pid,
       ppid: row.ppid,
@@ -452,7 +450,8 @@ function decorateProcesses(prev, sample, dtMs) {
       uid: row.uid,
       rssKb: row.rssKb,
       ticks: row.ticks,
-      cpu: cpu,
+      startTicks: row.startTicks,
+      cpu: processCpu(last ? last.ticks : null, row.ticks, dtMs, clk),
       state: row.state,
       threads: row.threads,
       nice: row.nice,
@@ -614,6 +613,7 @@ function pushSample(history, sample, now) {
     rapl: parsed.rapl,
     slabs: parsed.slabs,
     clkTck: parsed.clkTck,
+    uptimeSec: parsed.uptimeSec,
     cpuTemp: parsed.cpuTemp,
     gpus: parsed.gpus,
     sensors: parsed.sensors,

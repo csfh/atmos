@@ -99,6 +99,7 @@ catalog.forEach(function (hub) {
 const pageFiles = [
   "HomePage.qml",
   "MonitorPage.qml",
+  "SentinelPage.qml",
   "FavoritesPage.qml",
   "AppearancePage.qml",
   "DisplaysPage.qml",
@@ -186,6 +187,12 @@ assertEqual(hubs.hubById("home").navGroup, "home", "home nav cluster is home");
 assertEqual(hubs.hubById("dashboard"), null, "dashboard is no longer a hub");
 assertEqual(hubs.hubTitle("monitor"), "Monitor", "monitor hub title is Monitor");
 assertEqual(hubs.hubById("monitor").navGroup, "home", "monitor nav cluster is home");
+assertEqual(hubs.hubById("sentinel").navGroup, "home", "sentinel nav cluster is home");
+assertEqual(
+  consecutiveNavGroup("home"),
+  "home,monitor,sentinel",
+  "home hubs stay consecutive in nav order, sentinel after monitor",
+);
 assertEqual(hubs.hubTitle("monitor/processes"), "Processes", "processes is a Monitor child");
 assertEqual(hubs.snapshotGroupForHub("monitor"), "look", "monitor snapshot group is look");
 assert(

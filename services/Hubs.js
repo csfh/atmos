@@ -77,6 +77,20 @@ function hubs() {
       ],
     },
     {
+      id: "sentinel",
+      title: "Sentinel",
+      description: "Processes hogging CPU or memory, and ports held open by long-running ones.",
+      navGroup: "home",
+      snapshotGroup: "all",
+      icon: "radar-line",
+      file: "SentinelPage.qml",
+      keywords: keywordList(
+        "rogue runaway hog hogging stuck leak leaking high cpu memory ram listening listener port tcp socket bind open exposed long running suspicious kill pid threshold",
+        ["rogue", "port", "listening", "hog"],
+      ),
+      children: [],
+    },
+    {
       id: "favorites",
       title: "Favorites",
       description: "Settings you starred, in one place.",

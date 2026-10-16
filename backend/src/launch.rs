@@ -9,6 +9,7 @@ use std::os::unix::process::CommandExt;
 const HUBS: &[&str] = &[
     "home",
     "monitor",
+    "sentinel",
     "favorites",
     "appearance",
     "display",
@@ -42,7 +43,7 @@ const HUBS: &[&str] = &[
     "services",
 ];
 
-const USAGE: &str = "Usage: atmos [home|monitor|favorites|appearance|display|hardware|drivers|windows|workspaces|input|keybindings|accessibility|sound|capture|disks|bar|notifications|profiles|defaults|agentic|applications|software|network|bluetooth|power|idle|security|accounts|hooks|tweaks|services|system|export][/theme|background|boot|gpu|cpu|npu|speedtest|wifi|bindings|rules|startup|environment|kernel|diagnostics|history|processes|memory|disk|traffic|sensors|mcp]";
+const USAGE: &str = "Usage: atmos [home|monitor|sentinel|favorites|appearance|display|hardware|drivers|windows|workspaces|input|keybindings|accessibility|sound|capture|disks|bar|notifications|profiles|defaults|agentic|applications|software|network|bluetooth|power|idle|security|accounts|hooks|tweaks|services|system|export][/theme|background|boot|gpu|cpu|npu|speedtest|wifi|bindings|rules|startup|environment|kernel|diagnostics|history|processes|memory|disk|traffic|sensors|mcp]";
 
 /// Launcher words that older versions accepted, mapped to where they live now.
 fn alias(page: &str) -> String {

@@ -824,6 +824,27 @@
         "type": "bool"
       },
       {
+        "domain": "sentinelCpuPercent",
+        "encoding": "map",
+        "file": ".config/plain/shell.json",
+        "prefix": "",
+        "type": "int"
+      },
+      {
+        "domain": "sentinelMemoryPercent",
+        "encoding": "map",
+        "file": ".config/plain/shell.json",
+        "prefix": "",
+        "type": "int"
+      },
+      {
+        "domain": "sentinelPortAgeDays",
+        "encoding": "map",
+        "file": ".config/plain/shell.json",
+        "prefix": "",
+        "type": "int"
+      },
+      {
         "domain": "snapperNumberLimit",
         "encoding": "map",
         "file": ".config/plain/security.json",

@@ -824,6 +824,27 @@
         "type": "bool"
       },
       {
+        "domain": "sentinelCpuPercent",
+        "encoding": "shell",
+        "file": ".config/omarchy/shell.json",
+        "prefix": "",
+        "type": "int"
+      },
+      {
+        "domain": "sentinelMemoryPercent",
+        "encoding": "shell",
+        "file": ".config/omarchy/shell.json",
+        "prefix": "",
+        "type": "int"
+      },
+      {
+        "domain": "sentinelPortAgeDays",
+        "encoding": "shell",
+        "file": ".config/omarchy/shell.json",
+        "prefix": "",
+        "type": "int"
+      },
+      {
         "domain": "snapperNumberLimit",
         "encoding": "doc",
         "file": "etc/snapper/configs/root",

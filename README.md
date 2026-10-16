@@ -39,7 +39,7 @@ Site: [atmos.csfh.dev](https://atmos.csfh.dev) · source for it in [`www/`](www/
 <details>
 <summary>All hubs</summary>
 
-Home, Monitor, Favorites, Appearance, Displays, Windows, Workspaces, Bar, Notifications, Profiles, Input, Keybindings, Accessibility, Sound, Capture, Hardware, Drivers, Disks, Network, Bluetooth, Power, Idle, Defaults, Agentic, Applications, Software, Hooks, System, Tweaks, Omafile, Accounts, Security, Services.
+Home, Monitor, Sentinel, Favorites, Appearance, Displays, Windows, Workspaces, Bar, Notifications, Profiles, Input, Keybindings, Accessibility, Sound, Capture, Hardware, Drivers, Disks, Network, Bluetooth, Power, Idle, Defaults, Agentic, Applications, Software, Hooks, System, Tweaks, Omafile, Accounts, Security, Services.
 
 </details>
 

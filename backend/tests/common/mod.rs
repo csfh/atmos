@@ -53,7 +53,7 @@ pub fn request(root: &Path, backend: &str, body: &Value) -> Value {
     );
     let value: Value = serde_json::from_slice(&output.stdout).expect("response json");
     assert_eq!(value["ok"], Value::Bool(true), "{value}");
-    assert_eq!(value["version"], "0.2.1", "{value}");
+    assert_eq!(value["version"], "0.3.0", "{value}");
     value
 }
 

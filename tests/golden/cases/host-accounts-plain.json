@@ -18,6 +18,6 @@
       "hostname": "plain-host",
       "passwd": "plain:x:1000:1000:Plain:/home/plain:/bin/sh\n"
     },
-    "version": "0.2.1"
+    "version": "0.3.0"
   }
 }

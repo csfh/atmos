@@ -21,6 +21,6 @@
       "themeShell": "[bar]\nradius = 4\n",
       "userShell": ""
     },
-    "version": "0.2.1"
+    "version": "0.3.0"
   }
 }

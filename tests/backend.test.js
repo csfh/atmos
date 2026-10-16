@@ -78,7 +78,7 @@ const bin = backendBin();
 assert(bin.length > 0, "ratmos is built");
 const version = spawnSync(bin, ["version"], { encoding: "utf8" });
 assertEqual(version.status, 0, "ratmos version exits 0");
-assertEqual(String(version.stdout).trim(), "0.2.1", "ratmos reports 0.2.1");
+assertEqual(String(version.stdout).trim(), "0.3.0", "ratmos reports 0.3.0");
 
 const fixture = fs.mkdtempSync(path.join(os.tmpdir(), "ratmos-list-"));
 const listed = spawnSync(bin, ["--backend", "omarchy", "--root", fixture, "request"], {
@@ -88,7 +88,7 @@ const listed = spawnSync(bin, ["--backend", "omarchy", "--root", fixture, "reque
 fs.rmSync(fixture, { recursive: true, force: true });
 assertEqual(listed.status, 0, "settings.list exits 0");
 const payload = JSON.parse(listed.stdout);
-assertEqual(payload.version, "0.2.1", "settings.list reports 0.2.1");
+assertEqual(payload.version, "0.3.0", "settings.list reports 0.3.0");
 assertEqual(payload.platform.id, "omarchy", "settings.list names the omarchy platform");
 const domains = new Set(payload.result.map((row) => row.domain));
 settings.settingsCatalog().forEach(function (entry) {

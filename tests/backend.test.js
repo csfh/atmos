@@ -2,7 +2,7 @@ const fs = require("fs");
 const os = require("os");
 const path = require("path");
 const { spawnSync } = require("child_process");
-const { assert, assertEqual } = require("./harness");
+const { assert, assertEqual, load } = require("./harness");
 
 const root = path.join(__dirname, "..");
 const omarchy = fs.readFileSync(path.join(root, "services", "Omarchy.qml"), "utf8");
@@ -10,7 +10,7 @@ const live = fs.readFileSync(path.join(root, "services", "LiveStatsStore.qml"), 
 const launcher = fs.readFileSync(path.join(root, "bin", "atmos"), "utf8");
 const install = fs.readFileSync(path.join(root, "backend", "src", "tasks", "app.rs"), "utf8");
 const launch = fs.readFileSync(path.join(root, "backend", "src", "launch.rs"), "utf8");
-const settings = require(path.join(root, "services", "Settings.js"));
+const settings = load("services/Settings.js");
 
 function body(src, name, next) {
   const start = src.indexOf("function " + name + "(");

@@ -1,4 +1,5 @@
 Qt.include("LuaText.js");
+Qt.include("RowText.js");
 // Managed hl.workspace_rule lines in ~/.config/hypr/atmos.lua.
 
 var BEGIN = "-- atmos:workspaces begin";
@@ -32,13 +33,6 @@ function sanitizeMonitor(raw) {
   var text = String(raw || "").replace(/^\s+|\s+$/g, "");
   if (!text) return "";
   if (!/^[A-Za-z0-9._-]+$/.test(text)) return "";
-  return text;
-}
-
-function sanitizeCommand(raw) {
-  var text = String(raw || "").replace(/^\s+|\s+$/g, "");
-  if (!text || text.length > 256) return "";
-  if (text.indexOf("\n") !== -1 || text.indexOf("\r") !== -1) return "";
   return text;
 }
 

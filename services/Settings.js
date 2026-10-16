@@ -20,6 +20,8 @@
 // `key` is a snapshot key. A dot walks into a nested object, so
 // "hyprLook.gapsIn" reads snapshot.hyprLook.gapsIn.
 
+Qt.include("RowText.js");
+
 var SETTINGS_SCHEMA = 1;
 
 function settingsCatalog() {
@@ -1556,52 +1558,6 @@ function listRowPrefix(label, n) {
   return label + " row " + n + " ";
 }
 
-function sanitizeBindingKeys(raw) {
-  var text = String(raw || "");
-  if (text.indexOf("\n") !== -1 || text.indexOf("\r") !== -1) return "";
-  text = text.replace(/^\s+|\s+$/g, "").replace(/\s+/g, " ");
-  if (!text || text.length > 64) return "";
-  if (!/^[A-Za-z0-9_ +.:,-]+$/.test(text)) return "";
-  return text;
-}
-
-function sanitizeBindingLabel(raw) {
-  var text = String(raw || "");
-  if (text.indexOf("\n") !== -1 || text.indexOf("\r") !== -1) return "";
-  text = text.replace(/^\s+|\s+$/g, "");
-  if (!text || text.length > 64) return "";
-  return text;
-}
-
-function sanitizeListCommand(raw) {
-  var text = String(raw || "").replace(/^\s+|\s+$/g, "");
-  if (!text || text.length > 256) return "";
-  if (text.indexOf("\n") !== -1 || text.indexOf("\r") !== -1) return "";
-  return text;
-}
-
-function sanitizeWindowMatch(raw) {
-  var text = String(raw || "");
-  if (text.indexOf("\n") !== -1 || text.indexOf("\r") !== -1) return "";
-  text = text.replace(/^\s+|\s+$/g, "");
-  if (!text || text.length > 128) return "";
-  if (text.indexOf("]]") !== -1) return "";
-  return text;
-}
-
-function sanitizeWindowWorkspace(raw) {
-  var text = String(raw || "").replace(/^\s+|\s+$/g, "");
-  if (!text) return "";
-  if (!/^[A-Za-z0-9:_-]{1,32}$/.test(text)) return "";
-  return text;
-}
-
-function clampWindowSize(raw) {
-  var n = Math.round(Number(raw));
-  if (!isFinite(n) || n < 100 || n > 4000) return 0;
-  return n;
-}
-
 function indicatorIds() {
   return ["Dictation", "ScreenRecording", "Reminder", "NightLight", "Dnd", "StayAwake"];
 }
@@ -1610,7 +1566,7 @@ function canonicalizeBindingRow(row, n, label) {
   var prefix = listRowPrefix(label, n);
   if (!row || typeof row !== "object" || Array.isArray(row))
     return { error: prefix + "is not a binding." };
-  var keys = sanitizeBindingKeys(row.keys);
+  var keys = sanitizeKeys(row.keys);
   if (!keys) return { error: prefix + "is not a valid chord." };
   if (row.unbind != null && row.unbind !== true && row.unbind !== false)
     return { error: prefix + "has a bad unbind flag." };
@@ -1618,14 +1574,14 @@ function canonicalizeBindingRow(row, n, label) {
   var command = "";
   if (row.command != null && row.command !== "") {
     if (typeof row.command !== "string") return { error: prefix + "has a bad command." };
-    command = sanitizeListCommand(row.command);
+    command = sanitizeCommand(row.command);
     if (!command) return { error: prefix + "has a command Atmos will not write." };
   }
   if (!command && !unbind) return { error: prefix + "needs a command or an unbind." };
   var rowLabel = "";
   if (row.label != null && row.label !== "") {
     if (typeof row.label !== "string") return { error: prefix + "has a bad label." };
-    rowLabel = sanitizeBindingLabel(row.label);
+    rowLabel = sanitizeLabel(row.label);
     if (String(row.label).replace(/^\s+|\s+$/g, "") && !rowLabel)
       return { error: prefix + "has a label Atmos will not write." };
   }
@@ -1639,7 +1595,7 @@ function canonicalizeAutostartRow(row, n, label) {
   if (!row || typeof row !== "object" || Array.isArray(row))
     return { error: prefix + "is not a startup program." };
   if (typeof row.command !== "string") return { error: prefix + "has no command." };
-  var command = sanitizeListCommand(row.command);
+  var command = sanitizeCommand(row.command);
   if (!command) return { error: prefix + "has a command Atmos will not write." };
   var delay = 0;
   if (row.delay != null && row.delay !== "") {
@@ -1656,7 +1612,7 @@ function canonicalizeWindowRuleRow(row, n, label) {
   var prefix = listRowPrefix(label, n);
   if (!row || typeof row !== "object" || Array.isArray(row))
     return { error: prefix + "is not a window rule." };
-  var match = sanitizeWindowMatch(row.match);
+  var match = sanitizeMatch(row.match);
   if (!match) return { error: prefix + "has no class to match." };
   var placement = row.placement == null ? "" : String(row.placement);
   if (row.float === true) placement = "float";
@@ -1666,11 +1622,11 @@ function canonicalizeWindowRuleRow(row, n, label) {
   if (row.center != null && row.center !== true && row.center !== false)
     return { error: prefix + "has a bad center flag." };
   var center = row.center === true;
-  var width = clampWindowSize(row.width);
-  var height = clampWindowSize(row.height);
+  var width = clampSize(row.width);
+  var height = clampSize(row.height);
   if (Array.isArray(row.size) && row.size.length >= 2) {
-    width = clampWindowSize(row.size[0]);
-    height = clampWindowSize(row.size[1]);
+    width = clampSize(row.size[0]);
+    height = clampSize(row.size[1]);
   }
   var sentSize =
     row.width != null || row.height != null || (Array.isArray(row.size) && row.size.length >= 2);
@@ -1681,12 +1637,12 @@ function canonicalizeWindowRuleRow(row, n, label) {
   if (sentSize && !(width && height)) return { error: prefix + "has a size Atmos will not write." };
   var workspace = "";
   if (row.workspace != null && row.workspace !== "") {
-    workspace = sanitizeWindowWorkspace(row.workspace);
+    workspace = sanitizeWorkspace(row.workspace);
     if (!workspace) return { error: prefix + "is not a valid workspace." };
   }
   var title = "";
   if (row.title != null && row.title !== "") {
-    title = sanitizeWindowMatch(row.title);
+    title = sanitizeMatch(row.title);
     if (!title) return { error: prefix + "has a title Atmos will not write." };
   }
   if (row.pin != null && row.pin !== true && row.pin !== false)
@@ -1753,7 +1709,7 @@ function canonicalizeWorkspaceRow(row, n, label) {
       monitor: monitor,
       isDefault: row.isDefault === true || row.default === true,
       special: id.indexOf("special:") === 0,
-      onCreatedEmpty: sanitizeListCommand(row.onCreatedEmpty || row.on_created_empty || ""),
+      onCreatedEmpty: sanitizeCommand(row.onCreatedEmpty || row.on_created_empty || ""),
     }),
   };
 }

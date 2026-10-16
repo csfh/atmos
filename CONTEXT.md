@@ -8,6 +8,8 @@
 
 **Omafile** — Markdown document of an Omarchy system's settings. Written and applied from the Omafile hub. Fenced `atmos:` blocks are the payload. Security settings are reported as prose and never imported.
 
+**Row text** — Characters a list setting may write: a binding chord or label, a command, a window match, a window workspace, or a window size. `services/RowText.js`, included by the Hypr writers and the Omafile row check.
+
 **Adopt** — `Snapshot.adopt(current, patch, adapters)` merges a patch into the last record, clamps only patched keys, and keeps unpatched object/array references.
 
 **Emit** — Producing snapshot JSON for a group (`ratmos snapshot`, keyed by SnapshotGroups).

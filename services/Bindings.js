@@ -1,32 +1,9 @@
 Qt.include("LuaText.js");
+Qt.include("RowText.js");
 // Managed o.bind / hl.unbind lines in ~/.config/hypr/bindings.lua.
 
 var BEGIN = "-- atmos:bindings begin";
 var END = "-- atmos:bindings end";
-
-function sanitizeKeys(raw) {
-  var text = String(raw || "");
-  if (text.indexOf("\n") !== -1 || text.indexOf("\r") !== -1) return "";
-  text = text.replace(/^\s+|\s+$/g, "").replace(/\s+/g, " ");
-  if (!text || text.length > 64) return "";
-  if (!/^[A-Za-z0-9_ +.:,-]+$/.test(text)) return "";
-  return text;
-}
-
-function sanitizeLabel(raw) {
-  var text = String(raw || "");
-  if (text.indexOf("\n") !== -1 || text.indexOf("\r") !== -1) return "";
-  text = text.replace(/^\s+|\s+$/g, "");
-  if (!text || text.length > 64) return "";
-  return text;
-}
-
-function sanitizeCommand(raw) {
-  var text = String(raw || "").replace(/^\s+|\s+$/g, "");
-  if (!text || text.length > 256) return "";
-  if (text.indexOf("\n") !== -1 || text.indexOf("\r") !== -1) return "";
-  return text;
-}
 
 // POSIX single quotes, same as o.shell_quote in Omarchy helpers.lua.
 function shellQuote(value) {

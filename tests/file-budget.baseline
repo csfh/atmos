@@ -1,7 +1,7 @@
 # Source files past the 800-line budget, at the length they had when listed.
 # A file here may shrink, never grow. Run ./tests/file-budget --update after a
 # shrink; a file back under the budget leaves this list.
-2957 services/Settings.js
+2913 services/Settings.js
 2906 services/Charts.js
 2823 services/Omarchy.qml
 1414 shell.qml

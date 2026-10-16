@@ -1,4 +1,5 @@
 Qt.include("LuaText.js");
+Qt.include("RowText.js");
 // Managed o.window() lines in ~/.config/hypr/atmos.lua.
 
 var BEGIN = "-- atmos:windows begin";
@@ -8,28 +9,6 @@ var LAYOUT_REQUIRE = 'require("hypr.atmos_layout")';
 var OMARCHY_LINE = 'require("default.hypr.omarchy")';
 var TOGGLES = 'require("default.hypr.toggles")';
 var WINDOW_CLASS = "dev.csfh.atmos";
-
-function sanitizeMatch(raw) {
-  var text = String(raw || "");
-  if (text.indexOf("\n") !== -1 || text.indexOf("\r") !== -1) return "";
-  text = text.replace(/^\s+|\s+$/g, "");
-  if (!text || text.length > 128) return "";
-  if (text.indexOf("]]") !== -1) return "";
-  return text;
-}
-
-function sanitizeWorkspace(raw) {
-  var text = String(raw || "").replace(/^\s+|\s+$/g, "");
-  if (!text) return "";
-  if (!/^[A-Za-z0-9:_-]{1,32}$/.test(text)) return "";
-  return text;
-}
-
-function clampSize(raw) {
-  var n = Math.round(Number(raw));
-  if (!isFinite(n) || n < 100 || n > 4000) return 0;
-  return n;
-}
 
 function rowFromArgs(args) {
   if (!args || typeof args[0] !== "string") return null;

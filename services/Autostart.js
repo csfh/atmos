@@ -1,4 +1,5 @@
 Qt.include("LuaText.js");
+Qt.include("RowText.js");
 // Managed o.launch_on_start() lines in ~/.config/hypr/autostart.lua.
 
 var BEGIN = "-- atmos:autostart begin";
@@ -8,13 +9,6 @@ var extractBlock = extractSentinel;
 extractSentinel = function (text) {
   return extractBlock(text, BEGIN, END);
 };
-
-function sanitizeCommand(raw) {
-  var text = String(raw || "").replace(/^\s+|\s+$/g, "");
-  if (!text || text.length > 256) return "";
-  if (text.indexOf("\n") !== -1 || text.indexOf("\r") !== -1) return "";
-  return text;
-}
 
 function splitDelay(raw) {
   var text = String(raw || "").replace(/^\s+|\s+$/g, "");

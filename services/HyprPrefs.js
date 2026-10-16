@@ -1,3 +1,4 @@
+Qt.include("LuaText.js");
 // Managed Hyprland look/input blocks in ~/.config/hypr/{looknfeel,input}.lua.
 // Prefs writes only the sentinel region. The rest of the user file stays.
 
@@ -184,30 +185,6 @@ function clampInput(raw) {
   };
 }
 
-function luaNumber(n) {
-  if (!isFinite(n)) return "0";
-  if (Math.abs(n - Math.round(n)) < 1e-9) return String(Math.round(n));
-  var s = (Math.round(n * 1000) / 1000).toFixed(3);
-  return s.replace(/\.?0+$/, "");
-}
-
-function luaBool(v) {
-  return v ? "true" : "false";
-}
-
-function luaString(v) {
-  return (
-    '"' +
-    String(v)
-      .replace(/\\/g, "\\\\")
-      .replace(/\n/g, "\\n")
-      .replace(/\r/g, "\\r")
-      .replace(/\t/g, "\\t")
-      .replace(/"/g, '\\"') +
-    '"'
-  );
-}
-
 function serializeLook(raw) {
   var s = clampLook(raw);
   var lines = [
@@ -314,46 +291,6 @@ function serializeInput(raw, existing) {
   return lines.join("\n");
 }
 
-function sentinelBounds(text, begin, end) {
-  var src = String(text || "");
-  var start = src.indexOf(begin);
-  if (start === -1) return null;
-  var stop = src.indexOf(end, start + begin.length);
-  if (stop === -1) return null;
-  return { start: start, stop: stop + end.length };
-}
-
-function hasSentinel(text, begin, end) {
-  return sentinelBounds(text, begin, end) !== null;
-}
-
-function extractSentinel(text, begin, end) {
-  var bounds = sentinelBounds(text, begin, end);
-  if (!bounds) return "";
-  return String(text).substring(bounds.start, bounds.stop);
-}
-
-function stripSentinel(text, begin, end) {
-  var src = String(text || "");
-  var bounds = sentinelBounds(src, begin, end);
-  if (!bounds) return src;
-  var before = src.substring(0, bounds.start).replace(/\s+$/, "");
-  var after = src.substring(bounds.stop).replace(/^\s+/, "");
-  if (before && after) return before + "\n\n" + after;
-  return before || after;
-}
-
-function replaceSentinel(text, begin, end, block) {
-  var src = String(text || "");
-  var body = String(block || "").replace(/\s+$/, "");
-  var bounds = sentinelBounds(src, begin, end);
-  if (!bounds) {
-    var trimmed = src.replace(/\s+$/, "");
-    return trimmed ? trimmed + "\n\n" + body + "\n" : body + "\n";
-  }
-  return src.substring(0, bounds.start) + body + src.substring(bounds.stop);
-}
-
 function applyLookFile(text, raw) {
   return replaceSentinel(
     stripSentinel(text, LEGACY_LOOK_BEGIN, LEGACY_LOOK_END),
@@ -444,32 +381,6 @@ function lookFromHyprOptions(opts) {
     preserveSplit: pick("preserveSplit", base.preserveSplit),
     focusOnActivate: pick("focusOnActivate", base.focusOnActivate),
   });
-}
-
-function inLineComment(src, at) {
-  var lineStart = src.lastIndexOf("\n", at > 0 ? at - 1 : 0) + 1;
-  var i = lineStart;
-  var inStr = false;
-  while (i < at) {
-    var c = src.charAt(i);
-    if (inStr) {
-      if (c === "\\") {
-        i += 2;
-        continue;
-      }
-      if (c === '"') inStr = false;
-      i++;
-      continue;
-    }
-    if (c === '"') {
-      inStr = true;
-      i++;
-      continue;
-    }
-    if (c === "-" && src.charAt(i + 1) === "-") return true;
-    i++;
-  }
-  return false;
 }
 
 function sentinelHasWorkspaceGesture(src) {

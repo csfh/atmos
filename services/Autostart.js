@@ -1,72 +1,19 @@
+Qt.include("LuaText.js");
 // Managed o.launch_on_start() lines in ~/.config/hypr/autostart.lua.
 
 var BEGIN = "-- atmos:autostart begin";
 var END = "-- atmos:autostart end";
-
-function luaString(v) {
-  return (
-    '"' +
-    String(v)
-      .replace(/\\/g, "\\\\")
-      .replace(/\n/g, "\\n")
-      .replace(/\r/g, "\\r")
-      .replace(/\t/g, "\\t")
-      .replace(/"/g, '\\"') +
-    '"'
-  );
-}
-
-function unescapeLua(v) {
-  var src = String(v || "");
-  var out = "";
-  var i = 0;
-  while (i < src.length) {
-    if (src.charAt(i) === "\\" && i + 1 < src.length) {
-      var e = src.charAt(i + 1);
-      if (e === "n") out += "\n";
-      else if (e === "t") out += "\t";
-      else if (e === "r") out += "\r";
-      else out += e;
-      i += 2;
-      continue;
-    }
-    out += src.charAt(i);
-    i++;
-  }
-  return out;
-}
+// Callers pass the file only. The shared extractor also needs these markers.
+var extractBlock = extractSentinel;
+extractSentinel = function (text) {
+  return extractBlock(text, BEGIN, END);
+};
 
 function sanitizeCommand(raw) {
   var text = String(raw || "").replace(/^\s+|\s+$/g, "");
   if (!text || text.length > 256) return "";
   if (text.indexOf("\n") !== -1 || text.indexOf("\r") !== -1) return "";
   return text;
-}
-
-function inLineComment(src, at) {
-  var lineStart = src.lastIndexOf("\n", at > 0 ? at - 1 : 0) + 1;
-  var i = lineStart;
-  var inStr = false;
-  while (i < at) {
-    var c = src.charAt(i);
-    if (inStr) {
-      if (c === "\\") {
-        i += 2;
-        continue;
-      }
-      if (c === '"') inStr = false;
-      i++;
-      continue;
-    }
-    if (c === '"') {
-      inStr = true;
-      i++;
-      continue;
-    }
-    if (c === "-" && src.charAt(i + 1) === "-") return true;
-    i++;
-  }
-  return false;
 }
 
 function splitDelay(raw) {
@@ -106,24 +53,9 @@ function parseCalls(text, disabled) {
   return out;
 }
 
-function sentinelBounds(text) {
-  var src = String(text || "");
-  var start = src.indexOf(BEGIN);
-  if (start === -1) return null;
-  var stop = src.indexOf(END, start + BEGIN.length);
-  if (stop === -1) return null;
-  return { start: start, stop: stop + END.length };
-}
-
-function extractSentinel(text) {
-  var bounds = sentinelBounds(text);
-  if (!bounds) return "";
-  return String(text).substring(bounds.start, bounds.stop);
-}
-
 function parseFile(text) {
   var src = String(text || "");
-  var bounds = sentinelBounds(src);
+  var bounds = sentinelBounds(src, BEGIN, END);
   var managed = [];
   var unmanaged = [];
   if (bounds) {
@@ -193,19 +125,8 @@ function serialize(commands) {
   return lines.join("\n");
 }
 
-function replaceSentinel(text, block) {
-  var src = String(text || "");
-  var body = String(block || "").replace(/\s+$/, "");
-  var bounds = sentinelBounds(src);
-  if (!bounds) {
-    var trimmed = src.replace(/\s+$/, "");
-    return trimmed ? trimmed + "\n\n" + body + "\n" : body + "\n";
-  }
-  return src.substring(0, bounds.start) + body + src.substring(bounds.stop);
-}
-
 function applyFile(text, commands) {
-  return replaceSentinel(text, serialize(commands));
+  return replaceSentinel(text, BEGIN, END, serialize(commands));
 }
 
 function managedCommands(items) {

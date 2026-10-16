@@ -1,15 +1,8 @@
+Qt.include("LuaText.js");
 // Managed hl.workspace_rule lines in ~/.config/hypr/atmos.lua.
 
 var BEGIN = "-- atmos:workspaces begin";
 var END = "-- atmos:workspaces end";
-
-function luaString(v) {
-  return '"' + String(v).replace(/\\/g, "\\\\").replace(/\n/g, "\\n").replace(/"/g, '\\"') + '"';
-}
-
-function luaBool(v) {
-  return v ? "true" : "false";
-}
 
 function clampCount(raw) {
   var n = Math.round(Number(raw));
@@ -306,15 +299,6 @@ function serialize(raw) {
   return lines.join("\n");
 }
 
-function sentinelBounds(text) {
-  var src = String(text || "");
-  var start = src.indexOf(BEGIN);
-  if (start === -1) return null;
-  var stop = src.indexOf(END, start + BEGIN.length);
-  if (stop === -1) return null;
-  return { start: start, stop: stop + END.length };
-}
-
 function parseRules(text) {
   var src = String(text || "");
   var out = [];
@@ -340,7 +324,7 @@ function parseRules(text) {
 }
 
 function parseFile(text) {
-  var bounds = sentinelBounds(text);
+  var bounds = sentinelBounds(text, BEGIN, END);
   var items = bounds ? parseRules(String(text).substring(bounds.start, bounds.stop)) : [];
   var count = 0;
   var i;
@@ -361,14 +345,7 @@ function parseFile(text) {
 }
 
 function applyFile(text, raw) {
-  var src = String(text || "");
-  var body = serialize(raw).replace(/\s+$/, "");
-  var bounds = sentinelBounds(src);
-  if (!bounds) {
-    var trimmed = src.replace(/\s+$/, "");
-    return trimmed ? trimmed + "\n\n" + body + "\n" : body + "\n";
-  }
-  return src.substring(0, bounds.start) + body + src.substring(bounds.stop);
+  return replaceSentinel(text, BEGIN, END, serialize(raw));
 }
 
 function wrapBind(wrap, delta) {

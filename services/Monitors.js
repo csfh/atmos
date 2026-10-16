@@ -1,21 +1,8 @@
+Qt.include("LuaText.js");
 // Managed hl.monitor lines in ~/.config/hypr/monitors.lua.
 
 var BEGIN = "-- atmos:monitors begin";
 var END = "-- atmos:monitors end";
-
-function luaString(v) {
-  return '"' + String(v).replace(/\\/g, "\\\\").replace(/"/g, '\\"') + '"';
-}
-
-function luaBool(v) {
-  return v ? "true" : "false";
-}
-
-function luaNumber(n) {
-  if (!isFinite(n)) return "0";
-  if (Math.abs(n - Math.round(n)) < 1e-9) return String(Math.round(n));
-  return String(Math.round(n * 1000) / 1000);
-}
 
 function sanitizeOutput(raw) {
   var text = String(raw || "").replace(/^\s+|\s+$/g, "");
@@ -140,15 +127,6 @@ function serialize(raw) {
   return lines.join("\n");
 }
 
-function sentinelBounds(text) {
-  var src = String(text || "");
-  var start = src.indexOf(BEGIN);
-  if (start === -1) return null;
-  var stop = src.indexOf(END, start + BEGIN.length);
-  if (stop === -1) return null;
-  return { start: start, stop: stop + END.length };
-}
-
 function parseMonitors(text) {
   var src = String(text || "");
   var out = [];
@@ -183,20 +161,13 @@ function parseMonitors(text) {
 }
 
 function parseFile(text) {
-  var bounds = sentinelBounds(text);
+  var bounds = sentinelBounds(text, BEGIN, END);
   var items = bounds ? parseMonitors(String(text).substring(bounds.start, bounds.stop)) : [];
   return clampState({ items: items });
 }
 
 function applyFile(text, raw) {
-  var src = String(text || "");
-  var body = serialize(raw).replace(/\s+$/, "");
-  var bounds = sentinelBounds(src);
-  if (!bounds) {
-    var trimmed = src.replace(/\s+$/, "");
-    return trimmed ? trimmed + "\n\n" + body + "\n" : body + "\n";
-  }
-  return src.substring(0, bounds.start) + body + src.substring(bounds.stop);
+  return replaceSentinel(text, BEGIN, END, serialize(raw));
 }
 
 function layoutNames() {

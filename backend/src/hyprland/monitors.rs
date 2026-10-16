@@ -126,9 +126,9 @@ fn monitor_row(arg: Option<&Value>) -> Option<Value> {
 }
 
 pub fn parse(text: &str) -> Value {
-    let body = match (text.find(BEGIN), text.find(END)) {
-        (Some(start), Some(stop)) if stop > start => &text[start..stop],
-        _ => "",
+    let body = match sentinel_bounds(text, BEGIN, END) {
+        Some((start, stop)) => &text[start..stop],
+        None => "",
     };
     let mut out = Vec::new();
     live_calls(body, "hl.monitor(", |args| {
@@ -137,4 +137,16 @@ pub fn parse(text: &str) -> Value {
         }
     });
     Value::Array(out)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn an_earlier_end_marker_does_not_hide_the_block() {
+        let text = "-- atmos:monitors end\n-- atmos:monitors begin\nhl.monitor({ output = \"DP-1\" })\n-- atmos:monitors end\n";
+        let rows = parse(text);
+        assert_eq!(rows[0]["output"], "DP-1");
+    }
 }

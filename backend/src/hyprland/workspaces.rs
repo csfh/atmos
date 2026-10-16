@@ -128,9 +128,9 @@ fn workspace_row(arg: Option<&Value>) -> Option<Value> {
 }
 
 pub fn parse(text: &str) -> Value {
-    let body = match (text.find(BEGIN), text.find(END)) {
-        (Some(start), Some(stop)) if stop > start => &text[start..stop],
-        _ => "",
+    let body = match sentinel_bounds(text, BEGIN, END) {
+        Some((start, stop)) => &text[start..stop],
+        None => "",
     };
     let mut out = Vec::new();
     live_calls(body, "hl.workspace_rule(", |args| {

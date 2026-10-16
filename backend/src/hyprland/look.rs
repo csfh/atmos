@@ -132,45 +132,6 @@ pub fn serialize(src: &Map<String, Value>) -> String {
     lines.join("\n")
 }
 
-fn section<'a>(map: &'a Map<String, Value>, key: &str) -> Option<&'a Map<String, Value>> {
-    map.get(key).and_then(Value::as_object)
-}
-
-fn put_num(out: &mut Map<String, Value>, table: Option<&Map<String, Value>>, lua: &str, key: &str) {
-    let Some(Value::Number(number)) = table.and_then(|row| row.get(lua)) else {
-        return;
-    };
-    out.insert(key.into(), Value::Number(number.clone()));
-}
-
-fn put_bool(
-    out: &mut Map<String, Value>,
-    table: Option<&Map<String, Value>>,
-    lua: &str,
-    key: &str,
-) {
-    let Some(Value::Bool(value)) = table.and_then(|row| row.get(lua)) else {
-        return;
-    };
-    out.insert(key.into(), json!(*value));
-}
-
-fn put_text(
-    out: &mut Map<String, Value>,
-    table: Option<&Map<String, Value>>,
-    lua: &str,
-    key: &str,
-    keep_empty: bool,
-) {
-    let Some(Value::String(text)) = table.and_then(|row| row.get(lua)) else {
-        return;
-    };
-    if text.is_empty() && !keep_empty {
-        return;
-    }
-    out.insert(key.into(), json!(text));
-}
-
 fn put_warp(out: &mut Map<String, Value>, cursor: Option<&Map<String, Value>>) {
     match cursor.and_then(|row| row.get("warp_on_change_workspace")) {
         Some(Value::Bool(value)) => {

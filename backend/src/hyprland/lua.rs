@@ -334,6 +334,50 @@ pub fn first_table_arg(text: &str, mark: &str) -> Option<Map<String, Value>> {
     None
 }
 
+pub fn section<'a>(map: &'a Map<String, Value>, key: &str) -> Option<&'a Map<String, Value>> {
+    map.get(key).and_then(Value::as_object)
+}
+
+pub fn put_num(
+    out: &mut Map<String, Value>,
+    table: Option<&Map<String, Value>>,
+    lua: &str,
+    key: &str,
+) {
+    let Some(Value::Number(number)) = table.and_then(|row| row.get(lua)) else {
+        return;
+    };
+    out.insert(key.into(), Value::Number(number.clone()));
+}
+
+pub fn put_bool(
+    out: &mut Map<String, Value>,
+    table: Option<&Map<String, Value>>,
+    lua: &str,
+    key: &str,
+) {
+    let Some(&Value::Bool(value)) = table.and_then(|row| row.get(lua)) else {
+        return;
+    };
+    out.insert(key.into(), Value::Bool(value));
+}
+
+pub fn put_text(
+    out: &mut Map<String, Value>,
+    table: Option<&Map<String, Value>>,
+    lua: &str,
+    key: &str,
+    keep_empty: bool,
+) {
+    let Some(Value::String(text)) = table.and_then(|row| row.get(lua)) else {
+        return;
+    };
+    if text.is_empty() && !keep_empty {
+        return;
+    }
+    out.insert(key.into(), Value::String(text.clone()));
+}
+
 /// The arguments of a call whose `(` was just consumed, and the index after `)`.
 pub fn parse_call_args(text: &str, i: usize) -> Option<(Vec<Value>, usize)> {
     let mut args = Vec::new();

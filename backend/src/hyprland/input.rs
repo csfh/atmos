@@ -146,46 +146,11 @@ pub fn serialize(src: &Map<String, Value>, existing: &str) -> String {
     lines.join("\n")
 }
 
-fn section<'a>(map: &'a Map<String, Value>, key: &str) -> Option<&'a Map<String, Value>> {
-    map.get(key).and_then(Value::as_object)
-}
-
-fn put_num(out: &mut Map<String, Value>, table: Option<&Map<String, Value>>, lua: &str, key: &str) {
-    let Some(Value::Number(number)) = table.and_then(|row| row.get(lua)) else {
-        return;
-    };
-    out.insert(key.into(), Value::Number(number.clone()));
-}
-
 fn put_f64(out: &mut Map<String, Value>, table: Option<&Map<String, Value>>, lua: &str, key: &str) {
     let Some(value) = table.and_then(|row| row.get(lua)).and_then(Value::as_f64) else {
         return;
     };
     out.insert(key.into(), json!(value));
-}
-
-fn put_bool(
-    out: &mut Map<String, Value>,
-    table: Option<&Map<String, Value>>,
-    lua: &str,
-    key: &str,
-) {
-    let Some(Value::Bool(value)) = table.and_then(|row| row.get(lua)) else {
-        return;
-    };
-    out.insert(key.into(), json!(*value));
-}
-
-fn put_text(
-    out: &mut Map<String, Value>,
-    table: Option<&Map<String, Value>>,
-    lua: &str,
-    key: &str,
-) {
-    let Some(Value::String(text)) = table.and_then(|row| row.get(lua)) else {
-        return;
-    };
-    out.insert(key.into(), json!(text));
 }
 
 fn workspace_gesture(body: &str) -> bool {
@@ -221,7 +186,7 @@ pub fn parse(text: &str) -> Map<String, Value> {
     let touchpad = input.and_then(|row| section(row, "touchpad"));
     let misc = config.as_ref().and_then(|row| section(row, "misc"));
     put_f64(&mut out, input, "sensitivity", "sensitivity");
-    put_text(&mut out, input, "accel_profile", "accelProfile");
+    put_text(&mut out, input, "accel_profile", "accelProfile", true);
     for (lua, key) in [
         ("emulate_discrete_scroll", "emulateDiscreteScroll"),
         ("repeat_rate", "repeatRate"),
@@ -242,8 +207,8 @@ pub fn parse(text: &str) -> Map<String, Value> {
     put_f64(&mut out, touchpad, "scroll_factor", "scrollFactor");
     put_bool(&mut out, misc, "key_press_enables_dpms", "keyPressDpms");
     put_bool(&mut out, misc, "mouse_move_enables_dpms", "mouseMoveDpms");
-    put_text(&mut out, input, "kb_layout", "kbLayoutOverride");
-    put_text(&mut out, input, "kb_variant", "kbVariantOverride");
+    put_text(&mut out, input, "kb_layout", "kbLayoutOverride", true);
+    put_text(&mut out, input, "kb_variant", "kbVariantOverride", true);
     if let Some(Value::String(options)) = input.and_then(|row| row.get("kb_options")) {
         out.insert(
             "kbGroupToggle".into(),

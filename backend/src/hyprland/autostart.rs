@@ -50,12 +50,22 @@ struct Call {
 
 fn launch_calls(text: &str, disabled: bool) -> Vec<Call> {
     let mut out = Vec::new();
-    for m in re!(r#"o\.launch_on_start\(\s*"((?:\\.|[^"\\])*)"\s*\)"#).captures_iter(text) {
-        let commented = in_line_comment(text, m.get(0).map_or(0, |g| g.start()));
-        if commented != disabled {
+    let mut i = 0;
+    let mark = "o.launch_on_start(";
+    while let Some(rel) = text[i..].find(mark) {
+        let at = i + rel;
+        let Some((args, end)) = parse_call_args(text, at + mark.len()) else {
+            i = at + mark.len();
+            continue;
+        };
+        i = end;
+        if in_line_comment(text, at) != disabled {
             continue;
         }
-        let (command, delay) = split_delay(&unescape_lua(&m[1]));
+        let Some(raw) = args.first().and_then(Value::as_str) else {
+            continue;
+        };
+        let (command, delay) = split_delay(raw);
         if !command.is_empty() {
             out.push(Call { command, delay });
         }

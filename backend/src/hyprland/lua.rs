@@ -378,12 +378,24 @@ pub fn put_text(
     out.insert(key.into(), Value::String(text.clone()));
 }
 
-/// Visit each `mark` call that is not inside a line comment.
-/// A commented call resumes just after `mark`, so text inside it is scanned again.
-pub fn live_calls(text: &str, mark: &str, mut visit: impl FnMut(&[Value])) {
+/// Visit each call among `marks`, earliest first, that is not inside a line comment.
+/// A commented or unparsable call resumes just after its mark.
+/// On a tie (same index), the earlier mark in `marks` wins.
+pub fn earliest_live_calls(text: &str, marks: &[&str], mut visit: impl FnMut(&str, &[Value])) {
     let mut i = 0;
-    while let Some(rel) = text[i..].find(mark) {
-        let at = i + rel;
+    while i < text.len() {
+        let mut best: Option<(usize, &str)> = None;
+        for mark in marks {
+            if let Some(rel) = text[i..].find(mark) {
+                let at = i + rel;
+                if best.is_none_or(|(b, _)| at < b) {
+                    best = Some((at, *mark));
+                }
+            }
+        }
+        let Some((at, mark)) = best else {
+            break;
+        };
         if in_line_comment(text, at) {
             i = at + mark.len();
             continue;
@@ -392,9 +404,15 @@ pub fn live_calls(text: &str, mark: &str, mut visit: impl FnMut(&[Value])) {
             i = at + mark.len();
             continue;
         };
-        visit(&args);
+        visit(mark, &args);
         i = end;
     }
+}
+
+/// Visit each `mark` call that is not inside a line comment.
+/// A commented call resumes just after `mark`, so text inside it is scanned again.
+pub fn live_calls(text: &str, mark: &str, mut visit: impl FnMut(&[Value])) {
+    earliest_live_calls(text, &[mark], |_, args| visit(args));
 }
 
 /// The arguments of a call whose `(` was just consumed, and the index after `)`.

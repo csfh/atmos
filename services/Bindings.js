@@ -67,43 +67,19 @@ function commandFromArg(arg, description) {
 }
 
 function parseEvents(text) {
-  var src = String(text || "");
   var events = [];
-  var i = 0;
-  while (i < src.length) {
-    var u = src.indexOf("hl.unbind(", i);
-    var b = src.indexOf("o.bind(", i);
-    if (u === -1 && b === -1) break;
-    if (u !== -1 && (b === -1 || u < b)) {
-      if (inLineComment(src, u)) {
-        i = u + 10;
-        continue;
-      }
-      var unbind = parseCallArgs(src, u + 10);
-      if (!unbind) {
-        i = u + 10;
-        continue;
-      }
-      var unbindKeys = sanitizeKeys(unbind.args[0]);
-      if (unbindKeys) events.push({ kind: "unbind", keys: unbindKeys });
-      i = unbind.next;
-    } else {
-      if (inLineComment(src, b)) {
-        i = b + 7;
-        continue;
-      }
-      var bind = parseCallArgs(src, b + 7);
-      if (!bind) {
-        i = b + 7;
-        continue;
-      }
-      var keys = sanitizeKeys(bind.args[0]);
-      var label = bind.args[1] == null ? "" : sanitizeLabel(bind.args[1]);
-      var command = commandFromArg(bind.args[2], bind.args[1] == null ? "" : bind.args[1]);
-      if (keys) events.push({ kind: "bind", keys: keys, label: label, command: command });
-      i = bind.next;
+  // o.bind( is listed first so a same-index tie stays a bind.
+  earliestLiveCalls(text, ["o.bind(", "hl.unbind("], function (mark, args) {
+    var keys = sanitizeKeys(args[0]);
+    if (!keys) return;
+    if (mark === "hl.unbind(") {
+      events.push({ kind: "unbind", keys: keys });
+      return;
     }
-  }
+    var label = args[1] == null ? "" : sanitizeLabel(args[1]);
+    var command = commandFromArg(args[2], args[1] == null ? "" : args[1]);
+    events.push({ kind: "bind", keys: keys, label: label, command: command });
+  });
   return events;
 }
 

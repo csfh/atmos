@@ -169,23 +169,39 @@ function parseCallArgs(s, i) {
   return { args: args, next: i + 1 };
 }
 
-// A commented call resumes just after the mark, so text inside it is scanned again.
 function liveCalls(text, mark, visit) {
+  earliestLiveCalls(text, [mark], function (_mark, args) {
+    visit(args);
+  });
+}
+
+// A commented call resumes just after its mark, so text inside it is scanned again.
+// On a tie, the earlier mark in the list wins.
+function earliestLiveCalls(text, marks, visit) {
   var src = String(text || "");
   var i = 0;
   while (i < src.length) {
-    var at = src.indexOf(mark, i);
-    if (at === -1) break;
-    if (inLineComment(src, at)) {
-      i = at + mark.length;
+    var bestAt = -1;
+    var bestMark = "";
+    var m;
+    for (m = 0; m < marks.length; m++) {
+      var at = src.indexOf(marks[m], i);
+      if (at !== -1 && (bestAt === -1 || at < bestAt)) {
+        bestAt = at;
+        bestMark = marks[m];
+      }
+    }
+    if (bestAt === -1) break;
+    if (inLineComment(src, bestAt)) {
+      i = bestAt + bestMark.length;
       continue;
     }
-    var parsed = parseCallArgs(src, at + mark.length);
+    var parsed = parseCallArgs(src, bestAt + bestMark.length);
     if (!parsed) {
-      i = at + mark.length;
+      i = bestAt + bestMark.length;
       continue;
     }
-    visit(parsed.args);
+    visit(bestMark, parsed.args);
     i = parsed.next;
   }
 }

@@ -100,58 +100,31 @@ enum Event {
 
 fn events(src: &str) -> Vec<Event> {
     let mut out = Vec::new();
-    let mut i = 0;
-    while i < src.len() {
-        let unbind_at = src[i..].find("hl.unbind(").map(|p| p + i);
-        let bind_at = src[i..].find("o.bind(").map(|p| p + i);
-        match (unbind_at, bind_at) {
-            (None, None) => break,
-            (Some(u), b) if b.is_none_or(|b| u < b) => {
-                if in_line_comment(src, u) {
-                    i = u + 10;
-                    continue;
-                }
-                let Some((args, end)) = parse_call_args(src, u + 10) else {
-                    i = u + 10;
-                    continue;
-                };
-                let keys = sanitize_keys(&str_or_empty(args.first()));
-                if !keys.is_empty() {
-                    out.push(Event::Unbind(keys));
-                }
-                i = end;
-            }
-            (_, Some(b)) => {
-                if in_line_comment(src, b) {
-                    i = b + 7;
-                    continue;
-                }
-                let Some((args, end)) = parse_call_args(src, b + 7) else {
-                    i = b + 7;
-                    continue;
-                };
-                let keys = sanitize_keys(&str_or_empty(args.first()));
-                let raw_label = match args.get(1) {
-                    Some(v) if !v.is_null() => v.clone(),
-                    _ => Value::String(String::new()),
-                };
-                let label = match args.get(1) {
-                    Some(v) if !v.is_null() => sanitize_label(&str_or_empty(Some(v))),
-                    _ => String::new(),
-                };
-                let command = command_from_arg(args.get(2), &raw_label);
-                if !keys.is_empty() {
-                    out.push(Event::Bind {
-                        keys,
-                        label,
-                        command,
-                    });
-                }
-                i = end;
-            }
-            _ => break,
+    // `o.bind(` is listed first so a same-index tie stays a bind.
+    earliest_live_calls(src, &["o.bind(", "hl.unbind("], |mark, args| {
+        let keys = sanitize_keys(&str_or_empty(args.first()));
+        if keys.is_empty() {
+            return;
         }
-    }
+        if mark == "hl.unbind(" {
+            out.push(Event::Unbind(keys));
+            return;
+        }
+        let raw_label = match args.get(1) {
+            Some(v) if !v.is_null() => v.clone(),
+            _ => Value::String(String::new()),
+        };
+        let label = match args.get(1) {
+            Some(v) if !v.is_null() => sanitize_label(&str_or_empty(Some(v))),
+            _ => String::new(),
+        };
+        let command = command_from_arg(args.get(2), &raw_label);
+        out.push(Event::Bind {
+            keys,
+            label,
+            command,
+        });
+    });
     out
 }
 

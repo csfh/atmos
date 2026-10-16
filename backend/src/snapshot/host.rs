@@ -645,17 +645,17 @@ pub fn marker_flags(f: &mut Map<String, Value>, home: &str) {
     f.insert("autostart".into(), list(Kind::Autostart, &autostart));
     f.insert(
         "autostartManaged".into(),
-        json!(file_has(Path::new(&autostart), "-- atmos:autostart begin")),
+        json!(file_has(Path::new(&autostart), Kind::Autostart.begin())),
     );
     f.insert("bindings".into(), list(Kind::Bindings, &bindings));
     f.insert(
         "bindingsManaged".into(),
-        json!(file_has(Path::new(&bindings), "-- atmos:bindings begin")),
+        json!(file_has(Path::new(&bindings), Kind::Bindings.begin())),
     );
     f.insert("windowRules".into(), list(Kind::Windows, &windows));
     f.insert(
         "windowRulesManaged".into(),
-        json!(file_has(Path::new(&windows), "-- atmos:windows begin")),
+        json!(file_has(Path::new(&windows), Kind::Windows.begin())),
     );
     f.insert(
         "windowOpaque".into(),

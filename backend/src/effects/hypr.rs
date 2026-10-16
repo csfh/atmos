@@ -12,8 +12,10 @@ pub fn read_hypr(path: &Path, kind: &str, key: &str) -> Result<Value> {
             flag_comment(&text, "windowOpaque") == Value::Bool(true),
         )),
         _ => {
-            let begin = sentinel_begin(kind);
-            if !text.contains(begin) && !text_has_calls(&text, kind) {
+            let Some(parsed) = crate::hyprland::Kind::parse(kind) else {
+                return hypr_list(kind, path);
+            };
+            if !text.contains(parsed.begin()) && !parsed.has_calls(&text) {
                 return Ok(Value::Null);
             }
             hypr_list(kind, path)
@@ -40,7 +42,7 @@ pub fn write_hypr(path: &Path, kind: &str, key: &str, value: &Value) -> Result<(
             serde_json::json!({ "items": keep_managed(value), "wrapSwitch": wrap, "wheelSwitch": wheel })
         }
         "workspaceWrapSwitch" | "workspaceWheelSwitch" => {
-            let mut items = if text.contains("-- atmos:workspaces begin") {
+            let mut items = if text.contains(crate::hyprland::Kind::Workspaces.begin()) {
                 keep_managed(&hypr_list("workspaces", path)?)
             } else {
                 Value::Array(Vec::new())
@@ -75,28 +77,6 @@ pub(super) fn flag_comment(text: &str, name: &str) -> Value {
         }
     }
     Value::Null
-}
-
-pub(super) fn sentinel_begin(kind: &str) -> &'static str {
-    match kind {
-        "bindings" => "-- atmos:bindings begin",
-        "windows" => "-- atmos:windows begin",
-        "workspaces" => "-- atmos:workspaces begin",
-        "autostart" => "-- atmos:autostart begin",
-        "monitors" => "-- atmos:monitors begin",
-        _ => "",
-    }
-}
-
-pub(super) fn text_has_calls(text: &str, kind: &str) -> bool {
-    match kind {
-        "bindings" => text.contains("o.bind(") || text.contains("hl.unbind("),
-        "windows" => text.contains("o.window("),
-        "autostart" => text.contains("o.launch_on_start("),
-        "workspaces" => text.contains("hl.workspace_rule("),
-        "monitors" => text.contains("hl.monitor("),
-        _ => false,
-    }
 }
 
 pub(super) fn keep_managed(value: &Value) -> Value {

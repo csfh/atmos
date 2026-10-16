@@ -166,7 +166,10 @@ fn input_surface(env: &Env, f: &mut Map<String, Value>) {
     f.insert("hyprInput".into(), hypr::input(gesture));
     f.insert(
         "hyprInputManaged".into(),
-        json!(sh::file_has(Path::new(&input_file), "-- atmos:input begin")),
+        json!(sh::file_has(
+            Path::new(&input_file),
+            crate::hyprland::Kind::Input.begin()
+        )),
     );
     f.insert("hyprWorkspaceGesture".into(), json!(gesture));
     f.insert("hyprWorkspaceGestureManaged".into(), json!(managed));

@@ -295,7 +295,7 @@ pub fn markers(home: &str) -> Map<String, Value> {
     let mut f = Map::new();
     f.insert(
         "hyprLookManaged".into(),
-        json!(file_has(&hypr.join("looknfeel.lua"), "-- atmos:look begin")),
+        json!(file_has(&hypr.join("looknfeel.lua"), Kind::Look.begin())),
     );
     f.insert(
         "hyprNoGaps".into(),

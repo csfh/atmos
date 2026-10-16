@@ -64,6 +64,19 @@ impl Kind {
             Kind::Monitors => monitors::END,
         }
     }
+
+    /// True when `text` mentions a call this block parses. A comment still counts:
+    /// callers use this only to decide that a file is worth listing.
+    pub fn has_calls(self, text: &str) -> bool {
+        match self {
+            Kind::Bindings => text.contains("o.bind(") || text.contains("hl.unbind("),
+            Kind::Windows => text.contains("o.window("),
+            Kind::Autostart => text.contains("o.launch_on_start("),
+            Kind::Workspaces => text.contains("hl.workspace_rule("),
+            Kind::Monitors => text.contains("hl.monitor("),
+            Kind::Look | Kind::Input => false,
+        }
+    }
 }
 
 /// What `list` prints for a kind: the rows, or the gesture state for input.

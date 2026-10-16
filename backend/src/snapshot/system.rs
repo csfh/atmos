@@ -240,7 +240,7 @@ pub fn control(home: &str, scope_all: bool) -> Control {
     f.insert("monitorRules".into(), list(Kind::Monitors, monitors_file));
     f.insert(
         "workspacesManaged".into(),
-        json!(file_has(windows_file, "-- atmos:workspaces begin")),
+        json!(file_has(windows_file, Kind::Workspaces.begin())),
     );
     f.insert(
         "workspaceWrapSwitch".into(),
@@ -252,7 +252,7 @@ pub fn control(home: &str, scope_all: bool) -> Control {
     );
     f.insert(
         "monitorRulesManaged".into(),
-        json!(file_has(monitors_file, "-- atmos:monitors begin")),
+        json!(file_has(monitors_file, Kind::Monitors.begin())),
     );
     let on = serde_json::from_str::<Value>(&read(Path::new(&presentation)))
         .ok()

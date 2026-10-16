@@ -2,6 +2,7 @@
 
 use crate::effect::{CommandForm, Effect};
 use crate::error::Result;
+use crate::hyprland::Kind;
 use crate::platform::Backend;
 use serde_json::Value;
 
@@ -482,13 +483,13 @@ pub fn locate(backend: Backend, spec: &Spec) -> Result<Place> {
         },
         "look" => lua(
             ".config/hypr/looknfeel.lua",
-            "-- atmos:look begin",
-            "-- atmos:look end",
+            Kind::Look.begin(),
+            Kind::Look.end(),
         ),
         "input" => lua(
             ".config/hypr/input.lua",
-            "-- atmos:input begin",
-            "-- atmos:input end",
+            Kind::Input.begin(),
+            Kind::Input.end(),
         ),
         "bindings" => hypr("bindings", ".config/hypr/bindings.lua"),
         "windows" => hypr("windows", ".config/hypr/atmos.lua"),

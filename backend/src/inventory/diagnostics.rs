@@ -2,6 +2,7 @@
 
 use super::time::utc_stamp;
 use super::{read_strip, read_text};
+use crate::hyprland::Kind;
 use crate::runner::Run;
 use serde_json::{json, Value};
 use std::fs;
@@ -368,11 +369,11 @@ fn atmos_info(env: &Env) -> Value {
         "hyprAtmos": has("hyprland.lua", r#"require("hypr.atmos")"#),
         "hyprAtmosLayout": has("hyprland.lua", r#"require("hypr.atmos_layout")"#),
         "sentinels": {
-            "look": has("looknfeel.lua", "-- atmos:look begin"),
-            "input": has("input.lua", "-- atmos:input begin"),
-            "autostart": has("autostart.lua", "-- atmos:autostart begin"),
-            "bindings": has("bindings.lua", "-- atmos:bindings begin"),
-            "windows": has("atmos.lua", "-- atmos:windows begin"),
+            "look": has("looknfeel.lua", Kind::Look.begin()),
+            "input": has("input.lua", Kind::Input.begin()),
+            "autostart": has("autostart.lua", Kind::Autostart.begin()),
+            "bindings": has("bindings.lua", Kind::Bindings.begin()),
+            "windows": has("atmos.lua", Kind::Windows.begin()),
         },
     })
 }

@@ -299,14 +299,7 @@ pub(crate) fn handle(backend: Backend, root: Option<&Path>, request: &Value) -> 
             })
         }
         Request::SettingsSnapshot { group, keys } => {
-            let mut doc = if backend.is_live(root) {
-                live_settings_snapshot(&group, keys.as_deref())?
-            } else {
-                nested_snapshot(backend, root, keys.as_deref())?
-            };
-            // An unset value is absent, not null.
-            doc.retain(|_, value| !value.is_null());
-            Value::Object(doc)
+            Value::Object(snapshot::settings(backend, root, &group, keys.as_deref())?)
         }
         Request::DisplayGet { kind } => display::load(root, backend, &kind)?,
         Request::SearchQuery { query, context } => {
@@ -484,102 +477,6 @@ fn place_for(backend: Backend, key: &str) -> Result<domain::Place> {
     domain::locate(backend, spec)
 }
 
-fn nested_snapshot(
-    backend: Backend,
-    root: Option<&Path>,
-    keys: Option<&[String]>,
-) -> Result<Map<String, Value>> {
-    let mut doc = Map::new();
-    for spec in domain::specs() {
-        if !wanted(spec.key, keys) {
-            continue;
-        }
-        let value = read_domain(backend, root, spec.key)?;
-        if !value.is_null() {
-            nest_domain(&mut doc, spec.key, value);
-        }
-    }
-    Ok(doc)
-}
-
-fn settings_snapshot(backend: Backend, root: Option<&Path>) -> Result<Map<String, Value>> {
-    let mut snapshot = Map::new();
-    for spec in domain::specs() {
-        snapshot.insert(spec.key.to_string(), read_domain(backend, root, spec.key)?);
-    }
-    Ok(snapshot)
-}
-
-/// Live Omarchy reads merge `snapshot.sh` with the files settings.set writes.
-/// A null file value does not erase a snapshot field. Dotted domains fold into
-/// the nested objects the Quickshell snapshot already uses. `--root` never
-/// reaches this path, so fixture launches stay file-only and deterministic.
-fn live_settings_snapshot(group: &str, keys: Option<&[String]>) -> Result<Map<String, Value>> {
-    let mut snapshot = Map::new();
-    if let Ok(Value::Object(map)) = snapshot::capture(group) {
-        snapshot = map;
-    }
-    let group_name = if group.is_empty() { "all" } else { group };
-    snapshot.insert("group".into(), Value::String(group_name.into()));
-    for spec in domain::specs() {
-        if !wanted(spec.key, keys) {
-            continue;
-        }
-        // One unreadable system file must not drop the rest of the page.
-        if let Ok(value) = read_domain(Backend::Omarchy, None, spec.key) {
-            overlay_domain(&mut snapshot, spec.key, value);
-        }
-    }
-    Ok(snapshot)
-}
-
-fn overlay_domain(doc: &mut Map<String, Value>, key: &str, value: Value) {
-    if value.is_null() {
-        return;
-    }
-    // These switches are live command status. A file value must not cover them.
-    if matches!(
-        key,
-        "nightlight"
-            | "audioOutputMuted"
-            | "audioInputMuted"
-            | "barVisible"
-            | "screensaverEnabled"
-            | "stayAwake"
-            | "touchpadEnabled"
-            | "touchscreenEnabled"
-            | "doNotDisturb"
-    ) {
-        return;
-    }
-    nest_domain(doc, key, value);
-}
-
-/// A dotted domain such as `hyprLook.gaps` lands inside the object `hyprLook`.
-fn nest_domain(doc: &mut Map<String, Value>, key: &str, value: Value) {
-    if let Some((head, tail)) = key.split_once('.') {
-        let entry = doc
-            .entry(head.to_string())
-            .or_insert_with(|| Value::Object(Map::new()));
-        if !entry.is_object() {
-            *entry = Value::Object(Map::new());
-        }
-        if let Some(map) = entry.as_object_mut() {
-            map.insert(tail.to_string(), value);
-        }
-        return;
-    }
-    doc.insert(key.to_string(), value);
-}
-
-/// Whether a domain is in the requested key list. The list names top-level
-/// keys, so `hyprLook.gaps` is wanted when `hyprLook` is.
-fn wanted(key: &str, keys: Option<&[String]>) -> bool {
-    let Some(keys) = keys else { return true };
-    let head = key.split_once('.').map_or(key, |(head, _)| head);
-    keys.iter().any(|name| name == head)
-}
-
 /// One failing inventory stays on its own kind. The other documents still return.
 fn load_displays(backend: Backend, root: Option<&Path>, kinds: &[&str]) -> Value {
     // The inventories are independent, so run them side by side.
@@ -612,7 +509,7 @@ fn snapshot_document(backend: Backend, root: &Path) -> Result<Value> {
     Ok(serde_json::json!({
         "version": VERSION,
         "platform": platform(backend)?,
-        "settings": Value::Object(settings_snapshot(backend, Some(root))?),
+        "settings": Value::Object(snapshot::settings_snapshot(backend, Some(root))?),
         "display": load_displays(backend, Some(root), display::KINDS),
     }))
 }
@@ -775,21 +672,5 @@ mod tests {
         for value in [json!(null), json!([1]), json!({"a": 1})] {
             assert!(scalar_arg(&value).is_err(), "{value}");
         }
-    }
-
-    #[test]
-    fn wanted_matches_the_top_level_name_of_a_dotted_key() {
-        let keys = argv(&["hyprLook", "theme"]);
-        assert!(wanted("hyprLook.gapsIn", Some(&keys)));
-        assert!(wanted("theme", Some(&keys)));
-        assert!(!wanted("hyprInput.sensitivity", Some(&keys)));
-        assert!(!wanted("hyprLooks", Some(&keys)));
-        assert!(!wanted("font", Some(&keys)));
-    }
-
-    #[test]
-    fn wanted_with_no_list_wants_everything_and_with_an_empty_list_nothing() {
-        assert!(wanted("anything.at.all", None));
-        assert!(!wanted("theme", Some(&[])));
     }
 }

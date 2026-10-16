@@ -4,9 +4,12 @@
 mod bar;
 mod host;
 mod hypr;
+mod merge;
 mod net;
 mod sh;
 mod system;
+
+pub use merge::{settings, settings_snapshot};
 
 use crate::error::Result;
 use serde_json::{json, Map, Value};

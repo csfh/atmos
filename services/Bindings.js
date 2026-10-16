@@ -123,15 +123,9 @@ function parseCalls(text) {
 
 function parseFile(text) {
   var src = String(text || "");
-  var bounds = sentinelBounds(src, BEGIN, END);
-  var managed = [];
-  var unmanaged = [];
-  if (bounds) {
-    managed = parseCalls(src.substring(bounds.start, bounds.stop));
-    unmanaged = parseCalls(src.substring(0, bounds.start) + "\n" + src.substring(bounds.stop));
-  } else {
-    unmanaged = parseCalls(src);
-  }
+  var split = splitSentinel(src, BEGIN, END);
+  var managed = split ? parseCalls(split.inside) : [];
+  var unmanaged = parseCalls(split ? split.outside : src);
   var items = [];
   var i;
   for (i = 0; i < unmanaged.length; i++) {

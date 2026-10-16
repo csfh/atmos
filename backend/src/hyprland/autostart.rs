@@ -76,21 +76,20 @@ fn launch_calls(text: &str, disabled: bool) -> Vec<Call> {
 pub fn parse(text: &str) -> Value {
     let row = |c: &Call, enabled: bool, managed: bool| json!({"command": c.command, "delay": c.delay, "enabled": enabled, "managed": managed});
     let mut items = Vec::new();
-    match sentinel_bounds(text, BEGIN, END) {
-        Some((start, stop)) => {
-            let outside = format!("{}\n{}", &text[..start], &text[stop..]);
+    match split_sentinel(text, BEGIN, END) {
+        Some((inside, outside)) => {
             items.extend(
                 launch_calls(&outside, false)
                     .iter()
                     .map(|c| row(c, true, false)),
             );
             items.extend(
-                launch_calls(&text[start..stop], false)
+                launch_calls(inside, false)
                     .iter()
                     .map(|c| row(c, true, true)),
             );
             items.extend(
-                launch_calls(&text[start..stop], true)
+                launch_calls(inside, true)
                     .iter()
                     .map(|c| row(c, false, true)),
             );

@@ -167,11 +167,10 @@ fn with_managed(rows: Vec<Value>, managed: bool) -> impl Iterator<Item = Value> 
 
 pub fn parse(text: &str) -> Value {
     let mut items: Vec<Value> = Vec::new();
-    match sentinel_bounds(text, BEGIN, END) {
-        Some((start, stop)) => {
-            let outside = format!("{}\n{}", &text[..start], &text[stop..]);
+    match split_sentinel(text, BEGIN, END) {
+        Some((inside, outside)) => {
             items.extend(with_managed(fold(events(&outside)), false));
-            items.extend(with_managed(fold(events(&text[start..stop])), true));
+            items.extend(with_managed(fold(events(inside)), true));
         }
         None => items.extend(with_managed(fold(events(text)), false)),
     }

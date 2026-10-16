@@ -270,15 +270,10 @@ fn calls(src: &str) -> Vec<Row> {
 
 pub fn parse(text: &str) -> Value {
     let mut items = Vec::new();
-    match sentinel_bounds(text, BEGIN, END) {
-        Some((start, stop)) => {
-            let outside = format!("{}\n{}", &text[..start], &text[stop..]);
+    match split_sentinel(text, BEGIN, END) {
+        Some((inside, outside)) => {
             items.extend(calls(&outside).iter().map(|r| row_json(r, Some(false))));
-            items.extend(
-                calls(&text[start..stop])
-                    .iter()
-                    .map(|r| row_json(r, Some(true))),
-            );
+            items.extend(calls(inside).iter().map(|r| row_json(r, Some(true))));
         }
         None => items.extend(calls(text).iter().map(|r| row_json(r, Some(false)))),
     }

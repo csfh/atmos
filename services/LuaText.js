@@ -206,6 +206,18 @@ function earliestLiveCalls(text, marks, visit) {
   }
 }
 
+// Managed block plus the text outside it. The sides are joined by a newline
+// so a `--` on the last outside line cannot comment out the block.
+function splitSentinel(text, begin, end) {
+  var src = String(text || "");
+  var bounds = sentinelBounds(src, begin, end);
+  if (!bounds) return null;
+  return {
+    inside: src.substring(bounds.start, bounds.stop),
+    outside: src.substring(0, bounds.start) + "\n" + src.substring(bounds.stop),
+  };
+}
+
 function sentinelBounds(text, begin, end) {
   var src = String(text || "");
   var start = src.indexOf(begin);

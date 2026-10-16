@@ -57,3 +57,11 @@ assert(
   lua.sentinelBounds("only -- b", "-- b", "-- e") === null,
   "a missing end marker returns null",
 );
+const split = lua.splitSentinel("-- hide-- begin\nlive()\n-- end\nlive()", "-- begin", "-- end");
+assertEqual(split.inside, "-- begin\nlive()\n-- end", "splitSentinel returns the managed block");
+assertEqual(
+  split.outside,
+  "-- hide\n\nlive()",
+  "splitSentinel joins the outside so a comment cannot cross the cut",
+);
+assert(lua.splitSentinel("only -- b", "-- b", "-- e") === null, "splitSentinel needs both markers");

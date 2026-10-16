@@ -137,6 +137,14 @@ pub fn sentinel_bounds(text: &str, begin: &str, end: &str) -> Option<(usize, usi
     Some((start, stop + end.len()))
 }
 
+/// The managed block, and the text outside it. The two sides are joined by a
+/// newline so a `--` on the last outside line cannot comment out the block.
+pub fn split_sentinel<'a>(text: &'a str, begin: &str, end: &str) -> Option<(&'a str, String)> {
+    let (start, stop) = sentinel_bounds(text, begin, end)?;
+    let outside = format!("{}\n{}", &text[..start], &text[stop..]);
+    Some((&text[start..stop], outside))
+}
+
 pub fn strip_sentinel(text: &str, begin: &str, end: &str) -> String {
     let Some((start, stop)) = sentinel_bounds(text, begin, end) else {
         return text.to_string();
@@ -467,6 +475,15 @@ mod tests {
     fn comments_are_found_outside_strings_only() {
         assert!(in_line_comment("x -- o.bind(", 5));
         assert!(!in_line_comment("\"--\" o.bind(", 5));
+    }
+
+    #[test]
+    fn split_keeps_a_comment_from_crossing_the_cut() {
+        let text = "-- hide-- begin\nlive()\n-- end\nlive()";
+        let (inside, outside) = split_sentinel(text, "-- begin", "-- end").unwrap();
+        assert_eq!(inside, "-- begin\nlive()\n-- end");
+        assert_eq!(outside, "-- hide\n\nlive()");
+        assert!(!in_line_comment(&outside, outside.rfind("live()").unwrap()));
     }
 
     #[test]

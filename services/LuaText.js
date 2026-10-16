@@ -175,6 +175,24 @@ function liveCalls(text, mark, visit) {
   });
 }
 
+// Commented calls are parsed and consumed, so a disabled launch is the call
+// itself. An unparsable mark resumes just after the mark.
+function callsMatching(text, mark, commented, visit) {
+  var src = String(text || "");
+  var i = 0;
+  while (i < src.length) {
+    var at = src.indexOf(mark, i);
+    if (at === -1) break;
+    var parsed = parseCallArgs(src, at + mark.length);
+    if (!parsed) {
+      i = at + mark.length;
+      continue;
+    }
+    i = parsed.next;
+    if (inLineComment(src, at) === commented) visit(parsed.args);
+  }
+}
+
 // A commented call resumes just after its mark, so text inside it is scanned again.
 // On a tie, the earlier mark in the list wins.
 function earliestLiveCalls(text, marks, visit) {

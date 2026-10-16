@@ -31,29 +31,14 @@ function joinDelay(command, delay) {
 }
 
 function parseCalls(text, disabled) {
-  var src = String(text || "");
   var out = [];
-  var mark = "o.launch_on_start(";
-  var i = 0;
-  while (i < src.length) {
-    var at = src.indexOf(mark, i);
-    if (at === -1) break;
-    var parsed = parseCallArgs(src, at + mark.length);
-    if (!parsed) {
-      i = at + mark.length;
-      continue;
-    }
-    i = parsed.next;
-    var commented = inLineComment(src, at);
-    if (disabled === true) {
-      if (!commented) continue;
-    } else if (commented) continue;
-    var arg = parsed.args[0];
-    if (typeof arg !== "string") continue;
+  callsMatching(text, "o.launch_on_start(", disabled === true, function (args) {
+    var arg = args[0];
+    if (typeof arg !== "string") return;
     var split = splitDelay(arg);
     if (split.command)
       out.push({ command: split.command, delay: split.delay, enabled: disabled !== true });
-  }
+  });
   return out;
 }
 

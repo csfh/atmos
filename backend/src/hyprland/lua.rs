@@ -423,6 +423,24 @@ pub fn live_calls(text: &str, mark: &str, mut visit: impl FnMut(&[Value])) {
     earliest_live_calls(text, &[mark], |_, args| visit(args));
 }
 
+/// Visit `mark` calls that are commented, or the live ones when `commented` is false.
+/// A commented call is parsed and consumed, so the call itself can be a disabled row.
+/// An unparsable mark resumes just after the mark.
+pub fn calls_matching(text: &str, mark: &str, commented: bool, mut visit: impl FnMut(&[Value])) {
+    let mut i = 0;
+    while let Some(rel) = text[i..].find(mark) {
+        let at = i + rel;
+        let Some((args, end)) = parse_call_args(text, at + mark.len()) else {
+            i = at + mark.len();
+            continue;
+        };
+        i = end;
+        if in_line_comment(text, at) == commented {
+            visit(&args);
+        }
+    }
+}
+
 /// The arguments of a call whose `(` was just consumed, and the index after `)`.
 pub fn parse_call_args(text: &str, i: usize) -> Option<(Vec<Value>, usize)> {
     let mut args = Vec::new();
@@ -475,6 +493,21 @@ mod tests {
     fn comments_are_found_outside_strings_only() {
         assert!(in_line_comment("x -- o.bind(", 5));
         assert!(!in_line_comment("\"--\" o.bind(", 5));
+    }
+
+    #[test]
+    fn commented_calls_are_a_separate_pass_from_live_ones() {
+        let text = "o.launch_on_start(\"live\")\n-- o.launch_on_start(\"off\")\n";
+        let mut live = Vec::new();
+        let mut off = Vec::new();
+        calls_matching(text, "o.launch_on_start(", false, |args| {
+            live.push(args[0].as_str().unwrap().to_string());
+        });
+        calls_matching(text, "o.launch_on_start(", true, |args| {
+            off.push(args[0].as_str().unwrap().to_string());
+        });
+        assert_eq!(live, ["live"]);
+        assert_eq!(off, ["off"]);
     }
 
     #[test]

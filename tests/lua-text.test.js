@@ -65,3 +65,14 @@ assertEqual(
   "splitSentinel joins the outside so a comment cannot cross the cut",
 );
 assert(lua.splitSentinel("only -- b", "-- b", "-- e") === null, "splitSentinel needs both markers");
+const launch = 'o.launch_on_start("live")\n-- o.launch_on_start("off")\n';
+const liveLaunches = [];
+const offLaunches = [];
+lua.callsMatching(launch, "o.launch_on_start(", false, function (args) {
+  liveLaunches.push(args[0]);
+});
+lua.callsMatching(launch, "o.launch_on_start(", true, function (args) {
+  offLaunches.push(args[0]);
+});
+assertEqual(liveLaunches.join(","), "live", "callsMatching keeps a live call");
+assertEqual(offLaunches.join(","), "off", "callsMatching keeps a commented call on its own pass");

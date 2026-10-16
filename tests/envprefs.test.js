@@ -24,6 +24,12 @@ assert(text.indexOf("PATH=nope") === -1, "serialize drops a PATH var");
 const parsed = env.parseFile(text);
 assertEqual(parsed.pathPrepend, "/opt/bin", "parseFile reads path prepend");
 assertEqual(parsed.vars[0].key, "EDITOR", "parseFile reads EDITOR");
+const hidden = "# atmos:env end\nEDITOR=hidden\n# atmos:env begin\nEDITOR=nvim\n# atmos:env end\n";
+assertEqual(
+  env.parseFile(hidden).vars[0].value,
+  "nvim",
+  "an earlier end marker does not hide the env block",
+);
 assertEqual(
   env.detected({ sessionType: "wayland\nbad" }).sessionType,
   "wayland bad",

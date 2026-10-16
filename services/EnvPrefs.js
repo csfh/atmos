@@ -1,4 +1,5 @@
 // User overlay for ~/.config/environment.d/10-atmos.conf
+Qt.include("LuaText.js");
 
 var BEGIN = "# atmos:env begin";
 var END = "# atmos:env end";
@@ -86,11 +87,8 @@ function serialize(raw) {
 
 function parseFile(text) {
   var src = String(text || "");
-  var start = src.indexOf(BEGIN);
-  var stop = src.indexOf(END);
-  var body = "";
-  if (start !== -1 && stop > start) body = src.substring(start + BEGIN.length, stop);
-  else body = src;
+  var bounds = sentinelBounds(src, BEGIN, END);
+  var body = bounds ? src.substring(bounds.start + BEGIN.length, bounds.stop - END.length) : src;
   var vars = [];
   var pathPrepend = "";
   var lines = body.split("\n");

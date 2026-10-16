@@ -128,27 +128,13 @@ function serialize(raw) {
 }
 
 function parseMonitors(text) {
-  var src = String(text || "");
   var out = [];
-  var mark = "hl.monitor(";
-  var i = 0;
-  while (i < src.length) {
-    var at = src.indexOf(mark, i);
-    if (at === -1) break;
-    if (inLineComment(src, at)) {
-      i = at + mark.length;
-      continue;
-    }
-    var parsed = parseCallArgs(src, at + mark.length);
-    var table = parsed && parsed.args[0];
-    if (!parsed || !table || typeof table !== "object" || Array.isArray(table)) {
-      i = at + mark.length;
-      continue;
-    }
+  liveCalls(text, "hl.monitor(", function (args) {
+    var table = args[0];
+    if (!table || typeof table !== "object" || Array.isArray(table)) return;
     var n = normalizeItem(table);
     if (n) out.push(n);
-    i = parsed.next;
-  }
+  });
   return out;
 }
 

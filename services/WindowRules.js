@@ -56,25 +56,11 @@ function rowFromArgs(args) {
 }
 
 function parseCalls(text) {
-  var src = String(text || "");
   var out = [];
-  var i = 0;
-  while (i < src.length) {
-    var at = src.indexOf("o.window(", i);
-    if (at === -1) break;
-    if (inLineComment(src, at)) {
-      i = at + 9;
-      continue;
-    }
-    var parsed = parseCallArgs(src, at + 9);
-    if (!parsed) {
-      i = at + 9;
-      continue;
-    }
-    var row = rowFromArgs(parsed.args);
+  liveCalls(text, "o.window(", function (args) {
+    var row = rowFromArgs(args);
     if (row) out.push(row);
-    i = parsed.next;
-  }
+  });
   return out;
 }
 

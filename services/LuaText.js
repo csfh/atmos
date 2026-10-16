@@ -169,6 +169,27 @@ function parseCallArgs(s, i) {
   return { args: args, next: i + 1 };
 }
 
+// A commented call resumes just after the mark, so text inside it is scanned again.
+function liveCalls(text, mark, visit) {
+  var src = String(text || "");
+  var i = 0;
+  while (i < src.length) {
+    var at = src.indexOf(mark, i);
+    if (at === -1) break;
+    if (inLineComment(src, at)) {
+      i = at + mark.length;
+      continue;
+    }
+    var parsed = parseCallArgs(src, at + mark.length);
+    if (!parsed) {
+      i = at + mark.length;
+      continue;
+    }
+    visit(parsed.args);
+    i = parsed.next;
+  }
+}
+
 function sentinelBounds(text, begin, end) {
   var src = String(text || "");
   var start = src.indexOf(begin);

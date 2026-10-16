@@ -1,7 +1,6 @@
 //! Lua text helpers shared by every sentinel block: quoting, number formatting,
 //! a small call-argument parser, comment detection, and the sentinel markers.
 
-use regex_lite::Regex;
 use serde_json::{Map, Value};
 
 /// A cached regex, compiled once per call site.
@@ -128,63 +127,6 @@ pub fn lua_string(v: &str) -> String {
     }
     out.push('"');
     out
-}
-
-pub fn unescape_lua(raw: &str) -> String {
-    let chars: Vec<char> = raw.chars().collect();
-    let mut out = String::new();
-    let mut i = 0;
-    while i < chars.len() {
-        if chars[i] == '\\' && i + 1 < chars.len() {
-            out.push(match chars[i + 1] {
-                'n' => '\n',
-                't' => '\t',
-                'r' => '\r',
-                other => other,
-            });
-            i += 2;
-            continue;
-        }
-        out.push(chars[i]);
-        i += 1;
-    }
-    out
-}
-
-// ---- Field lookups inside a block's text --------------------------------------
-
-pub fn lua_bool_field(body: &str, name: &str) -> Option<bool> {
-    let re = Regex::new(&format!(r"{}\s*=\s*(true|false)", regex_lite::escape(name))).ok()?;
-    re.captures(body).map(|m| &m[1] == "true")
-}
-
-/// The matched number text, or "" when absent.
-pub fn lua_num_field(block: &str, name: &str) -> String {
-    let pattern = format!(
-        r"{}\s*=\s*(-?[0-9]+(?:\.[0-9]+)?)",
-        regex_lite::escape(name)
-    );
-    Regex::new(&pattern)
-        .ok()
-        .and_then(|re| re.captures(block).map(|m| m[1].to_string()))
-        .unwrap_or_default()
-}
-
-pub fn lua_str_field(block: &str, name: &str) -> String {
-    let pattern = format!(r#"{}\s*=\s*"((?:\\.|[^"\\])*)""#, regex_lite::escape(name));
-    Regex::new(&pattern)
-        .ok()
-        .and_then(|re| re.captures(block).map(|m| unescape_lua(&m[1])))
-        .unwrap_or_default()
-}
-
-/// `float(raw) if "." in raw else int(raw)` as a JSON number.
-pub fn num_value(raw: &str) -> Option<Value> {
-    if raw.contains('.') {
-        raw.parse::<f64>().ok().map(Value::from)
-    } else {
-        raw.parse::<i64>().ok().map(Value::from)
-    }
 }
 
 // ---- Sentinels --------------------------------------------------------------
@@ -375,6 +317,23 @@ fn parse_table(text: &str, i: usize) -> Option<(Value, usize)> {
     Some((value, i + 1))
 }
 
+/// The first table argument of `mark`, which includes the `(`.
+pub fn first_table_arg(text: &str, mark: &str) -> Option<Map<String, Value>> {
+    let mut i = 0;
+    while let Some(rel) = text[i..].find(mark) {
+        let at = i + rel;
+        let Some((args, end)) = parse_call_args(text, at + mark.len()) else {
+            i = at + mark.len();
+            continue;
+        };
+        if let Some(map) = args.first().and_then(Value::as_object) {
+            return Some(map.clone());
+        }
+        i = end;
+    }
+    None
+}
+
 /// The arguments of a call whose `(` was just consumed, and the index after `)`.
 pub fn parse_call_args(text: &str, i: usize) -> Option<(Vec<Value>, usize)> {
     let mut args = Vec::new();
@@ -411,7 +370,6 @@ mod tests {
         let quoted = lua_string(raw);
         let (parsed, _) = parse_string(&quoted, 0).unwrap();
         assert_eq!(parsed, raw);
-        assert_eq!(unescape_lua(&quoted[1..quoted.len() - 1]), raw);
     }
 
     #[test]

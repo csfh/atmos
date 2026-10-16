@@ -146,62 +146,111 @@ pub fn serialize(src: &Map<String, Value>, existing: &str) -> String {
     lines.join("\n")
 }
 
+fn section<'a>(map: &'a Map<String, Value>, key: &str) -> Option<&'a Map<String, Value>> {
+    map.get(key).and_then(Value::as_object)
+}
+
+fn put_num(out: &mut Map<String, Value>, table: Option<&Map<String, Value>>, lua: &str, key: &str) {
+    let Some(Value::Number(number)) = table.and_then(|row| row.get(lua)) else {
+        return;
+    };
+    out.insert(key.into(), Value::Number(number.clone()));
+}
+
+fn put_f64(out: &mut Map<String, Value>, table: Option<&Map<String, Value>>, lua: &str, key: &str) {
+    let Some(value) = table.and_then(|row| row.get(lua)).and_then(Value::as_f64) else {
+        return;
+    };
+    out.insert(key.into(), json!(value));
+}
+
+fn put_bool(
+    out: &mut Map<String, Value>,
+    table: Option<&Map<String, Value>>,
+    lua: &str,
+    key: &str,
+) {
+    let Some(Value::Bool(value)) = table.and_then(|row| row.get(lua)) else {
+        return;
+    };
+    out.insert(key.into(), json!(*value));
+}
+
+fn put_text(
+    out: &mut Map<String, Value>,
+    table: Option<&Map<String, Value>>,
+    lua: &str,
+    key: &str,
+) {
+    let Some(Value::String(text)) = table.and_then(|row| row.get(lua)) else {
+        return;
+    };
+    out.insert(key.into(), json!(text));
+}
+
+fn workspace_gesture(body: &str) -> bool {
+    let mut i = 0;
+    let mark = "hl.gesture(";
+    while let Some(rel) = body[i..].find(mark) {
+        let at = i + rel;
+        let Some((args, end)) = parse_call_args(body, at + mark.len()) else {
+            i = at + mark.len();
+            continue;
+        };
+        i = end;
+        let action = args
+            .first()
+            .and_then(Value::as_object)
+            .and_then(|row| row.get("action"))
+            .and_then(Value::as_str);
+        if action == Some("workspace") {
+            return true;
+        }
+    }
+    false
+}
+
 pub fn parse(text: &str) -> Map<String, Value> {
     let mut out = Map::new();
     let Some((start, stop)) = sentinel_bounds(text, BEGIN, END) else {
         return out;
     };
     let body = &text[start..stop];
-    if let Ok(n) = lua_num_field(body, "sensitivity").parse::<f64>() {
-        out.insert("sensitivity".into(), json!(n));
-    }
-    let accel = lua_str_field(body, "accel_profile");
-    if !accel.is_empty() || body.contains("accel_profile") {
-        out.insert("accelProfile".into(), json!(accel));
-    }
+    let config = first_table_arg(body, "hl.config(");
+    let input = config.as_ref().and_then(|row| section(row, "input"));
+    let touchpad = input.and_then(|row| section(row, "touchpad"));
+    let misc = config.as_ref().and_then(|row| section(row, "misc"));
+    put_f64(&mut out, input, "sensitivity", "sensitivity");
+    put_text(&mut out, input, "accel_profile", "accelProfile");
     for (lua, key) in [
         ("emulate_discrete_scroll", "emulateDiscreteScroll"),
-        ("drag_3fg", "drag3fg"),
         ("repeat_rate", "repeatRate"),
         ("repeat_delay", "repeatDelay"),
         ("follow_mouse", "followMouse"),
     ] {
-        if let Some(v) = num_value(&lua_num_field(body, lua)) {
-            out.insert(key.into(), v);
-        }
+        put_num(&mut out, input, lua, key);
     }
+    put_num(&mut out, touchpad, "drag_3fg", "drag3fg");
     for (lua, key) in [
         ("natural_scroll", "naturalScroll"),
         ("clickfinger_behavior", "clickfinger"),
         ("disable_while_typing", "disableWhileTyping"),
-        ("numlock_by_default", "numlock"),
-        ("key_press_enables_dpms", "keyPressDpms"),
-        ("mouse_move_enables_dpms", "mouseMoveDpms"),
     ] {
-        if let Some(v) = lua_bool_field(body, lua) {
-            out.insert(key.into(), json!(v));
-        }
+        put_bool(&mut out, touchpad, lua, key);
     }
-    if let Ok(n) = lua_num_field(body, "scroll_factor").parse::<f64>() {
-        out.insert("scrollFactor".into(), json!(n));
-    }
-    for (lua, key) in [
-        ("kb_layout", "kbLayoutOverride"),
-        ("kb_variant", "kbVariantOverride"),
-    ] {
-        let v = lua_str_field(body, lua);
-        if !v.is_empty() || body.contains(lua) {
-            out.insert(key.into(), json!(v));
-        }
-    }
-    let options = lua_str_field(body, "kb_options");
-    if !options.is_empty() || body.contains("kb_options") {
+    put_bool(&mut out, input, "numlock_by_default", "numlock");
+    put_f64(&mut out, touchpad, "scroll_factor", "scrollFactor");
+    put_bool(&mut out, misc, "key_press_enables_dpms", "keyPressDpms");
+    put_bool(&mut out, misc, "mouse_move_enables_dpms", "mouseMoveDpms");
+    put_text(&mut out, input, "kb_layout", "kbLayoutOverride");
+    put_text(&mut out, input, "kb_variant", "kbVariantOverride");
+    if let Some(Value::String(options)) = input.and_then(|row| row.get("kb_options")) {
         out.insert(
             "kbGroupToggle".into(),
             json!(options.contains("grp:alts_toggle")),
         );
     }
-    if re!(r#"action\s*=\s*["']workspace["']"#).is_match(body) {
+    if workspace_gesture(body) {
         out.insert("workspaceGesture".into(), json!(true));
     }
     out

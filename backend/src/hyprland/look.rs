@@ -1,7 +1,6 @@
 //! The `atmos:look` block in looknfeel.lua.
 
 use super::lua::*;
-use regex_lite::Regex;
 use serde_json::{json, Map, Value};
 
 pub const BEGIN: &str = "-- atmos:look begin";
@@ -133,70 +132,150 @@ pub fn serialize(src: &Map<String, Value>) -> String {
     lines.join("\n")
 }
 
+fn section<'a>(map: &'a Map<String, Value>, key: &str) -> Option<&'a Map<String, Value>> {
+    map.get(key).and_then(Value::as_object)
+}
+
+fn put_num(out: &mut Map<String, Value>, table: Option<&Map<String, Value>>, lua: &str, key: &str) {
+    let Some(Value::Number(number)) = table.and_then(|row| row.get(lua)) else {
+        return;
+    };
+    out.insert(key.into(), Value::Number(number.clone()));
+}
+
+fn put_bool(
+    out: &mut Map<String, Value>,
+    table: Option<&Map<String, Value>>,
+    lua: &str,
+    key: &str,
+) {
+    let Some(Value::Bool(value)) = table.and_then(|row| row.get(lua)) else {
+        return;
+    };
+    out.insert(key.into(), json!(*value));
+}
+
+fn put_text(
+    out: &mut Map<String, Value>,
+    table: Option<&Map<String, Value>>,
+    lua: &str,
+    key: &str,
+    keep_empty: bool,
+) {
+    let Some(Value::String(text)) = table.and_then(|row| row.get(lua)) else {
+        return;
+    };
+    if text.is_empty() && !keep_empty {
+        return;
+    }
+    out.insert(key.into(), json!(text));
+}
+
+fn put_warp(out: &mut Map<String, Value>, cursor: Option<&Map<String, Value>>) {
+    match cursor.and_then(|row| row.get("warp_on_change_workspace")) {
+        Some(Value::Bool(value)) => {
+            out.insert("cursorWarp".into(), json!(*value));
+        }
+        Some(Value::Number(number)) => {
+            if let Some(0 | 1) = number.as_i64() {
+                out.insert("cursorWarp".into(), json!(number.as_i64() == Some(1)));
+            }
+        }
+        _ => {}
+    }
+}
+
+fn cursor_size(body: &str) -> Option<i64> {
+    let mut hypr = None;
+    let mut saw_hypr = false;
+    let mut xcursor = None;
+    let mut i = 0;
+    let mark = "hl.env(";
+    while let Some(rel) = body[i..].find(mark) {
+        let at = i + rel;
+        let Some((args, end)) = parse_call_args(body, at + mark.len()) else {
+            i = at + mark.len();
+            continue;
+        };
+        i = end;
+        let name = args.first().and_then(Value::as_str);
+        let raw = args.get(1).and_then(Value::as_str).unwrap_or("");
+        let parsed = raw.trim().parse::<f64>().ok().map(|n| n.trunc() as i64);
+        match name {
+            Some("HYPRCURSOR_SIZE") => {
+                saw_hypr = true;
+                if hypr.is_none() {
+                    hypr = parsed;
+                }
+            }
+            Some("XCURSOR_SIZE") if xcursor.is_none() => xcursor = parsed,
+            _ => {}
+        }
+    }
+    if saw_hypr {
+        hypr
+    } else {
+        xcursor
+    }
+}
+
 pub fn parse(text: &str) -> Map<String, Value> {
     let mut out = Map::new();
     let Some((start, stop)) = sentinel_bounds(text, BEGIN, END) else {
         return out;
     };
     let body = &text[start..stop];
+    let config = first_table_arg(body, "hl.config(");
+    let general = config.as_ref().and_then(|row| section(row, "general"));
+    let decoration = config.as_ref().and_then(|row| section(row, "decoration"));
+    let shadow = decoration.and_then(|row| section(row, "shadow"));
+    let blur = decoration.and_then(|row| section(row, "blur"));
+    let animations = config.as_ref().and_then(|row| section(row, "animations"));
+    let scrolling = config.as_ref().and_then(|row| section(row, "scrolling"));
+    let dwindle = config.as_ref().and_then(|row| section(row, "dwindle"));
+    let misc = config.as_ref().and_then(|row| section(row, "misc"));
+    let cursor = config.as_ref().and_then(|row| section(row, "cursor"));
     for (lua, key) in [
         ("gaps_in", "gapsIn"),
         ("gaps_out", "gapsOut"),
         ("border_size", "borderSize"),
+    ] {
+        put_num(&mut out, general, lua, key);
+    }
+    for (lua, key) in [
         ("rounding", "rounding"),
         ("dim_strength", "dimStrength"),
         ("active_opacity", "activeOpacity"),
         ("inactive_opacity", "inactiveOpacity"),
-        ("column_width", "columnWidth"),
-        ("on_focus_under_fullscreen", "onFocusUnderFullscreen"),
     ] {
-        if let Some(v) = num_value(&lua_num_field(body, lua)) {
-            out.insert(key.into(), v);
-        }
+        put_num(&mut out, decoration, lua, key);
     }
+    put_num(&mut out, scrolling, "column_width", "columnWidth");
+    put_num(
+        &mut out,
+        misc,
+        "on_focus_under_fullscreen",
+        "onFocusUnderFullscreen",
+    );
     for (lua, key) in [
         ("allow_tearing", "allowTearing"),
         ("resize_on_border", "resizeOnBorder"),
-        ("dim_inactive", "dimInactive"),
-        ("focus_on_activate", "focusOnActivate"),
-        ("enable_swallow", "enableSwallow"),
-        ("hide_on_key_press", "cursorHideOnKey"),
-        ("preserve_split", "preserveSplit"),
     ] {
-        if let Some(v) = lua_bool_field(body, lua) {
-            out.insert(key.into(), json!(v));
-        }
+        put_bool(&mut out, general, lua, key);
     }
-    for section in ["shadow", "blur"] {
-        let re = Regex::new(&format!(
-            r"{section}\s*=\s*\{{\s*enabled\s*=\s*(true|false)"
-        ))
-        .expect("regex");
-        if let Some(m) = re.captures(body) {
-            out.insert(section.into(), json!(&m[1] == "true"));
-        }
-    }
-    if let Some(m) = re!(r"animations\s*=\s*\{\s*enabled\s*=\s*(true|false)").captures(body) {
-        out.insert("animations".into(), json!(&m[1] == "true"));
-    }
-    let layout = lua_str_field(body, "layout");
-    if !layout.is_empty() {
-        out.insert("layout".into(), json!(layout));
-    }
-    let swallow = lua_str_field(body, "swallow_regex");
-    if !swallow.is_empty() || body.contains("swallow_regex") {
-        out.insert("swallowRegex".into(), json!(swallow));
-    }
-    if let Some(m) = re!(r"warp_on_change_workspace\s*=\s*(true|false|1|0)").captures(body) {
-        out.insert("cursorWarp".into(), json!(&m[1] == "true" || &m[1] == "1"));
-    }
-    let size = re!(r#"hl\.env\(\s*"HYPRCURSOR_SIZE"\s*,\s*"([^"]*)"\s*\)"#)
-        .captures(body)
-        .or_else(|| re!(r#"hl\.env\(\s*"XCURSOR_SIZE"\s*,\s*"([^"]*)"\s*\)"#).captures(body));
-    if let Some(m) = size {
-        if let Ok(n) = m[1].trim().parse::<f64>() {
-            out.insert("cursorSize".into(), json!(n.trunc() as i64));
-        }
+    put_bool(&mut out, decoration, "dim_inactive", "dimInactive");
+    put_bool(&mut out, shadow, "enabled", "shadow");
+    put_bool(&mut out, blur, "enabled", "blur");
+    put_bool(&mut out, animations, "enabled", "animations");
+    put_bool(&mut out, misc, "focus_on_activate", "focusOnActivate");
+    put_bool(&mut out, misc, "enable_swallow", "enableSwallow");
+    put_bool(&mut out, cursor, "hide_on_key_press", "cursorHideOnKey");
+    put_bool(&mut out, dwindle, "preserve_split", "preserveSplit");
+    put_text(&mut out, general, "layout", "layout", false);
+    put_text(&mut out, misc, "swallow_regex", "swallowRegex", true);
+    put_warp(&mut out, cursor);
+    if let Some(size) = cursor_size(body) {
+        out.insert("cursorSize".into(), json!(size));
     }
     out
 }

@@ -5,37 +5,25 @@ pub fn after_write(root: Option<&Path>, key: &str, value: &Value) -> Result<()> 
     match key {
         "audioOutputVolume" => audio_script(fixture, "output-volume", value),
         "audioInputVolume" => audio_script(fixture, "input-volume", value),
-        "wifiRadio" => {
-            let flag = if value.as_bool() == Some(true) {
-                "on"
-            } else {
-                "off"
-            };
-            let _ = flag;
-            crate::tasks::net::radio(value.as_bool() == Some(true), fixture)
-        }
+        "wifiRadio" => crate::tasks::net::radio(value.as_bool() == Some(true), fixture),
         _ if fixture => Ok(()),
         "workspaceBarNames" | "workspaceBarCount" => {
             crate::wsbar::after_write(root, key);
             Ok(())
         }
         "bluetooth" => {
-            let flag = if value.as_bool() == Some(true) {
-                "on"
-            } else {
-                "off"
-            };
-            spawn("omarchy", &["bluetooth", "power", flag]);
+            spawn(
+                "omarchy",
+                &["bluetooth", "power", crate::effect::on_off(value, false)],
+            );
             Ok(())
         }
         "suspendEnabled" => {
             // The existing writer inverts this onto `omarchy toggle suspend-off`.
-            let flag = if value.as_bool() == Some(true) {
-                "off"
-            } else {
-                "on"
-            };
-            spawn("omarchy", &["toggle", "suspend-off", flag]);
+            spawn(
+                "omarchy",
+                &["toggle", "suspend-off", crate::effect::on_off(value, true)],
+            );
             Ok(())
         }
         "crashCapture" => {
@@ -43,12 +31,7 @@ pub fn after_write(root: Option<&Path>, key: &str, value: &Value) -> Result<()> 
             Ok(())
         }
         "presentationMode" => {
-            let flag = if value.as_bool() == Some(true) {
-                "on"
-            } else {
-                "off"
-            };
-            crate::tasks::user::presentation(flag, None)
+            crate::tasks::user::presentation(crate::effect::on_off(value, false), None)
         }
         "chargeLimit" => {
             let number = value
@@ -61,12 +44,7 @@ pub fn after_write(root: Option<&Path>, key: &str, value: &Value) -> Result<()> 
         "mimeImage" => mime_script("image", value),
         "mimeVideo" => mime_script("video", value),
         "passwordlessSudo" => {
-            let action = if value.as_bool() == Some(true) {
-                "on"
-            } else {
-                "off"
-            };
-            crate::tasks::system::passwordless_sudo(action, "15")
+            crate::tasks::system::passwordless_sudo(crate::effect::on_off(value, false), "15")
         }
         "sshdEnabled" => {
             if value.as_bool() == Some(false) {
@@ -88,12 +66,7 @@ pub fn after_write(root: Option<&Path>, key: &str, value: &Value) -> Result<()> 
             }
         }
         "snapperTimeline" => {
-            let flag = if value.as_bool() == Some(true) {
-                "on"
-            } else {
-                "off"
-            };
-            crate::tasks::system::snapper_policy("timeline", flag)
+            crate::tasks::system::snapper_policy("timeline", crate::effect::on_off(value, false))
         }
         "fstrimEnabled" => {
             if value.as_bool() == Some(true) {
@@ -139,12 +112,10 @@ fn run_argv(key: &str, value: &Value) {
         "powerProfileAc" => &["powerprofiles", "set", "ac"],
         "powerProfileBattery" => &["powerprofiles", "set", "battery"],
         "audioTuningOn" => {
-            let flag = if value.as_bool() == Some(true) {
-                "on"
-            } else {
-                "off"
-            };
-            spawn("omarchy", &["audio", "tuning", flag]);
+            spawn(
+                "omarchy",
+                &["audio", "tuning", crate::effect::on_off(value, false)],
+            );
             return;
         }
         _ => return,

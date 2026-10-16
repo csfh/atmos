@@ -45,17 +45,21 @@ pub fn get(key: &str) -> Option<Effect> {
     crate::domain::find(key).map(|spec| spec.effect)
 }
 
+/// `on` when `value` is true, unless `invert`. Anything that is not a bool is `off`.
+pub fn on_off(value: &Value, invert: bool) -> &'static str {
+    if (value.as_bool() == Some(true)) ^ invert {
+        "on"
+    } else {
+        "off"
+    }
+}
+
 pub fn command_argv(form: CommandForm, value: &Value) -> Vec<&'static str> {
     match form {
         CommandForm::Exact(argv) => argv.to_vec(),
         CommandForm::OnOff { prefix, invert } => {
-            let flag = if (value.as_bool() == Some(true)) ^ invert {
-                "on"
-            } else {
-                "off"
-            };
             let mut argv = prefix.to_vec();
-            argv.push(flag);
+            argv.push(on_off(value, invert));
             argv
         }
         CommandForm::Idle(prefix) => {

@@ -74,42 +74,79 @@ pub fn serialize(src: &Map<String, Value>) -> String {
     lines.join("\n")
 }
 
+fn quoted(table: &Map<String, Value>, key: &str) -> String {
+    match table.get(key) {
+        Some(Value::String(text)) => text.clone(),
+        _ => String::new(),
+    }
+}
+
+fn number_text(table: &Map<String, Value>, key: &str) -> String {
+    match table.get(key) {
+        Some(Value::Number(number)) => {
+            if let Some(whole) = number.as_i64() {
+                whole.to_string()
+            } else {
+                number.as_f64().unwrap_or(0.0).to_string()
+            }
+        }
+        _ => String::new(),
+    }
+}
+
+fn monitor_row(arg: Option<&Value>) -> Option<Value> {
+    let table = arg?.as_object()?;
+    let output = quoted(table, "output");
+    if output.is_empty() {
+        return None;
+    }
+    let int =
+        |raw: String, fallback: i64| raw.parse::<f64>().map_or(fallback, |f| f.trunc() as i64);
+    let scale = number_text(table, "scale").parse::<f64>().unwrap_or(1.0);
+    let or = |key: &str, default: &str| {
+        let value = quoted(table, key);
+        if value.is_empty() {
+            default.to_string()
+        } else {
+            value
+        }
+    };
+    Some(json!({
+        "output": output,
+        "mode": or("mode", "preferred"),
+        "position": or("position", "auto"),
+        "scale": scale,
+        "transform": int(number_text(table, "transform"), 0),
+        "disabled": table.get("disabled") == Some(&Value::Bool(true)),
+        "mirror": quoted(table, "mirror"),
+        "vrr": int(number_text(table, "vrr"), 0),
+        "bitdepth": int(number_text(table, "bitdepth"), 8),
+        "cm": quoted(table, "cm"),
+    }))
+}
+
 pub fn parse(text: &str) -> Value {
     let body = match (text.find(BEGIN), text.find(END)) {
         (Some(start), Some(stop)) if stop > start => &text[start..stop],
         _ => "",
     };
     let mut out = Vec::new();
-    for m in re!(r"hl\.monitor\(\s*\{([^}]*)\}\s*\)").captures_iter(body) {
-        let chunk = &m[1];
-        let output = lua_str_field(chunk, "output");
-        if output.is_empty() {
+    let mut i = 0;
+    let mark = "hl.monitor(";
+    while let Some(rel) = body[i..].find(mark) {
+        let at = i + rel;
+        if in_line_comment(body, at) {
+            i = at + mark.len();
             continue;
         }
-        let num = |key: &str| lua_num_field(chunk, key);
-        let int =
-            |raw: String, fallback: i64| raw.parse::<f64>().map_or(fallback, |f| f.trunc() as i64);
-        let scale = num("scale").parse::<f64>().unwrap_or(1.0);
-        let or = |key: &str, default: &str| {
-            let v = lua_str_field(chunk, key);
-            if v.is_empty() {
-                default.to_string()
-            } else {
-                v
-            }
+        let Some((args, end)) = parse_call_args(body, at + mark.len()) else {
+            i = at + mark.len();
+            continue;
         };
-        out.push(json!({
-            "output": output,
-            "mode": or("mode", "preferred"),
-            "position": or("position", "auto"),
-            "scale": scale,
-            "transform": int(num("transform"), 0),
-            "disabled": re!(r"disabled\s*=\s*true").is_match(chunk),
-            "mirror": lua_str_field(chunk, "mirror"),
-            "vrr": int(num("vrr"), 0),
-            "bitdepth": int(num("bitdepth"), 8),
-            "cm": lua_str_field(chunk, "cm"),
-        }));
+        if let Some(row) = monitor_row(args.first()) {
+            out.push(row);
+        }
+        i = end;
     }
     Value::Array(out)
 }

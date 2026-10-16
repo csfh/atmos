@@ -130,32 +130,24 @@ function serialize(raw) {
 function parseMonitors(text) {
   var src = String(text || "");
   var out = [];
-  var re = /hl\.monitor\(\s*\{([^}]*)\}\s*\)/g;
-  var m;
-  while ((m = re.exec(src))) {
-    var body = m[1];
-    var row = {};
-    var om = /output\s*=\s*"((?:\\.|[^"\\])*)"/.exec(body);
-    if (om) row.output = om[1];
-    var mm = /mode\s*=\s*"((?:\\.|[^"\\])*)"/.exec(body);
-    if (mm) row.mode = mm[1];
-    var pm = /position\s*=\s*"((?:\\.|[^"\\])*)"/.exec(body);
-    if (pm) row.position = pm[1];
-    var sm = /scale\s*=\s*([0-9.]+)/.exec(body);
-    if (sm) row.scale = Number(sm[1]);
-    var tm = /transform\s*=\s*([0-9]+)/.exec(body);
-    if (tm) row.transform = Number(tm[1]);
-    row.disabled = /disabled\s*=\s*true/.test(body);
-    var mir = /mirror\s*=\s*"((?:\\.|[^"\\])*)"/.exec(body);
-    if (mir) row.mirror = mir[1];
-    var vr = /vrr\s*=\s*([0-9]+)/.exec(body);
-    if (vr) row.vrr = Number(vr[1]);
-    var bd = /bitdepth\s*=\s*([0-9]+)/.exec(body);
-    if (bd) row.bitdepth = Number(bd[1]);
-    var cm = /cm\s*=\s*"((?:\\.|[^"\\])*)"/.exec(body);
-    if (cm) row.cm = cm[1];
-    var n = normalizeItem(row);
+  var mark = "hl.monitor(";
+  var i = 0;
+  while (i < src.length) {
+    var at = src.indexOf(mark, i);
+    if (at === -1) break;
+    if (inLineComment(src, at)) {
+      i = at + mark.length;
+      continue;
+    }
+    var parsed = parseCallArgs(src, at + mark.length);
+    var table = parsed && parsed.args[0];
+    if (!parsed || !table || typeof table !== "object" || Array.isArray(table)) {
+      i = at + mark.length;
+      continue;
+    }
+    var n = normalizeItem(table);
     if (n) out.push(n);
+    i = parsed.next;
   }
   return out;
 }

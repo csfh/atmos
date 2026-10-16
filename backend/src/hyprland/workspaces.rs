@@ -102,27 +102,53 @@ pub fn serialize(src: &Map<String, Value>) -> String {
     lines.join("\n")
 }
 
+fn quoted(table: &Map<String, Value>, key: &str) -> String {
+    match table.get(key) {
+        Some(Value::String(text)) => text.clone(),
+        _ => String::new(),
+    }
+}
+
+fn workspace_row(arg: Option<&Value>) -> Option<Value> {
+    let table = arg?.as_object()?;
+    let id = quoted(table, "workspace");
+    if id.is_empty() {
+        return None;
+    }
+    let flag = |key: &str| table.get(key) == Some(&Value::Bool(true));
+    Some(json!({
+        "id": id,
+        "name": quoted(table, "default_name"),
+        "monitor": quoted(table, "monitor"),
+        "persistent": flag("persistent"),
+        "isDefault": flag("default"),
+        "onCreatedEmpty": quoted(table, "on_created_empty"),
+        "special": id.starts_with("special:"),
+    }))
+}
+
 pub fn parse(text: &str) -> Value {
     let body = match (text.find(BEGIN), text.find(END)) {
         (Some(start), Some(stop)) if stop > start => &text[start..stop],
         _ => "",
     };
     let mut out = Vec::new();
-    for m in re!(r"hl\.workspace_rule\(\s*\{([^}]*)\}\s*\)").captures_iter(body) {
-        let chunk = &m[1];
-        let id = lua_str_field(chunk, "workspace");
-        if id.is_empty() {
+    let mut i = 0;
+    let mark = "hl.workspace_rule(";
+    while let Some(rel) = body[i..].find(mark) {
+        let at = i + rel;
+        if in_line_comment(body, at) {
+            i = at + mark.len();
             continue;
         }
-        out.push(json!({
-            "id": id,
-            "name": lua_str_field(chunk, "default_name"),
-            "monitor": lua_str_field(chunk, "monitor"),
-            "persistent": re!(r"persistent\s*=\s*true").is_match(chunk),
-            "isDefault": re!(r"default\s*=\s*true").is_match(chunk),
-            "onCreatedEmpty": lua_str_field(chunk, "on_created_empty"),
-            "special": id.starts_with("special:"),
-        }));
+        let Some((args, end)) = parse_call_args(body, at + mark.len()) else {
+            i = at + mark.len();
+            continue;
+        };
+        if let Some(row) = workspace_row(args.first()) {
+            out.push(row);
+        }
+        i = end;
     }
     Value::Array(out)
 }

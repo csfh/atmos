@@ -302,23 +302,32 @@ function serialize(raw) {
 function parseRules(text) {
   var src = String(text || "");
   var out = [];
-  var re = /hl\.workspace_rule\(\s*\{([^}]*)\}\s*\)/g;
-  var m;
-  while ((m = re.exec(src))) {
-    var body = m[1];
-    var row = {};
-    var km = /workspace\s*=\s*"((?:\\.|[^"\\])*)"/.exec(body);
-    if (km) row.id = km[1];
-    var nm = /default_name\s*=\s*"((?:\\.|[^"\\])*)"/.exec(body);
-    if (nm) row.name = nm[1];
-    var mm = /monitor\s*=\s*"((?:\\.|[^"\\])*)"/.exec(body);
-    if (mm) row.monitor = mm[1];
-    row.persistent = /persistent\s*=\s*true/.test(body);
-    row.isDefault = /default\s*=\s*true/.test(body);
-    var om = /on_created_empty\s*=\s*"((?:\\.|[^"\\])*)"/.exec(body);
-    if (om) row.onCreatedEmpty = om[1];
-    var n = normalizeItem(row);
+  var mark = "hl.workspace_rule(";
+  var i = 0;
+  while (i < src.length) {
+    var at = src.indexOf(mark, i);
+    if (at === -1) break;
+    if (inLineComment(src, at)) {
+      i = at + mark.length;
+      continue;
+    }
+    var parsed = parseCallArgs(src, at + mark.length);
+    var table = parsed && parsed.args[0];
+    if (!parsed || !table || typeof table !== "object" || Array.isArray(table)) {
+      i = at + mark.length;
+      continue;
+    }
+    // normalizeItem treats a missing persistent flag as on.
+    var n = normalizeItem({
+      workspace: table.workspace,
+      default_name: table.default_name,
+      monitor: table.monitor,
+      persistent: table.persistent === true,
+      default: table.default === true,
+      on_created_empty: table.on_created_empty,
+    });
     if (n) out.push(n);
+    i = parsed.next;
   }
   return out;
 }

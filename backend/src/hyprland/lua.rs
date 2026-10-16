@@ -346,6 +346,14 @@ pub fn section<'a>(map: &'a Map<String, Value>, key: &str) -> Option<&'a Map<Str
     map.get(key).and_then(Value::as_object)
 }
 
+/// A string field, or empty when the field is missing or not a string.
+pub fn string_field(table: &Map<String, Value>, key: &str) -> String {
+    match table.get(key) {
+        Some(Value::String(text)) => text.clone(),
+        _ => String::new(),
+    }
+}
+
 pub fn put_num(
     out: &mut Map<String, Value>,
     table: Option<&Map<String, Value>>,

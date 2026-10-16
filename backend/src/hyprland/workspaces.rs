@@ -102,27 +102,20 @@ pub fn serialize(src: &Map<String, Value>) -> String {
     lines.join("\n")
 }
 
-fn quoted(table: &Map<String, Value>, key: &str) -> String {
-    match table.get(key) {
-        Some(Value::String(text)) => text.clone(),
-        _ => String::new(),
-    }
-}
-
 fn workspace_row(arg: Option<&Value>) -> Option<Value> {
     let table = arg?.as_object()?;
-    let id = quoted(table, "workspace");
+    let id = string_field(table, "workspace");
     if id.is_empty() {
         return None;
     }
     let flag = |key: &str| table.get(key) == Some(&Value::Bool(true));
     Some(json!({
         "id": id,
-        "name": quoted(table, "default_name"),
-        "monitor": quoted(table, "monitor"),
+        "name": string_field(table, "default_name"),
+        "monitor": string_field(table, "monitor"),
         "persistent": flag("persistent"),
         "isDefault": flag("default"),
-        "onCreatedEmpty": quoted(table, "on_created_empty"),
+        "onCreatedEmpty": string_field(table, "on_created_empty"),
         "special": id.starts_with("special:"),
     }))
 }

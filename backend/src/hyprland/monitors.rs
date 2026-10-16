@@ -74,13 +74,6 @@ pub fn serialize(src: &Map<String, Value>) -> String {
     lines.join("\n")
 }
 
-fn quoted(table: &Map<String, Value>, key: &str) -> String {
-    match table.get(key) {
-        Some(Value::String(text)) => text.clone(),
-        _ => String::new(),
-    }
-}
-
 fn number_text(table: &Map<String, Value>, key: &str) -> String {
     match table.get(key) {
         Some(Value::Number(number)) => {
@@ -96,7 +89,7 @@ fn number_text(table: &Map<String, Value>, key: &str) -> String {
 
 fn monitor_row(arg: Option<&Value>) -> Option<Value> {
     let table = arg?.as_object()?;
-    let output = quoted(table, "output");
+    let output = string_field(table, "output");
     if output.is_empty() {
         return None;
     }
@@ -104,7 +97,7 @@ fn monitor_row(arg: Option<&Value>) -> Option<Value> {
         |raw: String, fallback: i64| raw.parse::<f64>().map_or(fallback, |f| f.trunc() as i64);
     let scale = number_text(table, "scale").parse::<f64>().unwrap_or(1.0);
     let or = |key: &str, default: &str| {
-        let value = quoted(table, key);
+        let value = string_field(table, key);
         if value.is_empty() {
             default.to_string()
         } else {
@@ -118,10 +111,10 @@ fn monitor_row(arg: Option<&Value>) -> Option<Value> {
         "scale": scale,
         "transform": int(number_text(table, "transform"), 0),
         "disabled": table.get("disabled") == Some(&Value::Bool(true)),
-        "mirror": quoted(table, "mirror"),
+        "mirror": string_field(table, "mirror"),
         "vrr": int(number_text(table, "vrr"), 0),
         "bitdepth": int(number_text(table, "bitdepth"), 8),
-        "cm": quoted(table, "cm"),
+        "cm": string_field(table, "cm"),
     }))
 }
 

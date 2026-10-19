@@ -20,7 +20,7 @@ use std::net::Shutdown;
 use std::os::unix::net::UnixStream;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 
 use serde_json::{json, Value};
@@ -56,6 +56,17 @@ fn topics_of(frame: &Value) -> HashMap<String, u64> {
     out
 }
 
+fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
+    mutex.lock().unwrap_or_else(|err| err.into_inner())
+}
+
+/// Write one frame to the session's socket. False when it is gone.
+fn write_frame(wire: &Mutex<UnixStream>, frame: &Value) -> bool {
+    let guard = lock(wire);
+    let mut out = &*guard;
+    writeln!(out, "{frame}").is_ok()
+}
+
 /// Serve one session until the client goes away. Blocks.
 pub(super) fn open(daemon: &Arc<Daemon>, stream: UnixStream) {
     let _ = stream.set_read_timeout(None);
@@ -75,17 +86,23 @@ pub(super) fn open(daemon: &Arc<Daemon>, stream: UnixStream) {
         return;
     }
     let (subscriber, inbox) = daemon.bus.attach();
-    let writer = stream.try_clone();
-    let writer = std::thread::spawn(move || {
-        let Ok(stream) = writer else { return };
-        let mut out = &stream;
-        for frame in inbox {
-            if writeln!(out, "{frame}").is_err() {
-                break;
+    // Events and replies share the socket under one lock. A reply is written
+    // directly, never queued behind events, so a window that falls behind on
+    // events loses its subscription and never a reply it is waiting for.
+    let Ok(wire) = stream.try_clone().map(|clone| Arc::new(Mutex::new(clone))) else {
+        return;
+    };
+    let writer = {
+        let wire = Arc::clone(&wire);
+        std::thread::spawn(move || {
+            for frame in inbox {
+                if !write_frame(&wire, &frame) {
+                    break;
+                }
             }
-        }
-        let _ = stream.shutdown(Shutdown::Both);
-    });
+            let _ = lock(&wire).shutdown(Shutdown::Both);
+        })
+    };
 
     for line in BufReader::new(reader).lines() {
         let Ok(line) = line else { break };
@@ -113,10 +130,11 @@ pub(super) fn open(daemon: &Arc<Daemon>, stream: UnixStream) {
             Some("req") => {
                 let id = frame.get("id").cloned().unwrap_or(Value::Null);
                 let body = frame.get("body").cloned().unwrap_or(Value::Null);
-                let (daemon, subscriber) = (daemon.clone(), subscriber.clone());
+                let (daemon, wire) = (daemon.clone(), Arc::clone(&wire));
                 std::thread::spawn(move || {
+                    daemon.note_request_frame();
                     let reply = daemon.answer(&body);
-                    subscriber.send(json!({"t": "res", "id": id, "body": reply}));
+                    write_frame(&wire, &json!({"t": "res", "id": id, "body": reply}));
                 });
             }
             _ => {}

@@ -4,9 +4,13 @@
 //! is asked for the kind with interactive priority and the reply carries the
 //! sample. `None` means there is no daemon to ask, and the caller collects.
 
+use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Write};
 use std::os::unix::net::UnixStream;
 use std::path::Path;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::mpsc::{channel, Sender};
+use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Duration;
 
 use serde_json::{json, Value};
@@ -53,6 +57,88 @@ fn ask(dir: &Path, kind: &str, wait: Duration) -> Option<Sample> {
     Sample::from_json(reply.get("sample")?)
 }
 
+/// The window's one session to the daemon, as `serve` keeps it. A request goes
+/// over it as a `req` frame and its answer comes back as a `res` frame with
+/// the same id, so commands and barriers share a connection that is already
+/// open instead of making one each.
+pub struct Bridge {
+    wire: Mutex<UnixStream>,
+    pending: Mutex<HashMap<u64, Sender<Value>>>,
+    next: AtomicU64,
+}
+
+/// Why a bridge call has no answer.
+#[derive(Debug, PartialEq)]
+pub enum Gone {
+    /// The frame never left: the caller may ask another way.
+    NotSent,
+    /// It was sent and nothing came back. It may still be carried out.
+    Lost,
+}
+
+impl Bridge {
+    pub fn new(wire: UnixStream) -> Arc<Bridge> {
+        Arc::new(Bridge {
+            wire: Mutex::new(wire),
+            pending: Mutex::new(HashMap::new()),
+            next: AtomicU64::new(1),
+        })
+    }
+
+    pub fn call(&self, body: &Value, wait: Duration) -> std::result::Result<Value, Gone> {
+        let id = self.next.fetch_add(1, Ordering::SeqCst);
+        let (tx, rx) = channel();
+        lock(&self.pending).insert(id, tx);
+        let frame = json!({"t": "req", "id": id, "body": body});
+        let sent = {
+            let guard = lock(&self.wire);
+            let mut out = &*guard;
+            writeln!(out, "{frame}").is_ok()
+        };
+        if !sent {
+            lock(&self.pending).remove(&id);
+            return Err(Gone::NotSent);
+        }
+        let answer = rx.recv_timeout(wait);
+        lock(&self.pending).remove(&id);
+        answer.map_err(|_| Gone::Lost)
+    }
+
+    /// A `res` frame arrived.
+    pub fn deliver(&self, id: u64, body: Value) {
+        if let Some(waiter) = lock(&self.pending).remove(&id) {
+            let _ = waiter.send(body);
+        }
+    }
+
+    /// The session ended: everyone waiting is let go without an answer.
+    pub fn close(&self) {
+        lock(&self.pending).clear();
+    }
+}
+
+fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
+    mutex.lock().unwrap_or_else(|err| err.into_inner())
+}
+
+static BRIDGE: Mutex<Option<Arc<Bridge>>> = Mutex::new(None);
+
+/// Make `bridge` the session this process talks to the daemon over.
+pub fn install(bridge: Arc<Bridge>) {
+    *lock(&BRIDGE) = Some(bridge);
+}
+
+/// The session ended; calls go back to the one-shot socket.
+pub fn uninstall() {
+    if let Some(bridge) = lock(&BRIDGE).take() {
+        bridge.close();
+    }
+}
+
+fn bridge() -> Option<Arc<Bridge>> {
+    lock(&BRIDGE).clone()
+}
+
 /// What came of asking the daemon to run a command.
 #[derive(Debug)]
 pub enum Command {
@@ -70,20 +156,33 @@ pub enum Command {
 /// Ask the daemon to run the command in `body` on its lane, with this
 /// process's environment.
 pub fn command(body: &Value, backend_id: &str) -> Command {
+    let ask = command_ask(body, backend_id);
+    if let Some(bridge) = bridge() {
+        match bridge.call(&ask, COMMAND_WAIT) {
+            Ok(reply) => return command_reply(&reply),
+            Err(Gone::Lost) => return Command::Lost("the daemon did not answer".into()),
+            // Nothing was sent: try the daemon's one-shot socket instead.
+            Err(Gone::NotSent) => {}
+        }
+    }
     let Some(dir) = cache::dir_from_env() else {
         return Command::Unavailable;
     };
     command_in(&dir, body, backend_id)
 }
 
+fn command_ask(body: &Value, backend_id: &str) -> Value {
+    let env: serde_json::Map<String, Value> = std::env::vars()
+        .map(|(key, value)| (key, Value::String(value)))
+        .collect();
+    json!({"op": "command", "request": body, "backend": backend_id, "env": env})
+}
+
 pub fn command_in(dir: &Path, body: &Value, backend_id: &str) -> Command {
     let Ok(stream) = UnixStream::connect(cache::socket(dir)) else {
         return Command::Unavailable;
     };
-    let env: serde_json::Map<String, Value> = std::env::vars()
-        .map(|(key, value)| (key, Value::String(value)))
-        .collect();
-    let ask = json!({"op": "command", "request": body, "backend": backend_id, "env": env});
+    let ask = command_ask(body, backend_id);
     if stream
         .set_write_timeout(Some(Duration::from_secs(2)))
         .is_err()
@@ -104,6 +203,11 @@ pub fn command_in(dir: &Path, body: &Value, backend_id: &str) -> Command {
         Ok(reply) => reply,
         Err(err) => return Command::Lost(format!("the daemon's answer was garbled: {err}")),
     };
+    command_reply(&reply)
+}
+
+/// What the daemon's answer to a `command` op means for the caller.
+fn command_reply(reply: &Value) -> Command {
     if reply.get("ok").and_then(Value::as_bool) == Some(true) {
         return Command::Done {
             envelope: reply.get("envelope").cloned().unwrap_or(Value::Null),
@@ -129,6 +233,13 @@ const COMMAND_WAIT: Duration = Duration::from_secs(160);
 pub fn barrier(topics: &[String], wait: Duration) {
     if topics.is_empty() {
         return;
+    }
+    if let Some(bridge) = bridge() {
+        let ask = json!({"op": "barrier", "topics": topics, "waitMs": wait.as_millis() as u64});
+        match bridge.call(&ask, wait + Duration::from_secs(1)) {
+            Ok(_) | Err(Gone::Lost) => return,
+            Err(Gone::NotSent) => {}
+        }
     }
     let Some(dir) = cache::dir_from_env() else {
         return;

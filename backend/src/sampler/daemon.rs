@@ -65,6 +65,7 @@ pub struct Daemon {
     pub(super) bus: Bus,
     pub(super) commands: Arc<Commands>,
     pub(super) run_command: Arc<RunCommand>,
+    request_frames: std::sync::atomic::AtomicU64,
     governor: Mutex<Governor>,
     probe: Box<dyn Probe + Send + Sync>,
     floor: Duration,
@@ -103,6 +104,7 @@ impl Daemon {
             bus: Bus::default(),
             commands,
             run_command: Arc::from(config.run_command),
+            request_frames: std::sync::atomic::AtomicU64::new(0),
             governor: Mutex::new(Governor::new(config.limits)),
             probe: config.probe,
             floor: config.floor,
@@ -167,6 +169,11 @@ impl Daemon {
         reply
     }
 
+    /// Counted so `status` can show that windows reach the daemon over sessions.
+    pub(super) fn note_request_frame(&self) {
+        self.request_frames.fetch_add(1, Ordering::SeqCst);
+    }
+
     fn status(&self) -> Value {
         json!({
             "ok": true,
@@ -174,6 +181,8 @@ impl Daemon {
             "pid": std::process::id(),
             "sampler": {"connected": self.workers.available(), "pid": self.workers.pid()},
             "topics": self.topics.status(),
+            "sessions": self.bus.count(),
+            "requestFrames": self.request_frames.load(Ordering::SeqCst),
         })
     }
 

@@ -132,6 +132,11 @@ impl Bus {
         (subscriber, inbox)
     }
 
+    /// Sessions attached now.
+    pub fn count(&self) -> usize {
+        lock(&self.subscribers).len()
+    }
+
     pub fn detach(&self, subscriber: &Subscriber) {
         lock(&self.subscribers).retain(|other| other.id != subscriber.id);
         self.poke();

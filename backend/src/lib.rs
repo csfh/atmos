@@ -118,7 +118,7 @@ fn dispatch(
             Ok(0)
         }
         "apply" => {
-            let lease = parsed.root.is_none().then(job_lease).flatten();
+            let lease = parsed.root.is_none().then(generic_lease).flatten();
             let code = apply::run(parsed.root.as_deref(), &parsed.rest, stdout, stderr);
             if parsed.root.is_none() {
                 sampler::drop_kinds(sampler::AFTER_JOB);
@@ -365,6 +365,19 @@ fn job_lease() -> Option<sampler::client::Lease> {
         &format!("job:{}", std::process::id()),
         sampler::AFTER_JOB,
         std::time::Duration::from_millis(500),
+    )
+}
+
+/// The `generic` lane: `apply -- <argv>` is a write the daemon knows nothing
+/// about, so writes through it go one at a time across windows and, like any
+/// job, hold back reads of what a job can change. A lane that stays busy for
+/// longer than a moment (a long streamed job holds it) is not waited for: the
+/// write runs unordered rather than stall behind it.
+fn generic_lease() -> Option<sampler::client::Lease> {
+    sampler::client::lease(
+        "generic",
+        sampler::AFTER_JOB,
+        std::time::Duration::from_millis(300),
     )
 }
 

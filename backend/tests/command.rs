@@ -300,3 +300,173 @@ fn scale_runs_the_tool_and_returns_the_monitor_list() {
     let bad = scene.request(&json!({"op": "display.scale", "scale": "x"}));
     assert_eq!(bad["error"]["code"], "bad_request");
 }
+
+/// A window's `ratmos serve`, in the scene's environment, talking to its daemon.
+struct Window {
+    child: Child,
+    lines: std::sync::mpsc::Receiver<Value>,
+}
+
+impl Window {
+    fn open(scene: &Scene) -> Window {
+        use std::io::BufRead;
+        let mut child = Command::new(env!("CARGO_BIN_EXE_ratmos"))
+            .args(["--backend", "omarchy", "serve"])
+            .env_clear()
+            .env("XDG_RUNTIME_DIR", &scene.run)
+            .env("PATH", scene.path())
+            .env("HOME", &scene.run)
+            .env("ATMOS_NO_AUTOSTART", "1")
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .spawn()
+            .unwrap();
+        let stdout = child.stdout.take().unwrap();
+        let (tx, lines) = std::sync::mpsc::channel();
+        thread::spawn(move || {
+            for line in std::io::BufReader::new(stdout)
+                .lines()
+                .map_while(Result::ok)
+            {
+                if let Ok(value) = serde_json::from_str::<Value>(&line) {
+                    let _ = tx.send(value);
+                }
+            }
+        });
+        Window { child, lines }
+    }
+
+    fn send(&mut self, value: &Value) {
+        let stdin = self.child.stdin.as_mut().unwrap();
+        writeln!(stdin, "{value}").unwrap();
+    }
+
+    fn reply(&self, id: u64) -> Value {
+        loop {
+            let line = self
+                .lines
+                .recv_timeout(Duration::from_secs(10))
+                .expect("a reply");
+            if line["id"] == id {
+                return line;
+            }
+        }
+    }
+}
+
+impl Drop for Window {
+    fn drop(&mut self) {
+        let _ = self.child.kill();
+        let _ = self.child.wait();
+    }
+}
+
+/// The daemon's `status`: its sessions and the `req` frames it has answered.
+fn status(run: &Path) -> Value {
+    let stream = std::os::unix::net::UnixStream::connect(run.join("atmos/ratmos.sock")).unwrap();
+    writeln!(&stream, r#"{{"op":"status"}}"#).unwrap();
+    let mut line = String::new();
+    std::io::BufRead::read_line(&mut std::io::BufReader::new(&stream), &mut line).unwrap();
+    serde_json::from_str::<Value>(&line).unwrap()
+}
+
+fn request_frames(run: &Path) -> u64 {
+    status(run)["requestFrames"].as_u64().unwrap()
+}
+
+#[test]
+fn a_window_sends_its_commands_and_barriers_over_its_session() {
+    let scene = Scene::new("cmd-bridge");
+    let _daemon = scene.daemon();
+    let mut window = Window::open(&scene);
+    // The session is opened when the window starts, whether or not it holds a topic.
+    for _ in 0..100 {
+        if status(&scene.run)["sessions"] == 1 {
+            break;
+        }
+        thread::sleep(Duration::from_millis(50));
+    }
+    assert_eq!(
+        status(&scene.run)["sessions"],
+        1,
+        "the window opened a session"
+    );
+    window.send(&json!({"id": 1, "op": "display.brightness", "monitor": "DP-3", "percent": 33}));
+    let reply = window.reply(1);
+    assert_eq!(reply["ok"], true, "{reply}");
+    assert_eq!(reply["result"]["percent"], 33);
+    assert_eq!(
+        reply["result"]["coalesced"], false,
+        "it went through the daemon"
+    );
+    window.send(&json!({"id": 2, "op": "settings.snapshot", "group": "look"}));
+    assert_eq!(window.reply(2)["ok"], true);
+    // One command and one barrier, both as frames on the session.
+    assert!(
+        request_frames(&scene.run) >= 2,
+        "{}",
+        request_frames(&scene.run)
+    );
+}
+
+#[test]
+fn a_window_whose_daemon_dies_runs_the_command_itself() {
+    let scene = Scene::new("cmd-bridge-gone");
+    let daemon = scene.daemon();
+    let mut window = Window::open(&scene);
+    thread::sleep(Duration::from_millis(500));
+    drop(daemon);
+    thread::sleep(Duration::from_millis(300));
+    window.send(&json!({"id": 1, "op": "display.brightness", "monitor": "DP-3", "percent": 21}));
+    let reply = window.reply(1);
+    assert_eq!(reply["ok"], true, "{reply}");
+    assert!(reply["result"].get("coalesced").is_none(), "ran in place");
+    assert!(scene.log().iter().any(|line| line.ends_with("21%")));
+}
+
+#[test]
+fn applies_from_two_windows_go_one_at_a_time() {
+    let scene = Scene::new("cmd-generic");
+    let _daemon = scene.daemon();
+    let log = scene.run.join("jobs.log");
+    let job = |name: &str| {
+        let script = format!(
+            "echo start-{name} >> {log}; sleep 0.15; echo end-{name} >> {log}",
+            log = log.display()
+        );
+        Command::new(env!("CARGO_BIN_EXE_ratmos"))
+            .args([
+                "--backend",
+                "omarchy",
+                "apply",
+                "--",
+                "/bin/sh",
+                "-c",
+                &script,
+            ])
+            .env("XDG_RUNTIME_DIR", &scene.run)
+            .env("ATMOS_NO_AUTOSTART", "1")
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .unwrap()
+    };
+    let mut first = job("a");
+    let mut second = job("b");
+    first.wait().unwrap();
+    second.wait().unwrap();
+    let lines: Vec<String> = fs::read_to_string(&log)
+        .unwrap()
+        .lines()
+        .map(str::to_string)
+        .collect();
+    assert_eq!(lines.len(), 4, "{lines:?}");
+    assert!(
+        lines[0].starts_with("start-")
+            && lines[1].starts_with("end-")
+            && lines[0][6..] == lines[1][4..],
+        "one finished before the other began: {lines:?}"
+    );
+}

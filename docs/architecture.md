@@ -63,7 +63,7 @@ Every write, and every read of a device, is a command with a **lane**, such as `
 
 `command::plan` is the registry: a request's lane, key and topics. `display.brightness` and `display.scale` are the typed ops so far. Brightness runs `omarchy brightness display`, waits until the panel reports the level it was given (a DDC/CI panel answers a read right after a write with the old one), and then reads the monitors back, so the reply carries the state the machine is in (`result.snapshot.monitors`) and the window shows that, never a patch it guessed. The daemon does not run the tool itself. It starts `ratmos request` as a child with the caller's environment and a `RATMOS_DIRECT` marker, so a daemon that outlives a Hyprland session never runs `hyprctl` with a stale `HYPRLAND_INSTANCE_SIGNATURE`. With no daemon, or an older one, the command runs in the caller's process, unordered across windows. A daemon that took a command and then did not answer is a failure for the caller, and the command is never run a second time.
 
-**Privileged and interactive jobs keep their own process tree.** `--sudo-ask`, `ratmos root` and `runInteractive` need the caller's session and terminal, so the daemon does not run them. `ratmos task` and `ratmos apply` take a **lease** while they run: a one-shot connection that holds a lane of their own (`job:<pid>`) until it closes, so a crashed holder releases it. While held, reads of `disks`, `services`, `software` and `diagnostics` wait, and releasing drops them. Jobs lease lanes of their own and never queue behind each other; a long update does not hold up an unrelated toggle.
+**Privileged and interactive jobs keep their own process tree.** `--sudo-ask`, `ratmos root` and `runInteractive` need the caller's session and terminal, so the daemon does not run them. `ratmos task` and `ratmos apply` take a **lease** while they run: a one-shot connection that holds a lane until it closes, so a crashed holder releases it. A task leases a lane of its own (`job:<pid>`). `apply --`, the passthrough QML uses for writes the daemon has no typed op for, leases the shared `generic` lane, waiting at most 300 ms. While a lease is held, reads of `disks`, `services`, `software` and `diagnostics` wait, and releasing drops them.
 
 ## Wire
 
@@ -73,13 +73,13 @@ One Unix socket, `$XDG_RUNTIME_DIR/atmos/ratmos.sock`, NDJSON. A one-shot client
 | --- | --- | --- | --- |
 | `sub`, `unsub` | client to daemon | Replace or drop the held topics, each with its interval | P2 |
 | `event` | daemon to client | `{topic, sampledAt, tookMs, value}`, or `{topic, stale, error}` | P2 |
-| `req` | client to daemon | Any op the one-shot socket answers, with an `id` | frame exists; `serve` does not send it yet |
-| `res` | daemon to client | The reply for that `id` | frame exists, as above |
+| `req` | client to daemon | Any op the one-shot socket answers, with an `id` | P2/P3: `serve` sends its `command` and `barrier` ops this way |
+| `res` | daemon to client | The reply for that `id`, written directly so a backed-up event queue can never drop it | P2/P3 |
 | `command`, `barrier` | one-shot ops | Run a typed command on its lane; wait for pending writes to a topic | P3, on the one-shot socket |
 | `lease` | one-shot op, connection held | Hold a lane around a job that runs outside the daemon; closing the connection releases it | P3 |
 | `stream` | daemon to client | Output of a long job, for jobs the daemon does run | not planned yet |
 
-A session's writer has a bounded queue, and a window that falls behind is dropped, so one stalled window never holds up publishing. `ratmos serve` keeps the framing QML speaks (`docs/protocol.md`) and maps it onto the session: `sub.set` becomes `sub`, `event` frames become `{"event":"sample"}` lines. `serve` still answers ordinary ops, `display.*` included, through `handle()` in its own process, which reads the cache and asks the daemon on a miss. P3 moves the ops that need ordering with writes onto `req`. Where no daemon can be reached, or one predates sessions, `serve` samples the held topics itself on the same clock, and a held topic that goes quiet gets an error event after six intervals. `ratmos request` stays the one-shot fallback, and the golden replay and the `request.rs`, `Requests.js` and `protocol.md` checks stay as they are.
+A session's writer has a bounded queue, and a window that falls behind is dropped, so one stalled window never holds up publishing. `ratmos serve` keeps the framing QML speaks (`docs/protocol.md`) and maps it onto the session: `sub.set` becomes `sub`, `event` frames become `{"event":"sample"}` lines. `serve` opens its session when the window starts, whether or not the window holds a topic, and keeps it for the window's life; `client::Bridge` carries the window's `command` and `barrier` ops over it as `req` and `res` frames, and falls back to the one-shot socket when the session is down. Reads of the cache and the other ops still run through `handle()` in `serve`'s own process, which asks the daemon on a miss. Where no daemon can be reached, or one predates sessions, `serve` samples the held topics itself on the same clock, and a held topic that goes quiet gets an error event after six intervals. `ratmos request` stays the one-shot fallback, and the golden replay and the `request.rs`, `Requests.js` and `protocol.md` checks stay as they are.
 
 ## Phases
 
@@ -106,12 +106,11 @@ A session's writer has a bounded queue, and a window that falls behind is droppe
 - **Other QML timers poll.** The Wi-Fi and Bluetooth pages (900 ms) and the guard bar (200 ms) tick on their own timers. Each only rebuilds from state already in memory, Quickshell's network and Bluetooth models and the revert countdown, and asks the host nothing, so they were left alone.
 - **A local fallback has no stall watchdog for a wedged collection,** since the sampler runs on the thread that would raise it. Only the session path reports a silent `live`.
 - **Display kinds other than `live` are pushed but nothing in the window holds them yet.** They are still read with `display.get`.
-- **`req` and `res` frames are not used by `serve`.** They arrive with P3.
 
 ### Known gaps after P3
 
 - **Only brightness and monitor scale are typed ops.** About seventy other writes still go through `ratmos apply -- <argv>` with an `apply:` patch the window builds. Those are not on a lane, are coalesced only by the window's own job queue, and can still show a guess. Moving them is P4, one call site at a time.
-- **There is no `generic` lane for `apply --`.** It leases a lane of its own, which orders reads after it and invalidates the kinds it can change, and does not order it against another window's `apply`.
+- **The `generic` lane is shared, not exclusive.** `apply --` takes a lease on `generic`, so writes through it go one at a time across windows and hold back reads of what a job can change, but a lane busy for more than 300 ms (a long streamed job) is not waited for and the write runs unordered. `ratmos task` leases a lane of its own per process.
 - **Barriers name display kinds and `monitors` only.** The settings snapshot groups become topics in P4, so a read of `network` or `input` does not wait for a write to them.
 - **A read waits at most three seconds,** so under a long job it answers with what it has. A page that opens during a package update still loads.
 - **A snapshot read that began before a write can land after it.** Brightness and scale no longer go through the window's job queue, which used to order its own reads and writes, and the barrier only holds back reads that start while a command is pending. A `look` read in flight when the user touches a slider, for instance one started by a file stamp, may answer with the old monitor list after the reply has been shown. Nothing reads `look` on a timer, so this is rare, and the next read corrects it.

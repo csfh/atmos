@@ -79,15 +79,21 @@ impl Subs {
         });
     }
 
-    fn wait_for_topics(&self) -> Option<()> {
-        let mut state = lock(&self.state);
-        while !state.stop && state.topics.is_empty() {
-            state = self
-                .changed
-                .wait(state)
-                .unwrap_or_else(|err| err.into_inner());
-        }
-        (!state.stop).then_some(())
+    /// Sleep until something changes, a stop, or `timeout`. False once stopped.
+    fn idle(&self, timeout: Duration) -> bool {
+        let state = lock(&self.state);
+        let seen = state.generation;
+        let (state, _) = self
+            .changed
+            .wait_timeout_while(state, timeout, |state| {
+                !state.stop && state.generation == seen
+            })
+            .unwrap_or_else(|err| err.into_inner());
+        !state.stop
+    }
+
+    fn stopped(&self) -> bool {
+        lock(&self.state).stop
     }
 }
 
@@ -188,14 +194,17 @@ fn sub_frame(topics: &BTreeMap<String, u64>) -> Value {
     json!({"t": "sub", "topics": map})
 }
 
-/// Run until `subs` stops.
+/// Run until `subs` stops. With a daemon to be had, this keeps one session to
+/// it for as long as the window lives: it carries the held topics and, through
+/// `client::Bridge`, the window's commands and barriers. Without one it samples
+/// the held topics here.
 pub fn run(config: &Config, out: &Out, subs: &Subs) {
     let dir = (config.root.is_none() && config.backend == crate::platform::Backend::Omarchy)
         .then(cache::dir_from_env)
         .flatten();
     let mut told = String::new();
     let mut last_launch: Option<Instant> = None;
-    while subs.wait_for_topics().is_some() {
+    while !subs.stopped() {
         if let Some(dir) = &dir {
             let recently = last_launch.is_some_and(|at| at.elapsed() < RETRY);
             if !recently {
@@ -205,7 +214,12 @@ pub fn run(config: &Config, out: &Out, subs: &Subs) {
             match connect(dir) {
                 Ok(stream) => {
                     told.clear();
+                    let began = Instant::now();
                     session(stream, out, subs);
+                    // A daemon that drops sessions at once must not be spun on.
+                    if began.elapsed() < Duration::from_secs(1) {
+                        subs.idle(Duration::from_secs(1));
+                    }
                     continue;
                 }
                 Err(why) => {
@@ -216,7 +230,17 @@ pub fn run(config: &Config, out: &Out, subs: &Subs) {
                 }
             }
         }
-        local(config, dir.as_deref().map(|_| RETRY), out, subs);
+        let held = subs.view().is_some_and(|(topics, _)| !topics.is_empty());
+        if held {
+            local(config, dir.as_deref().map(|_| RETRY), out, subs);
+        } else {
+            // Nothing to sample; look for a daemon again after a while.
+            subs.idle(if dir.is_some() {
+                RETRY
+            } else {
+                Duration::from_secs(3600)
+            });
+        }
     }
 }
 
@@ -252,14 +276,31 @@ fn session(stream: UnixStream, out: &Out, subs: &Subs) {
         Ok(clone) => clone,
         Err(_) => return,
     };
+    let bridge: Arc<Mutex<Option<Arc<client::Bridge>>>> = Arc::new(Mutex::new(None));
+    if let Ok(wire) = stream.try_clone() {
+        let made = client::Bridge::new(wire);
+        client::install(Arc::clone(&made));
+        *lock(&bridge) = Some(made);
+    }
     let forward = {
         let (out, alive, heard) = (Arc::clone(out), Arc::clone(&alive), Arc::clone(&heard));
+        let bridge = Arc::clone(&bridge);
         std::thread::spawn(move || {
             for line in BufReader::new(reader).lines() {
                 let Ok(line) = line else { break };
                 let Ok(frame) = serde_json::from_str::<Value>(&line) else {
                     continue;
                 };
+                if frame.get("t").and_then(Value::as_str) == Some("res") {
+                    if let (Some(id), Some(body)) =
+                        (frame.get("id").and_then(Value::as_u64), frame.get("body"))
+                    {
+                        if let Some(bridge) = &*lock(&bridge) {
+                            bridge.deliver(id, body.clone());
+                        }
+                    }
+                    continue;
+                }
                 if let Some(event) = from_daemon(&frame) {
                     if event.get("error").is_none() {
                         if let Some(kind) = event["kind"].as_str() {
@@ -270,6 +311,10 @@ fn session(stream: UnixStream, out: &Out, subs: &Subs) {
                 }
             }
             alive.store(false, Ordering::SeqCst);
+            // Let go of anyone waiting on a reply that will not come.
+            if let Some(bridge) = lock(&bridge).take() {
+                bridge.close();
+            }
         })
     };
 
@@ -289,6 +334,7 @@ fn session(stream: UnixStream, out: &Out, subs: &Subs) {
     }
     let _ = stream.shutdown(std::net::Shutdown::Both);
     let _ = forward.join();
+    client::uninstall();
 }
 
 /// Sample the held topics here, on the window's clock. `retry` bounds how long
@@ -440,9 +486,9 @@ mod tests {
     fn a_stop_wakes_a_waiter() {
         let subs = Arc::new(Subs::default());
         let waiter = subs.clone();
-        let handle = std::thread::spawn(move || waiter.wait_for_topics());
+        let handle = std::thread::spawn(move || waiter.idle(Duration::from_secs(30)));
         std::thread::sleep(Duration::from_millis(50));
         subs.stop();
-        assert!(handle.join().unwrap().is_none());
+        assert!(!handle.join().unwrap(), "idle reports the stop");
     }
 }

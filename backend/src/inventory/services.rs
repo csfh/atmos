@@ -1,6 +1,6 @@
 //! User services, failed system units, and the Atmos allowlist.
 
-use super::capture;
+use super::{capture, require};
 use serde_json::{json, Value};
 use std::collections::{HashMap, HashSet};
 
@@ -30,9 +30,23 @@ struct Row {
     unit_file_state: String,
 }
 
+/// What the snapshot embeds: a tool that fails leaves its part empty.
 pub fn collect() -> Value {
+    gather(&|program, args| Ok(capture(program, args))).unwrap_or(Value::Null)
+}
+
+/// What the services page shows: the unit lists come from `systemctl`, and a
+/// `systemctl` that fails is an error, not a machine with no services.
+pub fn try_collect() -> Result<Value, String> {
+    gather(&require)
+}
+
+/// How `gather` gets a tool's output: leniently or strictly.
+type Fetch<'a> = &'a dyn Fn(&str, &[&str]) -> Result<String, String>;
+
+fn gather(fetch: Fetch) -> Result<Value, String> {
     let user_units = parse_units(
-        &capture(
+        &fetch(
             "systemctl",
             &[
                 "--user",
@@ -42,11 +56,11 @@ pub fn collect() -> Value {
                 "--type=service",
                 "--all",
             ],
-        ),
+        )?,
         "user",
     );
     let sys_failed = parse_units(
-        &capture(
+        &fetch(
             "systemctl",
             &[
                 "--no-legend",
@@ -55,7 +69,7 @@ pub fn collect() -> Value {
                 "--type=service",
                 "--state=failed",
             ],
-        ),
+        )?,
         "system",
     );
     let mut args = vec!["--no-legend", "--no-pager", "list-units", "--all"];
@@ -65,16 +79,22 @@ pub fn collect() -> Value {
             .filter(|(_, s)| *s == "system")
             .map(|(u, _)| *u),
     );
-    let extra = parse_units(&capture("systemctl", &args), "system");
-    let user_files = parse_files(&capture(
+    let extra = parse_units(&fetch("systemctl", &args)?, "system");
+    let user_files = parse_files(&fetch(
         "systemctl",
         &["--user", "--no-legend", "--no-pager", "list-unit-files"],
-    ));
-    let sys_files = parse_files(&capture(
+    )?);
+    let sys_files = parse_files(&fetch(
         "systemctl",
         &["--no-legend", "--no-pager", "list-unit-files"],
-    ));
-    build(sys_failed, extra, user_units, &user_files, &sys_files)
+    )?);
+    Ok(build(
+        sys_failed,
+        extra,
+        user_units,
+        &user_files,
+        &sys_files,
+    ))
 }
 
 fn build(

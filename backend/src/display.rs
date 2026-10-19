@@ -73,7 +73,8 @@ pub fn load(root: Option<&Path>, platform: Backend, kind: &str) -> Result<Value>
 /// Collect one inventory now, bypassing the sample cache. The daemon's collector.
 pub fn collect(platform: Backend, kind: &str) -> Result<Value> {
     let value = crate::inventory::collect(kind)
-        .ok_or_else(|| Error::from(format!("no collector for {kind}")))?;
+        .ok_or_else(|| Error::from(format!("no collector for {kind}")))?
+        .map_err(|why| Error::new(crate::error::Kind::Command, why).with_context(kind))?;
     Ok(stamp(value, platform, collector(platform, kind)))
 }
 

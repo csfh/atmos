@@ -57,6 +57,17 @@ fn display_collects_natively_without_atmos_root_or_scripts() {
             .output()
             .expect("spawn ratmos");
         let err = String::from_utf8_lossy(&output.stderr);
+        // These two cannot be collected without their tool, and say so rather
+        // than answer with a machine that has no disks or services.
+        if let Some(tool) = match kind {
+            "disks" => Some("lsblk"),
+            "services" => Some("systemctl"),
+            _ => None,
+        } {
+            assert!(!output.status.success(), "{kind} succeeded with no {tool}");
+            assert!(err.contains(tool), "{kind} did not name {tool}\n{err}");
+            continue;
+        }
         assert!(output.status.success(), "{kind} failed\n{err}");
         let value: serde_json::Value =
             serde_json::from_slice(&output.stdout).expect("display json");

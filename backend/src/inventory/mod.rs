@@ -17,16 +17,29 @@ pub mod services;
 pub mod time;
 
 /// Native collector for a display kind, or None while one still runs a script.
-pub fn collect(kind: &str) -> Option<Value> {
+/// A collector whose main tool fails answers with that failure, never with an
+/// empty document that reads as "there is nothing here".
+pub fn collect(kind: &str) -> Option<Result<Value, String>> {
     match kind {
-        "software" => Some(apps::collect()),
-        "disks" => Some(disks::collect()),
-        "live" => Some(live::collect()),
-        "hardware" => Some(hardware::collect()),
-        "diagnostics" => Some(diagnostics::collect()),
-        "services" => Some(services::collect()),
+        "software" => Some(Ok(apps::collect())),
+        "disks" => Some(disks::try_collect()),
+        "live" => Some(Ok(live::collect())),
+        "hardware" => Some(Ok(hardware::collect())),
+        "diagnostics" => Some(Ok(diagnostics::collect())),
+        "services" => Some(services::try_collect()),
         _ => None,
     }
+}
+
+/// Stdout of a tool the document cannot do without. Missing, failing or hung is
+/// an error that names the tool, so the caller keeps what it had.
+pub(crate) fn require(program: &str, args: &[&str]) -> Result<String, String> {
+    Run::new(program)
+        .args(args)
+        .timeout(Duration::from_secs(20))
+        .checked()
+        .map(|out| out.stdout_text())
+        .map_err(|err| format!("{program} failed: {err}"))
 }
 
 /// Stdout of a tool that may be missing or fail; empty then, like a script's `|| true`.

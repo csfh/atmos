@@ -1,21 +1,36 @@
 //! Disks, LUKS devices, swap and snapper snapshots from lsblk, df and snapper. No sudo.
 
-use super::{capture, number, text};
+use super::{capture, number, require, text};
 use serde_json::{json, Value};
 use std::collections::{BTreeMap, HashSet};
 
+const LSBLK: &[&str] = &[
+    "-J",
+    "-b",
+    "-o",
+    "NAME,PATH,SIZE,TYPE,FSTYPE,LABEL,UUID,MOUNTPOINT,MODEL,TRAN,ROTA,HOTPLUG,PKNAME,RM",
+];
+
+/// What the snapshot embeds: a tool that fails leaves the lists empty.
 pub fn collect() -> Value {
-    let raw = capture(
-        "lsblk",
-        &[
-            "-J",
-            "-b",
-            "-o",
-            "NAME,PATH,SIZE,TYPE,FSTYPE,LABEL,UUID,MOUNTPOINT,MODEL,TRAN,ROTA,HOTPLUG,PKNAME,RM",
-        ],
-    );
-    let tree: Value = serde_json::from_str(&raw).unwrap_or(Value::Null);
-    let df = parse_df(&capture("df", &["-B1", "-P"]));
+    let tree: Value = serde_json::from_str(&capture("lsblk", LSBLK)).unwrap_or(Value::Null);
+    build(&tree, &capture("df", &["-B1", "-P"]))
+}
+
+/// What the disks page shows. With no device list from `lsblk` there is no
+/// page to show, and that is said, not drawn as a machine without disks.
+pub fn try_collect() -> Result<Value, String> {
+    let raw = require("lsblk", LSBLK)?;
+    let tree: Value =
+        serde_json::from_str(&raw).map_err(|err| format!("lsblk gave no device list: {err}"))?;
+    if !tree["blockdevices"].is_array() {
+        return Err("lsblk gave no device list".into());
+    }
+    Ok(build(&tree, &require("df", &["-B1", "-P"])?))
+}
+
+fn build(tree: &Value, df_text: &str) -> Value {
+    let df = parse_df(df_text);
     let mut disks = Vec::new();
     let mut swaps = Vec::new();
     let mut luks = Vec::new();

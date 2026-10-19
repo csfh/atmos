@@ -180,15 +180,42 @@ fn monitor_row(m: &Value) -> Value {
     })
 }
 
-pub fn monitors() -> Vec<Value> {
+/// The monitors Hyprland reports. `None` means hyprctl failed, which is not
+/// the same as no monitors: the caller leaves the last list alone and the
+/// reason goes to stderr.
+pub fn monitors() -> Option<Vec<Value>> {
     if !present("hyprctl") {
-        return Vec::new();
+        return Some(Vec::new());
     }
-    let raw = out("hyprctl", &["monitors", "all", "-j"]);
-    let mut rows: Vec<Value> = serde_json::from_str::<Value>(&raw)
-        .ok()
-        .and_then(|v| v.as_array().map(|a| a.iter().map(monitor_row).collect()))
-        .unwrap_or_default();
+    let args = ["monitors", "all", "-j"];
+    let parsed = match sh::capture("hyprctl", &args) {
+        Ok(output) => {
+            let raw = output.stdout_text();
+            match serde_json::from_str::<Value>(&raw) {
+                Ok(Value::Array(rows)) => Ok(rows),
+                _ => Err(format!(
+                    "exit {}, stderr {:?}, stdout {:?}",
+                    output.code,
+                    output
+                        .stderr_text()
+                        .trim()
+                        .chars()
+                        .take(200)
+                        .collect::<String>(),
+                    raw.chars().take(80).collect::<String>(),
+                )),
+            }
+        }
+        Err(err) => Err(err.to_string()),
+    };
+    let rows = match parsed {
+        Ok(rows) => rows,
+        Err(why) => {
+            eprintln!("ratmos: hyprctl monitors all -j gave no monitor list ({why}); keeping the last one");
+            return None;
+        }
+    };
+    let mut rows: Vec<Value> = rows.iter().map(monitor_row).collect();
     for row in &mut rows {
         let name = row["name"].as_str().unwrap_or("").to_string();
         if !sh::is_ident(&name) {
@@ -208,7 +235,7 @@ pub fn monitors() -> Vec<Value> {
             row["brightnessAvailable"] = json!(true);
         }
     }
-    rows
+    Some(rows)
 }
 
 pub struct Devices {

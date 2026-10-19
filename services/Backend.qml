@@ -174,6 +174,10 @@ QtObject {
     stdout: SplitParser {
       onRead: function(line) { root.onLine(line) }
     }
+    // Without a parser Quickshell drops the backend's stderr, and with it the reason for a failed read.
+    stderr: SplitParser {
+      onRead: function(line) { console.warn("ratmos: " + line) }
+    }
     onStarted: root.onServeStarted()
     onExited: function(code) { root.onServeExited(code) }
   }

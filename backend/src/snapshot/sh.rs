@@ -8,6 +8,11 @@ use std::time::Duration;
 
 const TIMEOUT: Duration = Duration::from_secs(30);
 
+/// A tool's whole result, for callers that must tell a failure from empty output.
+pub fn capture(program: &str, args: &[&str]) -> crate::error::Result<crate::runner::Output> {
+    Run::new(program).args(args).timeout(TIMEOUT).output()
+}
+
 /// `$(cmd 2>/dev/null || true)`: stdout whatever the exit code, trailing newlines gone.
 pub fn out(program: &str, args: &[&str]) -> String {
     match Run::new(program).args(args).timeout(TIMEOUT).output() {

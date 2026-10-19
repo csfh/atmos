@@ -145,9 +145,20 @@ fn look_surface(env: &Env, f: &mut Map<String, Value>) {
     f.insert("suspendEnabled".into(), json!(toggle_off("suspend-off")));
     f.insert("hyprLook".into(), hypr::look());
     f.extend(hypr::markers(&env.home));
+    // No monitors key when hyprctl failed, so the window keeps the list it has.
     let monitors = hypr::monitors();
-    f.extend(hypr::devices(&env.home, &monitors).fields);
-    f.insert("monitors".into(), json!(monitors));
+    let mut devices = hypr::devices(&env.home, monitors.as_deref().unwrap_or(&[])).fields;
+    match &monitors {
+        Some(rows) => {
+            f.insert("monitors".into(), json!(rows));
+        }
+        None => {
+            for key in ["internalPresent", "internalEnabled", "mirroring"] {
+                devices.remove(key);
+            }
+        }
+    }
+    f.extend(devices);
     f.insert("doNotDisturb".into(), json!(hypr::dnd(&env.home)));
     let (count, active, list) = hypr::reminders();
     f.insert("reminderCount".into(), json!(count));

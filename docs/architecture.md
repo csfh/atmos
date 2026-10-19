@@ -14,12 +14,12 @@ Atmos is a QML window over one Rust backend. This page is the target design and 
 
 | Process | Unit | Priority | Job |
 | --- | --- | --- | --- |
-| `ratmos daemon` | `ratmos.service`, wanted by `graphical-session.target` | normal (`Nice=15`, `CPUWeight=20`) | Owns topics, runs the command bus, answers windows, runs foreground collections |
+| `ratmos daemon` | `ratmos.service`, wanted by `graphical-session.target`, started on a connection by `ratmos.socket` | normal (`Nice=15`, `CPUWeight=20`) | Owns topics, runs the command bus, answers windows, runs foreground collections |
 | `ratmos sampler` | `ratmos-sampler.service` | `CPUSchedulingPolicy=idle`, `IOSchedulingClass=idle`, `CPUWeight=1`, `CPUQuota` | Executes background collections the daemon asks for. No state, no scheduling decisions |
 | `ratmos serve` | none, one per window | normal | Bridge between the window's stdio and the daemon socket. Keeps today's framing |
 | `ratmos task`, `root`, `apply` | none | normal | Jobs that keep their own process tree: privileged work, streaming output, interactive shells |
 
-`serve` makes sure a daemon exists when a window holds a topic and the socket is missing (`sampler/launch.rs`): the installed units first, then a transient user unit (`ratmos-adhoc.service`, with the daemon's own `Nice` and `CPUWeight`, outside the window's cgroup so closing that window does not end it), then a bare detached process. `ATMOS_NO_AUTOSTART=1` forbids it, and a `--root` fixture never starts one. It starts only the daemon, so with no sampler unit running the daemon does no background sampling. Topics fill on demand, which is slower and never wrong. A daemon leaves when its runtime dir is gone or the binary it runs has been replaced (a rebuild or an update; `VERSION` does not change between dev builds), and the next window starts a current one. `ratmos install` and `setup` stop `ratmos-adhoc.service` before they start the units, which could not take the socket from it.
+A socket unit (`ratmos.socket`, `packaging/ratmos.socket`) listens on the daemon's socket from login, and systemd starts the daemon on the first connection and hands it the open socket (`LISTEN_FDS`), so on an installed system a window never finds the authority missing and a daemon that left (binary replaced) is started again by the next connection. Where the units are not installed, `serve` makes sure a daemon exists when the socket is missing (`sampler/launch.rs`): the installed units first, then a transient user unit (`ratmos-adhoc.service`, with the daemon's own `Nice` and `CPUWeight`, outside the window's cgroup so closing that window does not end it), then a bare detached process. `ATMOS_NO_AUTOSTART=1` forbids it, and a `--root` fixture never starts one. It starts only the daemon, so with no sampler unit running the daemon does no background sampling. Topics fill on demand, which is slower and never wrong. A daemon leaves when its runtime dir is gone or the binary it runs has been replaced (a rebuild or an update; `VERSION` does not change between dev builds), and the next window starts a current one. `ratmos install` and `setup` stop `ratmos-adhoc.service` before they start the units, which could not take the socket from it.
 
 ## The sampling bus
 
@@ -72,6 +72,7 @@ One Unix socket, `$XDG_RUNTIME_DIR/atmos/ratmos.sock`, NDJSON. A one-shot client
 | Frame | Direction | Meaning | State |
 | --- | --- | --- | --- |
 | `sub`, `unsub` | client to daemon | Replace or drop the held topics, each with its interval | P2 |
+| `watch` | client to daemon | Replace the files, theme and accounts the window watches; the daemon answers with `event` frames for `stamp`, `chrome` and `accounts` | P2 |
 | `event` | daemon to client | `{topic, sampledAt, tookMs, value}`, or `{topic, stale, error}` | P2 |
 | `req` | client to daemon | Any op the one-shot socket answers, with an `id` | P2/P3: `serve` sends its `command` and `barrier` ops this way |
 | `res` | daemon to client | The reply for that `id`, written directly so a backed-up event queue can never drop it | P2/P3 |
@@ -88,7 +89,7 @@ A session's writer has a bounded queue, and a window that falls behind is droppe
 | baseline | `ratmos daemon` as a user unit, cache-first `display.*` reads, interactive-first queue, drops after tasks | done |
 | P0 | A failed `hyprctl` leaves the monitor list alone and logs why | done |
 | P1 | Engine: topics with last-good and stale metadata, the governor, the sampler split into its own unit | done, except the two gaps below |
-| P2 | Frames and subscriptions on the socket, `serve` as a bridge, `live` and stamps pushed, the QML polling Timers removed | done. `live` is pushed from the daemon with `sampledAt` rates and the live poll and stall timers are gone. Stamps were already pushed to QML by `serve` before P2 and still are; that loop is not on the daemon's bus (gap below) |
+| P2 | Frames and subscriptions on the socket, `serve` as a bridge, `live` and stamps pushed, the QML polling Timers removed | done. `live`, the watched files (stamp, chrome, accounts) and the window's commands all ride the one session to the daemon, which looks at files once for every window; the live poll and stall timers are gone from QML; the daemon starts on a connection through `ratmos.socket` |
 | P3 | Command bus: lanes, coalescing, read-your-writes, leases. Brightness first. This also retires the window's optimistic `apply:` patches: a patch crosses a QML signal, which hands its arrays back wrapped, and that once emptied the monitor list on the second brightness change (fixed in `Lists.js`, but the cause is the window writing state itself) | done. No window-built patch is left: brightness and monitor scale are their own typed ops, thirty-six other writes are named `write` entries in `command/writes.rs`, and a setting written through `settings.set` is read back by the keys it names. The window shows what the backend reports, never a value it worked out |
 | P4 | The settings snapshot groups become topics; `apply --` passthroughs replaced by typed ops where they matter | |
 
@@ -101,8 +102,7 @@ A session's writer has a bounded queue, and a window that falls behind is droppe
 
 ### Known gaps after P2
 
-- **No socket activation.** `serve` starts the daemon (P2), but only when a window holds a topic, and `ratmos request` and a window's one-shot fallback never do. The authority exists whenever a window is open and a topic is held.
-- **Stamps, chrome and accounts are still looked at once a second by each `serve`.** That is a stat loop in Rust, in the window's own process, with no forks, and it is not on the daemon's bus. Moving it there means inotify in the daemon and is not in P2.
+- **File watching is a poll.** The daemon looks at the watched paths once a second for every window together, one `stat` per distinct path, and reads a file's text only when its signature moved. Without a foreign call there is no inotify; a window that has no daemon looks itself, as before.
 - **Other QML timers poll.** The Wi-Fi and Bluetooth pages (900 ms) and the guard bar (200 ms) tick on their own timers. Each only rebuilds from state already in memory, Quickshell's network and Bluetooth models and the revert countdown, and asks the host nothing, so they were left alone.
 - **A local fallback has no stall watchdog for a wedged collection,** since the sampler runs on the thread that would raise it. Only the session path reports a silent `live`.
 - **Display kinds other than `live` are pushed but nothing in the window holds them yet.** They are still read with `display.get`.

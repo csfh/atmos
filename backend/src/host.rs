@@ -84,15 +84,32 @@ pub fn accounts(backend: Backend, root: Option<&Path>, request: &Accounts) -> Re
 }
 
 pub fn stamp(root: Option<&Path>, request: &Paths) -> Result<Value> {
-    let paths = check_paths(&request.paths)?;
+    stamp_with(root, &request.paths, &mut std::collections::HashMap::new())
+}
+
+/// `stamp` for a caller that looks again and again: a file whose signature has
+/// not moved keeps the text read last time, so a look costs one `stat` per path.
+pub fn stamp_with(
+    root: Option<&Path>,
+    paths: &[String],
+    known: &mut std::collections::HashMap<String, (String, String)>,
+) -> Result<Value> {
+    let paths = check_paths(paths)?;
     let mut items = Vec::new();
     for path in paths {
         let resolved = host_path(root, &path);
         let sig = signature(&resolved);
-        let text = if resolved.is_file() {
-            read_capped(&resolved)?
-        } else {
-            String::new()
+        let text = match known.get(&path) {
+            Some((seen, text)) if *seen == sig => text.clone(),
+            _ => {
+                let text = if resolved.is_file() {
+                    read_capped(&resolved)?
+                } else {
+                    String::new()
+                };
+                known.insert(path.clone(), (sig.clone(), text.clone()));
+                text
+            }
         };
         items.push(json!({
             "path": path,

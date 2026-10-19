@@ -659,11 +659,9 @@ mod tests {
     }
 
     fn scratch(tag: &str) -> PathBuf {
-        let nanos = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        std::env::temp_dir().join(format!("ratmos-lib-{tag}-{nanos}-{}", std::process::id()))
+        static MADE: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        let n = MADE.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        std::env::temp_dir().join(format!("ratmos-lib-{tag}-{n}-{}", std::process::id()))
     }
 
     #[test]

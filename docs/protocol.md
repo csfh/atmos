@@ -84,7 +84,7 @@ $ echo '{"op":"host.read","paths":["/note.txt","/missing.txt"]}' | ratmos --back
 | `chrome` | The theme colors and shell config. Reported as a `chrome` event. |
 | `accounts` | The passwd, group and hostname view for a user. Reported as an `accounts` event. |
 
-A `watch.set` replaces the previous subscription; every field is optional, and an empty one turns that watch off. The reply is `{"watching": true}`. Then, about once a second, the server checks what it watches and pushes an event only when it changed. The first check after a `watch.set` always reports. An event has no `id`:
+A `watch.set` replaces the previous subscription; every field is optional, and an empty one turns that watch off. The reply is `{"watching": true}`. Then, about once a second, the daemon (or, with no daemon, this server itself) checks what is watched and the server pushes an event only when it changed. The first check after a `watch.set` always reports. An event has no `id`:
 
 ```json
 {"event": "stamp", "result": {"items": [{"path": "/note.txt", "sig": "3:1700000000", "text": "hi\n"}]}}

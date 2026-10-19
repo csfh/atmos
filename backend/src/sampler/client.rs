@@ -85,17 +85,21 @@ impl Bridge {
         })
     }
 
+    /// Write one frame as a single line. Every writer of the session goes
+    /// through here, so two frames never mix.
+    pub fn send(&self, frame: &Value) -> bool {
+        let line = format!("{frame}\n");
+        let guard = lock(&self.wire);
+        let mut out = &*guard;
+        out.write_all(line.as_bytes()).is_ok()
+    }
+
     pub fn call(&self, body: &Value, wait: Duration) -> std::result::Result<Value, Gone> {
         let id = self.next.fetch_add(1, Ordering::SeqCst);
         let (tx, rx) = channel();
         lock(&self.pending).insert(id, tx);
         let frame = json!({"t": "req", "id": id, "body": body});
-        let sent = {
-            let guard = lock(&self.wire);
-            let mut out = &*guard;
-            writeln!(out, "{frame}").is_ok()
-        };
-        if !sent {
+        if !self.send(&frame) {
             lock(&self.pending).remove(&id);
             return Err(Gone::NotSent);
         }

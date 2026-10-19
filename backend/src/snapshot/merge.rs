@@ -201,12 +201,8 @@ mod tests {
 
     #[test]
     fn a_fixture_snapshot_drops_nulls_nests_dots_and_filters_keys() {
-        let nanos = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let root =
-            std::env::temp_dir().join(format!("ratmos-merge-{nanos}-{}", std::process::id()));
+        let root = std::env::temp_dir().join(format!("ratmos-merge-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
         let plain = root.join(".config/plain");
         std::fs::create_dir_all(&plain).unwrap();
         std::fs::write(

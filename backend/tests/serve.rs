@@ -454,3 +454,71 @@ fn a_daemon_leaves_when_its_runtime_dir_is_gone() {
     assert!(status.is_some_and(|s| s.success()), "{status:?}");
     let _ = fs::remove_dir_all(&run);
 }
+
+fn daemon_status(run: &std::path::Path) -> Value {
+    let stream = std::os::unix::net::UnixStream::connect(run.join("atmos/ratmos.sock")).unwrap();
+    writeln!(&stream, r#"{{"op":"status"}}"#).unwrap();
+    let mut line = String::new();
+    BufRead::read_line(&mut BufReader::new(&stream), &mut line).unwrap();
+    serde_json::from_str(&line).unwrap()
+}
+
+#[test]
+fn a_window_that_has_a_daemon_is_told_about_its_files_by_the_daemon() {
+    let run = short_run_dir("stamps");
+    let _daemon = start_daemon(&run);
+    let file = run.join("watched.txt");
+    fs::write(&file, "one").unwrap();
+    let mut server = Server::start_live(&run);
+    server.send(&json!({"id": 1, "op": "watch.set", "paths": [file.display().to_string()]}));
+    let first = server.until(|line| line["event"] == "stamp");
+    assert_eq!(first["result"]["items"][0]["text"], "one");
+    // The daemon holds the watch, one for the one window.
+    for _ in 0..100 {
+        if daemon_status(&run)["watching"] == 1 {
+            break;
+        }
+        thread::sleep(Duration::from_millis(50));
+    }
+    assert_eq!(daemon_status(&run)["watching"], 1);
+    thread::sleep(Duration::from_millis(1100));
+    fs::write(&file, "three").unwrap();
+    let changed = server
+        .until(|line| line["event"] == "stamp" && line["result"]["items"][0]["text"] == "three");
+    assert_eq!(
+        changed["result"]["items"][0]["path"],
+        file.display().to_string()
+    );
+    server.finish();
+    for _ in 0..100 {
+        if daemon_status(&run)["watching"] == 0 {
+            break;
+        }
+        thread::sleep(Duration::from_millis(50));
+    }
+    assert_eq!(
+        daemon_status(&run)["watching"],
+        0,
+        "the watch ended with the window"
+    );
+    let _ = fs::remove_dir_all(&run);
+}
+
+#[test]
+fn a_window_whose_daemon_goes_away_keeps_hearing_about_its_files() {
+    let run = short_run_dir("stampsgone");
+    let daemon = start_daemon(&run);
+    let file = run.join("watched.txt");
+    fs::write(&file, "one").unwrap();
+    let mut server = Server::start_live(&run);
+    server.send(&json!({"id": 1, "op": "watch.set", "paths": [file.display().to_string()]}));
+    server.until(|line| line["event"] == "stamp");
+    drop(daemon);
+    thread::sleep(Duration::from_millis(1500));
+    fs::write(&file, "three").unwrap();
+    let changed = server
+        .until(|line| line["event"] == "stamp" && line["result"]["items"][0]["text"] == "three");
+    assert_eq!(changed["event"], "stamp");
+    server.finish();
+    let _ = fs::remove_dir_all(&run);
+}

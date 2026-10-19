@@ -85,6 +85,11 @@ try {
     "setup on writes the sampler unit",
   );
   assert(
+    fs.readFileSync(systemctlLog, "utf8").includes("--user enable ratmos.socket") &&
+      fs.existsSync(path.join(path.dirname(unitFile), "ratmos.socket")),
+    "setup on writes and enables the socket the daemon starts on",
+  );
+  assert(
     fs.readFileSync(systemctlLog, "utf8").includes("--user enable ratmos.service"),
     "setup on enables the daemon unit",
   );
@@ -125,6 +130,11 @@ try {
   assert(
     fs.readFileSync(systemctlLog, "utf8").includes("--user disable --now ratmos.service"),
     "setup off stops and disables the sampler unit",
+  );
+  assert(
+    fs.readFileSync(systemctlLog, "utf8").includes("--user disable --now ratmos.socket") &&
+      !fs.existsSync(path.join(path.dirname(unitFile), "ratmos.socket")),
+    "setup off removes the socket too, or a connection would start a daemon nobody installed",
   );
   assert(!fs.existsSync(path.join(hypr, "atmos.lua")), "setup off removes an untouched atmos.lua");
 

@@ -122,6 +122,10 @@ cp "$REAL_RATMOS" "$BACKEND_OUTPUT/ratmos"
     unit.includes(`ExecStart="${path.join(dest, "bin/ratmos")}" daemon`),
     "the daemon unit runs the installed ratmos",
   );
+  const socket = fs.readFileSync(path.join(fixture, "config/systemd/user/ratmos.socket"), "utf8");
+  assert.match(socket, /^ListenStream=%t\/atmos\/ratmos\.sock$/m, "the socket is the daemon's");
+  assert.match(socket, /^SocketMode=0600$/m, "and is private");
+  assert.match(unit, /^Requires=ratmos\.socket$/m, "the daemon unit needs its socket");
   const sampler = fs.readFileSync(
     path.join(fixture, "config/systemd/user/ratmos-sampler.service"),
     "utf8",
@@ -136,12 +140,14 @@ cp "$REAL_RATMOS" "$BACKEND_OUTPUT/ratmos"
     [
       "--user daemon-reload",
       "--user stop ratmos-adhoc.service",
+      "--user enable ratmos.socket",
+      "--user restart ratmos.socket",
       "--user enable ratmos.service",
       "--user restart ratmos.service",
       "--user enable ratmos-sampler.service",
       "--user restart ratmos-sampler.service",
     ],
-    "install reloads, frees the socket from a window-started daemon, then enables and restarts the daemon and the sampler in that order",
+    "install reloads, frees the socket from a window-started daemon, then enables and restarts the socket, the daemon and the sampler in that order",
   );
   fs.writeFileSync(path.join(fixture, "systemctl.log"), "");
   assert.equal(install(false).status, 0);
@@ -149,12 +155,14 @@ cp "$REAL_RATMOS" "$BACKEND_OUTPUT/ratmos"
     fs.readFileSync(path.join(fixture, "systemctl.log"), "utf8").trim().split("\n"),
     [
       "--user stop ratmos-adhoc.service",
+      "--user enable ratmos.socket",
+      "--user restart ratmos.socket",
       "--user enable ratmos.service",
       "--user restart ratmos.service",
       "--user enable ratmos-sampler.service",
       "--user restart ratmos-sampler.service",
     ],
-    "unchanged units are not reloaded, but both still restart onto the new binary",
+    "unchanged units are not reloaded, but the socket, the daemon and the sampler still restart onto the new binary",
   );
   console.log("ok - install writes, enables and restarts the daemon and sampler units");
 

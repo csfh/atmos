@@ -1,4 +1,5 @@
-//! The systemd user units that run `ratmos daemon` and `ratmos sampler`.
+//! The systemd user units that run `ratmos daemon` and `ratmos sampler`, and
+//! the socket that starts the daemon when a window first connects.
 //!
 //! `ratmos install` and `update` write them and restart them, so the daemon is
 //! never older than the app. A packaged install turns them on with
@@ -18,8 +19,15 @@ struct Unit {
     exec: &'static str,
 }
 
-/// The daemon first: the sampler is `PartOf` it and connects to its socket.
-const UNITS: [Unit; 2] = [
+/// The socket first, then the daemon that answers on it, then the sampler,
+/// which is `PartOf` the daemon and connects to its socket.
+const UNITS: [Unit; 3] = [
+    Unit {
+        name: "ratmos.socket",
+        template: include_str!("../../../packaging/ratmos.socket"),
+        // No program: systemd listens, the daemon is started on a connection.
+        exec: "",
+    },
     Unit {
         name: "ratmos.service",
         template: include_str!("../../../packaging/ratmos.service"),
@@ -53,6 +61,9 @@ fn exec_word(path: &Path) -> String {
 
 /// The unit text with `ExecStart` pointing at the installed ratmos.
 fn render(unit: &Unit, exe: &Path) -> String {
+    if unit.exec.is_empty() {
+        return unit.template.to_string();
+    }
     let subcommand = unit.exec.trim_start_matches("ExecStart=ratmos ");
     unit.template.replacen(
         unit.exec,
@@ -138,6 +149,22 @@ mod tests {
         for unit in &UNITS {
             assert!(unit.template.contains(unit.exec), "{}", unit.name);
         }
+    }
+
+    #[test]
+    fn the_socket_is_the_one_the_daemon_serves_and_is_private() {
+        let text = unit("ratmos.socket").template;
+        assert!(text.contains("ListenStream=%t/atmos/ratmos.sock"));
+        assert!(text.contains("SocketMode=0600") && text.contains("DirectoryMode=0700"));
+        assert!(text.contains("WantedBy=sockets.target"));
+        let service = unit("ratmos.service").template;
+        assert!(service.contains("Requires=ratmos.socket"));
+        assert!(service.contains("After=ratmos.socket"));
+        assert_eq!(
+            render(unit("ratmos.socket"), Path::new("/x/ratmos")),
+            text,
+            "a socket has no ExecStart to point at the binary"
+        );
     }
 
     #[test]

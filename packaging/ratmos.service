@@ -1,7 +1,10 @@
 [Unit]
 Description=Atmos sampler: keeps the inventories Atmos shows fresh
 Documentation=https://github.com/csfh/atmos
-After=graphical-session.target
+# The socket is what a window connects to; connecting starts this unit when it
+# is not running, and it is also started at login so sampling begins at once.
+Requires=ratmos.socket
+After=ratmos.socket graphical-session.target
 PartOf=graphical-session.target
 
 [Service]

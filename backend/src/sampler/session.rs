@@ -4,7 +4,10 @@
 //! frame the line protocol is typed frames, ids multiplexed:
 //!
 //! - client: `{"t":"sub","topics":{"live":{"intervalMs":2000}}}` replaces what
-//!   it holds; `{"t":"unsub"}` drops all; `{"t":"req","id":7,"body":{...}}`
+//!   it holds; `{"t":"unsub"}` drops all; `{"t":"watch","paths":[...],"chrome":
+//!   true,"accounts":{"user":..,"home":..}}` replaces what files it watches, and
+//!   the daemon answers with `{"t":"event","topic":"stamp"|"chrome"|"accounts",
+//!   "value":..}` when they change (see `watch`); `{"t":"req","id":7,"body":{...}}`
 //!   asks any op the one-shot socket answers.
 //! - daemon: `{"t":"event","topic":K,"sampledAt":MS,"tookMs":MS,"value":V}`,
 //!   `{"t":"event","topic":K,"stale":true,"error":"..."}` and
@@ -123,6 +126,11 @@ pub(super) fn open(daemon: &Arc<Daemon>, stream: UnixStream) {
                 }
                 daemon.bus.poke();
             }
+            Some("watch") => {
+                daemon
+                    .watches
+                    .set(&subscriber, super::watch::Spec::from_frame(&frame));
+            }
             Some("unsub") => {
                 subscriber.set(HashMap::new());
                 daemon.bus.poke();
@@ -141,6 +149,7 @@ pub(super) fn open(daemon: &Arc<Daemon>, stream: UnixStream) {
         }
     }
     daemon.bus.detach(&subscriber);
+    daemon.watches.remove(&subscriber);
     let _ = stream.shutdown(Shutdown::Both);
     drop(subscriber);
     let _ = writer.join();
@@ -339,6 +348,36 @@ mod tests {
         writeln!(&client.stream, "not json").unwrap();
         client.send(json!({"t": "req", "id": 1, "body": {"op": "ping"}}));
         assert_eq!(client.next()["id"], 1);
+    }
+
+    #[test]
+    fn a_watch_frame_is_answered_with_stamp_events_and_ends_with_the_session() {
+        let (dir, daemon, _calls) = serve("watching", Duration::ZERO);
+        let file = dir.join("watched.txt");
+        std::fs::write(&file, "one").unwrap();
+        let mut client = Client::open(&dir);
+        client.send(json!({"t": "watch", "paths": [file.display().to_string()]}));
+        let first = client.next();
+        assert_eq!(first["topic"], "stamp");
+        assert_eq!(first["value"]["items"][0]["text"], "one");
+        std::thread::sleep(Duration::from_millis(10));
+        // The signature is size and mtime in whole seconds, so the size changes.
+        std::fs::write(&file, "three").unwrap();
+        let changed = client.next();
+        assert_eq!(changed["value"]["items"][0]["text"], "three");
+        assert_eq!(daemon.watches.windows(), 1);
+        drop(client);
+        for _ in 0..50 {
+            if daemon.watches.windows() == 0 {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        assert_eq!(
+            daemon.watches.windows(),
+            0,
+            "the watch ended with the session"
+        );
     }
 
     #[test]

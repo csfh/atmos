@@ -18,6 +18,7 @@ pub mod policy;
 mod schedule;
 mod session;
 mod topics;
+pub(crate) mod watch;
 pub mod worker;
 
 /// Inventories a task or an apply can change. Hardware is fixed for a boot and

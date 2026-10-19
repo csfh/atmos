@@ -64,17 +64,18 @@ pub fn serve(config: Config, input: impl BufRead, out: Box<dyn Write + Send>) {
     // letting it finish its second of sleep.
     let (wake, woken) = mpsc::channel::<()>();
 
+    let subs = Arc::new(crate::serve_link::Subs::default());
     let watcher = {
-        let (config, out, watch, stop) = (
+        let (config, out, watch, stop, subs) = (
             Arc::clone(&config),
             Arc::clone(&out),
             Arc::clone(&watch),
             Arc::clone(&stop),
+            Arc::clone(&subs),
         );
-        thread::spawn(move || watch_loop(&config, &out, &watch, &stop, &woken))
+        thread::spawn(move || watch_loop(&config, &out, &watch, &stop, &woken, &subs))
     };
 
-    let subs = Arc::new(crate::serve_link::Subs::default());
     let linker = {
         let (config, out, subs) = (Arc::clone(&config), Arc::clone(&out), Arc::clone(&subs));
         thread::spawn(move || crate::serve_link::run(&config, &out, &subs))
@@ -96,6 +97,10 @@ pub fn serve(config: Config, input: impl BufRead, out: Box<dyn Write + Send>) {
         let id = value.get("id").cloned();
         if value.get("op").and_then(Value::as_str) == Some("watch.set") {
             let reply = set_watch(&config, &watch, &value, &wake);
+            // The daemon looks for every window together; this is what it looks for.
+            if reply.get("ok").and_then(Value::as_bool) == Some(true) {
+                subs.set_watch(value.clone());
+            }
             send(&out, &with_id(reply, id));
             continue;
         }
@@ -170,6 +175,7 @@ fn watch_loop(
     watch: &Mutex<Watch>,
     stop: &AtomicBool,
     woken: &Receiver<()>,
+    subs: &crate::serve_link::Subs,
 ) {
     let mut last_stamp: Option<Vec<(String, String)>> = None;
     let mut last_chrome: Option<Value> = None;
@@ -196,6 +202,15 @@ fn watch_loop(
         }
         let root = config.root.as_deref();
 
+        // The daemon is looking for this window, and its events come in over
+        // the session. This loop is what a window does when there is none.
+        if subs.bridged.load(Ordering::SeqCst) {
+            last_stamp = None;
+            last_chrome = None;
+            last_accounts = None;
+            let _ = woken.recv_timeout(Duration::from_secs(1));
+            continue;
+        }
         if !paths.is_empty() {
             if let Ok(doc) = host::stamp(root, &Paths { paths }) {
                 let sigs = signatures(&doc);

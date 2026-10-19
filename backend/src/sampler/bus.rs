@@ -46,6 +46,10 @@ pub struct Subscriber {
 }
 
 impl Subscriber {
+    pub fn id(&self) -> u64 {
+        self.id
+    }
+
     /// Queue one frame. False means the outbox is full or closed.
     pub fn send(&self, frame: Value) -> bool {
         match self.outbox.try_send(frame) {

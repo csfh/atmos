@@ -41,6 +41,8 @@ fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
 #[derive(Default)]
 struct State {
     topics: BTreeMap<String, u64>,
+    /// The last `watch.set` the window sent, as the daemon's `watch` frame.
+    watch: Value,
     generation: u64,
     stop: bool,
 }
@@ -49,6 +51,9 @@ struct State {
 pub struct Subs {
     state: Mutex<State>,
     changed: Condvar,
+    /// A daemon session is carrying this window's watches, so the window's own
+    /// look at its files (`serve`'s fallback) stands down.
+    pub bridged: AtomicBool,
 }
 
 impl Subs {
@@ -57,6 +62,22 @@ impl Subs {
         state.topics = topics;
         state.generation += 1;
         self.changed.notify_all();
+    }
+
+    /// What the window watches: `{"paths": [...], "chrome": bool, "accounts": ..}`.
+    pub fn set_watch(&self, spec: Value) {
+        let mut state = lock(&self.state);
+        state.watch = spec;
+        state.generation += 1;
+        self.changed.notify_all();
+    }
+
+    fn watch_frame(&self) -> Option<Value> {
+        let state = lock(&self.state);
+        let spec = state.watch.as_object()?;
+        let mut frame = spec.clone();
+        frame.insert("t".into(), json!("watch"));
+        Some(Value::Object(frame))
     }
 
     pub fn stop(&self) {
@@ -133,6 +154,10 @@ fn from_daemon(frame: &Value) -> Option<Value> {
         return None;
     }
     let kind = frame.get("topic")?.as_str()?;
+    // The files the window watches come back under the names it already knows.
+    if matches!(kind, "stamp" | "chrome" | "accounts") {
+        return Some(json!({"event": kind, "result": frame.get("value")?.clone()}));
+    }
     if let Some(message) = frame.get("error").and_then(Value::as_str) {
         return Some(error_event(kind, message));
     }
@@ -325,13 +350,18 @@ fn session(stream: UnixStream, out: &Out, subs: &Subs) {
         })
     };
 
+    let wire = lock(&bridge).clone();
+    subs.bridged.store(true, Ordering::SeqCst);
     let mut sent: Option<u64> = None;
     while alive.load(Ordering::SeqCst) {
         let Some((topics, generation)) = subs.view() else {
             break;
         };
         if sent != Some(generation) {
-            if writeln!(&stream, "{}", sub_frame(&topics)).is_err() {
+            let Some(wire) = &wire else { break };
+            let mut frames = vec![sub_frame(&topics)];
+            frames.extend(subs.watch_frame());
+            if !frames.iter().all(|frame| wire.send(frame)) {
                 break;
             }
             sent = Some(generation);
@@ -339,6 +369,7 @@ fn session(stream: UnixStream, out: &Out, subs: &Subs) {
         report_stalls(out, &mut lock(&heard), &topics);
         subs.wait(generation, Duration::from_secs(1));
     }
+    subs.bridged.store(false, Ordering::SeqCst);
     let _ = stream.shutdown(std::net::Shutdown::Both);
     let _ = forward.join();
     client::uninstall();

@@ -5,6 +5,7 @@
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::Path;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::error::{Error, Result};
@@ -15,12 +16,19 @@ pub fn atomic_write(path: &Path, bytes: &[u8]) -> Result<()> {
         .filter(|parent| !parent.as_os_str().is_empty())
         .unwrap_or_else(|| Path::new("."));
     fs::create_dir_all(parent).map_err(|err| Error::io(err, parent))?;
+    // Two threads writing one path in the same nanosecond must not share a
+    // temporary file, so the clock is not enough: a counter makes the name unique.
+    static WRITES: AtomicU64 = AtomicU64::new(0);
     let nanos = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_nanos())
         .unwrap_or(0);
     let mut tmp_name = path.file_name().unwrap_or_default().to_os_string();
-    tmp_name.push(format!(".tmp-{}-{nanos}", std::process::id()));
+    tmp_name.push(format!(
+        ".tmp-{}-{nanos}-{}",
+        std::process::id(),
+        WRITES.fetch_add(1, Ordering::SeqCst)
+    ));
     let tmp = parent.join(tmp_name);
     {
         let mut file = OpenOptions::new()
@@ -56,6 +64,37 @@ mod tests {
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
         dir
+    }
+
+    #[test]
+    fn writers_racing_on_one_path_never_share_a_temporary_file() {
+        let dir = scratch("race");
+        let target = dir.join("state.json");
+        let writers: Vec<_> = (0..8)
+            .map(|n| {
+                let target = target.clone();
+                std::thread::spawn(move || {
+                    for round in 0..50 {
+                        atomic_write(&target, format!("writer {n} round {round}\n").as_bytes())
+                            .unwrap();
+                    }
+                })
+            })
+            .collect();
+        for writer in writers {
+            writer.join().unwrap();
+        }
+        let text = fs::read_to_string(&target).unwrap();
+        assert!(
+            text.starts_with("writer ") && text.ends_with('\n'),
+            "{text:?}"
+        );
+        let leftovers: Vec<_> = fs::read_dir(&dir)
+            .unwrap()
+            .flatten()
+            .filter(|e| e.file_name().to_string_lossy().contains(".tmp-"))
+            .collect();
+        assert!(leftovers.is_empty(), "{leftovers:?}");
     }
 
     #[test]

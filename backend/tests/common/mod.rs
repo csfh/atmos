@@ -23,12 +23,17 @@ pub fn invoke(args: &[&str], stdin: &str) -> Output {
     child.wait_with_output().expect("wait ratmos")
 }
 
+/// A directory no other test in this process shares. The clock alone is not
+/// enough: tests that start together can read the same nanosecond, and then one
+/// test's cleanup deletes the other's files.
 pub fn temp_root() -> PathBuf {
+    static MADE: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
     let nanos = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_nanos();
-    let path = std::env::temp_dir().join(format!("ratmos-{nanos}-{}", std::process::id()));
+    let n = MADE.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+    let path = std::env::temp_dir().join(format!("ratmos-{nanos}-{}-{n}", std::process::id()));
     fs::create_dir_all(&path).unwrap();
     path
 }

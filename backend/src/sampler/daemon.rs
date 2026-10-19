@@ -217,7 +217,18 @@ pub(crate) mod tests {
         let err = bind(&dir).expect_err("second bind should fail");
         assert!(err.to_string().contains("already running"), "{err}");
         drop(first);
-        assert!(bind(&dir).is_ok(), "the lock goes with the first daemon");
+        // A child another test forks shares the lock until it execs, so the release can lag.
+        let deadline = Instant::now() + Duration::from_secs(3);
+        loop {
+            match bind(&dir) {
+                Ok(_) => break,
+                Err(err) if Instant::now() < deadline => {
+                    assert!(err.to_string().contains("already running"), "{err}");
+                    std::thread::sleep(Duration::from_millis(20));
+                }
+                Err(err) => panic!("the lock goes with the first daemon: {err}"),
+            }
+        }
     }
 
     #[test]

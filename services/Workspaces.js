@@ -252,7 +252,8 @@ function namedBarActive(shell, user) {
 function monitorOptions(monitors, current) {
   var out = [{ value: "", label: "Any" }];
   var seen = { "": true };
-  var list = Array.isArray(monitors) ? monitors : [];
+  var list =
+    monitors && typeof monitors.length === "number" ? Array.prototype.slice.call(monitors) : [];
   var i, name;
   for (i = 0; i < list.length; i++) {
     name = String((list[i] && (list[i].name || list[i].id)) || "");

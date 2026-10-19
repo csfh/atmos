@@ -88,7 +88,7 @@ One Unix socket, `$XDG_RUNTIME_DIR/atmos/ratmos.sock`, NDJSON, ids multiplexed.
 | P0 | A failed `hyprctl` leaves the monitor list alone and logs why | done |
 | P1 | Engine: topics with last-good and stale metadata, the governor, the sampler split into its own unit, `ratmos.socket` | next |
 | P2 | Frames and subscriptions on the socket, `serve` as a bridge, `live` and stamps pushed, the QML polling Timers removed | |
-| P3 | Command bus: lanes, coalescing, read-your-writes, leases. Brightness first | |
+| P3 | Command bus: lanes, coalescing, read-your-writes, leases. Brightness first. This also retires the window's optimistic `apply:` patches: a patch crosses a QML signal, which hands its arrays back wrapped, and that once emptied the monitor list on the second brightness change (fixed in `Lists.js`, but the cause is the window writing state itself) | |
 | P4 | The settings snapshot groups become topics; `apply --` passthroughs replaced by typed ops where they matter | |
 
 ## Not in scope

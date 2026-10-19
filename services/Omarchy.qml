@@ -847,7 +847,7 @@ QtObject {
   function applyWritePatch(job) {
     if (!job || !job.apply) return
     if (job.key && WorkQueue.hasQueuedKey(IoQueue.queue, job.key)) return
-    applySnapshot(job.apply)
+    applySnapshot(SnapshotJs.plain(job.apply))
     // refresh: "none" leaves these flags stale. Commenting the stock line
     // out and then touching Sensitivity would take ownership in the file
     // while the row stayed disabled. Re-scan after every input write.
@@ -1072,7 +1072,7 @@ QtObject {
     if (!scale) return
     var n = Number(scale)
     if (!isFinite(n) || n <= 0) return
-    var list = monitors instanceof Array ? monitors : []
+    var list = SnapshotJs.toList(monitors)
     var i
     var previous = ""
     for (i = 0; i < list.length; i++) {
@@ -1197,7 +1197,7 @@ QtObject {
   function setIndicatorsItems(list) {
     var next = normalizedIndicatorItems(list)
     if (next.length === indicatorIds().length) next = []
-    var current = indicatorsItems instanceof Array ? indicatorsItems : []
+    var current = SnapshotJs.toList(indicatorsItems)
     if (JSON.stringify(next) === JSON.stringify(current)) return
     dispatchSetting("indicatorsItems", next)
   }
@@ -1322,7 +1322,7 @@ QtObject {
   }
   function setTrayHidden(list) {
     var next = normalizedStringIds(list)
-    var current = trayHidden instanceof Array ? trayHidden : []
+    var current = SnapshotJs.toList(trayHidden)
     if (JSON.stringify(next) === JSON.stringify(current)) return
     dispatchSetting("trayHidden", next)
   }
@@ -1331,7 +1331,7 @@ QtObject {
   }
   function setTrayPinned(list) {
     var next = normalizedStringIds(list)
-    var current = trayPinned instanceof Array ? trayPinned : []
+    var current = SnapshotJs.toList(trayPinned)
     if (JSON.stringify(next) === JSON.stringify(current)) return
     dispatchSetting("trayPinned", next)
   }
@@ -1679,7 +1679,7 @@ QtObject {
   function setPluginEnabled(id, on) {
     id = String(id || "")
     if (!/^[A-Za-z0-9._-]+$/.test(id)) return
-    var list = plugins instanceof Array ? plugins : []
+    var list = SnapshotJs.toList(plugins)
     var i
     for (i = 0; i < list.length; i++) {
       if (list[i] && String(list[i].id) === id) {
@@ -1959,7 +1959,7 @@ QtObject {
   }
   function wifiUuidForSsid(ssid) {
     ssid = String(ssid || "")
-    var list = wifiConnections instanceof Array ? wifiConnections : []
+    var list = SnapshotJs.toList(wifiConnections)
     var i
     for (i = 0; i < list.length; i++) {
       if (list[i] && String(list[i].name || "") === ssid)
@@ -1983,7 +1983,7 @@ QtObject {
   function activateWifiConnection(uuid) {
     uuid = String(uuid || "")
     if (!/^[0-9a-fA-F-]{36}$/.test(uuid)) return
-    var list = wifiConnections instanceof Array ? wifiConnections : []
+    var list = SnapshotJs.toList(wifiConnections)
     var name = ""
     var i
     for (i = 0; i < list.length; i++) {
@@ -2020,7 +2020,7 @@ QtObject {
   function forgetWifiConnection(uuid) {
     uuid = String(uuid || "")
     if (!/^[0-9a-fA-F-]{36}$/.test(uuid)) return
-    var list = wifiConnections instanceof Array ? wifiConnections : []
+    var list = SnapshotJs.toList(wifiConnections)
     var active = false
     var i
     for (i = 0; i < list.length; i++) {

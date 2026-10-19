@@ -1835,8 +1835,8 @@ assert(
   "applyWritePatch does not stringify job.apply through the Emit parser",
 );
 assert(
-  omarchySrc.indexOf("applySnapshot(job.apply)") !== -1,
-  "applyWritePatch adopts job.apply as an object",
+  omarchySrc.indexOf("applySnapshot(SnapshotJs.plain(job.apply))") !== -1,
+  "applyWritePatch adopts a plain copy of job.apply as an object, since a signal wraps its arrays",
 );
 assert(
   omarchySrc.indexOf("tagApply: SnapshotGroups.tagApply") !== -1,

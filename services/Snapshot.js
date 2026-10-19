@@ -1,12 +1,10 @@
 // Merge snapshot JSON and adopt patches. Missing keys in a patch keep the
 // current value and the same object/array reference.
 
-function isPlainObject(value) {
-  return !!value && typeof value === "object" && !Array.isArray(value);
-}
+Qt.include("Lists.js");
 
-function isArray(value) {
-  return Array.isArray(value) || value instanceof Array;
+function isPlainObject(value) {
+  return !!value && typeof value === "object" && !isArray(value);
 }
 
 function hasOwn(obj, key) {
@@ -34,7 +32,7 @@ function cloneRow(row) {
 }
 
 function patchMonitorBrightness(monitors, name, percent) {
-  var list = Array.isArray(monitors) ? monitors.slice() : [];
+  var list = toList(monitors);
   var i;
   for (i = 0; i < list.length; i++) {
     if (!list[i] || list[i].name !== name) continue;
@@ -48,7 +46,7 @@ function patchMonitorBrightness(monitors, name, percent) {
 
 function patchFocusedMonitorScale(monitors, scale) {
   var n = Number(scale);
-  var list = Array.isArray(monitors) ? monitors.slice() : [];
+  var list = toList(monitors);
   var i;
   if (!isFinite(n) || n <= 0) return list;
   for (i = 0; i < list.length; i++) {
@@ -62,7 +60,7 @@ function patchFocusedMonitorScale(monitors, scale) {
 }
 
 function patchPluginEnabled(plugins, id, on) {
-  var list = Array.isArray(plugins) ? plugins.slice() : [];
+  var list = toList(plugins);
   var want = String(id || "");
   var i;
   if (!want) return list;
@@ -78,7 +76,7 @@ function patchPluginEnabled(plugins, id, on) {
 
 function patchRemoveMatching(list, field, value) {
   var want = String(value || "");
-  var src = Array.isArray(list) ? list : [];
+  var src = toList(list);
   var out = [];
   var i;
   if (!want) return src.slice();
@@ -99,7 +97,7 @@ function patchRemoveMatching(list, field, value) {
 
 function patchRowField(list, matchField, matchValue, patchField, patchValue) {
   var want = String(matchValue || "");
-  var src = Array.isArray(list) ? list.slice() : [];
+  var src = toList(list);
   var i;
   if (!want) return src;
   for (i = 0; i < src.length; i++) {
@@ -114,7 +112,7 @@ function patchRowField(list, matchField, matchValue, patchField, patchValue) {
 
 function patchWifiActive(list, uuid, on) {
   var want = String(uuid || "");
-  var src = Array.isArray(list) ? list.slice() : [];
+  var src = toList(list);
   var i;
   if (!want) return src;
   for (i = 0; i < src.length; i++) {
@@ -129,7 +127,7 @@ function patchWifiActive(list, uuid, on) {
 
 function patchHookSample(list, path, enabled) {
   var want = String(path || "");
-  var src = Array.isArray(list) ? list.slice() : [];
+  var src = toList(list);
   var i;
   if (!want) return src;
   for (i = 0; i < src.length; i++) {
@@ -172,7 +170,7 @@ function patchKeyboardBrightness(current, direction) {
 }
 
 function patchAppendReminder(list, minutes, message) {
-  var src = Array.isArray(list) ? list.slice() : [];
+  var src = toList(list);
   var mins = Math.round(Number(minutes));
   var msg = String(message || "");
   if (!isFinite(mins) || mins < 1) return src;
@@ -188,9 +186,9 @@ function patchAppendReminder(list, minutes, message) {
 }
 
 function patchAppendHook(list, row) {
-  if (!row || typeof row !== "object") return Array.isArray(list) ? list.slice() : [];
+  if (!row || typeof row !== "object") return toList(list);
   var path = String(row.path || "");
-  var src = Array.isArray(list) ? list.slice() : [];
+  var src = toList(list);
   var next = cloneRow(row);
   var i;
   if (!path) return src;
@@ -205,8 +203,8 @@ function patchAppendHook(list, row) {
 }
 
 function patchReplaceManaged(list, managed) {
-  var src = Array.isArray(list) ? list : [];
-  var next = Array.isArray(managed) ? managed : [];
+  var src = toList(list);
+  var next = toList(managed);
   var out = [];
   var i;
   for (i = 0; i < src.length; i++) {

@@ -9,6 +9,6 @@
 1032 backend/src/patch.rs
 984 services/LiveStats.js
 919 services/Hardware.js
-895 services/Snapshot.js
+893 services/Snapshot.js
 854 backend/src/agents.rs
 845 pages/SystemPage.qml

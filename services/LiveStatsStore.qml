@@ -1,9 +1,7 @@
 pragma Singleton
 import QtQuick
-import "Failure.js" as FailureJs
 import "LiveStats.js" as LiveStatsJs
 import "Monitor.js" as MonitorJs
-import "Requests.js" as Requests
 
 QtObject {
   id: root
@@ -13,53 +11,55 @@ QtObject {
   property int userIntervalMs: 2000
   property var intervalHolds: ({})
   property bool paused: false
-  // Pages that read samples without drawing a chart hold the poll open here,
+  // Pages that read samples without drawing a chart hold the feed open here,
   // instead of retaining FrameClock, which would also run the vsync tick.
   property int pollHolds: 0
   property string lastError: ""
-  // When the sample in flight was started, so a wedged one can be noticed.
-  property double startedAt: 0
-  property bool inFlight: false
-  // Each sample carries a number. A stalled sample is dropped by moving on to
-  // the next number, so its late answer cannot overwrite the stall message.
-  property int sampleToken: 0
-  // A sample that outlives this many intervals is treated as wedged. Generous
-  // on purpose: a loaded machine can take several times the interval to walk
-  // /proc, and killing a slow-but-working sample would be worse than waiting.
-  readonly property int stallFactor: 6
-  readonly property int stallAfterMs: Math.max(15000, root.intervalMs * root.stallFactor)
+  // The newest sample taken in, by the time the daemon began collecting it.
+  property double lastAt: 0
+  // The first sample is taken once even when nothing holds the feed, so the
+  // store is not empty when a page opens.
+  property bool primed: false
 
   readonly property var latest: LiveStatsJs.latest(root.history)
   readonly property int sampleCount: root.history.length
   readonly property bool waiting: root.history.length === 0
 
-  function poll() {
-    if (root.paused) return
-    // Backpressure: a sample still in flight means the last one has not
-    // landed, so skipping this tick is right. What is not right is skipping
-    // forever -- see stallTimer.
-    if (root.inFlight) return
-    root.inFlight = true
-    root.startedAt = Date.now()
-    root.sampleToken += 1
-    var token = root.sampleToken
-    Backend.request(Requests.displayGet("live"), function(env) {
-      if (token !== root.sampleToken) return
-      root.inFlight = false
-      root.startedAt = 0
-      if (env && env.ok === true && env.result) root.adoptSample(JSON.stringify(env.result))
-      else root.lastError = FailureJs.errorText(env && env.error) || "live-stats.py failed"
-    })
+  // The feed runs while a chart is in view or a page holds it, and not while
+  // paused. The daemon samples on the quickest holder's interval and pushes;
+  // nothing here asks.
+  readonly property bool wanted: !root.paused && (FrameClock.holds > 0 || root.pollHolds > 0 || !root.primed)
+
+  function syncFeed() {
+    Backend.subscribe("live", root.wanted ? { live: { intervalMs: root.intervalMs } } : ({}))
   }
 
-  function adoptSample(text) {
-    var parsed = LiveStatsJs.parse(text)
+  onWantedChanged: root.syncFeed()
+  onIntervalMsChanged: root.syncFeed()
+
+  // A frame is { kind, sampledAt, result } or { kind, stale, error }. Rates
+  // run on sampledAt, the time the daemon began collecting, so a late or
+  // bunched frame is still measured correctly.
+  function adoptFrame(kind, frame) {
+    if (kind !== "live" || !frame) return
+    if (frame.error) {
+      root.lastError = String(frame.error)
+      return
+    }
+    var at = Number(frame.sampledAt)
+    // The same sample twice would read as a rate of zero.
+    if (!(at > root.lastAt)) return
+    // A frame crossed a signal, which hands its arrays back wrapped; the text
+    // round trip restores real ones, as the reply callback used to give.
+    var parsed = LiveStatsJs.parse(JSON.stringify(frame.result))
     if (!parsed) {
       root.lastError = "Could not parse a live sample."
       return
     }
     root.lastError = ""
-    root.history = LiveStatsJs.pushSample(root.history, parsed, Date.now())
+    root.lastAt = at
+    root.history = LiveStatsJs.pushSample(root.history, parsed, at)
+    root.primed = true
   }
 
   function applyInterval() {
@@ -75,7 +75,6 @@ QtObject {
 
   function holdPoll() {
     root.pollHolds += 1
-    if (root.pollHolds === 1) root.poll()
   }
 
   function releasePoll() {
@@ -84,39 +83,14 @@ QtObject {
 
   function setPaused(on) {
     root.paused = !!on
-    if (!root.paused) root.poll()
   }
 
   function togglePaused() {
     root.setPaused(!root.paused)
   }
 
-  Component.onCompleted: root.poll()
-
-  // Without this, one sample that never finishes stops the dashboard for good:
-  // poll() returns early on every later tick, the charts hold the last good
-  // numbers, and lastError stays empty because it is only written from
-  // an answer lands. The realistic cause is a blocking read under hwmon.
-  // Freezing is acceptable; freezing silently is not. The backend gives the
-  // sampler its own time limit; this drops the request on our side and says so.
-  property Timer stallTimer: Timer {
-    interval: 1000
-    running: !root.paused
-    repeat: true
-    onTriggered: {
-      if (!root.inFlight || root.startedAt <= 0) return
-      if (Date.now() - root.startedAt < root.stallAfterMs) return
-      root.lastError = "A live sample stopped responding and was dropped."
-      root.startedAt = 0
-      root.inFlight = false
-      root.sampleToken += 1
-    }
-  }
-
-  property Timer pollTimer: Timer {
-    interval: root.intervalMs
-    running: !root.paused && (FrameClock.holds > 0 || root.pollHolds > 0)
-    repeat: true
-    onTriggered: root.poll()
+  Component.onCompleted: {
+    Backend.sample.connect(root.adoptFrame)
+    root.syncFeed()
   }
 }

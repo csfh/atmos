@@ -61,6 +61,18 @@ fn render(unit: &Unit, exe: &Path) -> String {
     )
 }
 
+/// A daemon a window started on its own (`sampler::launch`). It holds the
+/// socket and the lock, so the unit's daemon could not start beside it.
+const ADHOC: &str = "ratmos-adhoc.service";
+
+/// Run `systemctl --user` and say nothing when it fails: stopping a unit that
+/// is not loaded is the usual case.
+fn systemctl_quiet(args: &[&str]) {
+    if crate::tasks::present("systemctl") {
+        let _ = Run::new("systemctl").arg("--user").args(args).output();
+    }
+}
+
 fn systemctl(args: &[&str]) {
     if !crate::tasks::present("systemctl") {
         return;
@@ -91,6 +103,7 @@ pub fn enable(exe: &Path) -> Result<()> {
     if changed {
         systemctl(&["daemon-reload"]);
     }
+    systemctl_quiet(&["stop", ADHOC]);
     for unit in &UNITS {
         systemctl(&["enable", unit.name]);
         // Restart rather than start: after an update the old process runs old code.
@@ -102,6 +115,7 @@ pub fn enable(exe: &Path) -> Result<()> {
 /// Stop and remove the units. Cached samples live in tmpfs and go on their own.
 pub fn disable() {
     let mut removed = false;
+    systemctl_quiet(&["stop", ADHOC]);
     for unit in UNITS.iter().rev() {
         systemctl(&["disable", "--now", unit.name]);
         removed |= std::fs::remove_file(unit_path(unit.name)).is_ok();

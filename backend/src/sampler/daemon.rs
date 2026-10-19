@@ -18,6 +18,7 @@ use std::time::{Duration, Instant};
 
 use serde_json::{json, Value};
 
+use super::bus::Bus;
 use super::cache::{self, Sample};
 use super::flight::{Flights, Outcome};
 use super::governor::{self, Governor, Limits, Probe, Verdict};
@@ -49,11 +50,12 @@ impl Config {
 }
 
 pub struct Daemon {
-    dir: PathBuf,
+    pub(super) dir: PathBuf,
     flights: Flights,
     collect: Box<Collect>,
     workers: Arc<Workers>,
     topics: Topics,
+    pub(super) bus: Bus,
     governor: Mutex<Governor>,
     probe: Box<dyn Probe + Send + Sync>,
     floor: Duration,
@@ -76,6 +78,7 @@ impl Daemon {
             collect,
             workers: Arc::new(Workers::default()),
             topics,
+            bus: Bus::default(),
             governor: Mutex::new(Governor::new(config.limits)),
             probe: config.probe,
             floor: config.floor,
@@ -115,10 +118,12 @@ impl Daemon {
                 last.insert(kind.to_string(), Instant::now());
             }
             self.topics.success(kind, &sample);
+            self.bus.publish(kind, &sample);
             Ok(sample)
         });
         if let Err(message) = &outcome {
             self.topics.failure(kind, message);
+            self.bus.fail(kind, message);
         }
         outcome
     }
@@ -148,7 +153,7 @@ impl Daemon {
         })
     }
 
-    fn answer(&self, request: &Value) -> Value {
+    pub(super) fn answer(&self, request: &Value) -> Value {
         match request.get("op").and_then(Value::as_str) {
             Some("ping") => {
                 json!({"ok": true, "version": crate::VERSION, "pid": std::process::id()})
@@ -165,7 +170,7 @@ impl Daemon {
         }
     }
 
-    fn converse(&self, stream: UnixStream) {
+    fn converse(self: &Arc<Self>, stream: UnixStream) {
         let _ = stream.set_read_timeout(Some(Duration::from_secs(5)));
         let mut line = String::new();
         {
@@ -192,6 +197,10 @@ impl Daemon {
             if writeln!(out, "{}", json!({"ok": true})).is_ok() {
                 self.workers.attach(stream, pid);
             }
+            return;
+        }
+        if request.get("op").and_then(Value::as_str) == Some("session") {
+            super::session::open(self, stream);
             return;
         }
         let reply = self.answer(&request);
@@ -312,6 +321,7 @@ pub fn bind(dir: &Path) -> Result<(UnixListener, std::fs::File)> {
 pub fn run() -> Result<i32> {
     let dir = cache::dir_from_env().ok_or("ratmos daemon needs XDG_RUNTIME_DIR")?;
     let (listener, _lock) = bind(&dir)?;
+    let watched = dir.clone();
     let daemon = Daemon::new(
         dir,
         Box::new(|kind| {
@@ -323,6 +333,9 @@ pub fn run() -> Result<i32> {
     eprintln!("ratmos daemon {} ready", crate::VERSION);
     let lane = daemon.clone();
     std::thread::spawn(move || lane.accept(listener));
+    let pump = daemon.clone();
+    std::thread::spawn(move || pump.pump(&AtomicBool::new(false)));
+    super::session::exit_when_stale(watched);
     // Only a signal ends the daemon, and the lock goes with the process.
     daemon.schedule(&AtomicBool::new(false));
     Ok(0)
@@ -392,6 +405,8 @@ pub(crate) mod tests {
         );
         let lane = daemon.clone();
         std::thread::spawn(move || lane.accept(listener));
+        let pump = daemon.clone();
+        std::thread::spawn(move || pump.pump(&AtomicBool::new(false)));
         (dir, daemon, calls, dial)
     }
 

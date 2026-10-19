@@ -19,12 +19,21 @@ pub fn fetch(kind: &str) -> Option<Value> {
 }
 
 pub fn fetch_in(dir: &Path, kind: &str) -> Option<Value> {
+    fetch_sample_in(dir, kind).map(|sample| sample.value)
+}
+
+/// The same read, with the time the sample was collected at.
+pub fn fetch_sample(kind: &str) -> Option<Sample> {
+    fetch_sample_in(&cache::dir_from_env()?, kind)
+}
+
+pub fn fetch_sample_in(dir: &Path, kind: &str) -> Option<Sample> {
     if let Some(sample) = cache::read(dir, kind) {
         if sample.age() <= policy::of(kind).max_age {
-            return Some(sample.value);
+            return Some(sample);
         }
     }
-    ask(dir, kind, policy::of(kind).wait).map(|sample| sample.value)
+    ask(dir, kind, policy::of(kind).wait)
 }
 
 fn ask(dir: &Path, kind: &str, wait: Duration) -> Option<Sample> {

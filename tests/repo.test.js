@@ -1872,12 +1872,12 @@ const liveStoreSrc = fs.readFileSync(
   "utf8",
 );
 assert(
-  liveStoreSrc.indexOf('Requests.displayGet("live")') !== -1 &&
+  liveStoreSrc.indexOf('Backend.subscribe("live"') !== -1 &&
+    liveStoreSrc.indexOf("intervalMs: root.intervalMs") !== -1 &&
     liveStoreSrc.indexOf("liveStatsScript") === -1 &&
-    liveStoreSrc.indexOf("interval: root.intervalMs") !== -1 &&
     liveStoreSrc.indexOf("pragma Singleton") !== -1 &&
     liveStoreSrc.indexOf("syncIntervalHolds") !== -1,
-  "LiveStatsStore polls live-stats.py on an interval",
+  "LiveStatsStore holds the live feed at the chosen interval",
 );
 const frameClockSrc = fs.readFileSync(
   path.join(__dirname, "..", "services", "FrameClock.qml"),
@@ -1894,7 +1894,7 @@ assert(
 );
 assert(
   liveStoreSrc.indexOf("FrameClock.holds > 0") !== -1,
-  "LiveStatsStore only polls while a chart in view is holding the frame clock",
+  "LiveStatsStore only holds the feed while a chart in view is holding the frame clock",
 );
 const chartViewportSrc = fs.readFileSync(
   path.join(__dirname, "..", "components", "ChartViewport.qml"),
@@ -1921,28 +1921,17 @@ assert(
     progressSrc.indexOf("enabled: !root.indeterminate && root.inView") !== -1,
   "PrefsProgress skips value animation while hidden or off screen",
 );
-// poll() returns early while a sample is in flight, which is correct
-// backpressure and becomes a permanent freeze if that sample never finishes:
-// every later tick returns early and lastError is only written from onExited.
+// The daemon pushes samples with the time it began collecting them. The store
+// measures rates on that time, drops a sample it has already taken, and shows an
+// error frame (a failed or silent feed) in lastError instead of freezing quietly.
 assert(
-  liveStoreSrc.indexOf("stallTimer") !== -1 &&
-    liveStoreSrc.indexOf("root.startedAt") !== -1 &&
-    liveStoreSrc.indexOf("stallAfterMs") !== -1,
-  "LiveStatsStore times out a sample that never finishes",
-);
-assert(
-  /Backend\.request\([^)]*\)[^{]*\{[\s\S]{0,200}root\.startedAt = 0/.test(liveStoreSrc),
-  "LiveStatsStore clears the in-flight stamp when a sample lands",
-);
-assert(
-  liveStoreSrc.indexOf("Math.max(15000") !== -1,
-  "LiveStatsStore floors the stall timeout so a slow sample is not killed early",
-);
-assert(
-  liveStoreSrc.indexOf("sampleToken") !== -1 &&
-    liveStoreSrc.indexOf("root.sampleToken += 1") !== -1 &&
-    /if \(token !== root\.sampleToken\) return/.test(liveStoreSrc),
-  "LiveStatsStore keeps the stall message when the dropped sample answers late",
+  liveStoreSrc.indexOf("Backend.sample.connect(root.adoptFrame)") !== -1 &&
+    liveStoreSrc.indexOf("Number(frame.sampledAt)") !== -1 &&
+    liveStoreSrc.indexOf("!(at > root.lastAt)") !== -1 &&
+    liveStoreSrc.indexOf("pushSample(root.history, parsed, at)") !== -1 &&
+    liveStoreSrc.indexOf("Date.now()") === -1 &&
+    liveStoreSrc.indexOf("frame.error") !== -1,
+  "LiveStatsStore takes rates from sampledAt and reports a failed feed",
 );
 const monitorPageSrc = fs.readFileSync(
   path.join(__dirname, "..", "pages", "MonitorPage.qml"),

@@ -70,9 +70,10 @@ for (const [name, src] of [
   assert(!/\bTimer\b/.test(src), name + " does not poll on a Timer");
 }
 assert(
-  live.indexOf('Requests.displayGet("live")') !== -1 && live.indexOf("--sampler") === -1,
+  live.indexOf('Backend.subscribe("live"') !== -1 && live.indexOf("--sampler") === -1,
   "live stats do not pass a script path",
 );
+assert(!/\bTimer\b/.test(live), "live stats do not poll on a Timer; the daemon pushes samples");
 assert(
   disks.indexOf("Requests.speedtestDisk") !== -1 && disks.indexOf("Backend.request") !== -1,
   "disk speed test uses ratmos",

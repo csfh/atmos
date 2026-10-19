@@ -5,13 +5,16 @@
 //! Settings, theme, accounts and stamps stay live reads: they are cheap, and
 //! a cache would show stale values right after a write.
 
+mod bus;
 pub mod cache;
 pub mod client;
 pub mod daemon;
 mod flight;
 pub mod governor;
+pub mod launch;
 pub mod policy;
 mod schedule;
+mod session;
 mod topics;
 pub mod worker;
 

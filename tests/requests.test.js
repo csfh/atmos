@@ -111,3 +111,31 @@ assertEqual(merged.chrome, true, "chrome is watched if anyone asks");
 assertEqual(merged.accounts.user, "u", "the first accounts request wins");
 assertEqual(proto.mergeWatch({}).paths.length, 0, "no watchers means no paths");
 assertEqual(proto.mergeWatch(null).chrome, false, "null specs merge to nothing");
+
+const sub = proto.subBody({ live: { intervalMs: 2000.4 }, disks: {}, junk: { intervalMs: "x" } });
+assertEqual(sub.op, "sub.set", "a subscription body is sub.set");
+assertEqual(sub.topics.live.intervalMs, 2000, "an interval is whole milliseconds");
+assertEqual(sub.topics.disks.intervalMs, 0, "a kind with no interval is pushed when it changes");
+assertEqual(sub.topics.junk.intervalMs, 0, "a bad interval counts as none");
+assertEqual(Object.keys(proto.subBody().topics).length, 0, "no spec holds nothing");
+
+const held = proto.mergeSubs({
+  home: { live: { intervalMs: 2000 } },
+  monitor: { live: { intervalMs: 500 }, disks: {} },
+  idle: {},
+  none: null,
+});
+assertEqual(held.live.intervalMs, 500, "the quickest holder sets the interval");
+assertEqual(held.disks.intervalMs, 0, "a kind held without an interval stays that way");
+assertEqual(
+  proto.mergeSubs({ a: { live: {} }, b: { live: { intervalMs: 1000 } } }).live.intervalMs,
+  1000,
+  "an interval beats none",
+);
+assertEqual(Object.keys(proto.mergeSubs(null)).length, 0, "no holders merge to nothing");
+
+const sampleEvent = proto.decodeLine(
+  JSON.stringify({ event: "sample", kind: "live", sampledAt: 7, result: { a: 1 } }),
+);
+assertEqual(sampleEvent.type, "event", "a sample is an event");
+assertEqual(sampleEvent.frame.sampledAt, 7, "the event keeps its whole frame");

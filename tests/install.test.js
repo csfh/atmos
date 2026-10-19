@@ -135,18 +135,20 @@ cp "$REAL_RATMOS" "$BACKEND_OUTPUT/ratmos"
     fs.readFileSync(path.join(fixture, "systemctl.log"), "utf8").trim().split("\n"),
     [
       "--user daemon-reload",
+      "--user stop ratmos-adhoc.service",
       "--user enable ratmos.service",
       "--user restart ratmos.service",
       "--user enable ratmos-sampler.service",
       "--user restart ratmos-sampler.service",
     ],
-    "install reloads, then enables and restarts the daemon and the sampler in that order",
+    "install reloads, frees the socket from a window-started daemon, then enables and restarts the daemon and the sampler in that order",
   );
   fs.writeFileSync(path.join(fixture, "systemctl.log"), "");
   assert.equal(install(false).status, 0);
   assert.deepEqual(
     fs.readFileSync(path.join(fixture, "systemctl.log"), "utf8").trim().split("\n"),
     [
+      "--user stop ratmos-adhoc.service",
       "--user enable ratmos.service",
       "--user restart ratmos.service",
       "--user enable ratmos-sampler.service",

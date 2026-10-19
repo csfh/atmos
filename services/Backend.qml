@@ -13,6 +13,8 @@ import "BackendProtocol.js" as Protocol
 // reply envelope { ok, result | error } and is always called exactly once.
 // watch(owner, spec): { paths, chrome, accounts } to be pushed as stamp / chrome /
 // accounts signals whenever they change.
+// subscribe(owner, topics): { live: { intervalMs } } display kinds the daemon
+// pushes as sample(kind, frame) signals for as long as they are held.
 QtObject {
   id: root
 
@@ -36,10 +38,15 @@ QtObject {
   property var pending: ({})
   property var waiting: []
   property var watchSpecs: ({})
+  property var subSpecs: ({})
+  property var polledAt: ({})
 
   signal stamp(var doc)
   signal chrome(var doc)
   signal accounts(var doc)
+  // A held display kind has a new sample: { kind, sampledAt, tookMs, result },
+  // or { kind, stale, error } when sampling failed or went quiet.
+  signal sample(string kind, var frame)
   // Raised when the server stops answering, so the UI can say so.
   signal lostConnection()
 
@@ -106,6 +113,22 @@ QtObject {
     root.request(Protocol.watchBody(root.mergedWatch()), function() {})
   }
 
+  // Each part of the app holds topics under its own name, as with watch().
+  function subscribe(owner, topics) {
+    var map = root.subSpecs
+    map[String(owner)] = topics || ({})
+    root.subSpecs = map
+    if (root.up) root.sendSubs()
+  }
+
+  function mergedSubs() {
+    return Protocol.mergeSubs(root.subSpecs)
+  }
+
+  function sendSubs() {
+    root.request(Protocol.subBody(root.mergedSubs()), function() {})
+  }
+
   function runOneShot(body, cb) {
     oneShot.createObject(root, {
       command: root.command(["request"]),
@@ -139,6 +162,7 @@ QtObject {
       if (msg.name === "stamp") root.stamp(msg.result)
       else if (msg.name === "chrome") root.chrome(msg.result)
       else if (msg.name === "accounts") root.accounts(msg.result)
+      else if (msg.name === "sample") root.sample(String(msg.frame.kind || ""), msg.frame)
     }
   }
 
@@ -148,6 +172,7 @@ QtObject {
     var waiting = root.waiting
     root.waiting = []
     root.sendWatch()
+    root.sendSubs()
     var i
     for (i = 0; i < waiting.length; i++) root.request(waiting[i].body, waiting[i].cb)
   }
@@ -197,6 +222,7 @@ QtObject {
   }
 
   function pollOnce() {
+    root.pollSubs()
     if (root.polling) return
     var spec = root.mergedWatch()
     var calls = []
@@ -224,6 +250,25 @@ QtObject {
           if (left === 0) root.polling = false
         })
       })(calls[i])
+    }
+  }
+
+  // The same fallback for held display kinds: ask on their own interval and
+  // say when the answer was taken, since there is no daemon to say so.
+  function pollSubs() {
+    var held = root.mergedSubs()
+    var kind
+    for (kind in held) {
+      (function(name, every) {
+        var now = Date.now()
+        var last = root.polledAt[name] || 0
+        if (now - last < Math.max(every, 1000)) return
+        root.polledAt[name] = now
+        root.runOneShot({ op: "display.get", kind: name }, function(env) {
+          if (env && env.ok === true && env.result)
+            root.sample(name, { kind: name, sampledAt: now, result: env.result })
+        })
+      })(kind, held[kind].intervalMs)
     }
   }
 

@@ -1,6 +1,7 @@
 // The line protocol spoken to `ratmos serve`: newline-delimited JSON. A
 // request is { id, op, ...fields }. A reply is the usual envelope with the
-// same id. An event is { event, result } pushed with no request. Pure so Node
+// same id. An event is { event, result } pushed with no request; a "sample"
+// event also carries kind, sampledAt and tookMs, or kind, stale and error. Pure so Node
 // can test it without Quickshell.
 
 function encodeRequest(id, body) {
@@ -25,7 +26,7 @@ function decodeLine(line) {
   }
   if (!value || typeof value !== "object" || Array.isArray(value)) return { type: "invalid" };
   if (typeof value.event === "string") {
-    return { type: "event", name: value.event, result: value.result };
+    return { type: "event", name: value.event, result: value.result, frame: value };
   }
   if (value.id !== undefined && value.id !== null) {
     return { type: "reply", id: value.id, envelope: value };
@@ -98,6 +99,39 @@ function mergeWatch(specs) {
     }
     if (spec.chrome === true) merged.chrome = true;
     if (spec.accounts && !merged.accounts) merged.accounts = spec.accounts;
+  }
+  return merged;
+}
+
+// The sub.set body for the display kinds the frontend holds: { live: { intervalMs } }.
+function subBody(spec) {
+  var topics = {};
+  var kind;
+  for (kind in spec || {}) {
+    if (!Object.prototype.hasOwnProperty.call(spec, kind)) continue;
+    var ms = Number(spec[kind] && spec[kind].intervalMs);
+    topics[kind] = { intervalMs: isFinite(ms) && ms > 0 ? Math.round(ms) : 0 };
+  }
+  return { op: "sub.set", topics: topics };
+}
+
+// Several parts of the app hold topics. The server gets the union, at the
+// quickest interval anyone asked for.
+function mergeSubs(specs) {
+  var merged = {};
+  var owner;
+  var kind;
+  for (owner in specs || {}) {
+    if (!Object.prototype.hasOwnProperty.call(specs, owner)) continue;
+    var spec = specs[owner] || {};
+    for (kind in spec) {
+      if (!Object.prototype.hasOwnProperty.call(spec, kind)) continue;
+      var ms = Number(spec[kind] && spec[kind].intervalMs);
+      ms = isFinite(ms) && ms > 0 ? ms : 0;
+      var have = merged[kind];
+      if (!have) merged[kind] = { intervalMs: ms };
+      else if (ms > 0 && (have.intervalMs === 0 || ms < have.intervalMs)) have.intervalMs = ms;
+    }
   }
   return merged;
 }

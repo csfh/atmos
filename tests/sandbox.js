@@ -202,6 +202,8 @@ function createSandbox({ fakes = {}, traps = DEFAULT_TRAPS, env = {}, tools = PL
     XDG_DATA_HOME: path.join(home, ".local", "share"),
     XDG_RUNTIME_DIR: path.join(root, "run"),
     ATMOS_FAKE_DIR: fakeDir,
+    // A test must never start a daemon in the real user manager.
+    ATMOS_NO_AUTOSTART: "1",
     LANG: "C",
   };
   const callsFile = path.join(fakeDir, "calls.jsonl");

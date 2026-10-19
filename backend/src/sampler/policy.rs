@@ -19,8 +19,9 @@ const fn secs(n: u64) -> Duration {
     Duration::from_secs(n)
 }
 
-/// `live` is cumulative counters that the window turns into rates with its own
-/// clock, so it may only be served a moment old. The other kinds change slowly,
+/// `live` is cumulative counters that the window turns into rates, so a reader
+/// may only be served a moment old and never the same sample twice (the window
+/// drops a repeat by its `sampledAt`, but a fallback reader has no such stamp). The other kinds change slowly,
 /// and a reader tolerates a few missed samples before it asks for a fresh one.
 pub fn of(kind: &str) -> Policy {
     let (interval, max_age, first) = match kind {
@@ -32,7 +33,7 @@ pub fn of(kind: &str) -> Policy {
         "hardware" => (secs(3600), secs(10800), secs(15)),
         _ => (secs(900), secs(2700), secs(30)),
     };
-    // The window drops a `live` sample after 15 seconds and polls every 2.
+    // A window asks for `live` at 0.5 to 5 seconds; a reader gives up on it sooner than on the rest.
     let wait = if kind == "live" { secs(2) } else { secs(20) };
     Policy {
         interval,

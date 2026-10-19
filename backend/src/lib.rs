@@ -25,6 +25,7 @@ mod runner;
 mod sampler;
 mod search;
 pub mod serve;
+mod serve_link;
 mod snapshot;
 mod store;
 pub mod tasks;

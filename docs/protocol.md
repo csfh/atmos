@@ -72,7 +72,7 @@ $ echo '{"op":"host.read","paths":["/note.txt","/missing.txt"]}' | ratmos --back
 
 `ratmos serve` reads one JSON request per line and writes one JSON line per reply. Add an `id` to a request and the reply carries the same `id`. Each request runs on its own thread, so a slow one never holds up a fast one, and replies can arrive in any order: match them by `id`. A line that is not JSON gets a `bad_request` reply with no `id`. The server stops when stdin closes, which is how a window going away looks.
 
-`watch.set` is the one op `serve` answers itself. It is not accepted over `request`.
+`watch.set` and `sub.set` are the two ops `serve` answers itself. They are not accepted over `request`.
 
 ```json
 {"op": "watch.set", "paths": ["/note.txt"], "chrome": true, "accounts": {"user": "me", "home": "/home/me"}}
@@ -106,6 +106,24 @@ This is a real run with `--backend plain`, a fixture root holding `/note.txt`, a
 ```
 
 Reply 2 came before reply 1. That is allowed.
+
+### Held display kinds: `sub.set`
+
+`sub.set` says which display kinds the window holds, and the server pushes each new sample so the window polls nothing. It replaces the previous set; `{"topics": {}}` releases everything. An unknown kind is `bad_request`.
+
+```json
+{"id": 5, "op": "sub.set", "topics": {"live": {"intervalMs": 2000}}}
+```
+
+The reply is `{"holding": ["live"]}`. Then, on the holder's clock, each event is one sample, with `sampledAt` the Unix milliseconds the collection began (a window computes rates from it, never from its own clock) and `tookMs` its duration:
+
+```json
+{"event": "sample", "kind": "live", "sampledAt": 1760000000123, "tookMs": 9, "result": {"cpuIdle": 1, "cpuTotal": 2}}
+```
+
+When sampling fails, or a held kind goes quiet for six intervals (never less than 15 seconds), the event is `{"event": "sample", "kind": "live", "stale": true, "error": "..."}`. The last good sample stays where it is. `live` is sampled by the daemon only while some window holds it, no faster than the quickest holder asks and never faster than every 250 ms, and each window receives it at its own `intervalMs`. Other kinds are pushed when they are sampled, and once on `sub.set` if the daemon holds one.
+
+The events come from the daemon over a session on `ratmos.sock` (`{"op": "session"}`, then `sub`, `unsub`, `req` frames one way and `event` and `res` frames the other; see `backend/src/sampler/session.rs`). With no daemon, or one that does not speak sessions, `serve` starts one when it can (`ratmos.service`, then a transient user unit, then a bare process; `ATMOS_NO_AUTOSTART=1` forbids it, and a `--root` fixture never does) and otherwise samples the held kinds itself on the same clock, so the events are the same.
 
 ## Streaming jobs: `apply`
 
@@ -150,7 +168,7 @@ A domain is one named setting, such as `theme` or `hyprLook.gapsIn`.
 
 #### Sample cache
 
-On a live system `display.get` and `display.snapshot` answer from the samples `ratmos daemon` keeps (collected in the background by `ratmos sampler`, never on the reader's behalf) in `$XDG_RUNTIME_DIR/atmos/<kind>.json`, and the reply is the same document either way. A sample is served while it is younger than its kind allows: `live` one second (the window turns its counters into rates with its own clock, so it must never see one sample twice), every other kind three sample intervals. Past that, or with nothing cached, the request goes to the daemon over `$XDG_RUNTIME_DIR/atmos/ratmos.sock` with interactive priority and waits for the fresh sample, up to 2 seconds for `live` and 20 for the rest; simultaneous requests for one kind share one collection. With no daemon, a missing runtime dir, a daemon that does not answer in time, or any daemon failure, the request collects the inventory itself, as it did before the daemon existed.
+On a live system `display.get` and `display.snapshot` answer from the samples `ratmos daemon` keeps (collected in the background by `ratmos sampler`, never on the reader's behalf) in `$XDG_RUNTIME_DIR/atmos/<kind>.json`, and the reply is the same document either way. A sample is served while it is younger than its kind allows: `live` one second (counters become rates, so a reader must never see one sample twice), every other kind three sample intervals. Past that, or with nothing cached, the request goes to the daemon over `$XDG_RUNTIME_DIR/atmos/ratmos.sock` with interactive priority and waits for the fresh sample, up to 2 seconds for `live` and 20 for the rest; simultaneous requests for one kind share one collection. With no daemon, a missing runtime dir, a daemon that does not answer in time, or any daemon failure, the request collects the inventory itself, as it did before the daemon existed.
 
 A `--root` fixture never reads the cache. `ratmos task`, `ratmos apply` and `settings.set` drop the kinds they can change (`disks`, `services`, `software`, `diagnostics`; `settings.set` only `services`), so the next read is fresh, and the daemon resamples them in the background after 5 seconds, but not within 30 seconds of the kind's last sample. Settings, `host.*`, `search.query` and the other ops are always read live.
 
@@ -197,3 +215,4 @@ These read and edit the MCP entry in each coding agent's own config; Atmos keeps
 | Op | Fields | Result |
 | --- | --- | --- |
 | `watch.set` | `paths`, `chrome`, `accounts` | `{watching: true}`, then `stamp`, `chrome` and `accounts` events. See Long-lived above. |
+| `sub.set` | `topics`: display kind to `{intervalMs}` | `{holding: [...]}`, then `sample` events. See Held display kinds above. |

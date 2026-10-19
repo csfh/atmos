@@ -46,10 +46,10 @@ assert(
   "display inventories are requested from the Rust backend",
 );
 assert(
-  live.indexOf('Requests.displayGet("live")') !== -1 &&
-    live.indexOf("Backend.request") !== -1 &&
+  live.indexOf('Backend.subscribe("live"') !== -1 &&
+    live.indexOf("Backend.sample.connect") !== -1 &&
     live.indexOf("liveStatsScript") === -1,
-  "live stats load through the Rust backend without a script path",
+  "live stats arrive from the Rust backend without a script path",
 );
 assert(
   launcher.indexOf('"$candidate" launch') !== -1 &&

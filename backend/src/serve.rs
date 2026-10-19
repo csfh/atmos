@@ -15,6 +15,13 @@
 //! once-a-second polls the frontend used to run, each of which forked a
 //! process.
 //!
+//! `sub.set` is the other: `{"op": "sub.set", "topics": {"live": {"intervalMs":
+//! 2000}}}` says which display kinds the window holds, replacing the last set.
+//! The server then pushes `{"event": "sample", "kind", "sampledAt", "tookMs",
+//! "result"}` for each new sample, or `{"event": "sample", "kind", "stale":
+//! true, "error"}` when sampling fails or goes quiet. The samples come from
+//! the daemon over a session (`crate::serve_link`), so the window polls nothing.
+//!
 //! The server stops when stdin closes, which is how a window going away looks.
 
 use std::io::{BufRead, Write};
@@ -37,7 +44,7 @@ pub struct Config {
     pub root: Option<PathBuf>,
 }
 
-type Out = Arc<Mutex<Box<dyn Write + Send>>>;
+pub(crate) type Out = Arc<Mutex<Box<dyn Write + Send>>>;
 
 #[derive(Default)]
 struct Watch {
@@ -67,6 +74,12 @@ pub fn serve(config: Config, input: impl BufRead, out: Box<dyn Write + Send>) {
         thread::spawn(move || watch_loop(&config, &out, &watch, &stop, &woken))
     };
 
+    let subs = Arc::new(crate::serve_link::Subs::default());
+    let linker = {
+        let (config, out, subs) = (Arc::clone(&config), Arc::clone(&out), Arc::clone(&subs));
+        thread::spawn(move || crate::serve_link::run(&config, &out, &subs))
+    };
+
     for line in input.lines() {
         let Ok(line) = line else { break };
         if line.trim().is_empty() {
@@ -86,6 +99,19 @@ pub fn serve(config: Config, input: impl BufRead, out: Box<dyn Write + Send>) {
             send(&out, &with_id(reply, id));
             continue;
         }
+        if value.get("op").and_then(Value::as_str) == Some("sub.set") {
+            let reply = match crate::serve_link::parse_topics(&value) {
+                Ok(topics) => {
+                    let held: Vec<&String> = topics.keys().collect();
+                    let reply = crate::ok_envelope(config.backend, json!({ "holding": held }));
+                    subs.set(topics);
+                    reply
+                }
+                Err(message) => error_envelope(config.backend, &Error::bad_request(message)),
+            };
+            send(&out, &with_id(reply, id));
+            continue;
+        }
         let (config, out) = (Arc::clone(&config), Arc::clone(&out));
         thread::spawn(move || {
             let envelope = match handle(config.backend, config.root.as_deref(), &value) {
@@ -98,7 +124,10 @@ pub fn serve(config: Config, input: impl BufRead, out: Box<dyn Write + Send>) {
 
     stop.store(true, Ordering::SeqCst);
     let _ = wake.send(());
+    subs.stop();
     let _ = watcher.join();
+    // The linker may be inside a daemon launch; the process ends it.
+    drop(linker);
 }
 
 fn set_watch(config: &Config, watch: &Mutex<Watch>, request: &Value, wake: &Sender<()>) -> Value {
@@ -234,7 +263,7 @@ fn with_id(mut envelope: Value, id: Option<Value>) -> Value {
     envelope
 }
 
-fn send(out: &Out, value: &Value) {
+pub(crate) fn send(out: &Out, value: &Value) {
     let Ok(text) = serde_json::to_string(value) else {
         return;
     };

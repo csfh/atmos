@@ -115,6 +115,10 @@ try {
   assert(!fs.existsSync(unitFile), "setup off removes the daemon unit");
   assert(!fs.existsSync(samplerFile), "setup off removes the sampler worker unit");
   assert(
+    fs.readFileSync(systemctlLog, "utf8").includes("--user stop ratmos-adhoc.service"),
+    "setup off also stops a daemon a window started on its own",
+  );
+  assert(
     fs.readFileSync(systemctlLog, "utf8").includes("--user disable --now ratmos-sampler.service"),
     "setup off stops the sampler worker",
   );

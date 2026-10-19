@@ -19,7 +19,7 @@ Atmos is a QML window over one Rust backend. This page is the target design and 
 | `ratmos serve` | none, one per window | normal | Bridge between the window's stdio and the daemon socket. Keeps today's framing |
 | `ratmos task`, `root`, `apply` | none | normal | Jobs that keep their own process tree: privileged work, streaming output, interactive shells |
 
-The daemon is meant to be socket-activated, with `serve` starting a detached one when the socket is missing and there is no systemd, so the authority always exists. Today it is started by its unit only (see the phases). If the sampler is not running, the daemon does no background sampling. Topics fill on demand, which is slower and never wrong.
+`serve` makes sure a daemon exists when a window holds a topic and the socket is missing (`sampler/launch.rs`): the installed units first, then a transient user unit (`ratmos-adhoc.service`, with the daemon's own `Nice` and `CPUWeight`, outside the window's cgroup so closing that window does not end it), then a bare detached process. `ATMOS_NO_AUTOSTART=1` forbids it, and a `--root` fixture never starts one. It starts only the daemon, so with no sampler unit running the daemon does no background sampling. Topics fill on demand, which is slower and never wrong. A daemon leaves when its runtime dir is gone or the binary it runs has been replaced (a rebuild or an update; `VERSION` does not change between dev builds), and the next window starts a current one. `ratmos install` and `setup` stop `ratmos-adhoc.service` before they start the units, which could not take the socket from it.
 
 ## The sampling bus
 
@@ -29,7 +29,7 @@ A **topic** is one inventory: the six display kinds today, and the settings snap
 - `stale` and the last error, when the latest collection failed;
 - a policy: interval, how old a reader may be served, and a cost class.
 
-Windows `sub` to topics and receive `event` frames when a topic changes, so nothing in QML polls. `live` is pushed while a page holds it; its events carry `sampledAt`, and `LiveStats.js` computes rates from that rather than `Date.now()`, so a late or bunched event is still correct.
+Windows `sub` to topics and receive `event` frames when a topic changes, so nothing in QML polls. `live` is pushed while a page holds it. The daemon samples it itself, in the foreground lane because a window is waiting on it, no faster than the quickest holder asks, and hands each window a sample only once that window's own interval has passed. Its events carry `sampledAt`, and the live store computes rates from that rather than `Date.now()`, so a late or bunched event is still correct, and drops a sample it already has.
 
 A read (`get`) is answered from the topic when its value is fresh enough. A cold or too-old topic is collected in the foreground at once, in the daemon, and an interactive request never joins a background run.
 
@@ -67,18 +67,18 @@ Typed ops (`display.brightness`, `monitor.scale`, ...) carry their lane and topi
 
 ## Wire
 
-One Unix socket, `$XDG_RUNTIME_DIR/atmos/ratmos.sock`, NDJSON, ids multiplexed.
+One Unix socket, `$XDG_RUNTIME_DIR/atmos/ratmos.sock`, NDJSON. A one-shot client sends one line and reads one line (`sample`, `ping`, `status`). A **session** is `{"op":"session"}`, answered by a `ready` frame, and then typed frames with ids multiplexed:
 
-| Frame | Direction | Meaning |
-| --- | --- | --- |
-| `req` | client to daemon | Any op in `docs/protocol.md`, with an `id` |
-| `res` | daemon to client | The envelope for that `id` |
-| `sub`, `unsub` | client to daemon | Topic subscriptions |
-| `event` | daemon to client | `{topic, seq, sampledAt, stale, value}` |
-| `lease`, `release` | client to daemon | Hold a lane around a job that runs outside the daemon |
-| `stream` | daemon to client | Output of a long job, for jobs the daemon does run |
+| Frame | Direction | Meaning | State |
+| --- | --- | --- | --- |
+| `sub`, `unsub` | client to daemon | Replace or drop the held topics, each with its interval | P2 |
+| `event` | daemon to client | `{topic, sampledAt, tookMs, value}`, or `{topic, stale, error}` | P2 |
+| `req` | client to daemon | Any op the one-shot socket answers, with an `id` | frame exists; `serve` does not send it yet |
+| `res` | daemon to client | The reply for that `id` | frame exists, as above |
+| `lease`, `release` | client to daemon | Hold a lane around a job that runs outside the daemon | P3 |
+| `stream` | daemon to client | Output of a long job, for jobs the daemon does run | not planned yet |
 
-`ratmos serve` keeps the framing QML speaks today and maps it onto these frames, and `ratmos request` stays the one-shot fallback. Golden replay over both, and the `request.rs`, `Requests.js` and `protocol.md` registration checks, stay as they are.
+A session's writer has a bounded queue, and a window that falls behind is dropped, so one stalled window never holds up publishing. `ratmos serve` keeps the framing QML speaks (`docs/protocol.md`) and maps it onto the session: `sub.set` becomes `sub`, `event` frames become `{"event":"sample"}` lines. `serve` still answers ordinary ops, `display.*` included, through `handle()` in its own process, which reads the cache and asks the daemon on a miss. P3 moves the ops that need ordering with writes onto `req`. Where no daemon can be reached, or one predates sessions, `serve` samples the held topics itself on the same clock, and a held topic that goes quiet gets an error event after six intervals. `ratmos request` stays the one-shot fallback, and the golden replay and the `request.rs`, `Requests.js` and `protocol.md` checks stay as they are.
 
 ## Phases
 
@@ -87,7 +87,7 @@ One Unix socket, `$XDG_RUNTIME_DIR/atmos/ratmos.sock`, NDJSON, ids multiplexed.
 | baseline | `ratmos daemon` as a user unit, cache-first `display.*` reads, interactive-first queue, drops after tasks | done |
 | P0 | A failed `hyprctl` leaves the monitor list alone and logs why | done |
 | P1 | Engine: topics with last-good and stale metadata, the governor, the sampler split into its own unit | done, except the two gaps below |
-| P2 | Frames and subscriptions on the socket, `serve` as a bridge, `live` and stamps pushed, the QML polling Timers removed | |
+| P2 | Sessions and subscriptions on the socket, `serve` as a bridge with autostart, `live` pushed with `sampledAt` rates, the live poll and stall timers removed from QML | done, except the gaps below |
 | P3 | Command bus: lanes, coalescing, read-your-writes, leases. Brightness first. This also retires the window's optimistic `apply:` patches: a patch crosses a QML signal, which hands its arrays back wrapped, and that once emptied the monitor list on the second brightness change (fixed in `Lists.js`, but the cause is the window writing state itself) | |
 | P4 | The settings snapshot groups become topics; `apply --` passthroughs replaced by typed ops where they matter | |
 
@@ -95,9 +95,17 @@ One Unix socket, `$XDG_RUNTIME_DIR/atmos/ratmos.sock`, NDJSON, ids multiplexed.
 
 - **The idle IO class is not a guarantee.** It only acts under an IO scheduler that honors priorities. On `none`, the NVMe default, it does nothing, so the CPU weight, the quota and the governor carry the promise. Checked under real systemd on one machine: the sampler gets `SCHED_IDLE`, `cpu.weight 1` and `cpu.max 10%`, and the quota does throttle its bursts.
 - **A background job that times out is not cancelled.** The worker keeps running it, and the daemon sends it nothing new until it answers, so a starved sampler cannot pile up a burst of queued jobs.
-- **Socket activation and daemon autostart** (`ratmos.socket`, `serve` spawning a daemon) move to P2, where `serve` becomes the bridge. Until then the daemon exists only while its user unit runs, so the "always an authority" rule holds on an installed system and not yet on a bare checkout.
 - **A failed tool is still an empty string inside most collectors.** `capture()` turns a failed `systemctl`, `df` or `omarchy` call into empty output, so a collector can return a document with blank fields and succeed. The topics catch a collector that errors, panics or times out, not one that quietly returns less. Fixing that is an audit of every collector, and `hypr::monitors()` (P0) is the only one done.
 - **Duty accounting is per run.** The governor charges each background collection the CPU the sampler process and its reaped children used while it ran, which is exact only because one background run goes at a time.
+
+### Known gaps after P2
+
+- **No socket activation.** `serve` starts the daemon (P2), but only when a window holds a topic, and `ratmos request` and a window's one-shot fallback never do. The authority exists whenever a window is open and a topic is held.
+- **Stamps, chrome and accounts are still looked at once a second by each `serve`.** That is a stat loop in Rust, in the window's own process, with no forks, and it is not on the daemon's bus. Moving it there means inotify in the daemon and is not in P2.
+- **Other QML timers poll.** The Wi-Fi and Bluetooth pages (900 ms) and the guard bar (200 ms) tick on their own timers. Each only rebuilds from state already in memory, Quickshell's network and Bluetooth models and the revert countdown, and asks the host nothing, so they were left alone.
+- **A local fallback has no stall watchdog for a wedged collection,** since the sampler runs on the thread that would raise it. Only the session path reports a silent `live`.
+- **Display kinds other than `live` are pushed but nothing in the window holds them yet.** They are still read with `display.get`.
+- **`req` and `res` frames are not used by `serve`.** They arrive with P3.
 
 ## Not in scope
 

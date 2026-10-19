@@ -1,6 +1,6 @@
 # Architecture
 
-Atmos is a QML window over one Rust backend. This page is the target design and the order to get there. `docs/protocol.md` is the wire contract as it stands today; where this page and that one differ, this page is the direction and that one is the truth until a phase lands.
+Atmos is a QML window over one Rust backend. This page is the design and the order it was built in; the reasons for each rule are the records in [`docs/adr/`](adr/README.md). `docs/protocol.md` is the wire contract as it stands today; where this page and that one differ, this page is the direction and that one is the truth until a phase lands.
 
 ## Rules
 
@@ -88,36 +88,42 @@ A session's writer has a bounded queue, and a window that falls behind is droppe
 | --- | --- | --- |
 | baseline | `ratmos daemon` as a user unit, cache-first `display.*` reads, interactive-first queue, drops after tasks | done |
 | P0 | A failed `hyprctl` leaves the monitor list alone and logs why | done |
-| P1 | Engine: topics with last-good and stale metadata, the governor, the sampler split into its own unit | done, except the two gaps below |
+| P1 | Engine: topics with last-good and stale metadata, the governor, the sampler split into its own unit | done. What it cannot guarantee on every machine is listed under its limits below |
 | P2 | Frames and subscriptions on the socket, `serve` as a bridge, `live` and stamps pushed, the QML polling Timers removed | done. `live`, the watched files (stamp, chrome, accounts) and the window's commands all ride the one session to the daemon, which looks at files once for every window; the live poll and stall timers are gone from QML; the daemon starts on a connection through `ratmos.socket` |
 | P3 | Command bus: lanes, coalescing, read-your-writes, leases. Brightness first. This also retires the window's optimistic `apply:` patches: a patch crosses a QML signal, which hands its arrays back wrapped, and that once emptied the monitor list on the second brightness change (fixed in `Lists.js`, but the cause is the window writing state itself) | done. No window-built patch is left: brightness and monitor scale are their own typed ops, thirty-six other writes are named `write` entries in `command/writes.rs`, and a setting written through `settings.set` is read back by the keys it names. The window shows what the backend reports, never a value it worked out |
-| P4 | The settings snapshot groups become topics; `apply --` passthroughs replaced by typed ops where they matter | |
+| P4 | The settings snapshot groups become topics; `apply --` passthroughs replaced by typed ops where they matter; jobs and the remaining window-side fallbacks move onto the bus (see *Carried into P4*) | not started. The window is to be replaced by a new frontend, so this is done against the protocol and the registry, not against QML call sites |
 
-### Known gaps after P1
+### Limits after P1
 
 - **The idle IO class is not a guarantee.** It only acts under an IO scheduler that honors priorities. On `none`, the NVMe default, it does nothing, so the CPU weight, the quota and the governor carry the promise. Checked under real systemd on one machine: the sampler gets `SCHED_IDLE`, `cpu.weight 1` and `cpu.max 10%`, and the quota does throttle its bursts.
 - **A background job that times out is not cancelled.** The worker keeps running it, and the daemon sends it nothing new until it answers, so a starved sampler cannot pile up a burst of queued jobs.
 - **A failed tool is an error in the display collectors that depend on one.** `services` (`systemctl`) and `disks` (`lsblk`, `df`) answer with the failure when their tool fails, so the topic goes stale and keeps its last good sample (`inventory::require`, `tests/inventory_failure.rs`). The others were audited and need nothing: `hardware` reads sysfs and falls back to it when `lspci` fails, `diagnostics` reports each check's own failure as its result, `live` reads `/proc` and `software` reads desktop files, and a tool they call that is absent leaves a field absent by design. The settings snapshot is not covered: its producers still turn a failed `omarchy` call into an empty field, apart from `hyprctl` (P0). That belongs with moving the snapshot groups onto the bus.
 - **Duty accounting is per run.** The governor charges each background collection the CPU the sampler process and its reaped children used while it ran, which is exact only because one background run goes at a time.
 
-### Known gaps after P2
+### Limits after P2
 
 - **File watching is a poll.** The daemon looks at the watched paths once a second for every window together, one `stat` per distinct path, and reads a file's text only when its signature moved. Without a foreign call there is no inotify; a window that has no daemon looks itself, as before.
 - **Other QML timers poll.** The Wi-Fi and Bluetooth pages (900 ms) and the guard bar (200 ms) tick on their own timers. Each only rebuilds from state already in memory, Quickshell's network and Bluetooth models and the revert countdown, and asks the host nothing, so they were left alone.
-- **A local fallback has no stall watchdog for a wedged collection,** since the sampler runs on the thread that would raise it. Only the session path reports a silent `live`.
-- **Display kinds other than `live` are pushed but nothing in the window holds them yet.** They are still read with `display.get`.
 
-### Known gaps after P3
+### Limits after P3
 
 - **Toggles change when the answer arrives, not when pressed.** Without the optimistic patch a control shows the new state after the write and its read-back, usually 0.2 to 1 s (a DDC panel or a Wi-Fi change takes longer). That is the cost of never showing a guess.
 - **A write the machine finishes late is waited for, not guessed.** Each entry says what the read-back must show (`settle`), and the backend re-reads for up to about 1.5 s. If the machine never shows it, the reply says `settled: false` and carries what it does show.
 - **A snapshot read that began before a write is not trusted for the keys the write set.** `Ops.dropStale` drops them from it. The same window race exists for a read that begins at the same instant as a write, which the barrier on `settings` covers.
 - **`runCommand` keeps its `argv` for the history and the Preview list.** It is a label; the backend builds the command it runs.
-- **Writes the window still sends as `apply -- <argv>` change nothing it shows.** Forty-six `runCommand` calls and thirty-six `runJob` calls remain (launchers, tests, notifications, installs that refresh a group afterwards). None sets or patches state in the window. They are not on a lane; `apply` leases the shared `generic` lane for them.
-- **The window still sets two derived flags itself.** `passwordlessSudo` after the sudo-mode job exits cleanly, because the pending write proceeds at once, and the favorites list, which comes back from the file's stamp.
-- **A local write (sudo or polkit) runs in the window's `serve`,** holding its own lane. It is ordered against reads, not against another window's write to the same lane.
 - **The daemon runs a command's child at its own `Nice=15`,** so a write is slower on a saturated machine than the same write inline.
 - **`hook.remove` is done in the daemon or the window, not by `rm`,** and only inside `~/.config/omarchy/hooks/`.
+
+## Carried into P4
+
+Work that is deliberately not part of P1 to P3, because the phase table gives it to P4 and because the Quickshell window these call sites live in is to be replaced:
+
+- **The window does not hold the display kinds yet.** `services`, `disks`, `software`, `diagnostics` and `hardware` are pushed by the daemon but still read with `display.get` when a page opens.
+- **The settings snapshot groups are not topics.** `serve` reads them live, and a producer still turns a failed `omarchy` call into an empty field, apart from `hyprctl` (P0).
+- **Writes outside the registry.** Forty-six `runCommand` calls and thirty-six `runJob` calls still run `ratmos apply -- <argv>`, and thirteen `runInteractive` calls start tools in the window's process tree. They change nothing the window shows and none patches window state. They are ordered on the shared `generic` lane and are not typed.
+- **Jobs are not on the bus.** A streamed or interactive job runs as a window-started process, a local write (sudo or polkit) runs in the window's `serve` holding a lane of its own, and neither survives its window.
+- **Two derived flags are set by the window itself.** `passwordlessSudo`, after the sudo-mode job exits cleanly, and the favorites list, which returns from its file's stamp.
+- **The fallbacks stay.** A window with no daemon collects inline and a local sample pump has no stall watchdog for a wedged collection.
 
 ## Not in scope
 

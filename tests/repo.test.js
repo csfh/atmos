@@ -1933,6 +1933,37 @@ assert(
     liveStoreSrc.indexOf("frame.error") !== -1,
   "LiveStatsStore takes rates from sampledAt and reports a failed feed",
 );
+// Brightness and monitor scale are typed ops the daemon orders on a lane. The
+// window shows the reply's snapshot and builds no patch of its own for them, and
+// of overlapping writes for one key only the newest reply is applied.
+const omarchyOpsSrc = fs.readFileSync(
+  path.join(__dirname, "..", "services", "Omarchy.qml"),
+  "utf8",
+);
+const opsSrc = fs.readFileSync(path.join(__dirname, "..", "services", "Ops.qml"), "utf8");
+const brightnessBody = omarchyOpsSrc.slice(
+  omarchyOpsSrc.indexOf("function setDisplayBrightness"),
+  omarchyOpsSrc.indexOf("function setInternalDisplay"),
+);
+assert(
+  brightnessBody.indexOf("op: Requests.displayBrightness(name, percent)") !== -1 &&
+    brightnessBody.indexOf("apply:") === -1,
+  "setDisplayBrightness is a typed op with no patch of its own",
+);
+assert(
+  omarchyOpsSrc.indexOf("patchFocusedMonitorScale") === -1 &&
+    (omarchyOpsSrc.match(/op: Requests\.displayScale\(scale\)/g) || []).length === 2,
+  "monitor scale, set and reverted, is a typed op with no patch of its own",
+);
+assert(
+  omarchyOpsSrc.indexOf("if (opts.op) { root.rememberGuard(opts); return Ops.run(opts) }") !== -1,
+  "a typed op still arms the revert guard and skips the job queue",
+);
+assert(
+  opsSrc.indexOf("root.sent[key] === seq") !== -1 &&
+    opsSrc.indexOf("Omarchy.applySnapshot(SnapshotJs.plain(snapshot))") !== -1,
+  "Ops applies the reply's snapshot only for the newest write of a key",
+);
 const monitorPageSrc = fs.readFileSync(
   path.join(__dirname, "..", "pages", "MonitorPage.qml"),
   "utf8",

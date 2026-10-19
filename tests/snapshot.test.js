@@ -18,27 +18,6 @@ assertEqual(
 );
 assertEqual(snapshot.parseSnapshot("{"), null, "parseSnapshot rejects junk");
 
-const patched = snapshot.patchMonitorBrightness(
-  [
-    { name: "DP-1", brightness: 40 },
-    { name: "HDMI-A-1", brightness: 10 },
-  ],
-  "DP-1",
-  80,
-);
-assertEqual(patched[0].brightness, 80, "patchMonitorBrightness updates the named monitor");
-assertEqual(patched[1].brightness, 10, "patchMonitorBrightness leaves other monitors");
-
-const scaled = snapshot.patchFocusedMonitorScale(
-  [
-    { name: "DP-1", focused: false, scale: 1 },
-    { name: "eDP-1", focused: true, scale: 1 },
-  ],
-  1.25,
-);
-assertEqual(scaled[1].scale, 1.25, "patchFocusedMonitorScale updates the focused monitor");
-assertEqual(scaled[0].scale, 1, "patchFocusedMonitorScale leaves other monitors");
-
 const plugged = snapshot.patchPluginEnabled(
   [
     { id: "omarchy.clock", enabled: true },

@@ -12,6 +12,8 @@ var OPS = [
   "settings.snapshot",
   "display.get",
   "display.snapshot",
+  "display.brightness",
+  "display.scale",
   "search.query",
   "host.chrome",
   "host.themePack",
@@ -48,6 +50,22 @@ function displayGet(kind) {
 
 function displaySnapshot() {
   return { op: "display.snapshot" };
+}
+
+// The focused monitor's scale, run by the daemon like the brightness write
+// below; the reply carries result.snapshot the same way.
+function displayScale(scale) {
+  return { op: "display.scale", scale: String(scale) };
+}
+
+// A write the daemon runs on the monitor's own lane. The reply carries the
+// monitor list as the machine now reports it, in result.snapshot.
+function displayBrightness(monitor, percent) {
+  return {
+    op: "display.brightness",
+    monitor: String(monitor || ""),
+    percent: Math.round(Number(percent)),
+  };
 }
 
 // context is Hubs.searchContext(): the hubs, page files, folder rules and titles.

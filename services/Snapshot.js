@@ -31,34 +31,6 @@ function cloneRow(row) {
   return out;
 }
 
-function patchMonitorBrightness(monitors, name, percent) {
-  var list = toList(monitors);
-  var i;
-  for (i = 0; i < list.length; i++) {
-    if (!list[i] || list[i].name !== name) continue;
-    var row = cloneRow(list[i]);
-    row.brightness = percent;
-    list[i] = row;
-    break;
-  }
-  return list;
-}
-
-function patchFocusedMonitorScale(monitors, scale) {
-  var n = Number(scale);
-  var list = toList(monitors);
-  var i;
-  if (!isFinite(n) || n <= 0) return list;
-  for (i = 0; i < list.length; i++) {
-    if (!list[i] || list[i].focused !== true) continue;
-    var row = cloneRow(list[i]);
-    row.scale = n;
-    list[i] = row;
-    break;
-  }
-  return list;
-}
-
 function patchPluginEnabled(plugins, id, on) {
   var list = toList(plugins);
   var want = String(id || "");
@@ -877,8 +849,6 @@ if (typeof module !== "undefined" && module.exports) {
     accountStorePatch: accountStorePatch,
     patchGroup: patchGroup,
     sanitizeDmi: sanitizeDmi,
-    patchMonitorBrightness: patchMonitorBrightness,
-    patchFocusedMonitorScale: patchFocusedMonitorScale,
     patchPluginEnabled: patchPluginEnabled,
     patchRemoveMatching: patchRemoveMatching,
     patchRowField: patchRowField,

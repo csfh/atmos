@@ -684,6 +684,8 @@ QtObject {
       return
     }
     recordChange(argv, root.stripGuard(opts))
+    // A typed op goes to the daemon's lane for it, not through the job queue.
+    if (opts.op) { root.rememberGuard(opts); return Ops.run(opts) }
     enqueueIo({
       kind: "mut",
       argv: argv,
@@ -807,7 +809,7 @@ QtObject {
       if (!scale || !isFinite(n) || n <= 0) return
       root.runCommand(["omarchy", "hyprland", "monitor", "scaling", scale], {
         key: "monitorScale",
-        apply: { monitors: SnapshotJs.patchFocusedMonitorScale(root.monitors, n) },
+        op: Requests.displayScale(scale),
         refresh: "none"
       })
       return
@@ -1084,7 +1086,7 @@ QtObject {
     }
     var opts = {
       key: "monitorScale",
-      apply: { monitors: SnapshotJs.patchFocusedMonitorScale(monitors, n) },
+      op: Requests.displayScale(scale),
       refresh: "none"
     }
     if (!root.reverting && previous)
@@ -1096,14 +1098,8 @@ QtObject {
     percent = Math.round(Number(percent))
     if (!/^[A-Za-z0-9._-]+$/.test(name)) return
     if (!isFinite(percent) || percent < 0 || percent > 100) return
-    runCommand(
-      ["omarchy", "brightness", "display", "--no-osd", "--monitor", name, percent + "%"],
-      {
-        key: "brightness:" + name,
-        apply: { monitors: SnapshotJs.patchMonitorBrightness(monitors, name, percent) },
-        refresh: "none"
-      }
-    )
+    var argv = ["omarchy", "brightness", "display", "--no-osd", "--monitor", name, percent + "%"]
+    runCommand(argv, { key: "brightness:" + name, op: Requests.displayBrightness(name, percent) })
   }
   function setInternalDisplay(on) {
     if (on === internalEnabled) return

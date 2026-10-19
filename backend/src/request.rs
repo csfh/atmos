@@ -34,6 +34,10 @@ pub enum Request {
     DisplayGet { kind: String },
     #[serde(rename = "display.snapshot")]
     DisplaySnapshot,
+    #[serde(rename = "display.brightness")]
+    DisplayBrightness { monitor: String, percent: u32 },
+    #[serde(rename = "display.scale")]
+    DisplayScale { scale: String },
     #[serde(rename = "host.chrome")]
     HostChrome,
     #[serde(rename = "host.themePack")]
@@ -216,6 +220,8 @@ mod tests {
             Request::SettingsSnapshot { .. } => "settings.snapshot",
             Request::DisplayGet { .. } => "display.get",
             Request::DisplaySnapshot => "display.snapshot",
+            Request::DisplayBrightness { .. } => "display.brightness",
+            Request::DisplayScale { .. } => "display.scale",
             Request::SearchQuery { .. } => "search.query",
             Request::HostChrome => "host.chrome",
             Request::HostThemePack(_) => "host.themePack",
@@ -244,6 +250,8 @@ mod tests {
             json!({"op": "settings.snapshot"}),
             json!({"op": "display.get", "kind": "monitors"}),
             json!({"op": "display.snapshot"}),
+            json!({"op": "display.brightness", "monitor": "DP-3", "percent": 40}),
+            json!({"op": "display.scale", "scale": "1.5"}),
             json!({"op": "search.query", "query": "x"}),
             json!({"op": "host.chrome"}),
             json!({"op": "host.themePack"}),

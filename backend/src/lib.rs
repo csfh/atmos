@@ -7,6 +7,7 @@
 
 mod agents;
 mod apply;
+mod command;
 mod display;
 pub mod domain;
 pub mod effect;
@@ -117,10 +118,12 @@ fn dispatch(
             Ok(0)
         }
         "apply" => {
+            let lease = parsed.root.is_none().then(job_lease).flatten();
             let code = apply::run(parsed.root.as_deref(), &parsed.rest, stdout, stderr);
             if parsed.root.is_none() {
                 sampler::drop_kinds(sampler::AFTER_JOB);
             }
+            drop(lease);
             Ok(code)
         }
         "daemon" => sampler::daemon::run(),
@@ -157,8 +160,10 @@ fn dispatch(
             Ok(0)
         }
         "task" => {
+            let lease = job_lease();
             let code = tasks::run(&parsed.rest, stdout, stderr);
             sampler::drop_kinds(sampler::AFTER_JOB);
+            drop(lease);
             Ok(code)
         }
         "root" => Ok(tasks::run_root(&parsed.rest, stderr)),
@@ -290,8 +295,15 @@ fn parse_args(args: &[String]) -> Result<Parsed> {
     })
 }
 
-pub(crate) fn handle(backend: Backend, root: Option<&Path>, request: &Value) -> Result<Value> {
-    let request = Request::parse(request.clone())?;
+pub(crate) fn handle(backend: Backend, root: Option<&Path>, body: &Value) -> Result<Value> {
+    let parsed = Request::parse(body.clone())?;
+    // A read that follows a write sees it: wait for the commands and jobs the
+    // daemon holds ahead of this read. A fixture root has none.
+    let direct = std::env::var_os(command::DIRECT).is_some();
+    if root.is_none() && !direct {
+        sampler::client::barrier(&command::reads(&parsed), command::BARRIER_WAIT);
+    }
+    let request = parsed;
     let result = match request {
         Request::Version => Value::String(VERSION.into()),
         Request::Platform => platform(backend)?,
@@ -319,6 +331,14 @@ pub(crate) fn handle(backend: Backend, root: Option<&Path>, request: &Value) -> 
             search::query(&context, &platform::app_root(), &query)
         }
         Request::DisplaySnapshot => load_displays(backend, root, display::KINDS),
+        Request::DisplayScale { scale } => {
+            route_command(backend, root, direct, body, || command::scale(root, &scale))?
+        }
+        Request::DisplayBrightness { monitor, percent } => {
+            route_command(backend, root, direct, body, || {
+                command::brightness(root, &monitor, percent)
+            })?
+        }
         Request::HostChrome => host::chrome(backend, root)?,
         Request::HostThemePack(args) => host::theme_pack(backend, root, &args)?,
         Request::HostAccounts(args) => host::accounts(backend, root, &args)?,
@@ -334,6 +354,50 @@ pub(crate) fn handle(backend: Backend, root: Option<&Path>, request: &Value) -> 
         Request::AgentsMcpCheck => agents::check(root)?,
     };
     Ok(ok_envelope(backend, result))
+}
+
+/// A job that keeps its own process tree (privileged, streamed, interactive)
+/// holds a lane of its own while it runs, so a read of what it changes waits for
+/// it instead of racing it. Its own lane: jobs never queue behind each other.
+/// Without a daemon the job just runs.
+fn job_lease() -> Option<sampler::client::Lease> {
+    sampler::client::lease(
+        &format!("job:{}", std::process::id()),
+        sampler::AFTER_JOB,
+        std::time::Duration::from_millis(500),
+    )
+}
+
+/// A typed command goes to the daemon's lane for it and comes back with the
+/// answer of the command that ran (see `command`). With no daemon, or a fixture
+/// root, or inside the child the daemon started for it, it runs here.
+fn route_command(
+    backend: Backend,
+    root: Option<&Path>,
+    direct: bool,
+    body: &Value,
+    inline: impl FnOnce() -> Result<Value>,
+) -> Result<Value> {
+    if root.is_some() || direct {
+        return inline();
+    }
+    match sampler::client::command(body, backend.id()) {
+        sampler::client::Command::Unavailable => inline(),
+        sampler::client::Command::Lost(message) => Err(Error::new(error::Kind::Failed, message)),
+        sampler::client::Command::Done {
+            envelope,
+            coalesced,
+        } => {
+            if envelope["ok"].as_bool() != Some(true) {
+                return Err(command::error_of(&envelope));
+            }
+            let mut result = envelope["result"].clone();
+            if let Some(map) = result.as_object_mut() {
+                map.insert("coalesced".into(), Value::Bool(coalesced));
+            }
+            Ok(result)
+        }
+    }
 }
 
 fn settings_list(backend: Backend) -> Result<Vec<Value>> {

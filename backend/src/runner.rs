@@ -38,6 +38,7 @@ pub struct Run {
     program: OsString,
     args: Vec<OsString>,
     envs: Vec<(OsString, OsString)>,
+    clear_env: bool,
     input: Option<Vec<u8>>,
     timeout: Option<Duration>,
 }
@@ -48,6 +49,7 @@ impl Run {
             program: program.as_ref().to_os_string(),
             args: Vec::new(),
             envs: Vec::new(),
+            clear_env: false,
             input: None,
             timeout: None,
         }
@@ -74,6 +76,12 @@ impl Run {
         self
     }
 
+    /// Start from an empty environment: only what `env` adds is passed.
+    pub fn clear_env(mut self) -> Self {
+        self.clear_env = true;
+        self
+    }
+
     pub fn input(mut self, bytes: impl Into<Vec<u8>>) -> Self {
         self.input = Some(bytes.into());
         self
@@ -91,6 +99,9 @@ impl Run {
     fn command(&self) -> Command {
         let mut command = Command::new(&self.program);
         command.args(&self.args);
+        if self.clear_env {
+            command.env_clear();
+        }
         for (key, value) in &self.envs {
             command.env(key, value);
         }

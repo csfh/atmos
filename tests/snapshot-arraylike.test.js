@@ -31,20 +31,20 @@ for (const notList of ["abc", 5, null, undefined, {}, { name: "x" }, { length: "
 assert(!snapshot.isPlainObject(wrapped(monitors)), "a wrapper is not a plain record");
 assert(snapshot.isPlainObject({ a: 1 }), "a record still is");
 
-// The slider: the patch result goes back through a property and comes out wrapped.
-let held = wrapped(monitors);
-for (const percent of [35, 38, 41, 0, 100]) {
-  const patched = snapshot.patchMonitorBrightness(held, "DP-3", percent);
-  assertEqual(patched.length, 2, `a brightness patch to ${percent} keeps both monitors`);
-  assertEqual(patched[0].brightness, percent, `and sets brightness to ${percent}`);
-  assertEqual(patched[1].brightness, 70, "and leaves the other monitor alone");
+// A patch result goes back through a property and comes out wrapped, repeatedly.
+const plugins = [
+  { id: "a", enabled: false },
+  { id: "b", enabled: true },
+];
+let held = wrapped(plugins);
+for (const on of [true, false, true, true, false]) {
+  const patched = snapshot.patchPluginEnabled(held, "a", on);
+  assertEqual(patched.length, 2, `a patch to ${on} keeps both rows`);
+  assertEqual(patched[0].enabled, on, `and sets the row to ${on}`);
+  assertEqual(patched[1].enabled, true, "and leaves the other row alone");
   held = wrapped(patched);
 }
-console.log("ok - repeated brightness patches never empty the monitor list");
-
-const scaled = snapshot.patchFocusedMonitorScale(wrapped(monitors), 1.5);
-assertEqual(scaled.length, 2, "a scale patch keeps both monitors");
-assertEqual(scaled[0].scale, 1.5, "and scales the focused one");
+console.log("ok - repeated patches never empty the list");
 
 assertEqual(
   snapshot.patchPluginEnabled(wrapped([{ id: "a", enabled: false }]), "a", true).length,

@@ -20,6 +20,7 @@ use serde_json::{json, Value};
 
 use super::bus::Bus;
 use super::cache::{self, Sample};
+use super::commands::Commands;
 use super::flight::{Flights, Outcome};
 use super::governor::{self, Governor, Limits, Probe, Verdict};
 use super::schedule::{self, Schedule};
@@ -29,6 +30,10 @@ use crate::error::{Error, Result};
 
 pub type Collect = dyn Fn(&str) -> std::result::Result<Value, String> + Send + Sync;
 
+/// Runs one command: the backend id, the request body and the caller's
+/// environment in, the envelope out.
+pub type RunCommand = dyn Fn(&str, &Value, &[(String, String)]) -> Value + Send + Sync;
+
 pub struct Config {
     /// The least time between a kind's samples when a mutation drops it.
     pub floor: Duration,
@@ -36,6 +41,7 @@ pub struct Config {
     pub probe: Box<dyn Probe + Send + Sync>,
     /// How long a background collection may take before it is given up on.
     pub job_timeout: Duration,
+    pub run_command: Box<RunCommand>,
 }
 
 impl Config {
@@ -45,6 +51,7 @@ impl Config {
             limits: Limits::default(),
             probe: Box::new(governor::ProcProbe),
             job_timeout: Duration::from_secs(120),
+            run_command: Box::new(crate::command::run_child),
         }
     }
 }
@@ -56,6 +63,8 @@ pub struct Daemon {
     workers: Arc<Workers>,
     topics: Topics,
     pub(super) bus: Bus,
+    pub(super) commands: Arc<Commands>,
+    pub(super) run_command: Arc<RunCommand>,
     governor: Mutex<Governor>,
     probe: Box<dyn Probe + Send + Sync>,
     floor: Duration,
@@ -72,6 +81,19 @@ impl Daemon {
                 topics.seed(kind, &sample);
             }
         }
+        // A finished command or lease drops the display kinds it touched, so
+        // the next read collects them again.
+        let invalidate = dir.clone();
+        let commands = Commands::new(Box::new(move |affects| {
+            let kinds: Vec<&str> = affects
+                .iter()
+                .map(String::as_str)
+                .filter(|topic| crate::display::is_kind(topic))
+                .collect();
+            if !kinds.is_empty() {
+                cache::drop_kinds(&invalidate, &kinds);
+            }
+        }));
         Arc::new(Daemon {
             dir,
             flights: Flights::default(),
@@ -79,6 +101,8 @@ impl Daemon {
             workers: Arc::new(Workers::default()),
             topics,
             bus: Bus::default(),
+            commands,
+            run_command: Arc::from(config.run_command),
             governor: Mutex::new(Governor::new(config.limits)),
             probe: config.probe,
             floor: config.floor,
@@ -159,6 +183,8 @@ impl Daemon {
                 json!({"ok": true, "version": crate::VERSION, "pid": std::process::id()})
             }
             Some("status") => self.status(),
+            Some("command") => self.command_op(request),
+            Some("barrier") => self.barrier_op(request),
             Some("sample") => {
                 let kind = request.get("kind").and_then(Value::as_str).unwrap_or("");
                 match self.sample(kind, true) {
@@ -174,7 +200,7 @@ impl Daemon {
         let _ = stream.set_read_timeout(Some(Duration::from_secs(5)));
         let mut line = String::new();
         {
-            let mut reader = BufReader::new(&stream).take(4096);
+            let mut reader = BufReader::new(&stream).take(REQUEST_LIMIT);
             if reader.read_line(&mut line).unwrap_or(0) == 0 {
                 return;
             }
@@ -197,6 +223,10 @@ impl Daemon {
             if writeln!(out, "{}", json!({"ok": true})).is_ok() {
                 self.workers.attach(stream, pid);
             }
+            return;
+        }
+        if request.get("op").and_then(Value::as_str) == Some("lease") {
+            super::ops::hold_lease(self, stream, &request);
             return;
         }
         if request.get("op").and_then(Value::as_str) == Some("session") {
@@ -293,6 +323,10 @@ impl SamplerWatch {
     }
 }
 
+/// The longest request line a connection may send. A command carries the
+/// caller's environment, which is a few kilobytes.
+const REQUEST_LIMIT: u64 = 512 * 1024;
+
 /// How often the scheduled lane looks up from sleeping.
 const WAKE: Duration = Duration::from_millis(500);
 
@@ -374,6 +408,7 @@ pub(crate) mod tests {
             },
             probe: Box::new(dial.clone()),
             job_timeout: Duration::from_secs(5),
+            run_command: Box::new(|_, body, _| json!({"ok": true, "result": {"ran": body}})),
         }
     }
 
@@ -408,6 +443,24 @@ pub(crate) mod tests {
         let pump = daemon.clone();
         std::thread::spawn(move || pump.pump(&AtomicBool::new(false)));
         (dir, daemon, calls, dial)
+    }
+
+    /// A daemon whose commands run `run` instead of a child process.
+    pub fn serve_commands(name: &str, run: Box<RunCommand>) -> (PathBuf, Arc<Daemon>) {
+        let dir = scratch(name);
+        let (listener, lock) = bind(&dir).unwrap();
+        std::mem::forget(lock);
+        let dial = Arc::new(Dial(AtomicBool::new(false)));
+        let mut config = test_config(&dial);
+        config.run_command = run;
+        let daemon = Daemon::new(
+            dir.clone(),
+            Box::new(|kind| Ok(json!({"kind": kind}))),
+            config,
+        );
+        let lane = daemon.clone();
+        std::thread::spawn(move || lane.accept(listener));
+        (dir, daemon)
     }
 
     /// Connect a sampler process stand-in and wait until the daemon sees it.

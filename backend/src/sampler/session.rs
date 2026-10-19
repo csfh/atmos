@@ -294,6 +294,8 @@ mod tests {
         client.send(json!({"t": "sub", "topics": {"services": {}}}));
         let held = client.next();
         assert_eq!(held["topic"], "services");
+        // Samples a millisecond apart are two samples; the same millisecond is one.
+        std::thread::sleep(Duration::from_millis(5));
         daemon.sample("services", true).unwrap();
         let later = client.next();
         assert!(later["sampledAt"].as_u64() >= held["sampledAt"].as_u64());

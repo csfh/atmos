@@ -36,11 +36,14 @@ assertEqual(
   "a unit defaults to the system scope",
 );
 assertEqual(requests.hostStamp(["a", 1]).paths[1], "1", "stamp paths are strings");
+assertEqual(requests.displayBrightness("DP-3", 40.4).percent, 40, "a level is whole percent");
+assertEqual(requests.displayBrightness("DP-3", "40").monitor, "DP-3", "the monitor is named");
 
 for (const body of [
   requests.settingsGet("theme"),
   requests.settingsSet("theme", "x"),
   requests.displaySnapshot(),
+  requests.displayBrightness("DP-3", 40),
   requests.hostChrome(),
   requests.hostAccounts("u", "/h"),
   requests.hostRead(["a"]),

@@ -84,6 +84,18 @@ const cases = [
   },
   { name: "display-get-plain", backend: "plain", request: R.displayGet("hardware") },
   { name: "display-snapshot-plain", backend: "plain", request: R.displaySnapshot() },
+  { name: "display-scale-fixture", backend: "omarchy", request: R.displayScale("1.5") },
+  { name: "error-display-scale-bad", backend: "omarchy", request: R.displayScale("x") },
+  {
+    name: "display-brightness-fixture",
+    backend: "omarchy",
+    request: R.displayBrightness("DP-3", 40),
+  },
+  {
+    name: "error-display-brightness-bad-monitor",
+    backend: "omarchy",
+    request: R.displayBrightness("a b", 40),
+  },
 
   // Search: only the hub rows, so the reply does not depend on the page sources.
   {

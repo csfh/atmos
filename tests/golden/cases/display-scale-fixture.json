@@ -1,0 +1,19 @@
+{
+  "backend": "omarchy",
+  "request": {
+    "op": "display.scale",
+    "scale": "1.5"
+  },
+  "response": {
+    "ok": true,
+    "platform": {
+      "compositor": "hyprland",
+      "family": "arch",
+      "id": "omarchy"
+    },
+    "result": {
+      "scale": "1.5"
+    },
+    "version": "0.3.0"
+  }
+}

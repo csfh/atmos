@@ -8,10 +8,12 @@
 mod bus;
 pub mod cache;
 pub mod client;
+mod commands;
 pub mod daemon;
 mod flight;
 pub mod governor;
 pub mod launch;
+mod ops;
 pub mod policy;
 mod schedule;
 mod session;

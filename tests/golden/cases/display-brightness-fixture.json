@@ -1,0 +1,21 @@
+{
+  "backend": "omarchy",
+  "request": {
+    "op": "display.brightness",
+    "monitor": "DP-3",
+    "percent": 40
+  },
+  "response": {
+    "ok": true,
+    "platform": {
+      "compositor": "hyprland",
+      "family": "arch",
+      "id": "omarchy"
+    },
+    "result": {
+      "monitor": "DP-3",
+      "percent": 40
+    },
+    "version": "0.3.0"
+  }
+}

@@ -22,6 +22,21 @@ pub enum Kind {
 }
 
 impl Kind {
+    /// The kind a wire `code` names; anything unknown is `Failed`.
+    pub fn from_code(code: &str) -> Kind {
+        [
+            Kind::BadRequest,
+            Kind::NotFound,
+            Kind::Denied,
+            Kind::Io,
+            Kind::Command,
+            Kind::Timeout,
+        ]
+        .into_iter()
+        .find(|kind| kind.code() == code)
+        .unwrap_or(Kind::Failed)
+    }
+
     pub fn code(self) -> &'static str {
         match self {
             Kind::BadRequest => "bad_request",

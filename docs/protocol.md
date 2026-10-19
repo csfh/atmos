@@ -165,6 +165,13 @@ A domain is one named setting, such as `theme` or `hyprLook.gapsIn`.
 | --- | --- | --- |
 | `display.get` | `kind`: `live`, `hardware`, `disks`, `services`, `software` or `diagnostics` | One inventory. An unknown kind is a `failed` reply. `live` also carries `uptimeSec`, a `startTicks` per process, and `tcpSockets` rows with `addr`, `port`, `uid` and `pid` (`null` when the owner's `/proc/<pid>/fd` is unreadable), listeners first. |
 | `display.snapshot` | | An object holding every kind above, each as `display.get` returns it. One failing inventory stays on its own key. |
+| `display.brightness` | `monitor`, `percent` (0 to 100) | `{monitor, percent, coalesced, snapshot}`. Runs `omarchy brightness display` on the monitor's own lane in the daemon, then reads the monitors back: `snapshot.monitors` is the list as the machine reports it now (absent when `hyprctl` failed, so a window keeps the list it has). A panel on DDC/CI answers a read right after a write with the old level, so the daemon re-reads that monitor for up to about a second until it reports the new one, give or take a point, and the reply shows that level. Writes queued on one monitor collapse to the newest, and a replaced caller gets that command's answer with `coalesced: true`. A bad `monitor` (letters, digits, `.`, `_`, `-` only) or `percent` is `bad_request` and nothing runs. Under a fixture root it only answers `{monitor, percent}`. |
+
+| `display.scale` | `scale` (a number above 0 and at most 8, as text) | `{scale, coalesced, snapshot}`. Runs `omarchy hyprland monitor scaling` on the `hypr:monitors` lane, then returns the monitors as the machine reports them, like `display.brightness`. Under a fixture root it only answers `{scale}`. |
+
+#### Writes and reads in order
+
+`display.brightness` is a typed command: the daemon runs it on a lane (`monitor:<name>`), in order with other writes to that lane, and holds back reads of what it changes until it is done. A `settings.snapshot` of group `look`, `rest` or `all`, and any `display.get`, wait up to 3 seconds for the commands and leased jobs ahead of them, so a read after a write sees the write. `ratmos task` and `ratmos apply` lease a lane of their own while they run, which holds back reads of `disks`, `services`, `software` and `diagnostics` the same way, and drops them when the job ends. The command runs in a child `ratmos request` that carries the caller's environment. With no daemon, or an older one, the command runs in the caller's own process with no ordering across windows. A daemon that took a command and then did not answer is reported as a failure and the command is not run a second time.
 
 #### Sample cache
 

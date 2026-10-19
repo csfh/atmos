@@ -1,0 +1,23 @@
+{
+  "backend": "omarchy",
+  "request": {
+    "op": "display.brightness",
+    "monitor": "a b",
+    "percent": 40
+  },
+  "response": {
+    "error": {
+      "code": "bad_request",
+      "context": "monitor",
+      "message": "monitor: not a monitor name"
+    },
+    "ok": false,
+    "platform": {
+      "compositor": "hyprland",
+      "family": "arch",
+      "id": "omarchy"
+    },
+    "result": null,
+    "version": "0.3.0"
+  }
+}

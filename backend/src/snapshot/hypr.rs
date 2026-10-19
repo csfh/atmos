@@ -218,24 +218,29 @@ pub fn monitors() -> Option<Vec<Value>> {
     let mut rows: Vec<Value> = rows.iter().map(monitor_row).collect();
     for row in &mut rows {
         let name = row["name"].as_str().unwrap_or("").to_string();
-        if !sh::is_ident(&name) {
-            continue;
-        }
-        let shown = out(
-            "omarchy",
-            &["brightness", "display", "--no-osd", "--monitor", &name],
-        );
-        let first = shown
-            .lines()
-            .next()
-            .and_then(|l| l.split_whitespace().next())
-            .unwrap_or("");
-        if is_uint(first) {
-            row["brightness"] = json!(first.parse::<u64>().unwrap_or(0).min(100));
+        if let Some(level) = brightness(&name) {
+            row["brightness"] = json!(level);
             row["brightnessAvailable"] = json!(true);
         }
     }
     Some(rows)
+}
+
+/// What `omarchy brightness display` reports for one monitor, in percent.
+pub fn brightness(name: &str) -> Option<u64> {
+    if !sh::is_ident(name) {
+        return None;
+    }
+    let shown = out(
+        "omarchy",
+        &["brightness", "display", "--no-osd", "--monitor", name],
+    );
+    let first = shown
+        .lines()
+        .next()
+        .and_then(|l| l.split_whitespace().next())
+        .unwrap_or("");
+    is_uint(first).then(|| first.parse::<u64>().unwrap_or(0).min(100))
 }
 
 pub struct Devices {

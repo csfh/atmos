@@ -3,10 +3,10 @@
 
 mod bar;
 mod host;
-mod hypr;
+pub(crate) mod hypr;
 mod merge;
 mod net;
-mod sh;
+pub(crate) mod sh;
 mod system;
 
 pub use merge::{settings, settings_snapshot};

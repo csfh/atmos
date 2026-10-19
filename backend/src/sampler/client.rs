@@ -53,11 +53,143 @@ fn ask(dir: &Path, kind: &str, wait: Duration) -> Option<Sample> {
     Sample::from_json(reply.get("sample")?)
 }
 
+/// What came of asking the daemon to run a command.
+#[derive(Debug)]
+pub enum Command {
+    /// Nothing is listening, or the daemon predates commands. Nothing was
+    /// queued, so the caller may run the command itself.
+    Unavailable,
+    /// It ran, in order on its lane. `coalesced` says a newer command of the
+    /// same key ran in its place and `envelope` is that one's answer.
+    Done { envelope: Value, coalesced: bool },
+    /// The daemon took it and did not answer. It may still run, so the caller
+    /// must not run it again.
+    Lost(String),
+}
+
+/// Ask the daemon to run the command in `body` on its lane, with this
+/// process's environment.
+pub fn command(body: &Value, backend_id: &str) -> Command {
+    let Some(dir) = cache::dir_from_env() else {
+        return Command::Unavailable;
+    };
+    command_in(&dir, body, backend_id)
+}
+
+pub fn command_in(dir: &Path, body: &Value, backend_id: &str) -> Command {
+    let Ok(stream) = UnixStream::connect(cache::socket(dir)) else {
+        return Command::Unavailable;
+    };
+    let env: serde_json::Map<String, Value> = std::env::vars()
+        .map(|(key, value)| (key, Value::String(value)))
+        .collect();
+    let ask = json!({"op": "command", "request": body, "backend": backend_id, "env": env});
+    if stream
+        .set_write_timeout(Some(Duration::from_secs(2)))
+        .is_err()
+        || stream.set_read_timeout(Some(COMMAND_WAIT)).is_err()
+    {
+        return Command::Unavailable;
+    }
+    let mut writer = &stream;
+    // The request line is read with a limit; a large environment must fit.
+    if writeln!(writer, "{ask}").is_err() {
+        return Command::Unavailable;
+    }
+    let mut line = String::new();
+    if BufReader::new(&stream).read_line(&mut line).is_err() || line.is_empty() {
+        return Command::Lost("the daemon did not answer".into());
+    }
+    let reply: Value = match serde_json::from_str(line.trim()) {
+        Ok(reply) => reply,
+        Err(err) => return Command::Lost(format!("the daemon's answer was garbled: {err}")),
+    };
+    if reply.get("ok").and_then(Value::as_bool) == Some(true) {
+        return Command::Done {
+            envelope: reply.get("envelope").cloned().unwrap_or(Value::Null),
+            coalesced: reply.get("coalesced").and_then(Value::as_bool) == Some(true),
+        };
+    }
+    match reply.get("message").and_then(Value::as_str) {
+        // An older daemon: it queued nothing.
+        Some("unknown op") => Command::Unavailable,
+        // An older daemon cut the line at 4 KiB, and a command carries the
+        // environment: it read half of it, so nothing was queued.
+        Some(message) if message.starts_with("bad request") => Command::Unavailable,
+        Some(message) => Command::Lost(message.to_string()),
+        None => Command::Lost("the daemon refused the command".into()),
+    }
+}
+
+/// How long a command may take, queue included.
+const COMMAND_WAIT: Duration = Duration::from_secs(160);
+
+/// Wait until no command or leased job ahead of a read touches `topics`, for
+/// at most `wait`. With no daemon there is nothing to wait for.
+pub fn barrier(topics: &[String], wait: Duration) {
+    if topics.is_empty() {
+        return;
+    }
+    let Some(dir) = cache::dir_from_env() else {
+        return;
+    };
+    barrier_in(&dir, topics, wait);
+}
+
+pub fn barrier_in(dir: &Path, topics: &[String], wait: Duration) {
+    let Ok(stream) = UnixStream::connect(cache::socket(dir)) else {
+        return;
+    };
+    let _ = stream.set_write_timeout(Some(Duration::from_secs(2)));
+    let _ = stream.set_read_timeout(Some(wait + Duration::from_secs(1)));
+    let mut writer = &stream;
+    let ask = json!({"op": "barrier", "topics": topics, "waitMs": wait.as_millis() as u64});
+    if writeln!(writer, "{ask}").is_err() {
+        return;
+    }
+    let mut line = String::new();
+    let _ = BufReader::new(&stream).read_line(&mut line);
+}
+
+/// A lane held for a job this process runs itself. Dropping it, or the process
+/// dying, releases the lane and invalidates what it affects.
+pub struct Lease(#[allow(dead_code)] UnixStream);
+
+/// Take `lane` for a job that keeps its own process tree. None when there is
+/// no daemon, it is an older one, or the lane stays busy for `wait`; the job
+/// then simply runs without ordering.
+pub fn lease(lane: &str, affects: &[&str], wait: Duration) -> Option<Lease> {
+    lease_in(&cache::dir_from_env()?, lane, affects, wait)
+}
+
+pub fn lease_in(dir: &Path, lane: &str, affects: &[&str], wait: Duration) -> Option<Lease> {
+    let stream = UnixStream::connect(cache::socket(dir)).ok()?;
+    stream
+        .set_write_timeout(Some(Duration::from_secs(2)))
+        .ok()?;
+    stream
+        .set_read_timeout(Some(wait + Duration::from_secs(1)))
+        .ok()?;
+    let mut writer = &stream;
+    let ask =
+        json!({"op": "lease", "lane": lane, "affects": affects, "waitMs": wait.as_millis() as u64});
+    writeln!(writer, "{ask}").ok()?;
+    let mut line = String::new();
+    BufReader::new(&stream).read_line(&mut line).ok()?;
+    let reply: Value = serde_json::from_str(line.trim()).ok()?;
+    if reply.get("ok").and_then(Value::as_bool) != Some(true) {
+        return None;
+    }
+    stream.set_read_timeout(None).ok()?;
+    Some(Lease(stream))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::sampler::cache::tests::scratch;
     use crate::sampler::daemon::tests::serve;
+    use std::io::Read;
     use std::sync::atomic::Ordering;
 
     #[test]
@@ -155,6 +287,30 @@ mod tests {
             "{:?}",
             started.elapsed()
         );
+    }
+
+    #[test]
+    fn an_older_daemon_that_cut_the_line_queued_nothing() {
+        let dir = scratch("oldcut");
+        let (listener, lock) = crate::sampler::daemon::bind(&dir).unwrap();
+        std::mem::forget(lock);
+        std::thread::spawn(move || {
+            for stream in listener.incoming().flatten() {
+                let mut line = String::new();
+                let _ = BufReader::new(&stream).take(4096).read_line(&mut line);
+                let mut out = &stream;
+                let _ = writeln!(
+                    out,
+                    "{}",
+                    json!({"ok": false, "message": "bad request: EOF"})
+                );
+            }
+        });
+        let body = json!({"op": "display.brightness", "monitor": "DP-3", "percent": 1});
+        assert!(matches!(
+            command_in(&dir, &body, "omarchy"),
+            Command::Unavailable
+        ));
     }
 
     #[test]

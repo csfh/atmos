@@ -31,26 +31,24 @@ for (const notList of ["abc", 5, null, undefined, {}, { name: "x" }, { length: "
 assert(!snapshot.isPlainObject(wrapped(monitors)), "a wrapper is not a plain record");
 assert(snapshot.isPlainObject({ a: 1 }), "a record still is");
 
-// A patch result goes back through a property and comes out wrapped, repeatedly.
+// A server reply goes back through a property and comes out wrapped, repeatedly.
 const plugins = [
   { id: "a", enabled: false },
   { id: "b", enabled: true },
 ];
 let held = wrapped(plugins);
 for (const on of [true, false, true, true, false]) {
-  const patched = snapshot.patchPluginEnabled(held, "a", on);
-  assertEqual(patched.length, 2, `a patch to ${on} keeps both rows`);
-  assertEqual(patched[0].enabled, on, `and sets the row to ${on}`);
-  assertEqual(patched[1].enabled, true, "and leaves the other row alone");
-  held = wrapped(patched);
+  const next = [
+    { id: "a", enabled: on },
+    { id: "b", enabled: true },
+  ];
+  const adopted = snapshot.adoptArray(held, next);
+  assertEqual(adopted.length, 2, `a reply with ${on} keeps both rows`);
+  assertEqual(adopted[0].enabled, on, `and shows the row as ${on}`);
+  assertEqual(adopted[1].enabled, true, "and leaves the other row alone");
+  held = wrapped(adopted);
 }
-console.log("ok - repeated patches never empty the list");
-
-assertEqual(
-  snapshot.patchPluginEnabled(wrapped([{ id: "a", enabled: false }]), "a", true).length,
-  1,
-  "a plugin patch keeps the list",
-);
+console.log("ok - repeated replies never empty the list");
 
 // A reply without the key keeps what the window holds, wrapped or not.
 const kept = wrapped(monitors);

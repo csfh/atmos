@@ -20,7 +20,14 @@ pub enum Request {
     #[serde(rename = "settings.get")]
     SettingsGet { domain: String },
     #[serde(rename = "settings.set")]
-    SettingsSet { domain: String, value: Value },
+    SettingsSet {
+        domain: String,
+        value: Value,
+        /// Snapshot keys to read back once the value is written, for the keys
+        /// the setting changes besides its own.
+        #[serde(default)]
+        readback: Vec<String>,
+    },
     #[serde(rename = "settings.snapshot")]
     SettingsSnapshot {
         #[serde(default = "all_groups")]
@@ -32,6 +39,20 @@ pub enum Request {
     },
     #[serde(rename = "display.get")]
     DisplayGet { kind: String },
+    #[serde(rename = "snapshot.keys")]
+    SnapshotKeys {
+        keys: Vec<String>,
+        /// Values the keys must show before they are returned, for a change
+        /// the machine finishes after its command exits. Waited for briefly.
+        #[serde(default)]
+        expect: serde_json::Map<String, Value>,
+    },
+    #[serde(rename = "write")]
+    Write {
+        name: String,
+        #[serde(default)]
+        args: Value,
+    },
     #[serde(rename = "display.snapshot")]
     DisplaySnapshot,
     #[serde(rename = "display.brightness")]
@@ -220,6 +241,8 @@ mod tests {
             Request::SettingsSnapshot { .. } => "settings.snapshot",
             Request::DisplayGet { .. } => "display.get",
             Request::DisplaySnapshot => "display.snapshot",
+            Request::SnapshotKeys { .. } => "snapshot.keys",
+            Request::Write { .. } => "write",
             Request::DisplayBrightness { .. } => "display.brightness",
             Request::DisplayScale { .. } => "display.scale",
             Request::SearchQuery { .. } => "search.query",
@@ -250,6 +273,8 @@ mod tests {
             json!({"op": "settings.snapshot"}),
             json!({"op": "display.get", "kind": "monitors"}),
             json!({"op": "display.snapshot"}),
+            json!({"op": "snapshot.keys", "keys": ["theme"]}),
+            json!({"op": "write", "name": "plugin.set", "args": {"id": "p", "on": true}}),
             json!({"op": "display.brightness", "monitor": "DP-3", "percent": 40}),
             json!({"op": "display.scale", "scale": "1.5"}),
             json!({"op": "search.query", "query": "x"}),

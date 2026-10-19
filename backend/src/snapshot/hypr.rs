@@ -184,6 +184,13 @@ fn monitor_row(m: &Value) -> Value {
 /// the same as no monitors: the caller leaves the last list alone and the
 /// reason goes to stderr.
 pub fn monitors() -> Option<Vec<Value>> {
+    monitors_with(true)
+}
+
+/// The monitor rows; `levels` adds each panel's brightness, which a DDC/CI
+/// panel takes a moment to answer, so a caller that only needs which monitors
+/// exist and how they are set up leaves it out.
+pub fn monitors_with(levels: bool) -> Option<Vec<Value>> {
     if !present("hyprctl") {
         return Some(Vec::new());
     }
@@ -218,6 +225,9 @@ pub fn monitors() -> Option<Vec<Value>> {
     let mut rows: Vec<Value> = rows.iter().map(monitor_row).collect();
     for row in &mut rows {
         let name = row["name"].as_str().unwrap_or("").to_string();
+        if !levels {
+            continue;
+        }
         if let Some(level) = brightness(&name) {
             row["brightness"] = json!(level);
             row["brightnessAvailable"] = json!(true);

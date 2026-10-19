@@ -93,11 +93,14 @@ impl Workers {
                         .unwrap_or("the sampler failed")
                         .to_string())
                 };
-                if let Some(tx) = lock(&conn.waiting).remove(&job) {
+                let waiter = lock(&conn.waiting).remove(&job);
+                // Answered, even if the caller stopped waiting. Free before the
+                // answer goes out: a caller that asks again at once must not
+                // find the worker still marked busy.
+                conn.busy.store(false, Ordering::SeqCst);
+                if let Some(tx) = waiter {
                     let _ = tx.send(outcome);
                 }
-                // Answered, even if the caller stopped waiting.
-                conn.busy.store(false, Ordering::SeqCst);
             }
             // The worker went away: whoever waits is told, and nobody is current.
             for (_, tx) in lock(&conn.waiting).drain() {

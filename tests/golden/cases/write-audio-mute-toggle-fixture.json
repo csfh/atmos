@@ -1,0 +1,22 @@
+{
+  "backend": "omarchy",
+  "request": {
+    "op": "write",
+    "name": "audio.output.mute-toggle",
+    "args": {}
+  },
+  "response": {
+    "ok": true,
+    "platform": {
+      "compositor": "hyprland",
+      "family": "arch",
+      "id": "omarchy"
+    },
+    "result": {
+      "argv": ["omarchy", "audio", "output", "volume", "mute-toggle"],
+      "settled": true,
+      "snapshot": {}
+    },
+    "version": "0.3.0"
+  }
+}

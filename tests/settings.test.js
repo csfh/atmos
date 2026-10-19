@@ -6,7 +6,6 @@ const { ratmosBinary } = require("./sandbox");
 const { load, assert, assertEqual } = require("./harness");
 
 const settings = load("services/Settings.js");
-const groups = load("services/SnapshotGroups.js");
 
 const s_catalog = settings.settingsCatalog();
 assert(s_catalog.length > 0, "settingsCatalog returns entries");
@@ -930,11 +929,21 @@ assertEqual(
 );
 
 const volume = settings.commandFor("audioOutputVolume", 40, { audioOutputMuted: true });
-assertEqual(volume.apply.audioOutputMuted, false, "setting output volume unmutes");
+assertEqual(volume.value, 40, "setting output volume writes the level");
+assert(
+  volume.readback.indexOf("audioOutputVolume") !== -1 &&
+    volume.readback.indexOf("audioOutputMuted") !== -1,
+  "setting output volume reads back the level and whether it is muted, which the backend reports",
+);
 
 const presentationOn = settings.commandFor("presentationMode", true, { presentationMode: false });
 assertEqual(taskArgv(presentationOn, "presentationMode"), true, "presentationMode on writes true");
-assertEqual(presentationOn.apply.presentationMode, true, "presentationMode on patches the flag");
+assertEqual(presentationOn.value, true, "presentationMode on is written as true");
+assertEqual(
+  presentationOn.readback.join(","),
+  "presentationMode",
+  "and read back from the machine",
+);
 const presentationOff = settings.commandFor("presentationMode", false, { presentationMode: true });
 assertEqual(
   taskArgv(presentationOff, "presentationMode"),
@@ -947,8 +956,12 @@ const weatherClear = settings.commandFor("weatherLocation", "", {
   weatherAuto: false,
 });
 assert(weatherClear.argv.indexOf("--clear") !== -1, "empty weatherLocation clears the pin");
-assertEqual(weatherClear.apply.weatherAuto, true, "clearing weather returns to auto");
-assertEqual(weatherClear.apply.weatherCoords, "", "clearing weather drops coordinates");
+assertEqual(weatherClear.value, "", "clearing weather writes an empty location");
+assert(
+  weatherClear.readback.indexOf("weatherAuto") !== -1 &&
+    weatherClear.readback.indexOf("weatherCoords") !== -1,
+  "clearing weather reads back auto and the coordinates the backend reports",
+);
 
 const nightlightOn = settings.commandFor("nightlight", true, { nightlight: false });
 assertEqual(
@@ -958,20 +971,15 @@ assertEqual(
 );
 
 const nightlightWarm = settings.commandFor("nightlightTemperature", 3500, { nightlight: false });
-assertEqual(nightlightWarm.apply.nightlightTemperature, 3500, "warmth apply keeps the kelvin");
-assertEqual(
-  nightlightWarm.apply.nightlight,
-  undefined,
-  "warmth apply does not fabricate the nightlight toggle",
+assertEqual(nightlightWarm.value, 3500, "warmth writes the kelvin");
+assert(
+  nightlightWarm.readback.indexOf("nightlightTemperature") !== -1,
+  "warmth reads the temperature back",
 );
 const nightlightDaylight = settings.commandFor("nightlightTemperature", 6500, {
   nightlight: true,
 });
-assertEqual(
-  nightlightDaylight.apply.nightlight,
-  undefined,
-  "daylight warmth apply does not mark nightlight off",
-);
+assertEqual(nightlightDaylight.value, 6500, "daylight warmth writes the kelvin");
 assertEqual(
   taskArgv(nightlightWarm, "nightlightTemperature"),
   3500,
@@ -1045,49 +1053,27 @@ const muteOnlySkip = settings.planCommands(
 );
 assertEqual(muteOnlySkip.length, 0, "mute-only skips when the snapshot already matches");
 
-const inputCmd = settings.commandFor(
-  "hyprInput.sensitivity",
-  0.5,
-  { hyprInput: { sensitivity: 0, naturalScroll: false }, hyprInputManaged: false },
-  { tagApply: groups.tagApply },
+const inputCmd = settings.commandFor("hyprInput.sensitivity", 0.5, {
+  hyprInput: { sensitivity: 0, naturalScroll: false },
+  hyprInputManaged: false,
+});
+assertEqual(inputCmd.value, 0.5, "a hyprInput field is written with its new value");
+assertEqual(
+  inputCmd.readback.join(","),
+  "hyprInput,hyprInputManaged",
+  "and the group and its managed flag are read back",
 );
 assertEqual(
-  settings.commandFor(
-    "hyprLook.gapsIn",
-    9,
-    { hyprLook: { gapsIn: 5 } },
-    { tagApply: groups.tagApply },
-  ).apply.group,
-  "look",
-  "hyprLook apply is tagged look",
+  settings.commandFor("hyprLook.gapsIn", 9, { hyprLook: { gapsIn: 5 } }).readback.join(","),
+  "hyprLook,hyprLookManaged",
+  "hyprLook reads back the group and its managed flag",
 );
-assertEqual(inputCmd.apply.group, "rest", "hyprInput apply is tagged rest");
-assertEqual(inputCmd.apply.hyprInput.sensitivity, 0.5, "hyprInput apply carries the merged object");
-assertEqual(inputCmd.apply.hyprInputManaged, true, "hyprInput apply sets hyprInputManaged");
-
-const snapshotJs = load("services/Snapshot.js");
-const adoptAdapters = {
-  clampLook: hypr.clampLook,
-  clampInput: hypr.clampInput,
-  allowedKey: groups.allowedKey,
-};
-const adoptedInput = snapshotJs.adopt(
-  { hyprInput: { sensitivity: 0, naturalScroll: false }, hyprInputManaged: false },
-  inputCmd.apply,
-  adoptAdapters,
-);
-assertEqual(
-  adoptedInput.hyprInput.sensitivity,
-  0.5,
-  "hyprInput apply survives adopt with allowedKey",
-);
-assertEqual(adoptedInput.hyprInputManaged, true, "hyprInputManaged apply survives adopt");
-assertEqual(adoptedInput.hyprInput.naturalScroll, false, "hyprInput apply keeps unpatched fields");
+assert(inputCmd.apply === undefined, "a command carries no patch of its own");
 
 const sideClock = settings.commandFor("clockFormat", "HH:mm", { barPosition: "left" });
 assert(
-  sideClock.apply.clockFormat === "HH:mm" || sideClock.argv.indexOf("clockFormat") !== -1,
-  "clockFormat with a side bar is written through settings-set",
+  sideClock.value === "HH:mm" && sideClock.readback.join(",") === "clockFormat",
+  "clockFormat with a side bar is written through settings-set and read back",
 );
 
 const idleLock = settings.commandFor("idleLock", 900, { idleScreensaver: 300, idleLock: 600 });

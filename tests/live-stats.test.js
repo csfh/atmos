@@ -366,7 +366,14 @@ write(path.join(fixture, "proc/202/cmdline"), "sshd\0");
 
 const py = spawnSync(ratmosBinary(), ["--backend", "omarchy", "display", "live"], {
   encoding: "utf8",
-  env: { ...process.env, ATMOS_SYS_ROOT: fixture, ATMOS_UID: "1000" },
+  env: {
+    ...process.env,
+    ATMOS_SYS_ROOT: fixture,
+    ATMOS_UID: "1000",
+    // Never read a running daemon's samples in place of the fixture.
+    XDG_RUNTIME_DIR: fixture,
+    ATMOS_NO_AUTOSTART: "1",
+  },
 });
 assertEqual(py.status, 0, "ratmos live exits 0 on a fixture");
 const emitted = live.parse(py.stdout);
@@ -445,7 +452,14 @@ write(path.join(fixture, "sys/class/thermal/thermal_zone0/type"), "acpitz\n");
 write(path.join(fixture, "sys/class/thermal/thermal_zone0/temp"), "41000\n");
 const zeroPy = spawnSync(ratmosBinary(), ["--backend", "omarchy", "display", "live"], {
   encoding: "utf8",
-  env: { ...process.env, ATMOS_SYS_ROOT: fixture, ATMOS_UID: "1000" },
+  env: {
+    ...process.env,
+    ATMOS_SYS_ROOT: fixture,
+    ATMOS_UID: "1000",
+    // Never read a running daemon's samples in place of the fixture.
+    XDG_RUNTIME_DIR: fixture,
+    ATMOS_NO_AUTOSTART: "1",
+  },
 });
 assertEqual(zeroPy.status, 0, "ratmos live exits 0 when hwmon is zero");
 assertEqual(live.parse(zeroPy.stdout).cpuTemp, null, "ratmos live does not invent 0 °C");
@@ -464,7 +478,14 @@ write(path.join(fixture, "sys/class/drm/card0-DP-1/device/vendor"), "0x1002\n");
 
 const hotPy = spawnSync(ratmosBinary(), ["--backend", "omarchy", "display", "live"], {
   encoding: "utf8",
-  env: { ...process.env, ATMOS_SYS_ROOT: fixture, ATMOS_UID: "1000" },
+  env: {
+    ...process.env,
+    ATMOS_SYS_ROOT: fixture,
+    ATMOS_UID: "1000",
+    // Never read a running daemon's samples in place of the fixture.
+    XDG_RUNTIME_DIR: fixture,
+    ATMOS_NO_AUTOSTART: "1",
+  },
 });
 assertEqual(hotPy.status, 0, "ratmos live exits 0 with thermal fixtures");
 const hotEmit = live.parse(hotPy.stdout);
@@ -483,7 +504,14 @@ write(path.join(fixture, "sys/class/drm/card2/device/uevent"), "OF_NAME=gpu\n");
 fs.symlinkSync("asahi", path.join(fixture, "sys/class/drm/card2/device/driver"));
 const asahiPy = spawnSync(ratmosBinary(), ["--backend", "omarchy", "display", "live"], {
   encoding: "utf8",
-  env: { ...process.env, ATMOS_SYS_ROOT: fixture, ATMOS_UID: "1000" },
+  env: {
+    ...process.env,
+    ATMOS_SYS_ROOT: fixture,
+    ATMOS_UID: "1000",
+    // Never read a running daemon's samples in place of the fixture.
+    XDG_RUNTIME_DIR: fixture,
+    ATMOS_NO_AUTOSTART: "1",
+  },
 });
 const asahi = live.parse(asahiPy.stdout).gpus.find((gpu) => gpu.driver === "asahi");
 assertEqual(asahi.integrated, true, "ratmos live marks the Asahi GPU integrated");

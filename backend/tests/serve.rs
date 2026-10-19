@@ -400,16 +400,27 @@ fn wait_exit(child: &mut Child, within: Duration) -> Option<std::process::ExitSt
 fn start_copy(run: &std::path::Path) -> (Daemon, std::path::PathBuf) {
     let exe = run.join("ratmos-copy");
     fs::copy(env!("CARGO_BIN_EXE_ratmos"), &exe).unwrap();
-    let daemon = Daemon(
-        Command::new(&exe)
+    // A binary just written can still be open for writing in a process another
+    // test forked at that moment, and exec says "text file busy" until it is not.
+    let mut tries = 0;
+    let child = loop {
+        match Command::new(&exe)
             .arg("daemon")
             .env("XDG_RUNTIME_DIR", run)
             .stdin(Stdio::null())
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .spawn()
-            .expect("spawn the copy"),
-    );
+        {
+            Ok(child) => break child,
+            Err(err) if err.kind() == std::io::ErrorKind::ExecutableFileBusy && tries < 40 => {
+                tries += 1;
+                thread::sleep(Duration::from_millis(50));
+            }
+            Err(err) => panic!("spawn the copy: {err}"),
+        }
+    };
+    let daemon = Daemon(child);
     let socket = run.join("atmos/ratmos.sock");
     for _ in 0..100 {
         if std::os::unix::net::UnixStream::connect(&socket).is_ok() {

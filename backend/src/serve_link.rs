@@ -79,10 +79,11 @@ impl Subs {
         });
     }
 
-    /// Sleep until something changes, a stop, or `timeout`. False once stopped.
-    fn idle(&self, timeout: Duration) -> bool {
+    /// Sleep until the held set differs from `seen` (the generation the caller
+    /// looked at, so a change made since is not slept through), a stop, or
+    /// `timeout`. False once stopped.
+    fn idle(&self, seen: u64, timeout: Duration) -> bool {
         let state = lock(&self.state);
-        let seen = state.generation;
         let (state, _) = self
             .changed
             .wait_timeout_while(state, timeout, |state| {
@@ -218,7 +219,8 @@ pub fn run(config: &Config, out: &Out, subs: &Subs) {
                     session(stream, out, subs);
                     // A daemon that drops sessions at once must not be spun on.
                     if began.elapsed() < Duration::from_secs(1) {
-                        subs.idle(Duration::from_secs(1));
+                        let seen = subs.view().map_or(0, |(_, generation)| generation);
+                        subs.idle(seen, Duration::from_secs(1));
                     }
                     continue;
                 }
@@ -230,16 +232,21 @@ pub fn run(config: &Config, out: &Out, subs: &Subs) {
                 }
             }
         }
-        let held = subs.view().is_some_and(|(topics, _)| !topics.is_empty());
-        if held {
-            local(config, dir.as_deref().map(|_| RETRY), out, subs);
-        } else {
-            // Nothing to sample; look for a daemon again after a while.
-            subs.idle(if dir.is_some() {
+        let Some((topics, seen)) = subs.view() else {
+            return;
+        };
+        if topics.is_empty() {
+            // Nothing to sample; look for a daemon again after a while. The
+            // generation seen with the topics goes into the wait, so a
+            // `sub.set` that lands in between wakes it.
+            let wait = if dir.is_some() {
                 RETRY
             } else {
                 Duration::from_secs(3600)
-            });
+            };
+            subs.idle(seen, wait);
+        } else {
+            local(config, dir.as_deref().map(|_| RETRY), out, subs);
         }
     }
 }
@@ -486,9 +493,23 @@ mod tests {
     fn a_stop_wakes_a_waiter() {
         let subs = Arc::new(Subs::default());
         let waiter = subs.clone();
-        let handle = std::thread::spawn(move || waiter.idle(Duration::from_secs(30)));
+        let handle = std::thread::spawn(move || waiter.idle(0, Duration::from_secs(30)));
         std::thread::sleep(Duration::from_millis(50));
         subs.stop();
         assert!(!handle.join().unwrap(), "idle reports the stop");
+    }
+
+    #[test]
+    fn a_change_made_before_the_wait_begins_is_not_slept_through() {
+        let subs = Subs::default();
+        let (_, seen) = subs.view().unwrap();
+        subs.set(BTreeMap::from([("live".to_string(), 1000)]));
+        let began = Instant::now();
+        assert!(subs.idle(seen, Duration::from_secs(30)));
+        assert!(
+            began.elapsed() < Duration::from_secs(1),
+            "{:?}",
+            began.elapsed()
+        );
     }
 }

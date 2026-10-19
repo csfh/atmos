@@ -386,19 +386,7 @@ QtObject {
 
   function domainValue(cmd, key) {
     if (!cmd || !key) return undefined
-    if (Object.prototype.hasOwnProperty.call(cmd, "value")) return cmd.value
-    var apply = cmd.apply
-    if (apply && typeof apply === "object" && Object.prototype.hasOwnProperty.call(apply, key))
-      return apply[key]
-    var dot = String(key).indexOf(".")
-    if (dot > 0 && apply && typeof apply === "object") {
-      var head = String(key).slice(0, dot)
-      var tail = String(key).slice(dot + 1)
-      var node = apply[head]
-      if (node && typeof node === "object" && Object.prototype.hasOwnProperty.call(node, tail))
-        return node[tail]
-    }
-    return undefined
+    return cmd.value
   }
 
   function unstamp(value) {
@@ -426,13 +414,14 @@ QtObject {
     // Ask only for the keys this group shows. "all" reads everything.
     var group = String(job.group || "all")
     var keys = group === "all" ? undefined : SnapshotGroups.emitKeys(group)
+    job.startedAt = Date.now()
     Backend.request(Requests.settingsSnapshot(group, keys), function(env) {
       root.snapshotAnswered(job, env)
     })
   }
 
   function onSetRequested(job) {
-    Backend.request(Requests.settingsSet(String(job.domain || job.key || ""), job.value), function(env) {
+    Backend.request(Requests.settingsSet(String(job.domain || job.key || ""), job.value, job.readback), function(env) {
       root.mutationAnswered(job, env)
     })
   }
@@ -461,14 +450,13 @@ QtObject {
       Feedback.finish(false, banner || "Command failed")
     } else {
       Feedback.finish(true, "")
-      root.applyWritePatch(job)
       if (job && job.refresh && job.refresh !== "none")
         WorkQueue.enqueueRead(IoQueue.queue, SnapshotGroups.normalizeGroup(job.refresh))
     }
     IoQueue.finished()
   }
 
-  function onInteractiveExited(exitCode, apply, refresh, out, err) {
+  function onInteractiveExited(exitCode, readback, refresh, out, err) {
     if (exitCode === 143) return
     if (exitCode !== 0) {
       var shown = FailureJs.splitApply(out)
@@ -480,7 +468,7 @@ QtObject {
       if (banner) root.lastError = banner
       return
     }
-    if (apply) root.applyWritePatch({ apply: apply, key: "" })
+    if (readback) Ops.read(readback)
     if (refresh && refresh !== "none")
       root.scheduleRefresh(refresh)
   }
@@ -539,7 +527,6 @@ QtObject {
       root.lastError = FailureJs.applyBanner(summary, exitCode, root.commandFailureText(err, out))
     } else {
       root.lastError = ""
-      root.applyWritePatch(job)
       if (job && job.refresh && job.refresh !== "none")
         WorkQueue.enqueueRead(IoQueue.queue, SnapshotGroups.normalizeGroup(job.refresh))
     }
@@ -553,7 +540,7 @@ QtObject {
       if (WorkQueue.shouldApplyRead(job, IoQueue.queue)) {
         if (env.platform) root.platform = env.platform
         // The backend already nests dotted domains and leaves out unset ones.
-        var folded = env.result
+        var folded = Ops.dropStale(env.result, job.startedAt)
         if (job && job.group) folded.group = String(job.group)
         root.applySnapshot(folded)
       }
@@ -564,21 +551,18 @@ QtObject {
     IoQueue.finished()
   }
 
-  function withApply(job, apply) {
-    var copy = {}
-    var k
-    for (k in job) copy[k] = job[k]
-    copy.apply = apply
-    return copy
-  }
-
   function mutationAnswered(job, env) {
     if (env && env.ok === true) {
       Feedback.finish(true, "")
-      // The backend read the value back after writing it. Trust that over the
-      // value the page guessed.
-      var settled = job ? SnapshotJs.applyWithResult(job.apply, job.domain || job.key, env.result) : null
-      root.applyWritePatch(job && settled !== job.apply ? root.withApply(job, settled) : job)
+      // The keys read back after the write, plus the setting's own value.
+      var shown = env.result && env.result.snapshot ? SnapshotJs.plain(env.result.snapshot) : {}
+      var domain = String((job && (job.domain || job.key)) || "")
+      var own = env.result ? env.result.value : undefined
+      if (domain && domain.indexOf(".") === -1 && shown[domain] === undefined && SnapshotJs.isScalar(own))
+        shown[domain] = own
+      Ops.noteWritten(shown)
+      root.applySnapshot(shown)
+      if (domain.indexOf("hyprInput") === 0) root.applyHyprWorkspaceGestureFromFile()
       if (job && job.refresh && job.refresh !== "none")
         WorkQueue.enqueueRead(IoQueue.queue, SnapshotGroups.normalizeGroup(job.refresh))
     } else {
@@ -685,7 +669,7 @@ QtObject {
     }
     recordChange(argv, root.stripGuard(opts))
     // A typed op goes to the daemon's lane for it, not through the job queue.
-    if (opts.op) { root.rememberGuard(opts); return Ops.run(opts) }
+    if (opts.op) return enqueueIo({ kind: "op", opts: opts, sudo: opts.sudo === true, guard: opts.guard && opts.guard.id ? opts.guard : null })
     enqueueIo({
       kind: "mut",
       argv: argv,
@@ -694,7 +678,7 @@ QtObject {
       domain: opts.domain ? String(opts.domain) : "",
       hasValue: opts.hasValue === true,
       value: opts.value,
-      apply: opts.apply && typeof opts.apply === "object" ? opts.apply : null,
+      readback: opts.readback instanceof Array ? opts.readback : null,
       refresh: snapshotRefreshGroup(opts.refresh),
       sudo: opts.sudo === true,
       guard: opts.guard && opts.guard.id ? opts.guard : null
@@ -704,8 +688,7 @@ QtObject {
   function scriptOpts() {
     return {
       root: shellDir,
-      ratmos: Backend.bin,
-      tagApply: SnapshotGroups.tagApply
+      ratmos: Backend.bin
     }
   }
 
@@ -715,7 +698,7 @@ QtObject {
     var opts = {
       key: cmd.coalesceKey || key,
       domain: key,
-      apply: cmd.apply,
+      readback: cmd.readback,
       refresh: "none",
       sudo: cmd.sudo === true
     }
@@ -846,17 +829,6 @@ QtObject {
     return HyprPrefs.inputHasUnmanagedWorkspaceGesture(root.inputLuaText())
   }
 
-  function applyWritePatch(job) {
-    if (!job || !job.apply) return
-    if (job.key && WorkQueue.hasQueuedKey(IoQueue.queue, job.key)) return
-    applySnapshot(SnapshotJs.plain(job.apply))
-    // refresh: "none" leaves these flags stale. Commenting the stock line
-    // out and then touching Sensitivity would take ownership in the file
-    // while the row stayed disabled. Re-scan after every input write.
-    if (job.key === "hyprInput" || job.key === "hyprInputManaged")
-      root.applyHyprWorkspaceGestureFromFile()
-  }
-
   function firstPatchField(patch) {
     if (!patch || typeof patch !== "object") return ""
     var k
@@ -888,8 +860,8 @@ QtObject {
     runJob(Backend.task("gum-job", argv), "", kind, opts)
   }
 
-  // Job record: kind ("read"|"mut"|"job"), argv, stdin, key, apply, refresh,
-  // sudo, jobKind, onStdoutLine, onFinished. apply is consumed for mut and job.
+  // Job record: kind ("read"|"mut"|"job"|"op"), argv, stdin, key, readback,
+  // refresh, sudo, jobKind, onStdoutLine, onFinished.
   function enqueueIo(job) {
     if (!job) return
     if (job.sudo && !passwordlessSudo) {
@@ -899,6 +871,7 @@ QtObject {
       return
     }
     root.rememberGuard(job)
+    if (job.kind === "op") return Ops.run(job.opts)
     WorkQueue.enqueueWrite(IoQueue.queue, job)
     IoQueue.kick()
   }
@@ -947,7 +920,6 @@ QtObject {
       stdin: String(stdinText || ""),
       jobKind: kind,
       key: opts.key ? String(opts.key) : kind,
-      apply: opts.apply && typeof opts.apply === "object" ? opts.apply : null,
       refresh: opts.refresh === "none" ? "none" : SnapshotGroups.normalizeGroup(opts.refresh || "all"),
       sudo: opts.sudo === true,
       onStdoutLine: typeof opts.onStdoutLine === "function" ? opts.onStdoutLine : null,
@@ -969,7 +941,7 @@ QtObject {
     IoQueue.startInteractive(
       argv,
       opts.kind,
-      opts.apply && typeof opts.apply === "object" ? opts.apply : null,
+      opts.readback && typeof opts.readback === "object" ? opts.readback : null,
       snapshotRefreshGroup(opts.refresh)
     )
   }
@@ -1001,19 +973,7 @@ QtObject {
   function installTheme(url) {
     url = RichUi.parseGitUrl(url)
     if (!url) return
-    var name = RichUi.gitThemeName(url)
-    var extras = extraThemes.slice()
-    var allThemes = themes.slice()
-    var apply = null
-    if (name) {
-      if (extras.indexOf(name) === -1) extras.push(name)
-      if (allThemes.indexOf(name) === -1) allThemes.push(name)
-      apply = { extraThemes: extras, themes: allThemes, theme: name }
-    }
-    runJob(["omarchy", "theme", "install", url], "", "theme-install", {
-      refresh: "look",
-      apply: apply
-    })
+    runJob(["omarchy", "theme", "install", url], "", "theme-install", { refresh: "look" })
   }
   function updateThemes() {
     runJob(["omarchy", "theme", "update"], "", "theme-update", { refresh: "look" })
@@ -1023,7 +983,7 @@ QtObject {
     if (!name || name.indexOf("/") !== -1 || name.indexOf(".") === 0) return
     runCommand(["omarchy", "theme", "remove", name], {
       key: "theme-remove:" + name,
-      apply: { extraThemes: SnapshotJs.patchRemoveMatching(extraThemes, "", name) },
+      op: Requests.write("theme.remove", { name: name }),
       refresh: name === theme ? "all" : "none"
     })
   }
@@ -1065,7 +1025,7 @@ QtObject {
   function resetTextSize() {
     runCommand(["omarchy", "display", "text", "size", "reset"], {
       key: "textSize",
-      apply: { textSize: 12 },
+      op: Requests.write("display.text-size-reset", {}),
       refresh: "none"
     })
   }
@@ -1105,7 +1065,7 @@ QtObject {
     if (on === internalEnabled) return
     runCommand(["omarchy", "hyprland", "monitor", "internal", on ? "on" : "off"], {
       key: "internalEnabled",
-      apply: { internalEnabled: on },
+      op: Requests.write("monitor.internal", { on: on === true }),
       refresh: "none"
     })
   }
@@ -1113,7 +1073,7 @@ QtObject {
     if (on === mirroring) return
     runCommand(["omarchy", "hyprland", "monitor", "internal", "mirror", on ? "on" : "off"], {
       key: "mirroring",
-      apply: { mirroring: on },
+      op: Requests.write("monitor.mirror", { on: on === true }),
       refresh: "none"
     })
   }
@@ -1133,11 +1093,9 @@ QtObject {
       })
       return
     }
-    var next = SnapshotJs.patchKeyboardBrightness(keyboardBrightness, direction)
-    if (next === keyboardBrightness) return
     runCommand(["omarchy", "brightness", "keyboard", "--no-osd", direction], {
       key: "keyboardBrightness",
-      apply: { keyboardBrightness: next },
+      op: Requests.write("keyboard.backlight", { direction: direction }),
       refresh: "none"
     })
   }
@@ -1226,7 +1184,7 @@ QtObject {
     if (spacerPresent) return
     runCommand(["omarchy", "bar", "put", "omarchy.spacer"], {
       key: "spacerPresent",
-      apply: { spacerPresent: true },
+      op: Requests.write("bar.spacer", { on: true }),
       refresh: "none"
     })
   }
@@ -1234,7 +1192,7 @@ QtObject {
     if (!spacerPresent) return
     runCommand(["omarchy", "plugin", "disable", "omarchy.spacer"], {
       key: "spacerPresent",
-      apply: { spacerPresent: false },
+      op: Requests.write("bar.spacer", { on: false }),
       refresh: "none"
     })
   }
@@ -1270,7 +1228,7 @@ QtObject {
     if (!id) return
     runCommand(["omarchy", "remove", "launcher", "entry", id, name], {
       key: "desktop-remove:" + id,
-      apply: { desktopApps: SnapshotJs.patchRemoveMatching(desktopApps, "id", id) },
+      op: Requests.write("app.remove-desktop", { id: id, name: name }),
       refresh: "none",
       sudo: true
     })
@@ -1280,13 +1238,7 @@ QtObject {
     if (!name) return
     runCommand(["omarchy", "tui", "remove", name], {
       key: "tui-remove:" + name,
-      apply: {
-        tuiApps: SnapshotJs.patchRemoveMatching(
-          SnapshotJs.patchRemoveMatching(tuiApps, "id", name),
-          "name",
-          name
-        )
-      },
+      op: Requests.write("tui.remove", { name: name }),
       refresh: "none"
     })
   }
@@ -1295,13 +1247,7 @@ QtObject {
     if (!name) return
     runCommand(["omarchy", "webapp", "remove", name], {
       key: "webapp-remove:" + name,
-      apply: {
-        webApps: SnapshotJs.patchRemoveMatching(
-          SnapshotJs.patchRemoveMatching(webApps, "id", name),
-          "name",
-          name
-        )
-      },
+      op: Requests.write("webapp.remove", { name: name }),
       refresh: "none"
     })
   }
@@ -1362,7 +1308,7 @@ QtObject {
       if (!screensaverBranded) return
       runCommand(["omarchy", "branding", "screensaver", "reset"], {
         key: "screensaverBranding",
-        apply: { screensaverBranded: false },
+        op: Requests.write("branding.reset", { which: "screensaver" }),
         refresh: "none"
       })
       return
@@ -1379,7 +1325,7 @@ QtObject {
       if (!aboutBranded) return
       runCommand(["omarchy", "branding", "about", "reset"], {
         key: "aboutBranding",
-        apply: { aboutBranded: false },
+        op: Requests.write("branding.reset", { which: "about" }),
         refresh: "none"
       })
       return
@@ -1417,7 +1363,7 @@ QtObject {
     if (!path || path.charAt(0) !== "/" || path.indexOf("..") !== -1) return
     runCommand(Backend.task("set-avatar", ["set", currentUser, path]), {
       key: "avatar",
-      apply: { avatarPath: path },
+      op: Requests.write("avatar.set", { user: currentUser, path: path }),
       refresh: "none",
       sudo: true
     })
@@ -1427,7 +1373,7 @@ QtObject {
     if (!currentUser) return
     runCommand(Backend.task("set-avatar", ["clear", currentUser]), {
       key: "avatar",
-      apply: { avatarPath: "" },
+      op: Requests.write("avatar.clear", { user: currentUser }),
       refresh: "none",
       sudo: true
     })
@@ -1507,15 +1453,14 @@ QtObject {
     if (!hyprLookManaged) return
     runCommand(Backend.task("reset-hypr", ["look"]), {
       key: "hyprLookManaged",
-      apply: { hyprLookManaged: false },
+      op: Requests.write("hypr.reset", { group: "look" }),
       refresh: "none"
     })
   }
   function toggleWorkspaceLayout() {
-    var next = hyprWorkspaceLayout === "scrolling" ? "dwindle" : "scrolling"
     runCommand(["omarchy", "hyprland", "workspace", "layout", "toggle"], {
       key: "hyprWorkspaceLayout",
-      apply: { hyprWorkspaceLayout: next },
+      op: Requests.write("hypr.workspace-layout-toggle", {}),
       refresh: "none"
     })
   }
@@ -1531,7 +1476,7 @@ QtObject {
     var snap = SnapshotJs.mergeSnapshot(snapshotData, { hyprInput: plan.input })
     var cmds = SettingsJs.planCommands(plan.rows, snap, scriptOpts())
     if (!cmds || !cmds.length || cmds[0].skip) return
-    runCommand(cmds[0].argv, HyprPrefs.kbRunOptions(cmds[0], plan.revert, root.reverting))
+    runCommand(cmds[0].argv, HyprPrefs.kbRunOptions(cmds[0], plan.revert, root.reverting, Requests.write))
   }
 
   function setHyprKbOverride(layouts, variants, groupToggle) {
@@ -1555,7 +1500,7 @@ QtObject {
     if (!hyprInputManaged) return
     runCommand(Backend.task("reset-hypr", ["input"]), {
       key: "hyprInputManaged",
-      apply: { hyprInputManaged: false },
+      op: Requests.write("hypr.reset", { group: "input" }),
       refresh: "none"
     })
   }
@@ -1634,7 +1579,7 @@ QtObject {
     if (name === atmosChannel) return
     runCommand(Backend.task("set-atmos-channel", ["stable"]), {
       key: "atmosChannel",
-      apply: { atmosChannel: "stable" },
+      op: Requests.write("atmos.channel", { channel: "stable" }),
       refresh: "none"
     })
   }
@@ -1685,7 +1630,7 @@ QtObject {
     }
     runCommand(["omarchy", "plugin", on ? "enable" : "disable", id], {
       key: "plugin:" + id,
-      apply: { plugins: SnapshotJs.patchPluginEnabled(plugins, id, on === true) },
+      op: Requests.write("plugin.set", { id: id, on: on === true }),
       refresh: "none"
     })
   }
@@ -1694,7 +1639,7 @@ QtObject {
     if (!isFinite(n) || n < 1 || n > 50 || n === snapperNumberLimit) return
     runCommand(Backend.task("set-snapper-policy", ["number-limit", String(n)]), {
       key: "snapperNumberLimit",
-      apply: { snapperNumberLimit: n },
+      op: Requests.write("snapper.number-limit", { n: n }),
       refresh: "none",
       sudo: true
     })
@@ -1703,7 +1648,7 @@ QtObject {
     if (on === snapperTimeline) return
     runCommand(Backend.task("set-snapper-policy", ["timeline", on ? "on" : "off"]), {
       key: "snapperTimeline",
-      apply: { snapperTimeline: on },
+      op: Requests.write("snapper.timeline", { on: on === true }),
       refresh: "none",
       sudo: true
     })
@@ -1712,7 +1657,7 @@ QtObject {
     if (on === fstrimEnabled) return
     runCommand(Backend.task("set-fstrim", [on ? "on" : "off"]), {
       key: "fstrimEnabled",
-      apply: { fstrimEnabled: on },
+      op: Requests.write("fstrim", { on: on === true }),
       refresh: "none",
       sudo: true
     })
@@ -1735,7 +1680,7 @@ QtObject {
     if (band === wifiBandSelected) return
     runCommand(["omarchy", "network", "band", band], {
       key: "wifiBandSelected",
-      apply: { wifiBandSelected: band },
+      op: Requests.write("wifi.band", { band: band }),
       refresh: "none"
     })
   }
@@ -1866,7 +1811,6 @@ QtObject {
   function setPresentationMode(on) {
     on = on === true
     if (on === presentationMode) return
-    presentationMode = on
     dispatchSetting("presentationMode", on)
   }
   function setChargeLimit(n) {
@@ -1980,22 +1924,9 @@ QtObject {
     uuid = String(uuid || "")
     if (!/^[0-9a-fA-F-]{36}$/.test(uuid)) return
     var list = SnapshotJs.toList(wifiConnections)
-    var name = ""
-    var i
-    for (i = 0; i < list.length; i++) {
-      if (list[i] && String(list[i].uuid || "") === uuid) {
-        name = String(list[i].name || "")
-        break
-      }
-    }
     runCommand(Backend.task("set-wifi-connection", ["up", uuid]), {
       key: "wifi:" + uuid,
-      apply: {
-        wifiConnections: SnapshotJs.patchWifiActive(wifiConnections, uuid, true),
-        wifiConnected: true,
-        netKind: "wifi",
-        netSsid: name
-      },
+      op: Requests.write("wifi.connection", { action: "up", uuid: uuid }),
       refresh: "none"
     })
   }
@@ -2004,36 +1935,16 @@ QtObject {
     if (!/^[0-9a-fA-F-]{36}$/.test(uuid)) return
     runCommand(Backend.task("set-wifi-connection", ["down", uuid]), {
       key: "wifi:" + uuid,
-      apply: {
-        wifiConnections: SnapshotJs.patchWifiActive(wifiConnections, uuid, false),
-        wifiConnected: false,
-        netKind: "disconnected",
-        netSsid: ""
-      },
+      op: Requests.write("wifi.connection", { action: "down", uuid: uuid }),
       refresh: "none"
     })
   }
   function forgetWifiConnection(uuid) {
     uuid = String(uuid || "")
     if (!/^[0-9a-fA-F-]{36}$/.test(uuid)) return
-    var list = SnapshotJs.toList(wifiConnections)
-    var active = false
-    var i
-    for (i = 0; i < list.length; i++) {
-      if (list[i] && String(list[i].uuid || "") === uuid && list[i].active === true) {
-        active = true
-        break
-      }
-    }
-    var forgetApply = { wifiConnections: SnapshotJs.patchRemoveMatching(wifiConnections, "uuid", uuid) }
-    if (active) {
-      forgetApply.wifiConnected = false
-      forgetApply.netKind = "disconnected"
-      forgetApply.netSsid = ""
-    }
     runCommand(Backend.task("set-wifi-connection", ["delete", uuid]), {
       key: "wifi:" + uuid,
-      apply: forgetApply,
+      op: Requests.write("wifi.connection", { action: "delete", uuid: uuid }),
       refresh: "none"
     })
   }
@@ -2082,7 +1993,7 @@ QtObject {
     if (!/^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/.test(address)) return
     runCommand(["omarchy", "bluetooth", "device", "connect", address], {
       key: "bluetooth:" + address,
-      apply: { bluetoothDevices: SnapshotJs.patchRowField(bluetoothDevices, "address", address, "connected", true) },
+      op: Requests.write("bluetooth.device", { action: "connect", address: address }),
       refresh: "none"
     })
   }
@@ -2091,7 +2002,7 @@ QtObject {
     if (!/^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/.test(address)) return
     runCommand(["omarchy", "bluetooth", "device", "disconnect", address], {
       key: "bluetooth:" + address,
-      apply: { bluetoothDevices: SnapshotJs.patchRowField(bluetoothDevices, "address", address, "connected", false) },
+      op: Requests.write("bluetooth.device", { action: "disconnect", address: address }),
       refresh: "none"
     })
   }
@@ -2105,7 +2016,7 @@ QtObject {
     if (!/^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/.test(address)) return
     runCommand(["omarchy", "bluetooth", "device", "forget", address], {
       key: "bluetooth:" + address,
-      apply: { bluetoothDevices: SnapshotJs.patchRemoveMatching(bluetoothDevices, "address", address) },
+      op: Requests.write("bluetooth.device", { action: "forget", address: address }),
       refresh: "none"
     })
   }
@@ -2118,7 +2029,7 @@ QtObject {
   function toggleAudioOutputMute() {
     runCommand(["omarchy", "audio", "output", "volume", "mute-toggle"], {
       key: "audioOutputMuted",
-      apply: { audioOutputMuted: !audioOutputMuted },
+      op: Requests.write("audio.output.mute-toggle", {}),
       refresh: "none"
     })
   }
@@ -2131,7 +2042,7 @@ QtObject {
   function toggleAudioInputMute() {
     runCommand(["omarchy", "audio", "input", "mute"], {
       key: "audioInputMuted",
-      apply: { audioInputMuted: !audioInputMuted },
+      op: Requests.write("audio.input.mute-toggle", {}),
       refresh: "none"
     })
   }
@@ -2143,7 +2054,7 @@ QtObject {
       if (list[i] && String(list[i].name) === name) {
         runCommand(["omarchy", "audio", "output", "set", "default", String(list[i].id), name], {
           key: "audioSink",
-          apply: { audioSink: name },
+          op: Requests.write("audio.output.default", { id: String(list[i].id), name: name }),
           refresh: "none"
         })
         return
@@ -2158,7 +2069,7 @@ QtObject {
       if (list[j] && String(list[j].name) === name) {
         runCommand(["omarchy", "audio", "input", "set", "default", String(list[j].id), name], {
           key: "audioSource",
-          apply: { audioSource: name },
+          op: Requests.write("audio.input.default", { id: String(list[j].id), name: name }),
           refresh: "none"
         })
         return
@@ -2214,7 +2125,7 @@ QtObject {
     if (!name || name === powerProfile) return
     runCommand(["omarchy", "powerprofiles", "set", "autodetect", name], {
       key: "powerProfile",
-      apply: { powerProfile: name },
+      op: Requests.write("power.profile", { name: name }),
       refresh: "none"
     })
   }
@@ -2248,7 +2159,7 @@ QtObject {
     if (coords === weatherCoords) return
     runCommand(["omarchy", "weather", "location", "--set", name, coords], {
       key: "weatherCoords",
-      apply: { weatherCoords: coords },
+      op: Requests.write("weather.coordinates", { name: name, coords: coords }),
       refresh: "none"
     })
   }
@@ -2271,14 +2182,9 @@ QtObject {
     message = String(message || "").replace(/^\s+|\s+$/g, "")
     var argv = ["omarchy", "reminder", minutes]
     if (message.length > 0) argv.push(message)
-    var mins = parseInt(minutes, 10)
     runCommand(argv, {
       key: "reminder",
-      apply: {
-        reminderActive: true,
-        reminderCount: reminderCount + 1,
-        reminders: SnapshotJs.patchAppendReminder(reminders, mins, message)
-      },
+      op: Requests.write("reminder.set", { minutes: parseInt(minutes, 10), message: message }),
       refresh: "none"
     })
   }
@@ -2287,7 +2193,7 @@ QtObject {
     if (!reminderActive) return
     runCommand(["omarchy", "reminder", "clear"], {
       key: "reminder",
-      apply: { reminderActive: false, reminderCount: 0, reminders: [] },
+      op: Requests.write("reminder.clear", {}),
       refresh: "none"
     })
   }
@@ -2324,7 +2230,7 @@ QtObject {
     if (webcam) argv.push("--webcam-size=" + size)
     runInteractive(argv, {
       kind: "recording",
-      apply: { recordingActive: true, webcamOverlay: webcam === true },
+      readback: { keys: ["recordingActive", "webcamOverlay"], expect: { recordingActive: true } },
       refresh: "none"
     })
   }
@@ -2333,7 +2239,7 @@ QtObject {
       IoQueue.stopInteractive()
     runCommand(["omarchy", "capture", "screenrecording", "--stop-recording"], {
       key: "recordingActive",
-      apply: { recordingActive: false },
+      op: Requests.write("recording.stop", {}),
       refresh: "none"
     })
   }
@@ -2421,15 +2327,7 @@ QtObject {
     if (!dest) return
     runCommand(["omarchy", "hook", "install", type, path], {
       key: "hook:" + dest,
-      apply: {
-        hooks: SnapshotJs.patchAppendHook(hooks, {
-          type: type,
-          name: base,
-          path: dest,
-          sample: base.length >= 7 && base.substring(base.length - 7) === ".sample",
-          flat: false
-        })
-      },
+      op: Requests.write("hook.install", { type: type, path: path }),
       refresh: "none"
     })
   }
@@ -2443,15 +2341,7 @@ QtObject {
     if (!dest) return
     runCommand(Backend.task("create-hook", [type, name, command]), {
       key: "hook:" + dest,
-      apply: {
-        hooks: SnapshotJs.patchAppendHook(hooks, {
-          type: type,
-          name: name,
-          path: dest,
-          sample: false,
-          flat: false
-        })
-      },
+      op: Requests.write("hook.create", { type: type, name: name, command: command }),
       refresh: "none"
     })
   }
@@ -2464,7 +2354,7 @@ QtObject {
     if (path.length >= 7 && path.substring(path.length - 7) === ".sample") return
     runCommand(["rm", "-f", path], {
       key: "hook:" + path,
-      apply: { hooks: SnapshotJs.patchRemoveMatching(hooks, "path", path) },
+      op: Requests.write("hook.remove", { path: path }),
       refresh: "none"
     })
   }
@@ -2475,7 +2365,7 @@ QtObject {
     if (path.indexOf(root) !== 0 || path.indexOf("..") !== -1) return
     runCommand(Backend.task("set-hook-sample", [enabled ? "enable" : "disable", path]), {
       key: "hook:" + path,
-      apply: { hooks: SnapshotJs.patchHookSample(hooks, path, enabled === true) },
+      op: Requests.write("hook.sample", { path: path, enabled: enabled === true }),
       refresh: "none"
     })
   }

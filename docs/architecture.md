@@ -89,7 +89,7 @@ A session's writer has a bounded queue, and a window that falls behind is droppe
 | P0 | A failed `hyprctl` leaves the monitor list alone and logs why | done |
 | P1 | Engine: topics with last-good and stale metadata, the governor, the sampler split into its own unit | done, except the two gaps below |
 | P2 | Sessions and subscriptions on the socket, `serve` as a bridge with autostart, `live` pushed with `sampledAt` rates, the live poll and stall timers removed from QML | done, except the gaps below |
-| P3 | Command bus: lanes, coalescing, read-your-writes, leases. Brightness first. This also retires the window's optimistic `apply:` patches: a patch crosses a QML signal, which hands its arrays back wrapped, and that once emptied the monitor list on the second brightness change (fixed in `Lists.js`, but the cause is the window writing state itself) | bus, leases and barriers done. Retired so far: the two patches that wrote the monitor list, brightness and monitor scale. About seventy others remain (P4) |
+| P3 | Command bus: lanes, coalescing, read-your-writes, leases. Brightness first. This also retires the window's optimistic `apply:` patches: a patch crosses a QML signal, which hands its arrays back wrapped, and that once emptied the monitor list on the second brightness change (fixed in `Lists.js`, but the cause is the window writing state itself) | done. No window-built patch is left: brightness and monitor scale are their own typed ops, thirty-six other writes are named `write` entries in `command/writes.rs`, and a setting written through `settings.set` is read back by the keys it names. The window shows what the backend reports, never a value it worked out |
 | P4 | The settings snapshot groups become topics; `apply --` passthroughs replaced by typed ops where they matter | |
 
 ### Known gaps after P1
@@ -109,12 +109,14 @@ A session's writer has a bounded queue, and a window that falls behind is droppe
 
 ### Known gaps after P3
 
-- **Only brightness and monitor scale are typed ops.** About seventy other writes still go through `ratmos apply -- <argv>` with an `apply:` patch the window builds. Those are not on a lane, are coalesced only by the window's own job queue, and can still show a guess. Moving them is P4, one call site at a time.
-- **The `generic` lane is shared, not exclusive.** `apply --` takes a lease on `generic`, so writes through it go one at a time across windows and hold back reads of what a job can change, but a lane busy for more than 300 ms (a long streamed job) is not waited for and the write runs unordered. `ratmos task` leases a lane of its own per process.
-- **Barriers name display kinds and `monitors` only.** The settings snapshot groups become topics in P4, so a read of `network` or `input` does not wait for a write to them.
-- **A read waits at most three seconds,** so under a long job it answers with what it has. A page that opens during a package update still loads.
-- **A snapshot read that began before a write can land after it.** Brightness and scale no longer go through the window's job queue, which used to order its own reads and writes, and the barrier only holds back reads that start while a command is pending. A `look` read in flight when the user touches a slider, for instance one started by a file stamp, may answer with the old monitor list after the reply has been shown. Nothing reads `look` on a timer, so this is rare, and the next read corrects it.
-- **The daemon runs a command's child at its own `Nice=15`,** so a brightness write is slower on a saturated machine than the same write inline.
+- **Toggles change when the answer arrives, not when pressed.** Without the optimistic patch a control shows the new state after the write and its read-back, usually 0.2 to 1 s (a DDC panel or a Wi-Fi change takes longer). That is the cost of never showing a guess.
+- **A write the machine finishes late is waited for, not guessed.** Each entry says what the read-back must show (`settle`), and the backend re-reads for up to about 1.5 s. If the machine never shows it, the reply says `settled: false` and carries what it does show.
+- **A snapshot read that began before a write is not trusted for the keys the write set.** `Ops.dropStale` drops them from it. The same window race exists for a read that begins at the same instant as a write, which the barrier on `settings` covers.
+- **`runCommand` keeps its `argv` for the history and the Preview list.** It is a label; the backend builds the command it runs.
+- **Writes the window still sends as `apply -- <argv>` carry no state.** About two hundred call sites run a command and show nothing the window had to guess, for example the notification tests and the launchers. They are not on a lane; `apply` leases the shared `generic` lane for them.
+- **A local write (sudo or polkit) runs in the window's `serve`,** holding its own lane. It is ordered against reads, not against another window's write to the same lane.
+- **The daemon runs a command's child at its own `Nice=15`,** so a write is slower on a saturated machine than the same write inline.
+- **`hook.remove` is done in the daemon or the window, not by `rm`,** and only inside `~/.config/omarchy/hooks/`.
 
 ## Not in scope
 

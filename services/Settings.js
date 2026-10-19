@@ -2001,26 +2001,6 @@ function planToJson(plan) {
 
 var WRITERS;
 
-function groupsApi() {
-  if (groupsApi._loaded !== undefined) return groupsApi._loaded;
-  groupsApi._loaded = null;
-  if (typeof require === "undefined") return null;
-  try {
-    var fs = require("fs");
-    var path = require("path");
-    var vm = require("vm");
-    var src = fs.readFileSync(path.join(__dirname, "SnapshotGroups.js"), "utf8");
-    var ctx = {};
-    vm.runInNewContext(src, ctx, { filename: "SnapshotGroups.js" });
-    groupsApi._loaded = ctx;
-  } catch (e) {
-    groupsApi._loaded = null;
-  }
-  return groupsApi._loaded;
-}
-
-var activeCommandOpts = {};
-
 function writers() {
   if (WRITERS) return WRITERS;
   WRITERS = {
@@ -2316,29 +2296,19 @@ function skipRecord(key, extra) {
   return { skip: true, key: key, report: extra.report === true };
 }
 
-function tagApply(apply) {
-  var opts = activeCommandOpts;
-  var fn = opts && typeof opts.tagApply === "function" ? opts.tagApply : null;
-  if (!fn) {
-    var api = groupsApi();
-    if (api) fn = api.tagApply;
-  }
-  if (typeof fn === "function") return fn(apply);
-  return apply || {};
+// The top-level snapshot key a domain key lives under: "hyprLook.gapsIn" is
+// part of "hyprLook".
+function snapshotHead(key) {
+  var dot = String(key).indexOf(".");
+  return dot > 0 ? String(key).slice(0, dot) : String(key);
 }
 
-function keyApply(key, value, extra) {
-  var apply = extra ? copyObject(extra) : {};
-  apply[key] = value;
-  return tagApply(apply);
-}
-
+// `value` is what the setting is set to. `readback` names the snapshot keys the
+// write can change: the backend reads them after the write and the window shows
+// that, so no value here stands in for what the machine will say.
 function commandRecord(key, argv, spec, extra) {
   extra = extra || {};
   spec = spec || {};
-  var apply = extra.apply;
-  if (!apply) apply = keyApply(key, extra.value);
-  else apply = tagApply(apply);
   return {
     key: key,
     argv: argv || [],
@@ -2347,7 +2317,8 @@ function commandRecord(key, argv, spec, extra) {
     sudo: extra.sudo === true,
     skip: false,
     coalesceKey: extra.coalesceKey || "",
-    apply: apply,
+    value: extra.value,
+    readback: extra.readback || [snapshotHead(key)],
     backup: extra.backup || spec.backup || "",
   };
 }
@@ -2495,7 +2466,6 @@ function buildCommand(key, value, snapshot, opts) {
   var spec = writerSpec(key);
   if (!spec) return null;
   opts = opts || {};
-  activeCommandOpts = opts;
   snapshot = snapshot || {};
   var sudo = item.needsRoot === true;
   if (
@@ -2563,19 +2533,17 @@ function buildCommand(key, value, snapshot, opts) {
     // The writer merges _patch onto the file under an exclusive lock, so
     // two windows changing different fields converge instead of the second
     // full block overwriting the first. _full stays for readers that only
-    // understand a whole object. The optimistic apply still uses merged.
+    // understand a whole object. The value written is merged[field].
     var patch = {};
     patch[field] = merged[field];
     var payload = JSON.stringify({ _patch: patch, _full: merged });
-    var applyHypr = {};
-    applyHypr[spec.group] = merged;
-    applyHypr[spec.group === "hyprLook" ? "hyprLookManaged" : "hyprInputManaged"] = true;
     return commandRecord(key, bashScript(opts, spec.script).concat([payload]), spec, {
       stdin: payload,
       mergeGroup: spec.group,
       coalesceKey: spec.group,
       backup: spec.backup,
-      apply: applyHypr,
+      value: merged[field],
+      readback: [spec.group, spec.group === "hyprLook" ? "hyprLookManaged" : "hyprInputManaged"],
       sudo: sudo,
     });
   }
@@ -2596,7 +2564,8 @@ function buildCommand(key, value, snapshot, opts) {
       {
         mergeGroup: "idle",
         coalesceKey: "idle",
-        apply: { idleScreensaver: saver, idleLock: lock },
+        value: key === "idleLock" ? lock : saver,
+        readback: ["idleScreensaver", "idleLock"],
         sudo: sudo,
       },
     );
@@ -2606,7 +2575,8 @@ function buildCommand(key, value, snapshot, opts) {
     var temp = Math.round(Number(value));
     return commandRecord(key, bashScript(opts, "nightlightTemp").concat([String(temp)]), spec, {
       backup: "nightlightTemp",
-      apply: { nightlightTemperature: temp },
+      value: temp,
+      readback: ["nightlightTemperature", "nightlight"],
       sudo: sudo,
     });
   }
@@ -2631,7 +2601,8 @@ function buildCommand(key, value, snapshot, opts) {
       mergeGroup: "nightlightSchedule",
       coalesceKey: "nightlightSchedule",
       backup: "nightlightSchedule",
-      apply: { nightlightDay: day, nightlightNight: night, nightlightNightOn: nightOn },
+      value: key === "nightlightDay" ? day : key === "nightlightNight" ? night : nightOn,
+      readback: ["nightlightDay", "nightlightNight", "nightlightNightOn"],
       sudo: sudo,
     });
   }
@@ -2683,18 +2654,14 @@ function buildCommand(key, value, snapshot, opts) {
       parsedWs.count = 10;
       listJson = JSON.stringify(parsedWs);
     }
-    var listApply = {};
-    listApply[key] = mergeUnmanaged(snapshot[key], value, key);
-    listApply[key + "Managed"] = true;
-    if (key === "workspaces") {
-      listApply.workspaceWrapSwitch = wrap !== false;
-      listApply.workspaceWheelSwitch = wheel !== false;
-    }
+    var listRead = [key, key + "Managed"];
+    if (key === "workspaces") listRead.push("workspaceWrapSwitch", "workspaceWheelSwitch");
     return commandRecord(key, bashScript(opts, spec.script).concat([listJson]), spec, {
       stdin: listJson,
       coalesceKey: key,
       backup: spec.backup,
-      apply: listApply,
+      value: mergeUnmanaged(snapshot[key], value, key),
+      readback: listRead,
       sudo: sudo,
     });
   }
@@ -2712,12 +2679,12 @@ function buildCommand(key, value, snapshot, opts) {
       wrapSwitch: wrapSwitch,
       wheelSwitch: wheelSwitch,
     });
-    var wsApply = { workspaceWrapSwitch: wrapSwitch, workspaceWheelSwitch: wheelSwitch };
     return commandRecord(key, bashScript(opts, spec.script).concat([wsPayload]), spec, {
       stdin: wsPayload,
       mergeGroup: "workspaces",
       coalesceKey: "workspaces",
-      apply: wsApply,
+      value: spec.field === "wrapSwitch" ? wrapSwitch : wheelSwitch,
+      readback: ["workspaceWrapSwitch", "workspaceWheelSwitch", "workspaces"],
       sudo: sudo,
     });
   }
@@ -2735,7 +2702,8 @@ function buildCommand(key, value, snapshot, opts) {
       stdin: envPayload,
       mergeGroup: "env",
       coalesceKey: "env",
-      apply: { envVars: vars, envPathPrepend: pathPrepend },
+      value: spec.field === "vars" ? vars : pathPrepend,
+      readback: ["envVars", "envPathPrepend"],
       sudo: sudo,
     });
   }
@@ -2749,10 +2717,9 @@ function buildCommand(key, value, snapshot, opts) {
     else if (tweakId === "swappiness") action = "swappiness";
     else return null;
     var on = value === true ? "on" : "off";
-    var tweakApply = {};
-    tweakApply[key] = value === true;
     return commandRecord(key, bashScript(opts, spec.script).concat([action, on]), spec, {
-      apply: tweakApply,
+      value: value === true,
+      readback: ["tweaks"],
       sudo: sudo || tweakId === "swappiness",
     });
   }
@@ -2761,25 +2728,25 @@ function buildCommand(key, value, snapshot, opts) {
     var scriptArgv = bashScript(opts, spec.script)
       .concat(spec.args || [])
       .concat([argvValue(value, spec)]);
-    var scriptApply = {};
-    scriptApply[key] = value;
-    if (key === "audioOutputVolume") scriptApply.audioOutputMuted = false;
-    if (key === "audioInputVolume") scriptApply.audioInputMuted = false;
-    if (key === "ntp")
-      scriptApply.ntpSynchronized = value === true ? snapshot.ntpSynchronized === true : false;
-    return commandRecord(key, scriptArgv, spec, { apply: scriptApply, sudo: sudo });
+    var scriptRead = [key];
+    if (key === "audioOutputVolume") scriptRead.push("audioOutputMuted");
+    if (key === "audioInputVolume") scriptRead.push("audioInputMuted");
+    if (key === "ntp") scriptRead.push("ntpSynchronized");
+    return commandRecord(key, scriptArgv, spec, { value: value, readback: scriptRead, sudo: sudo });
   }
 
   if (spec.kind === "weather-location") {
     var name = String(value || "");
     if (!name) {
       return commandRecord(key, ["omarchy", "weather", "location", "--clear"], spec, {
-        apply: { weatherLocation: "", weatherAuto: true, weatherCoords: "" },
+        value: "",
+        readback: ["weatherLocation", "weatherAuto", "weatherCoords"],
         sudo: sudo,
       });
     }
     return commandRecord(key, ["omarchy", "weather", "location", "--set", name], spec, {
-      apply: { weatherLocation: name, weatherAuto: false, weatherCoords: "" },
+      value: name,
+      readback: ["weatherLocation", "weatherAuto", "weatherCoords"],
       sudo: sudo,
     });
   }

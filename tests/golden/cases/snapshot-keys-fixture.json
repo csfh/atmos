@@ -1,0 +1,21 @@
+{
+  "backend": "omarchy",
+  "request": {
+    "op": "snapshot.keys",
+    "keys": ["audioOutputMuted", "plugins", "nope"]
+  },
+  "response": {
+    "ok": true,
+    "platform": {
+      "compositor": "hyprland",
+      "family": "arch",
+      "id": "omarchy"
+    },
+    "result": {
+      "settled": true,
+      "unknown": ["nope"],
+      "values": {}
+    },
+    "version": "0.3.0"
+  }
+}

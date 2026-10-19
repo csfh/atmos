@@ -154,7 +154,7 @@ A domain is one named setting, such as `theme` or `hyprLook.gapsIn`.
 | --- | --- | --- |
 | `settings.list` | | Every domain: `[{domain, type, file, encoding, prefix}]`. |
 | `settings.get` | `domain` | The domain's value, or null when it is unset. |
-| `settings.set` | `domain`, `value` | `{domain, value, file, encoding}` with the value as read back. `value` must match the domain's `type`. |
+| `settings.set` | `domain`, `value`, `readback` (optional list of snapshot keys) | `{domain, value, file, encoding}` with the value as read back. `value` must match the domain's `type`. |
 | `settings.snapshot` | `group` (default `all`), `keys` (optional) | An object of every set value; an unset value is absent, not null. `keys` limits it to the named top-level domains. |
 
 ### Displays and hardware
@@ -165,6 +165,8 @@ A domain is one named setting, such as `theme` or `hyprLook.gapsIn`.
 | --- | --- | --- |
 | `display.get` | `kind`: `live`, `hardware`, `disks`, `services`, `software` or `diagnostics` | One inventory. An unknown kind is a `failed` reply. `live` also carries `uptimeSec`, a `startTicks` per process, and `tcpSockets` rows with `addr`, `port`, `uid` and `pid` (`null` when the owner's `/proc/<pid>/fd` is unreadable), listeners first. |
 | `display.snapshot` | | An object holding every kind above, each as `display.get` returns it. One failing inventory stays on its own key. |
+| `snapshot.keys` | `keys`: snapshot key names | `{values, unknown}`. What the machine reports now for those keys only, each from the producer the full snapshot uses, so a value has the same shape in both. `unknown` lists keys nothing produces. Under a fixture root `values` is empty and `unknown` is still computed. |
+| `write` | `name`, `args` | A typed write, see Writes below. `{snapshot, settled, coalesced}`: `snapshot` holds the keys the write can change as the machine reports them once it has run, and `settled` says whether they showed the expected state before the wait ran out. An unknown `name`, a missing or malformed argument, or an argument that could pass as an option is `bad_request` and nothing runs. Under a fixture root nothing runs and the reply is `{argv, snapshot: {}, settled: true}`. |
 | `display.brightness` | `monitor`, `percent` (0 to 100) | `{monitor, percent, coalesced, snapshot}`. Runs `omarchy brightness display` on the monitor's own lane in the daemon, then reads the monitors back: `snapshot.monitors` is the list as the machine reports it now (absent when `hyprctl` failed, so a window keeps the list it has). A panel on DDC/CI answers a read right after a write with the old level, so the daemon re-reads that monitor for up to about a second until it reports the new one, give or take a point, and the reply shows that level. Writes queued on one monitor collapse to the newest, and a replaced caller gets that command's answer with `coalesced: true`. A bad `monitor` (letters, digits, `.`, `_`, `-` only) or `percent` is `bad_request` and nothing runs. Under a fixture root it only answers `{monitor, percent}`. |
 
 | `display.scale` | `scale` (a number above 0 and at most 8, as text) | `{scale, coalesced, snapshot}`. Runs `omarchy hyprland monitor scaling` on the `hypr:monitors` lane, then returns the monitors as the machine reports them, like `display.brightness`. Under a fixture root it only answers `{scale}`. |
@@ -223,3 +225,48 @@ These read and edit the MCP entry in each coding agent's own config; Atmos keeps
 | --- | --- | --- |
 | `watch.set` | `paths`, `chrome`, `accounts` | `{watching: true}`, then `stamp`, `chrome` and `accounts` events. See Long-lived above. |
 | `sub.set` | `topics`: display kind to `{intervalMs}` | `{holding: [...]}`, then `sample` events. See Held display kinds above. |
+
+#### Writes
+
+`write` runs one of these by `name`. `args` are checked by the entry, and the window never sends a command line. A write runs in order on its lane in the daemon, in a child with the caller's environment, except the ones marked local, which need a sudo or polkit step and run in the window's own `serve` while holding a lane. Every write is answered with the keys it can change as the machine reports them after the command, and a write the machine finishes a moment after the command returns is waited for (up to about a second and a half) until the read-back shows the expected state, so the window is never shown the old state and never a guess.
+
+| Name | Args | Runs |
+| --- | --- | --- |
+| `audio.output.mute-toggle` | | `omarchy audio output volume mute-toggle`; settled when `audioOutputMuted` flipped |
+| `audio.input.mute-toggle` | | `omarchy audio input mute`; settled when `audioInputMuted` flipped |
+| `audio.output.default` | `id`, `name` | `omarchy audio output set default`; settled when that sink is the default in `audioSinks` |
+| `audio.input.default` | `id`, `name` | `omarchy audio input set default`; settled when that source is the default in `audioSources` |
+| `power.profile` | `name` | `omarchy powerprofiles set autodetect` |
+| `wifi.band` | `band`: `auto`, `2.4`, `5`, `6` | `omarchy network band` |
+| `wifi.connection` | `action`: `up`, `down`, `delete`; `uuid` | `ratmos task set-wifi-connection`; settled on that connection's `active` flag or its absence |
+| `bluetooth.device` | `action`: `connect`, `disconnect`, `forget`; `address` | `omarchy bluetooth device`; settled on that device's `connected` flag or its absence |
+| `plugin.set` | `id`, `on` | `omarchy plugin enable` or `disable` |
+| `bar.spacer` | `on` | `omarchy bar put omarchy.spacer` or `omarchy plugin disable omarchy.spacer` |
+| `monitor.internal` | `on` | `omarchy hyprland monitor internal on` or `off` |
+| `monitor.mirror` | `on` | `omarchy hyprland monitor internal mirror on` or `off` |
+| `keyboard.backlight` | `direction`: `up`, `down`, `off` | `omarchy brightness keyboard --no-osd` |
+| `display.text-size-reset` | | `omarchy display text size reset` |
+| `theme.remove` | `name` | `omarchy theme remove` |
+| `branding.reset` | `which`: `screensaver`, `about` | `omarchy branding <which> reset` |
+| `hypr.reset` | `group`: `look`, `input` | `ratmos task reset-hypr` |
+| `hypr.workspace-layout-toggle` | | `omarchy hyprland workspace layout toggle`; settled when `hyprWorkspaceLayout` flipped |
+| `hypr.apply` | `group`: `look`, `input`; `payload` (JSON text) | `ratmos task hypr-apply` |
+| `atmos.channel` | `channel`: `stable` | `ratmos task set-atmos-channel` |
+| `weather.coordinates` | `name`, `coords` | `omarchy weather location --set` |
+| `reminder.set` | `minutes`, `message` (optional) | `omarchy reminder` |
+| `reminder.clear` | | `omarchy reminder clear` |
+| `recording.stop` | | `omarchy capture screenrecording --stop-recording` |
+| `hook.install` | `type`, `path` | `omarchy hook install` |
+| `hook.create` | `type`, `name`, `command` | `ratmos task create-hook` |
+| `hook.remove` | `path`, inside `~/.config/omarchy/hooks/` | removes the file in-process; a `.sample` is refused |
+| `hook.sample` | `path`, `enabled` | `ratmos task set-hook-sample` |
+| `tui.remove` | `name` | `omarchy tui remove` |
+| `webapp.remove` | `name` | `omarchy webapp remove` |
+| `app.remove-desktop` | `id`, `name` | local. `omarchy remove launcher entry` |
+| `avatar.set` | `user`, `path` | local. `ratmos task set-avatar set` |
+| `avatar.clear` | `user` | local. `ratmos task set-avatar clear` |
+| `snapper.number-limit` | `n`, 1 to 50 | local. `ratmos task set-snapper-policy number-limit` |
+| `snapper.timeline` | `on` | local. `ratmos task set-snapper-policy timeline` |
+| `fstrim` | `on` | local. `ratmos task set-fstrim` |
+
+`settings.set` accepts `readback`, a list of snapshot keys to read once the value is written, for the keys a setting changes besides its own; they come back as `snapshot` in the reply.

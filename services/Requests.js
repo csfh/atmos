@@ -12,6 +12,8 @@ var OPS = [
   "settings.snapshot",
   "display.get",
   "display.snapshot",
+  "snapshot.keys",
+  "write",
   "display.brightness",
   "display.scale",
   "search.query",
@@ -36,8 +38,11 @@ function settingsSnapshot(group, keys) {
   return body;
 }
 
-function settingsSet(domain, value) {
-  return { op: "settings.set", domain: String(domain), value: value };
+// readback: snapshot keys the setting changes besides its own, read after the write.
+function settingsSet(domain, value, readback) {
+  var body = { op: "settings.set", domain: String(domain), value: value };
+  if (Array.isArray(readback) && readback.length > 0) body.readback = readback.map(String);
+  return body;
 }
 
 function settingsGet(domain) {
@@ -50,6 +55,20 @@ function displayGet(kind) {
 
 function displaySnapshot() {
   return { op: "display.snapshot" };
+}
+
+// What the machine reports now for some snapshot keys, and nothing else.
+// expect: { key: value } the keys must show before they are returned.
+function snapshotKeys(keys, expect) {
+  var body = { op: "snapshot.keys", keys: Array.isArray(keys) ? keys.map(String) : [] };
+  if (expect && typeof expect === "object") body.expect = expect;
+  return body;
+}
+
+// A typed write by name (docs/protocol.md, Writes). The backend checks the
+// arguments and builds the command; the reply's snapshot is what to show.
+function write(name, args) {
+  return { op: "write", name: String(name), args: args && typeof args === "object" ? args : {} };
 }
 
 // The focused monitor's scale, run by the daemon like the brightness write

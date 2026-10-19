@@ -1,0 +1,25 @@
+{
+  "backend": "omarchy",
+  "request": {
+    "op": "write",
+    "name": "plugin.set",
+    "args": {
+      "id": "omarchy.spacer",
+      "on": true
+    }
+  },
+  "response": {
+    "ok": true,
+    "platform": {
+      "compositor": "hyprland",
+      "family": "arch",
+      "id": "omarchy"
+    },
+    "result": {
+      "argv": ["omarchy", "plugin", "enable", "omarchy.spacer"],
+      "settled": true,
+      "snapshot": {}
+    },
+    "version": "0.3.0"
+  }
+}

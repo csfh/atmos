@@ -309,19 +309,28 @@ pub(crate) fn handle(backend: Backend, root: Option<&Path>, body: &Value) -> Res
         Request::Platform => platform(backend)?,
         Request::SettingsList => Value::Array(settings_list(backend)?),
         Request::SettingsGet { domain } => read_domain(backend, root, &domain)?,
-        Request::SettingsSet { domain, value } => {
+        Request::SettingsSet {
+            domain,
+            value,
+            readback,
+        } => {
             write_domain(backend, root, &domain, &value)?;
             // A setting can start or stop a unit; the other inventories do not follow settings.
             if root.is_none() {
                 sampler::drop_kinds(&["services"]);
             }
             let place = place_for(backend, &domain)?;
-            serde_json::json!({
+            let mut reply = serde_json::json!({
                 "domain": domain,
                 "value": read_domain(backend, root, &domain)?,
                 "file": place.rel,
                 "encoding": place.encoding(),
-            })
+            });
+            // What else the setting changed, as the machine now reports it.
+            if root.is_none() && !readback.is_empty() {
+                reply["snapshot"] = Value::Object(snapshot::keys::read(&readback).0);
+            }
+            reply
         }
         Request::SettingsSnapshot { group, keys } => {
             Value::Object(snapshot::settings(backend, root, &group, keys.as_deref())?)
@@ -331,6 +340,17 @@ pub(crate) fn handle(backend: Backend, root: Option<&Path>, body: &Value) -> Res
             search::query(&context, &platform::app_root(), &query)
         }
         Request::DisplaySnapshot => load_displays(backend, root, display::KINDS),
+        Request::SnapshotKeys { keys, expect } => command::snapshot_keys(root, &keys, &expect),
+        Request::Write { name, args } => {
+            let built = command::writes::build(&name, &args)?;
+            if built.local {
+                write_here(root, &built)?
+            } else {
+                route_command(backend, root, direct, body, || {
+                    command::writes::execute(root, &built)
+                })?
+            }
+        }
         Request::DisplayScale { scale } => {
             route_command(backend, root, direct, body, || command::scale(root, &scale))?
         }
@@ -379,6 +399,22 @@ fn generic_lease() -> Option<sampler::client::Lease> {
         sampler::AFTER_JOB,
         std::time::Duration::from_millis(300),
     )
+}
+
+/// A write that needs the caller's own process tree (a sudo or polkit step)
+/// runs here, in the window's `serve`, holding a lane of its own so reads of
+/// what it changes wait for it. It is never handed to the daemon.
+fn write_here(root: Option<&Path>, built: &command::writes::Built) -> Result<Value> {
+    let lease = root.is_none().then(|| {
+        sampler::client::lease(
+            &format!("write:{}", built.lane),
+            &[command::SETTINGS],
+            std::time::Duration::from_millis(300),
+        )
+    });
+    let result = command::writes::execute(root, built);
+    drop(lease);
+    result
 }
 
 /// A typed command goes to the daemon's lane for it and comes back with the

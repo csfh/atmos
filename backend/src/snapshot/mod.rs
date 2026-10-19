@@ -4,6 +4,7 @@
 mod bar;
 mod host;
 pub(crate) mod hypr;
+pub(crate) mod keys;
 mod merge;
 mod net;
 pub(crate) mod sh;
@@ -15,7 +16,7 @@ use crate::error::Result;
 use serde_json::{json, Map, Value};
 use sh::{lines, omarchy, out};
 
-struct Env {
+pub(super) struct Env {
     home: String,
     omarchy_path: String,
     user: String,
@@ -67,11 +68,11 @@ pub fn capture(group: &str) -> Result<Value> {
     Ok(Value::Object(doc))
 }
 
-fn text(args: &[&str]) -> Value {
+pub(super) fn text(args: &[&str]) -> Value {
     json!(omarchy(args))
 }
 
-fn theme_fields(f: &mut Map<String, Value>, full: bool) {
+pub(super) fn theme_fields(f: &mut Map<String, Value>, full: bool) {
     if full {
         f.insert("theme".into(), text(&["theme", "current"]));
         f.insert("background".into(), text(&["theme", "bg", "current"]));
@@ -96,7 +97,7 @@ fn theme_fields(f: &mut Map<String, Value>, full: bool) {
     }
 }
 
-fn live_toggles(f: &mut Map<String, Value>, full: bool) {
+pub(super) fn live_toggles(f: &mut Map<String, Value>, full: bool) {
     let mut text_size = 12u64;
     let (mut stay, mut night, mut temp) = (false, false, 0u64);
     if full {
@@ -129,7 +130,7 @@ fn live_toggles(f: &mut Map<String, Value>, full: bool) {
     f.insert("nightlightTemperature".into(), json!(temp));
 }
 
-fn toggle_off(name: &str) -> bool {
+pub(super) fn toggle_off(name: &str) -> bool {
     !sh::ok("omarchy", &["toggle", "enabled", name])
 }
 
@@ -167,7 +168,7 @@ fn look_surface(env: &Env, f: &mut Map<String, Value>) {
 }
 
 /// Hyprland input and the managed workspace gesture, which the full snapshot adds.
-fn input_surface(env: &Env, f: &mut Map<String, Value>) {
+pub(super) fn input_surface(env: &Env, f: &mut Map<String, Value>) {
     let input_file = crate::host::env_path(
         "ATMOS_INPUT_FILE",
         format!("{}/.config/hypr/input.lua", env.home),

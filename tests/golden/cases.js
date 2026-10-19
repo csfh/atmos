@@ -84,6 +84,31 @@ const cases = [
   },
   { name: "display-get-plain", backend: "plain", request: R.displayGet("hardware") },
   { name: "display-snapshot-plain", backend: "plain", request: R.displaySnapshot() },
+  {
+    name: "write-plugin-set-fixture",
+    backend: "omarchy",
+    request: R.write("plugin.set", { id: "omarchy.spacer", on: true }),
+  },
+  {
+    name: "write-audio-mute-toggle-fixture",
+    backend: "omarchy",
+    request: R.write("audio.output.mute-toggle", {}),
+  },
+  {
+    name: "error-write-unknown-name",
+    backend: "omarchy",
+    request: R.write("nope", {}),
+  },
+  {
+    name: "error-write-option-lookalike",
+    backend: "omarchy",
+    request: R.write("plugin.set", { id: "--help", on: true }),
+  },
+  {
+    name: "snapshot-keys-fixture",
+    backend: "omarchy",
+    request: R.snapshotKeys(["audioOutputMuted", "plugins", "nope"]),
+  },
   { name: "display-scale-fixture", backend: "omarchy", request: R.displayScale("1.5") },
   { name: "error-display-scale-bad", backend: "omarchy", request: R.displayScale("x") },
   {

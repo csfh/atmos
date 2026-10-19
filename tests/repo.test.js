@@ -1392,9 +1392,9 @@ assert(
   "unused switcher helpers stay off the mut queue if a later UI wires them",
 );
 assert(
-  omarchySrc.indexOf("presentationMode = on") !== -1 &&
-    omarchySrc.indexOf("WorkQueue.hasQueuedKey(IoQueue.queue, job.key)") !== -1,
-  "Presentation Mode updates immediately and a later write skips a stale apply",
+  omarchySrc.indexOf("presentationMode = on") === -1 &&
+    omarchySrc.indexOf("root.applySnapshot(shown)") !== -1,
+  "Presentation Mode shows what the backend read back, not what the toggle guessed",
 );
 assert(
   omarchySrc.indexOf("function toggleFavorite(") !== -1 &&
@@ -1597,13 +1597,12 @@ assert(
 );
 const settingsSrc = fs.readFileSync(path.join(__dirname, "..", "services", "Settings.js"), "utf8");
 assert(
-  settingsSrc.indexOf('weatherAuto: false, weatherCoords: ""') !== -1 ||
-    settingsSrc.indexOf("weatherAuto: false") !== -1,
-  "weather --set drops stale coordinates",
+  settingsSrc.indexOf('readback: ["weatherLocation", "weatherAuto", "weatherCoords"]') !== -1,
+  "weather --set reads back the location, auto and the coordinates it dropped",
 );
 assert(
-  settingsSrc.indexOf('weatherLocation: "", weatherAuto: true, weatherCoords: ""') !== -1,
-  "weather --clear drops coordinates and returns to auto",
+  settingsSrc.indexOf('value: "",\n        readback: ["weatherLocation"') !== -1,
+  "weather --clear reads back the auto state the backend reports",
 );
 assert(
   systemSrc.indexOf("RichUi.parseWeatherCoords") !== -1 &&
@@ -1682,7 +1681,7 @@ assert(
 assert(
   omarchySrc.indexOf("applyHyprWorkspaceGestureFromFile") !== -1 &&
     omarchySrc.indexOf("inputLuaCache") !== -1 &&
-    omarchySrc.indexOf('job.key === "hyprInput"') !== -1,
+    omarchySrc.indexOf('domain.indexOf("hyprInput") === 0') !== -1,
   "Omarchy refreshes workspace gesture ownership from the file after an input write",
 );
 assert(
@@ -1831,16 +1830,10 @@ assert(omarchySrc.indexOf("property var hyprInput") !== -1, "Omarchy bag keeps n
 assert(omarchySrc.indexOf("function lookState(") === -1, "lookState is gone");
 assert(omarchySrc.indexOf("function setHyprGapsIn(") === -1, "setHyprGapsIn setter is gone");
 assert(
-  omarchySrc.indexOf("applySnapshot(JSON.stringify(job.apply))") === -1,
-  "applyWritePatch does not stringify job.apply through the Emit parser",
-);
-assert(
-  omarchySrc.indexOf("applySnapshot(SnapshotJs.plain(job.apply))") !== -1,
-  "applyWritePatch adopts a plain copy of job.apply as an object, since a signal wraps its arrays",
-);
-assert(
-  omarchySrc.indexOf("tagApply: SnapshotGroups.tagApply") !== -1,
-  "scriptOpts passes SnapshotGroups.tagApply",
+  omarchySrc.indexOf("applyWritePatch") === -1 &&
+    omarchySrc.indexOf("job.apply") === -1 &&
+    omarchySrc.indexOf("tagApply") === -1,
+  "no job carries a patch the window built: writes show what the backend read back",
 );
 assert(settingsSrc.indexOf("var APPLY_GROUP = {") === -1, "Settings.js does not keep APPLY_GROUP");
 
@@ -1956,13 +1949,23 @@ assert(
   "monitor scale, set and reverted, is a typed op with no patch of its own",
 );
 assert(
-  omarchyOpsSrc.indexOf("if (opts.op) { root.rememberGuard(opts); return Ops.run(opts) }") !== -1,
-  "a typed op still arms the revert guard and skips the job queue",
+  omarchyOpsSrc.indexOf('if (opts.op) return enqueueIo({ kind: "op"') !== -1 &&
+    omarchyOpsSrc.indexOf('if (job.kind === "op") return Ops.run(job.opts)') !== -1,
+  "a typed op goes through enqueueIo, so it keeps the sudo prompt and the revert guard, and skips the job queue",
 );
 assert(
   opsSrc.indexOf("root.sent[key] === seq") !== -1 &&
     opsSrc.indexOf("Omarchy.applySnapshot(SnapshotJs.plain(snapshot))") !== -1,
   "Ops applies the reply's snapshot only for the newest write of a key",
+);
+// A full snapshot read that began before a write can finish after it. It must
+// not put back the old value of a key the write has since set.
+assert(
+  omarchyOpsSrc.indexOf("job.startedAt = Date.now()") !== -1 &&
+    omarchyOpsSrc.indexOf("Ops.dropStale(env.result, job.startedAt)") !== -1 &&
+    opsSrc.indexOf("function dropStale(") !== -1 &&
+    opsSrc.indexOf("root.noteWritten(snapshot)") !== -1,
+  "a read that started before a write does not overwrite the keys the write set",
 );
 const monitorPageSrc = fs.readFileSync(
   path.join(__dirname, "..", "pages", "MonitorPage.qml"),
@@ -2459,10 +2462,8 @@ const installEnd = omarchySrc.indexOf("function updateThemes(", installStart);
 const installBody = omarchySrc.slice(installStart, installEnd);
 assert(installBody.indexOf('refresh: "look"') !== -1, "installTheme refreshes look after a clone");
 assert(
-  installBody.indexOf("RichUi.gitThemeName") !== -1 &&
-    installBody.indexOf("extraThemes") !== -1 &&
-    installBody.indexOf("themes") !== -1,
-  "installTheme optimistic-patches extraThemes, themes, and theme",
+  installBody.indexOf("apply") === -1 && installBody.indexOf("extraThemes") === -1,
+  "installTheme builds no patch: the look refresh shows the themes the machine has",
 );
 const updateStart = omarchySrc.indexOf("function updateThemes(");
 const updateEnd = omarchySrc.indexOf("function removeTheme(", updateStart);
@@ -2482,7 +2483,7 @@ assert(
   runJobBody.indexOf("SnapshotGroups.normalizeGroup") !== -1,
   "runJob honors snapshot groups through normalizeGroup",
 );
-assert(runJobBody.indexOf("opts.apply") !== -1, "runJob copies opts.apply onto the job");
+assert(runJobBody.indexOf("opts.apply") === -1, "a job carries no patch of its own");
 assert(
   runCommandBody.indexOf("Preview.active") !== -1 &&
     runCommandBody.indexOf("bypassPreview") !== -1 &&
@@ -2497,10 +2498,11 @@ assert(
 assert(
   runCommandBody.indexOf("opts.stdin") !== -1 &&
     runCommandBody.indexOf("opts.key") !== -1 &&
-    runCommandBody.indexOf("opts.apply") !== -1 &&
+    runCommandBody.indexOf("opts.op") !== -1 &&
+    runCommandBody.indexOf("opts.readback") !== -1 &&
     runCommandBody.indexOf("opts.refresh") !== -1 &&
     runCommandBody.indexOf("opts.sudo") !== -1,
-  "runCommand still forwards key, apply, refresh, sudo, and stdin",
+  "runCommand still forwards key, the typed op or the keys to read back, refresh, sudo, and stdin",
 );
 const previewQml = fs.readFileSync(path.join(__dirname, "..", "services", "Preview.qml"), "utf8");
 assert(
@@ -2530,11 +2532,9 @@ assert(
 const jobProcStart = omarchySrc.indexOf("function onJobExited(");
 assert(jobProcStart !== -1, "the job exit handler exists");
 const jobProcSrc = omarchySrc.slice(jobProcStart);
-const applyAt = jobProcSrc.indexOf("root.applyWritePatch(job)");
-const readAt = jobProcSrc.indexOf("enqueueRead", applyAt);
 assert(
-  applyAt !== -1 && readAt !== -1 && applyAt < readAt,
-  "a finished job calls applyWritePatch before enqueueRead",
+  jobProcSrc.indexOf("enqueueRead") !== -1 && jobProcSrc.indexOf("applyWritePatch") === -1,
+  "a finished job refreshes the group it names and applies no patch of its own",
 );
 
 assert(

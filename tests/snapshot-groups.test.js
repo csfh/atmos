@@ -125,21 +125,6 @@ assertEqual(groups.groupForKey("hostname"), "system", "groupForKey maps hostname
 assertEqual(groups.groupForKey("fullName"), "accounts", "groupForKey maps fullName to accounts");
 assertEqual(groups.groupForKey("dns"), "network", "groupForKey maps dns to network");
 assertEqual(groups.groupForKey("unknown"), "", "groupForKey returns empty for unknown keys");
-assertEqual(
-  groups.tagApply({ hyprLook: { gapsIn: 4 }, hyprLookManaged: true }).group,
-  "look",
-  "tagApply tags a look payload",
-);
-assertEqual(
-  groups.tagApply({ hyprInput: { sensitivity: 0 }, hyprInputManaged: true }).group,
-  "rest",
-  "tagApply tags an input payload rest",
-);
-assertEqual(
-  groups.tagApply({ theme: "x", browser: "y" }).group,
-  undefined,
-  "tagApply leaves mixed groups untagged",
-);
 const bagKeys = groups.copyableBagKeys();
 assert(bagKeys.indexOf("hyprLook") !== -1, "copyableBagKeys includes hyprLook");
 assert(bagKeys.indexOf("hyprGapsIn") === -1, "copyableBagKeys does not flatten gapsIn");

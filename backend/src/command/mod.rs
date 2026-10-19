@@ -8,6 +8,9 @@
 //! environment, so a long-lived daemon never runs a tool with a stale
 //! `HYPRLAND_INSTANCE_SIGNATURE`.
 
+mod args;
+pub mod writes;
+
 use std::path::Path;
 use std::time::Duration;
 
@@ -28,6 +31,9 @@ pub const BARRIER_WAIT: Duration = Duration::from_secs(3);
 /// The topic that names the monitor list in the look snapshot.
 pub const MONITORS: &str = "monitors";
 
+/// Every write names it, and every read of the settings waits on it.
+pub const SETTINGS: &str = "settings";
+
 /// Where a command runs and what it touches.
 #[derive(Debug, PartialEq)]
 pub struct Plan {
@@ -39,18 +45,27 @@ pub struct Plan {
 /// None for a request that is not a command.
 pub fn plan(request: &Request) -> Option<Plan> {
     match request {
+        Request::Write { name, args } => {
+            let built = writes::build(name, args).ok()?;
+            // A write that needs the caller's own process tree is not the daemon's.
+            (!built.local).then(|| Plan {
+                lane: built.lane,
+                key: None,
+                affects: vec![SETTINGS.into()],
+            })
+        }
         Request::DisplayBrightness { monitor, .. } => Some(Plan {
             // One panel's brightness is one device: its writes and its reads
             // share a lane, and a dragged slider collapses to its last value.
             lane: format!("monitor:{monitor}"),
             key: Some("brightness".into()),
-            affects: vec![MONITORS.into()],
+            affects: vec![MONITORS.into(), SETTINGS.into()],
         }),
         Request::DisplayScale { .. } => Some(Plan {
             // The focused monitor's scale and the monitor list move together.
             lane: "hypr:monitors".into(),
             key: Some("scale".into()),
-            affects: vec![MONITORS.into()],
+            affects: vec![MONITORS.into(), SETTINGS.into()],
         }),
         _ => None,
     }
@@ -59,11 +74,14 @@ pub fn plan(request: &Request) -> Option<Plan> {
 /// The topics a read has to see current before it answers.
 pub fn reads(request: &Request) -> Vec<String> {
     match request {
-        Request::SettingsSnapshot { group, .. }
-            if matches!(group.as_str(), "look" | "rest" | "all") =>
-        {
-            vec![MONITORS.into()]
+        Request::SettingsSnapshot { group, .. } => {
+            let mut topics = vec![SETTINGS.to_string()];
+            if matches!(group.as_str(), "look" | "rest" | "all") {
+                topics.push(MONITORS.into());
+            }
+            topics
         }
+        Request::SettingsGet { .. } | Request::SnapshotKeys { .. } => vec![SETTINGS.into()],
         Request::DisplayGet { kind } => vec![kind.clone()],
         Request::DisplaySnapshot => crate::display::KINDS
             .iter()
@@ -71,6 +89,43 @@ pub fn reads(request: &Request) -> Vec<String> {
             .collect(),
         _ => Vec::new(),
     }
+}
+
+/// `snapshot.keys`: what the machine reports now for some keys. With `expect`,
+/// the read is repeated for a moment until every expected value shows.
+pub fn snapshot_keys(
+    root: Option<&Path>,
+    keys: &[String],
+    expect: &serde_json::Map<String, Value>,
+) -> Value {
+    if root.is_some() {
+        let unknown: Vec<&String> = keys
+            .iter()
+            .filter(|k| !crate::snapshot::keys::known(k))
+            .collect();
+        return json!({"values": {}, "unknown": unknown, "settled": true});
+    }
+    let mut wanted: Vec<String> = keys.to_vec();
+    for key in expect.keys() {
+        if !wanted.contains(key) {
+            wanted.push(key.clone());
+        }
+    }
+    let mut last = (serde_json::Map::new(), Vec::new());
+    let mut settled = expect.is_empty();
+    for read in 0..writes::SETTLE_READS {
+        if read > 0 {
+            std::thread::sleep(writes::SETTLE_GAP);
+        }
+        last = crate::snapshot::keys::read(&wanted);
+        if expect.iter().all(|(k, v)| last.0.get(k) == Some(v)) {
+            settled = true;
+        }
+        if settled {
+            break;
+        }
+    }
+    json!({"values": last.0, "unknown": last.1, "settled": settled})
 }
 
 /// `omarchy brightness display`, then the monitor list as the machine now
@@ -234,7 +289,7 @@ mod tests {
         .unwrap();
         assert_eq!(plan.lane, "monitor:DP-3");
         assert_eq!(plan.key.as_deref(), Some("brightness"));
-        assert_eq!(plan.affects, ["monitors"]);
+        assert_eq!(plan.affects, ["monitors", "settings"]);
         let other = super::plan(&parse(
             json!({"op": "display.brightness", "monitor": "eDP-1", "percent": 40}),
         ))
@@ -247,7 +302,7 @@ mod tests {
         let plan = plan(&parse(json!({"op": "display.scale", "scale": "1.5"}))).unwrap();
         assert_eq!(plan.lane, "hypr:monitors");
         assert_eq!(plan.key.as_deref(), Some("scale"));
-        assert_eq!(plan.affects, ["monitors"]);
+        assert_eq!(plan.affects, ["monitors", "settings"]);
     }
 
     #[test]
@@ -273,14 +328,16 @@ mod tests {
         for group in ["look", "rest", "all"] {
             assert_eq!(
                 reads(&parse(json!({"op": "settings.snapshot", "group": group}))),
-                ["monitors"],
+                ["settings", "monitors"],
                 "{group}"
             );
         }
-        assert!(reads(&parse(
-            json!({"op": "settings.snapshot", "group": "network"})
-        ))
-        .is_empty());
+        assert_eq!(
+            reads(&parse(
+                json!({"op": "settings.snapshot", "group": "network"})
+            )),
+            ["settings"]
+        );
         assert_eq!(
             reads(&parse(json!({"op": "display.get", "kind": "disks"}))),
             ["disks"]

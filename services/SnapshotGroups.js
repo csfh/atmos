@@ -514,27 +514,6 @@ function groupForKey(key) {
   return keyGroupMap()[k] || "";
 }
 
-function tagApply(apply) {
-  if (!apply || typeof apply !== "object") return apply || {};
-  var group = "";
-  var k, g;
-  for (k in apply) {
-    if (!Object.prototype.hasOwnProperty.call(apply, k) || k === "group") continue;
-    g = groupForKey(k);
-    if (!g) {
-      group = "";
-      break;
-    }
-    if (!group) group = g;
-    else if (group !== g) {
-      group = "";
-      break;
-    }
-  }
-  if (group) apply.group = group;
-  return apply;
-}
-
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     GROUPS: GROUPS,
@@ -548,7 +527,6 @@ if (typeof module !== "undefined" && module.exports) {
     tag: tag,
     copyableBagKeys: copyableBagKeys,
     groupForKey: groupForKey,
-    tagApply: tagApply,
     ACCOUNT_BAG_KEYS: ACCOUNT_BAG_KEYS,
     DERIVED_BAG_KEYS: DERIVED_BAG_KEYS,
   };

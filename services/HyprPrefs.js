@@ -466,10 +466,11 @@ function kbOverridePlan(hyprInput, layouts, variants, groupToggle, merge) {
 
 // The options for running the planned command. A write that is itself a
 // revert carries no guard, or the revert would arm another one.
-function kbRunOptions(cmd, revert, reverting) {
+// `write` is Requests.write, passed in so this file stays free of imports.
+function kbRunOptions(cmd, revert, reverting, write) {
   return {
     key: cmd.coalesceKey || "hyprInput",
-    apply: cmd.apply,
+    op: write("hypr.apply", { group: "input", payload: cmd.stdin }),
     stdin: cmd.stdin,
     refresh: "none",
     sudo: cmd.sudo === true,

@@ -38,6 +38,7 @@ try {
     SYSTEMCTL_LOG: systemctlLog,
   };
   const unitFile = path.join(fixture, "config/systemd/user/ratmos.service");
+  const samplerFile = path.join(fixture, "config/systemd/user/ratmos-sampler.service");
   const ratmos = ratmosBinary();
   const task = (name) => name.replace(/\.sh$/, "");
   const run = (script, args, env) =>
@@ -85,7 +86,15 @@ try {
   );
   assert(
     fs.readFileSync(systemctlLog, "utf8").includes("--user enable ratmos.service"),
-    "setup on enables the sampler unit",
+    "setup on enables the daemon unit",
+  );
+  assert(
+    fs.readFileSync(samplerFile, "utf8").includes(" sampler\n"),
+    "setup on writes the sampler worker unit",
+  );
+  assert(
+    fs.readFileSync(systemctlLog, "utf8").includes("--user enable ratmos-sampler.service"),
+    "setup on enables the sampler worker unit",
   );
   const again = run("setup-atmos", ["on"]);
   assertEqual(again.status, 0, "setup on is idempotent");
@@ -103,7 +112,12 @@ try {
     "setup off removes only Atmos's requires",
   );
   assert(!fs.existsSync(path.join(hypr, "atmos_layout.lua")), "setup off removes atmos_layout.lua");
-  assert(!fs.existsSync(unitFile), "setup off removes the sampler unit");
+  assert(!fs.existsSync(unitFile), "setup off removes the daemon unit");
+  assert(!fs.existsSync(samplerFile), "setup off removes the sampler worker unit");
+  assert(
+    fs.readFileSync(systemctlLog, "utf8").includes("--user disable --now ratmos-sampler.service"),
+    "setup off stops the sampler worker",
+  );
   assert(
     fs.readFileSync(systemctlLog, "utf8").includes("--user disable --now ratmos.service"),
     "setup off stops and disables the sampler unit",

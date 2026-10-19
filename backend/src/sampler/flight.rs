@@ -41,16 +41,18 @@ impl Flights {
         interactive: bool,
         work: impl FnOnce() -> Result<Sample, String>,
     ) -> Outcome {
+        // A reader never joins a background run: that run may crawl at idle priority.
+        let key = format!("{}:{kind}", if interactive { "fg" } else { "bg" });
         let (slot, owner) = {
             let mut slots = lock(&self.slots);
-            match slots.get(kind) {
+            match slots.get(&key) {
                 Some(slot) => (slot.clone(), false),
                 None => {
                     let slot = Arc::new(Slot {
                         done: Mutex::new(None),
                         ready: Condvar::new(),
                     });
-                    slots.insert(kind.to_string(), slot.clone());
+                    slots.insert(key.clone(), slot.clone());
                     (slot, true)
                 }
             }
@@ -71,7 +73,7 @@ impl Flights {
         if interactive {
             self.interactive.fetch_sub(1, Ordering::SeqCst);
         }
-        lock(&self.slots).remove(kind);
+        lock(&self.slots).remove(&key);
         *lock(&slot.done) = Some(outcome.clone());
         slot.ready.notify_all();
         outcome
@@ -131,6 +133,37 @@ mod tests {
         assert_eq!(runs.load(Ordering::SeqCst), 1);
         assert_eq!(a.at_ms, 7);
         assert_eq!(b.at_ms, 7);
+    }
+
+    #[test]
+    fn an_interactive_request_never_joins_a_background_run() {
+        let flights = Arc::new(Flights::default());
+        let gate = Arc::new(AtomicBool::new(false));
+        let started = Arc::new(AtomicBool::new(false));
+        let background = {
+            let (flights, gate, started) = (flights.clone(), gate.clone(), started.clone());
+            std::thread::spawn(move || {
+                flights.run("services", false, || {
+                    started.store(true, Ordering::SeqCst);
+                    while !gate.load(Ordering::SeqCst) {
+                        std::thread::sleep(Duration::from_millis(5));
+                    }
+                    Ok(sample(1))
+                })
+            })
+        };
+        while !started.load(Ordering::SeqCst) {
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        let began = std::time::Instant::now();
+        let own = flights.run("services", true, || Ok(sample(2))).unwrap();
+        assert_eq!(own.at_ms, 2, "the reader ran its own collection");
+        assert!(
+            began.elapsed() < Duration::from_millis(500),
+            "and did not wait"
+        );
+        gate.store(true, Ordering::SeqCst);
+        assert_eq!(background.join().unwrap().unwrap().at_ms, 1);
     }
 
     #[test]

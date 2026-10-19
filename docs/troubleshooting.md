@@ -12,4 +12,4 @@
 
 **Need a report.** **System → Diagnostics → Copy report** puts an Atmos summary plus `omarchy-debug --no-sudo --print` on the clipboard.
 
-**A page shows old inventory data.** The pages read samples from `ratmos daemon`. `systemctl --user status ratmos` shows whether it runs and `journalctl --user -u ratmos` what it logged. Restarting it (`systemctl --user restart ratmos`) or deleting `$XDG_RUNTIME_DIR/atmos` makes the next read collect fresh. If the unit is missing, `atmos --setup` writes it. Without the daemon Atmos collects each inventory itself, which is only slower.
+**A page shows old inventory data.** The pages read samples from `ratmos daemon`. `systemctl --user status ratmos ratmos-sampler` shows whether they run and `journalctl --user -u ratmos -u ratmos-sampler` what they logged. The daemon says in its log when background sampling waits for a busy machine. Restarting them (`systemctl --user restart ratmos`) or deleting `$XDG_RUNTIME_DIR/atmos` makes the next read collect fresh. If the units are missing, `atmos --setup` writes them. Without the daemon Atmos collects each inventory itself, which is only slower.

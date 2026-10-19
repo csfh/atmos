@@ -14,12 +14,12 @@ Atmos is a QML window over one Rust backend. This page is the target design and 
 
 | Process | Unit | Priority | Job |
 | --- | --- | --- | --- |
-| `ratmos daemon` | `ratmos.service`, started by `ratmos.socket` | normal (`Nice=5`) | Owns topics, runs the command bus, answers windows, runs foreground collections |
+| `ratmos daemon` | `ratmos.service`, wanted by `graphical-session.target` | normal (`Nice=15`, `CPUWeight=20`) | Owns topics, runs the command bus, answers windows, runs foreground collections |
 | `ratmos sampler` | `ratmos-sampler.service` | `CPUSchedulingPolicy=idle`, `IOSchedulingClass=idle`, `CPUWeight=1`, `CPUQuota` | Executes background collections the daemon asks for. No state, no scheduling decisions |
 | `ratmos serve` | none, one per window | normal | Bridge between the window's stdio and the daemon socket. Keeps today's framing |
 | `ratmos task`, `root`, `apply` | none | normal | Jobs that keep their own process tree: privileged work, streaming output, interactive shells |
 
-The daemon is socket-activated, and `serve` starts a detached daemon when the socket is missing and there is no systemd, so the authority always exists. If the sampler is not running, the daemon does no background sampling. Topics fill on demand and by subscription, which is slower and never wrong.
+The daemon is meant to be socket-activated, with `serve` starting a detached one when the socket is missing and there is no systemd, so the authority always exists. Today it is started by its unit only (see the phases). If the sampler is not running, the daemon does no background sampling. Topics fill on demand, which is slower and never wrong.
 
 ## The sampling bus
 
@@ -86,10 +86,18 @@ One Unix socket, `$XDG_RUNTIME_DIR/atmos/ratmos.sock`, NDJSON, ids multiplexed.
 | --- | --- | --- |
 | baseline | `ratmos daemon` as a user unit, cache-first `display.*` reads, interactive-first queue, drops after tasks | done |
 | P0 | A failed `hyprctl` leaves the monitor list alone and logs why | done |
-| P1 | Engine: topics with last-good and stale metadata, the governor, the sampler split into its own unit, `ratmos.socket` | next |
+| P1 | Engine: topics with last-good and stale metadata, the governor, the sampler split into its own unit | done, except the two gaps below |
 | P2 | Frames and subscriptions on the socket, `serve` as a bridge, `live` and stamps pushed, the QML polling Timers removed | |
 | P3 | Command bus: lanes, coalescing, read-your-writes, leases. Brightness first. This also retires the window's optimistic `apply:` patches: a patch crosses a QML signal, which hands its arrays back wrapped, and that once emptied the monitor list on the second brightness change (fixed in `Lists.js`, but the cause is the window writing state itself) | |
 | P4 | The settings snapshot groups become topics; `apply --` passthroughs replaced by typed ops where they matter | |
+
+### Known gaps after P1
+
+- **The idle IO class is not a guarantee.** It only acts under an IO scheduler that honors priorities. On `none`, the NVMe default, it does nothing, so the CPU weight, the quota and the governor carry the promise. Checked under real systemd on one machine: the sampler gets `SCHED_IDLE`, `cpu.weight 1` and `cpu.max 10%`, and the quota does throttle its bursts.
+- **A background job that times out is not cancelled.** The worker keeps running it, and the daemon sends it nothing new until it answers, so a starved sampler cannot pile up a burst of queued jobs.
+- **Socket activation and daemon autostart** (`ratmos.socket`, `serve` spawning a daemon) move to P2, where `serve` becomes the bridge. Until then the daemon exists only while its user unit runs, so the "always an authority" rule holds on an installed system and not yet on a bare checkout.
+- **A failed tool is still an empty string inside most collectors.** `capture()` turns a failed `systemctl`, `df` or `omarchy` call into empty output, so a collector can return a document with blank fields and succeed. The topics catch a collector that errors, panics or times out, not one that quietly returns less. Fixing that is an audit of every collector, and `hypr::monitors()` (P0) is the only one done.
+- **Duty accounting is per run.** The governor charges each background collection the CPU the sampler process and its reaped children used while it ran, which is exact only because one background run goes at a time.
 
 ## Not in scope
 

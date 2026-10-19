@@ -120,21 +120,41 @@ cp "$REAL_RATMOS" "$BACKEND_OUTPUT/ratmos"
   const unit = fs.readFileSync(path.join(fixture, "config/systemd/user/ratmos.service"), "utf8");
   assert.ok(
     unit.includes(`ExecStart="${path.join(dest, "bin/ratmos")}" daemon`),
-    "the unit runs the installed ratmos",
+    "the daemon unit runs the installed ratmos",
   );
+  const sampler = fs.readFileSync(
+    path.join(fixture, "config/systemd/user/ratmos-sampler.service"),
+    "utf8",
+  );
+  assert.ok(
+    sampler.includes(`ExecStart="${path.join(dest, "bin/ratmos")}" sampler`),
+    "the sampler unit runs the installed ratmos",
+  );
+  assert.match(sampler, /^CPUSchedulingPolicy=idle$/m, "the sampler runs at idle priority");
   assert.deepEqual(
     fs.readFileSync(path.join(fixture, "systemctl.log"), "utf8").trim().split("\n"),
-    ["--user daemon-reload", "--user enable ratmos.service", "--user restart ratmos.service"],
-    "install reloads, enables and restarts the daemon",
+    [
+      "--user daemon-reload",
+      "--user enable ratmos.service",
+      "--user restart ratmos.service",
+      "--user enable ratmos-sampler.service",
+      "--user restart ratmos-sampler.service",
+    ],
+    "install reloads, then enables and restarts the daemon and the sampler in that order",
   );
   fs.writeFileSync(path.join(fixture, "systemctl.log"), "");
   assert.equal(install(false).status, 0);
   assert.deepEqual(
     fs.readFileSync(path.join(fixture, "systemctl.log"), "utf8").trim().split("\n"),
-    ["--user enable ratmos.service", "--user restart ratmos.service"],
-    "an unchanged unit is not reloaded, but the daemon still restarts onto the new binary",
+    [
+      "--user enable ratmos.service",
+      "--user restart ratmos.service",
+      "--user enable ratmos-sampler.service",
+      "--user restart ratmos-sampler.service",
+    ],
+    "unchanged units are not reloaded, but both still restart onto the new binary",
   );
-  console.log("ok - install writes, enables and restarts the sampler unit");
+  console.log("ok - install writes, enables and restarts the daemon and sampler units");
 
   const cached = path.join(fixture, "cache/atmos/src");
   fs.mkdirSync(path.join(cached, ".git"), { recursive: true });

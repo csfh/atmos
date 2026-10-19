@@ -9,8 +9,11 @@ pub mod cache;
 pub mod client;
 pub mod daemon;
 mod flight;
+pub mod governor;
 pub mod policy;
 mod schedule;
+mod topics;
+pub mod worker;
 
 /// Inventories a task or an apply can change. Hardware is fixed for a boot and
 /// `live` is never served old, so neither is dropped.

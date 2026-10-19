@@ -101,7 +101,7 @@ extern "C" {
     fn sysconf(name: i32) -> i64;
 }
 
-fn clk_tck() -> i64 {
+pub(crate) fn clk_tck() -> i64 {
     const SC_CLK_TCK: i32 = 2;
     // SAFETY: sysconf takes an int and returns a long; it has no pointer arguments.
     let n = unsafe { sysconf(SC_CLK_TCK) };

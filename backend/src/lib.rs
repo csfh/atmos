@@ -123,6 +123,7 @@ fn dispatch(
             Ok(code)
         }
         "daemon" => sampler::daemon::run(),
+        "sampler" => sampler::worker::run(),
         // `sentinel KIND apply|reset|list FILE [JSON]`: the Hyprland blocks Atmos
         // manages, on any file. Tests and bug reports use it; the window does not.
         "sentinel" => {
@@ -530,7 +531,7 @@ fn write_json(stdout: &mut dyn Write, value: &Value) -> Result<()> {
 fn usage(stderr: &mut dyn Write) {
     let _ = writeln!(
         stderr,
-        "usage: ratmos [--backend omarchy|plain] [--root DIR] <snapshot|request|display KIND|display-snapshot|apply -- CMD|daemon|version>"
+        "usage: ratmos [--backend omarchy|plain] [--root DIR] <snapshot|request|display KIND|display-snapshot|apply -- CMD|daemon|sampler|version>"
     );
 }
 

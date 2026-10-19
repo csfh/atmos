@@ -63,9 +63,14 @@ If you installed with `install.sh` first, remove `~/.local/share/atmos`, `~/.loc
 
 ## Sampler service
 
-`ratmos daemon` runs as the systemd user unit `ratmos.service` (`~/.config/systemd/user`, wanted by `graphical-session.target`). It samples the six inventories the pages show, slowly and on repeat, at low CPU and IO priority (not the idle classes, because the same process answers a window that is waiting for a page), so a page opens on data that is already there. The install script and **Update** write, enable and restart it; for the package it comes with `atmos --setup`, and `atmos --setup off` stops and removes it. Packagers: `packaging/ratmos.service` is the template, and its `ExecStart=ratmos daemon` is rewritten to the installed binary.
+Two systemd user units (`~/.config/systemd/user`) keep the inventories the pages show fresh, so a page opens on data that is already there:
 
-It is optional. With no systemd user session, or with the unit stopped, Atmos collects each inventory itself, as before. Check it with `systemctl --user status ratmos`. Samples live in `$XDG_RUNTIME_DIR/atmos` (tmpfs) and are gone after a reboot.
+- `ratmos.service` runs `ratmos daemon`, wanted by `graphical-session.target`. It owns the samples and answers windows, at low CPU and IO priority but not the idle classes, because it answers a window that is waiting for a page.
+- `ratmos-sampler.service` runs `ratmos sampler`, part of the daemon. It does the background collecting, at idle CPU and IO priority, the lowest weight and a `CPUQuota`. The daemon only sends it work when the machine is not under CPU pressure and the sampler has not used its share of a core, and with no sampler running nothing is collected in the background. The CPU limits are the real guarantee: the idle IO class only does something under an IO scheduler that honors priorities (`bfq`, `mq-deadline`), and the `none` scheduler most NVMe drives use ignores it.
+
+The install script and **Update** write, enable and restart both; for the package they come with `atmos --setup`, and `atmos --setup off` stops and removes them. Packagers: `packaging/ratmos.service` and `packaging/ratmos-sampler.service` are the templates, and their `ExecStart=ratmos ...` lines are rewritten to the installed binary.
+
+It is optional. With no systemd user session, or with the unit stopped, Atmos collects each inventory itself, as before. Check them with `systemctl --user status ratmos ratmos-sampler`. Samples live in `$XDG_RUNTIME_DIR/atmos` (tmpfs) and are gone after a reboot.
 
 ## Update
 

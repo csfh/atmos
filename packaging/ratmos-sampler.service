@@ -1,0 +1,21 @@
+[Unit]
+Description=Atmos sampler worker: collects the inventories in the background
+Documentation=https://github.com/csfh/atmos
+After=ratmos.service
+PartOf=ratmos.service
+
+[Service]
+Type=simple
+ExecStart=ratmos sampler
+Restart=on-failure
+RestartSec=5
+# Background work must never be felt. Idle CPU and IO classes, the lowest
+# weight, and a hard quota. The daemon answers windows from its own unit.
+Nice=19
+CPUSchedulingPolicy=idle
+IOSchedulingClass=idle
+CPUWeight=1
+CPUQuota=10%
+
+[Install]
+WantedBy=ratmos.service

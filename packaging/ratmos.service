@@ -1,0 +1,20 @@
+[Unit]
+Description=Atmos sampler: keeps the inventories Atmos shows fresh
+Documentation=https://github.com/csfh/atmos
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=ratmos daemon
+Restart=on-failure
+RestartSec=5
+# It samples in the background and must not be felt in the foreground. Not the
+# idle classes: the same process answers a window that is waiting for a page.
+Nice=15
+CPUWeight=20
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+
+[Install]
+WantedBy=graphical-session.target

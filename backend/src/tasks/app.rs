@@ -184,10 +184,12 @@ pub fn setup(mode: &str) -> Result<()> {
     match mode {
         "on" => {
             setup_hypr()?;
+            super::sampler_unit::enable(&std::env::current_exe()?)?;
             println!("Atmos is set up. Undo it with: atmos --setup off");
         }
         "off" => {
             unsetup_hypr()?;
+            super::sampler_unit::disable();
             println!("Atmos is set down. Settings you changed in Atmos stay; Reset in Atmos strips them.");
         }
         "status" => println!("{}", setup_state()),
@@ -307,7 +309,8 @@ pub fn link_xdg(dest: &Path) -> Result<()> {
     write_desktop(dest)?;
     let apps = xdg("XDG_DATA_HOME", ".local/share").join("applications");
     let _ = Run::new("update-desktop-database").arg(apps).output();
-    setup_hypr()
+    setup_hypr()?;
+    super::sampler_unit::enable(&dest.join("bin/ratmos"))
 }
 
 fn git_head(dir: &Path) -> String {

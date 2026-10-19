@@ -29,6 +29,8 @@ function env(extra = {}) {
     XDG_BIN_HOME: path.join(fixture, "bin"),
     ATMOS_HYPR_DIR: path.join(fixture, "hypr"),
     ATMOS_ROOT: dest,
+    XDG_RUNTIME_DIR: path.join(fixture, "run"),
+    SYSTEMCTL_LOG: path.join(fixture, "systemctl.log"),
     FAIL_BUILD: "0",
     REAL_RATMOS: ratmos,
     BACKEND_OUTPUT: path.join(src, "backend/target/release"),
@@ -66,6 +68,8 @@ cp "$REAL_RATMOS" "$BACKEND_OUTPUT/ratmos"
 `,
     0o755,
   );
+  // Never the real session manager: the stub only records what install asked of it.
+  write(path.join(stubs, "systemctl"), '#!/bin/bash\necho "$*" >> "$SYSTEMCTL_LOG"\n', 0o755);
   write(path.join(stubs, "quickshell"), '#!/bin/bash\nprintf "launched\\n"\n', 0o755);
   write(path.join(dest, "bin/atmos"), "old launcher", 0o755);
   write(path.join(dest, "bin/ratmos"), "old backend", 0o755);
@@ -112,6 +116,25 @@ cp "$REAL_RATMOS" "$BACKEND_OUTPUT/ratmos"
     "the desktop entry points at the installed launcher",
   );
   console.log("ok - install links the launcher and writes the desktop entry");
+
+  const unit = fs.readFileSync(path.join(fixture, "config/systemd/user/ratmos.service"), "utf8");
+  assert.ok(
+    unit.includes(`ExecStart="${path.join(dest, "bin/ratmos")}" daemon`),
+    "the unit runs the installed ratmos",
+  );
+  assert.deepEqual(
+    fs.readFileSync(path.join(fixture, "systemctl.log"), "utf8").trim().split("\n"),
+    ["--user daemon-reload", "--user enable ratmos.service", "--user restart ratmos.service"],
+    "install reloads, enables and restarts the daemon",
+  );
+  fs.writeFileSync(path.join(fixture, "systemctl.log"), "");
+  assert.equal(install(false).status, 0);
+  assert.deepEqual(
+    fs.readFileSync(path.join(fixture, "systemctl.log"), "utf8").trim().split("\n"),
+    ["--user enable ratmos.service", "--user restart ratmos.service"],
+    "an unchanged unit is not reloaded, but the daemon still restarts onto the new binary",
+  );
+  console.log("ok - install writes, enables and restarts the sampler unit");
 
   const cached = path.join(fixture, "cache/atmos/src");
   fs.mkdirSync(path.join(cached, ".git"), { recursive: true });

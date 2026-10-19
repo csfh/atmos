@@ -148,6 +148,12 @@ A domain is one named setting, such as `theme` or `hyprLook.gapsIn`.
 | `display.get` | `kind`: `live`, `hardware`, `disks`, `services`, `software` or `diagnostics` | One inventory. An unknown kind is a `failed` reply. `live` also carries `uptimeSec`, a `startTicks` per process, and `tcpSockets` rows with `addr`, `port`, `uid` and `pid` (`null` when the owner's `/proc/<pid>/fd` is unreadable), listeners first. |
 | `display.snapshot` | | An object holding every kind above, each as `display.get` returns it. One failing inventory stays on its own key. |
 
+#### Sample cache
+
+On a live system `display.get` and `display.snapshot` answer from the samples `ratmos daemon` keeps in `$XDG_RUNTIME_DIR/atmos/<kind>.json`, and the reply is the same document either way. A sample is served while it is younger than its kind allows: `live` one second (the window turns its counters into rates with its own clock, so it must never see one sample twice), every other kind three sample intervals. Past that, or with nothing cached, the request goes to the daemon over `$XDG_RUNTIME_DIR/atmos/ratmos.sock` with interactive priority and waits for the fresh sample, up to 2 seconds for `live` and 20 for the rest; simultaneous requests for one kind share one collection. With no daemon, a missing runtime dir, a daemon that does not answer in time, or any daemon failure, the request collects the inventory itself, as it did before the daemon existed.
+
+A `--root` fixture never reads the cache. `ratmos task`, `ratmos apply` and `settings.set` drop the kinds they can change (`disks`, `services`, `software`, `diagnostics`; `settings.set` only `services`), so the next read is fresh, and the daemon resamples them in the background after 5 seconds, but not within 30 seconds of the kind's last sample. Settings, `host.*`, `search.query` and the other ops are always read live.
+
 ### Search
 
 | Op | Fields | Result |

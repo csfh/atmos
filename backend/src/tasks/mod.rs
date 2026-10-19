@@ -9,6 +9,7 @@ pub mod app;
 pub mod elevate;
 pub mod net;
 pub mod root;
+pub mod sampler_unit;
 pub mod settings_apply;
 pub mod system;
 pub mod user;

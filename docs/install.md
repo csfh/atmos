@@ -61,6 +61,12 @@ Run `atmos --setup off` before you remove the package; `packaging/atmos.hook` re
 
 If you installed with `install.sh` first, remove `~/.local/share/atmos`, `~/.local/bin/atmos` and `~/.local/share/applications/atmos.desktop` so they do not shadow the package.
 
+## Sampler service
+
+`ratmos daemon` runs as the systemd user unit `ratmos.service` (`~/.config/systemd/user`, wanted by `graphical-session.target`). It samples the six inventories the pages show, slowly and on repeat, at low CPU and IO priority (not the idle classes, because the same process answers a window that is waiting for a page), so a page opens on data that is already there. The install script and **Update** write, enable and restart it; for the package it comes with `atmos --setup`, and `atmos --setup off` stops and removes it. Packagers: `packaging/ratmos.service` is the template, and its `ExecStart=ratmos daemon` is rewritten to the installed binary.
+
+It is optional. With no systemd user session, or with the unit stopped, Atmos collects each inventory itself, as before. Check it with `systemctl --user status ratmos`. Samples live in `$XDG_RUNTIME_DIR/atmos` (tmpfs) and are gone after a reboot.
+
 ## Update
 
 **System → Atmos** Check / Update follows the **stable** git branch. Re-running the install command does the same fetch-and-stage. If the window looks the same afterward, quit Atmos and open it again. Update also repairs an install that is missing the launcher, backend, or shell.
@@ -69,4 +75,4 @@ The channel lives in `~/.config/atmos/channel`. Only `stable` exists; an old `al
 
 ## Uninstall
 
-Run `atmos --setup off` first, while Atmos is still installed, to remove the Hyprland requires. For the script install, then delete `~/.local/share/atmos`, `~/.local/bin/atmos` and `~/.local/share/applications/atmos.desktop`; for the package, `sudo pacman -R omarchy-atmos`. **System → Atmos → Reset**, before you uninstall, strips the Atmos-managed Hyprland overrides and leaves theme, wallpaper and `shell.json` alone.
+Run `atmos --setup off` first, while Atmos is still installed, to remove the Hyprland requires and stop the sampler service. For the script install, then delete `~/.local/share/atmos`, `~/.local/bin/atmos` and `~/.local/share/applications/atmos.desktop`; for the package, `sudo pacman -R omarchy-atmos`. **System → Atmos → Reset**, before you uninstall, strips the Atmos-managed Hyprland overrides and leaves theme, wallpaper and `shell.json` alone.

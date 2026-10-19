@@ -22,6 +22,7 @@ mod patch;
 mod platform;
 mod request;
 mod runner;
+mod sampler;
 mod search;
 pub mod serve;
 mod snapshot;
@@ -114,12 +115,14 @@ fn dispatch(
             write_json(stdout, &display)?;
             Ok(0)
         }
-        "apply" => Ok(apply::run(
-            parsed.root.as_deref(),
-            &parsed.rest,
-            stdout,
-            stderr,
-        )),
+        "apply" => {
+            let code = apply::run(parsed.root.as_deref(), &parsed.rest, stdout, stderr);
+            if parsed.root.is_none() {
+                sampler::drop_kinds(sampler::AFTER_JOB);
+            }
+            Ok(code)
+        }
+        "daemon" => sampler::daemon::run(),
         // `sentinel KIND apply|reset|list FILE [JSON]`: the Hyprland blocks Atmos
         // manages, on any file. Tests and bug reports use it; the window does not.
         "sentinel" => {
@@ -151,7 +154,11 @@ fn dispatch(
             hyprland::apply_file(kind, file, &payload, action == "reset")?;
             Ok(0)
         }
-        "task" => Ok(tasks::run(&parsed.rest, stdout, stderr)),
+        "task" => {
+            let code = tasks::run(&parsed.rest, stdout, stderr);
+            sampler::drop_kinds(sampler::AFTER_JOB);
+            Ok(code)
+        }
         "root" => Ok(tasks::run_root(&parsed.rest, stderr)),
         "mcp" => {
             let (mut backend, mut root) = (Backend::Omarchy, None);
@@ -290,6 +297,10 @@ pub(crate) fn handle(backend: Backend, root: Option<&Path>, request: &Value) -> 
         Request::SettingsGet { domain } => read_domain(backend, root, &domain)?,
         Request::SettingsSet { domain, value } => {
             write_domain(backend, root, &domain, &value)?;
+            // A setting can start or stop a unit; the other inventories do not follow settings.
+            if root.is_none() {
+                sampler::drop_kinds(&["services"]);
+            }
             let place = place_for(backend, &domain)?;
             serde_json::json!({
                 "domain": domain,
@@ -519,7 +530,7 @@ fn write_json(stdout: &mut dyn Write, value: &Value) -> Result<()> {
 fn usage(stderr: &mut dyn Write) {
     let _ = writeln!(
         stderr,
-        "usage: ratmos [--backend omarchy|plain] [--root DIR] <snapshot|request|display KIND|display-snapshot|apply -- CMD|version>"
+        "usage: ratmos [--backend omarchy|plain] [--root DIR] <snapshot|request|display KIND|display-snapshot|apply -- CMD|daemon|version>"
     );
 }
 

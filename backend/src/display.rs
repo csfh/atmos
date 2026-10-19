@@ -50,6 +50,7 @@ pub fn load(root: Option<&Path>, platform: Backend, kind: &str) -> Result<Value>
         return Err(format!("unknown display kind {kind}").into());
     }
     let named = collector(platform, kind);
+    // A fixture root is for tests and never reads the live sample cache.
     if let Some(root) = root {
         let path = root.join(display_rel(platform, kind));
         if path.is_file() {
@@ -62,9 +63,18 @@ pub fn load(root: Option<&Path>, platform: Backend, kind: &str) -> Result<Value>
     if platform != Backend::Omarchy {
         return Ok(stamp(Value::Object(Map::new()), platform, named));
     }
+    // The sampling daemon keeps these warm; without one the kind is collected here.
+    if let Some(doc) = crate::sampler::client::fetch(kind) {
+        return Ok(doc);
+    }
+    collect(platform, kind)
+}
+
+/// Collect one inventory now, bypassing the sample cache. The daemon's collector.
+pub fn collect(platform: Backend, kind: &str) -> Result<Value> {
     let value = crate::inventory::collect(kind)
         .ok_or_else(|| Error::from(format!("no collector for {kind}")))?;
-    Ok(stamp(value, platform, named))
+    Ok(stamp(value, platform, collector(platform, kind)))
 }
 
 fn stamp(value: Value, platform: Backend, collector: &str) -> Value {

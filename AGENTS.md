@@ -2,6 +2,8 @@
 
 Atmos is a standalone Quickshell preferences app for Omarchy. The window is QML and everything else is Rust (`ratmos`). There is no Python and there are no helper scripts: `bin/atmos` and `install.sh` are the only shell, and both hand off to `ratmos` at once (`ratmos launch`, `ratmos install`). `scripts/` holds a README and `hypr-sentinel.py`, a shim that hands to `ratmos sentinel`: the updater in installs older than 0.2.0 copies that directory and runs the shim, and fails without them (`tests/update-compat.test.js`). Add nothing else there. Do not import `qs.Ui` or `qs.Commons` from `$OMARCHY_PATH/shell`.
 
+The target design (one daemon authority, a sampling bus behind a CPU governor, a command bus for writes) and its phases are in `docs/architecture.md`. Read it before touching `backend/src/sampler`, `serve.rs` or `Backend.qml`.
+
 ## Run
 
 - `./bin/atmos` — launch (each launch is its own window)
@@ -28,5 +30,6 @@ Atmos is a standalone Quickshell preferences app for Omarchy. The window is QML 
 - Do not import `qs.Ui`. Restyle Qt Quick Controls through `Prefs*` wrappers. Visual language lives in `services/Theme.qml`; use those tokens instead of one-off sizes.
 - QML reaches `ratmos` only through `services/Backend.qml` with bodies from `services/Requests.js`. Do not add a `Process` that runs `ratmos request`, and do not poll with a `Timer`: watch through `Backend.watch` and listen for `Backend.stamp|chrome|accounts`. Long jobs that stream output stay on `ratmos apply`. A new op needs its `Request` variant in `backend/src/request.rs` its builder in `Requests.js` (`tests/requests.test.js` checks the two lists match), and its row in `docs/protocol.md` (`tests/protocol-doc.test.js` checks it).
 - Rust errors are `crate::error::Error` (kind + message + context), never `String`. Child processes go through `crate::runner::Run`, file replacement through `crate::fsutil::atomic_write`, and user-chosen paths through `host::confine`.
+- `ratmos daemon` (`backend/src/sampler`, unit `packaging/ratmos.service`) samples the six display kinds into `$XDG_RUNTIME_DIR/atmos`; `display::load` reads that cache and asks the daemon for a missed kind with interactive priority, and collects inline when there is no daemon. Keep that fallback, keep `live` at a one-second max age (the window computes rates from its own clock, so one sample must never be served twice), and call `sampler::drop_kinds` from any new path that mutates what an inventory shows. Settings, `host.*` and the other ops stay live reads. A test that runs `setup-atmos` or `install` stubs `systemctl` and sets `XDG_CONFIG_HOME` and `XDG_RUNTIME_DIR`, or it reaches the real user manager.
 - Do not launch floating terminals for settings work. Long jobs use `Omarchy.runJob` or an in-page `Process`.
 - Concurrent Atmos windows are allowed. Writers serialize with flock + atomic rename (`backend/src/hyprland` `_patch` merge, shared `shell.json` lock, and sidecar locks on env/hyprsunset/tweaks/avatar/presentation). Do not reintroduce `instance-lock.sh`, `lostInstanceLock`, `quickshell -n`, or launcher `focus_existing`.

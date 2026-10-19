@@ -26,7 +26,18 @@ try {
   const stubs = path.join(fixture, "stubs");
   fs.mkdirSync(stubs);
   fs.writeFileSync(path.join(stubs, "hyprctl"), "#!/bin/bash\nexit 0\n", { mode: 0o755 });
+  // setup also manages the sampler unit; the stub records it so the real user manager is never reached.
+  const systemctlLog = path.join(fixture, "systemctl.log");
+  fs.writeFileSync(path.join(stubs, "systemctl"), '#!/bin/bash\necho "$*" >> "$SYSTEMCTL_LOG"\n', {
+    mode: 0o755,
+  });
   const withStubs = stubs + ":" + process.env.PATH;
+  const hermetic = {
+    XDG_CONFIG_HOME: path.join(fixture, "config"),
+    XDG_RUNTIME_DIR: path.join(fixture, "run"),
+    SYSTEMCTL_LOG: systemctlLog,
+  };
+  const unitFile = path.join(fixture, "config/systemd/user/ratmos.service");
   const ratmos = ratmosBinary();
   const task = (name) => name.replace(/\.sh$/, "");
   const run = (script, args, env) =>
@@ -36,6 +47,7 @@ try {
         {},
         process.env,
         { HOME: fixture, ATMOS_HYPR_DIR: hypr, PATH: withStubs },
+        hermetic,
         env,
       ),
     });
@@ -67,6 +79,14 @@ try {
   assert(fs.existsSync(path.join(hypr, "atmos.lua")), "setup on writes atmos.lua");
   assert(fs.existsSync(path.join(hypr, "atmos_layout.lua")), "setup on writes atmos_layout.lua");
   assertEqual(run("setup-atmos", ["status"]).stdout.trim(), "on", "setup status reads on");
+  assert(
+    fs.readFileSync(unitFile, "utf8").includes(" daemon\n"),
+    "setup on writes the sampler unit",
+  );
+  assert(
+    fs.readFileSync(systemctlLog, "utf8").includes("--user enable ratmos.service"),
+    "setup on enables the sampler unit",
+  );
   const again = run("setup-atmos", ["on"]);
   assertEqual(again.status, 0, "setup on is idempotent");
   assertEqual(
@@ -83,6 +103,11 @@ try {
     "setup off removes only Atmos's requires",
   );
   assert(!fs.existsSync(path.join(hypr, "atmos_layout.lua")), "setup off removes atmos_layout.lua");
+  assert(!fs.existsSync(unitFile), "setup off removes the sampler unit");
+  assert(
+    fs.readFileSync(systemctlLog, "utf8").includes("--user disable --now ratmos.service"),
+    "setup off stops and disables the sampler unit",
+  );
   assert(!fs.existsSync(path.join(hypr, "atmos.lua")), "setup off removes an untouched atmos.lua");
 
   run("setup-atmos", ["on"]);
@@ -109,7 +134,7 @@ try {
   const pkgRun = (script, args) =>
     spawnSync(ratmos, ["task", task(script), ...args], {
       encoding: "utf8",
-      env: Object.assign({}, process.env, {
+      env: Object.assign({}, process.env, hermetic, {
         HOME: fixture,
         ATMOS_ROOT: pkgApp,
         ATMOS_SKIP_HYPR: "1",
@@ -147,7 +172,7 @@ try {
   // The launcher routes --setup without quickshell on PATH.
   const launched = spawnSync("bash", [path.join(root, "bin", "atmos"), "--setup", "status"], {
     encoding: "utf8",
-    env: Object.assign({}, process.env, {
+    env: Object.assign({}, process.env, hermetic, {
       HOME: fixture,
       ATMOS_HYPR_DIR: hypr,
       ATMOS_BACKEND: ratmos,

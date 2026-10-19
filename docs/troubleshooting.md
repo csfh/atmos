@@ -11,3 +11,5 @@
 **Install says a tool is missing.** `install.sh` needs `git`, `cargo`, and `quickshell`.
 
 **Need a report.** **System → Diagnostics → Copy report** puts an Atmos summary plus `omarchy-debug --no-sudo --print` on the clipboard.
+
+**A page shows old inventory data.** The pages read samples from `ratmos daemon`. `systemctl --user status ratmos` shows whether it runs and `journalctl --user -u ratmos` what it logged. Restarting it (`systemctl --user restart ratmos`) or deleting `$XDG_RUNTIME_DIR/atmos` makes the next read collect fresh. If the unit is missing, `atmos --setup` writes it. Without the daemon Atmos collects each inventory itself, which is only slower.

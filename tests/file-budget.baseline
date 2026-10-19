@@ -3,7 +3,7 @@
 # shrink; a file back under the budget leaves this list.
 2906 services/Charts.js
 2880 services/Settings.js
-2709 services/Omarchy.qml
+2700 services/Omarchy.qml
 1414 shell.qml
 1228 services/RichUi.js
 1032 backend/src/patch.rs

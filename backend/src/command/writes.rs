@@ -33,6 +33,8 @@ pub struct Built {
     pub settle: Option<Check>,
     /// The check needs the keys as they were before the write.
     pub before: bool,
+    /// How long the read-back is repeated waiting for `settle`.
+    pub settle_for: Duration,
     /// Needs the caller's own process tree (a sudo or polkit step). It is run
     /// where the caller is and never handed to the daemon.
     pub local: bool,
@@ -48,6 +50,7 @@ impl Built {
             readback: readback.iter().map(|k| k.to_string()).collect(),
             settle: None,
             before: false,
+            settle_for: SETTLE_FAST,
             local: false,
         }
     }
@@ -62,6 +65,13 @@ impl Built {
         self.settle = Some(Box::new(
             move |before, now| matches!((before.get(key), now.get(key)), (Some(a), Some(b)) if a != b),
         ));
+        self
+    }
+
+    /// A change that takes seconds to show: a radio associating, a device
+    /// connecting, the bar reloading.
+    fn slow(mut self) -> Built {
+        self.settle_for = SETTLE_SLOW;
         self
     }
 
@@ -212,6 +222,7 @@ pub fn build(name: &str, args: &Value) -> Result<Built> {
                 &["wifiBandSelected"],
             )
             .settle(equals("wifiBandSelected", json!(band)))
+            .slow()
         }
         "wifi.connection" => {
             let action = one_of(args, "action", &["up", "down", "delete"])?;
@@ -225,6 +236,7 @@ pub fn build(name: &str, args: &Value) -> Result<Built> {
                 &["wifiConnections", "wifiConnected", "netKind", "netSsid"],
             );
             let id = id.to_string();
+            let built = built.slow();
             match action {
                 "up" => built.settle(row_has(
                     "wifiConnections",
@@ -253,6 +265,7 @@ pub fn build(name: &str, args: &Value) -> Result<Built> {
                 &["bluetoothDevices"],
             );
             let id = addr.to_string();
+            let built = built.slow();
             match action {
                 "connect" => built.settle(row_has(
                     "bluetoothDevices",
@@ -292,6 +305,7 @@ pub fn build(name: &str, args: &Value) -> Result<Built> {
                 "enabled",
                 json!(on),
             ))
+            .slow()
         }
         "bar.spacer" => {
             let on = flag(args, "on")?;
@@ -302,6 +316,7 @@ pub fn build(name: &str, args: &Value) -> Result<Built> {
             };
             Built::new("plugin", "spacerPresent", argv, &["spacerPresent"])
                 .settle(equals("spacerPresent", json!(on)))
+                .slow()
         }
         "monitor.internal" => {
             let on = flag(args, "on")?;
@@ -435,7 +450,7 @@ pub fn build(name: &str, args: &Value) -> Result<Built> {
         }
         "weather.coordinates" => {
             let place = word(args, "name")?;
-            let coords = word(args, "coords")?;
+            let coords = coords(args, "coords")?;
             Built::new(
                 "weather",
                 "weatherCoords",
@@ -446,15 +461,12 @@ pub fn build(name: &str, args: &Value) -> Result<Built> {
         "reminder.set" => {
             let minutes = uint(args, "minutes", 1, 100_000)?.to_string();
             let mut argv = s(&["omarchy", "reminder", &minutes]);
-            if let Some(message) = args
+            if args
                 .get("message")
                 .and_then(Value::as_str)
-                .filter(|m| !m.is_empty())
+                .is_some_and(|m| !m.is_empty())
             {
-                if message.starts_with('-') || message.contains('\0') {
-                    return Err(bad("message", "not plain text"));
-                }
-                argv.push(message.to_string());
+                argv.push(text(args, "message")?.to_string());
             }
             Built::new(
                 "reminder",
@@ -494,7 +506,7 @@ pub fn build(name: &str, args: &Value) -> Result<Built> {
         "hook.create" => {
             let kind = hook_type(args)?;
             let hook = word(args, "name")?;
-            let command = word(args, "command")?;
+            let command = text(args, "command")?;
             if hook.contains('/') || hook.contains("..") {
                 return Err(bad("name", "not a hook name"));
             }
@@ -635,8 +647,11 @@ pub fn build(name: &str, args: &Value) -> Result<Built> {
 // ---- running one --------------------------------------------------------
 
 /// Reads of the touched keys made after the command, and the gap between them.
-pub(super) const SETTLE_READS: u32 = 10;
 pub(super) const SETTLE_GAP: Duration = Duration::from_millis(150);
+/// How long a read-back is waited on: most writes show at once or within a
+/// moment, a radio or a device takes seconds.
+pub(super) const SETTLE_FAST: Duration = Duration::from_millis(1500);
+const SETTLE_SLOW: Duration = Duration::from_secs(10);
 
 /// Run the write and answer with what the machine reports afterwards:
 /// `{snapshot, settled}`. Under a fixture root nothing runs and the command
@@ -651,12 +666,10 @@ pub fn execute(root: Option<&Path>, built: &Built) -> Result<Value> {
         Map::new()
     };
     run_command(built)?;
-    let mut now = Map::new();
+    let mut now;
     let mut settled = built.settle.is_none();
-    for read in 0..SETTLE_READS {
-        if read > 0 {
-            std::thread::sleep(SETTLE_GAP);
-        }
+    let began = std::time::Instant::now();
+    loop {
         now = crate::snapshot::keys::read(&built.readback).0;
         match &built.settle {
             None => break,
@@ -664,7 +677,8 @@ pub fn execute(root: Option<&Path>, built: &Built) -> Result<Value> {
                 settled = true;
                 break;
             }
-            Some(_) => {}
+            Some(_) if began.elapsed() >= built.settle_for => break,
+            Some(_) => std::thread::sleep(SETTLE_GAP),
         }
     }
     Ok(json!({"snapshot": now, "settled": settled}))

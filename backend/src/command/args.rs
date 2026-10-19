@@ -117,3 +117,38 @@ pub(super) fn task(name: &str, rest: &[&str]) -> Vec<String> {
     argv.extend(rest.iter().map(|p| p.to_string()));
     argv
 }
+
+/// Free text: a message or a command line. It may start with a dash, as a
+/// sentence may, but it cannot hold a line break or a NUL.
+pub(super) fn text<'a>(args: &'a Value, field: &str) -> Result<&'a str> {
+    let text = args
+        .get(field)
+        .and_then(Value::as_str)
+        .ok_or_else(|| bad(field, "text is required"))?;
+    if text.is_empty()
+        || text.len() > 4096
+        || text.chars().any(|c| c == '\0' || c == '\n' || c == '\r')
+    {
+        return Err(bad(field, "empty, too long or not one line"));
+    }
+    Ok(text)
+}
+
+/// `lat,lon` in degrees, either of them negative: `-33.87,151.21`.
+pub(super) fn coords<'a>(args: &'a Value, field: &str) -> Result<&'a str> {
+    let text = args
+        .get(field)
+        .and_then(Value::as_str)
+        .ok_or_else(|| bad(field, "coordinates are required"))?;
+    let part = |p: &str, limit: f64| {
+        let digits = p.strip_prefix(['+', '-']).unwrap_or(p);
+        !digits.is_empty()
+            && digits.chars().all(|c| c.is_ascii_digit() || c == '.')
+            && digits.matches('.').count() <= 1
+            && p.parse::<f64>().is_ok_and(|n| n.abs() <= limit)
+    };
+    match text.split_once(',') {
+        Some((lat, lon)) if part(lat.trim(), 90.0) && part(lon.trim(), 180.0) => Ok(text),
+        _ => Err(bad(field, "not latitude,longitude")),
+    }
+}

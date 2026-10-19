@@ -450,6 +450,7 @@ QtObject {
       Feedback.finish(false, banner || "Command failed")
     } else {
       Feedback.finish(true, "")
+      if (job && job.readback) Ops.read({ keys: job.readback })
       if (job && job.refresh && job.refresh !== "none")
         WorkQueue.enqueueRead(IoQueue.queue, SnapshotGroups.normalizeGroup(job.refresh))
     }
@@ -571,10 +572,6 @@ QtObject {
       Feedback.finish(false, msg)
     }
     IoQueue.finished()
-  }
-
-  function backendApply(argv) {
-    return Backend.applyCommand(argv)
   }
 
   function snapshotRefreshGroup(value) {
@@ -1726,15 +1723,9 @@ QtObject {
     var list = Array.isArray(items) ? items : workspaces
     var wrapOn = wrap === true || wrap === false ? wrap : workspaceWrapSwitch !== false
     var wheelOn = wheel === true || wheel === false ? wheel : workspaceWheelSwitch !== false
-    snapshotData = SnapshotJs.mergeSnapshot(snapshotData, {
-      workspaces: list,
-      workspaceWrapSwitch: wrapOn,
-      workspaceWheelSwitch: wheelOn
-    })
-    workspaces = list
-    workspaceWrapSwitch = wrapOn
-    workspaceWheelSwitch = wheelOn
-    dispatchSetting("workspaces", list)
+    // The planner needs the new switches; the window's own state is not touched.
+    var snap = SnapshotJs.mergeSnapshot(snapshotData, { workspaceWrapSwitch: wrapOn, workspaceWheelSwitch: wheelOn })
+    runSettingCommand(SettingsJs.commandFor("workspaces", list, snap, scriptOpts()), "workspaces")
   }
   function writeMonitorRules(items) {
     var guard = null
@@ -1804,7 +1795,7 @@ QtObject {
 
   function toggleFavorite(row) {
     var next = FavoritesJs.toggleItem(favoriteItems, row)
-    favoriteItems = next
+    // The file's stamp brings the new list back; the window does not set it.
     runCommand(Backend.task("set-favorites", ["write", FavoritesJs.serialize(next)]), { key: "favorites" })
   }
 

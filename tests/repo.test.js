@@ -1967,6 +1967,13 @@ assert(
     opsSrc.indexOf("root.noteWritten(snapshot)") !== -1,
   "a read that started before a write does not overwrite the keys the write set",
 );
+// A write the machine had not finished showing when the backend stopped waiting
+// is read again, so the late answer still reaches the window.
+assert(
+  opsSrc.indexOf("env.result.settled === false") !== -1 &&
+    opsSrc.indexOf("IoQueue.enqueueRead(late)") !== -1,
+  "an unsettled write refreshes the group that owns its keys",
+);
 const monitorPageSrc = fs.readFileSync(
   path.join(__dirname, "..", "pages", "MonitorPage.qml"),
   "utf8",

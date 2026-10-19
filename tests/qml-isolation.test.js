@@ -96,8 +96,12 @@ assert(
   omarchy.indexOf("jobProc.command = job.argv") === -1,
   "jobs are not started as a raw host argv",
 );
-assert(omarchy.indexOf("function backendApply") !== -1, "host actions go through ratmos apply");
 const ioQueueSrc = fs.readFileSync(path.join(__dirname, "..", "services", "IoQueue.qml"), "utf8");
+assert(
+  ioQueueSrc.indexOf("mutProc.command = Backend.applyCommand(job.argv)") !== -1 &&
+    omarchy.indexOf('if (job.kind === "op") return Ops.run(job.opts)') !== -1,
+  "host actions go through ratmos: untyped ones through apply, typed writes through Ops",
+);
 assert(
   ioQueueSrc.indexOf("function startInteractive(") !== -1 &&
     ioQueueSrc.indexOf("Backend.applyCommand(wrapped)") !== -1,

@@ -299,8 +299,8 @@ const writeWs = omarchySrc.slice(
   omarchySrc.indexOf("function writeMonitorRules("),
 );
 assert(
-  /workspaces = list/.test(writeWs),
-  "writeWorkspaces assigns the list onto the bag so the hub updates before the write returns",
+  !/workspaces = list/.test(writeWs) && /runSettingCommand\(/.test(writeWs),
+  "writeWorkspaces plans the write from a copy and leaves the window's state to the read-back",
 );
 assert(
   noWrap.indexOf('hl.unbind("SUPER + mouse_down")') !== -1,

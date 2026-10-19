@@ -158,7 +158,11 @@ fn arguments_cannot_become_options_or_extra_lines() {
         ("wifi.connection", json!({"action": "up", "uuid": "1234"})),
         ("wifi.band", json!({"band": "7"})),
         ("reminder.set", json!({"minutes": 0})),
-        ("reminder.set", json!({"minutes": 3, "message": "-rf"})),
+        (
+            "reminder.set",
+            json!({"minutes": 3, "message": "a
+b"}),
+        ),
         ("snapper.number-limit", json!({"n": 51})),
         ("theme.remove", json!({"name": "../x"})),
         ("theme.remove", json!({"name": ".hidden"})),
@@ -262,4 +266,112 @@ fn a_fixture_root_only_reports_the_command() {
     let out = execute(Some(Path::new("/nonexistent")), &built).unwrap();
     assert_eq!(out["argv"], json!(["omarchy", "plugin", "enable", "p"]));
     assert_eq!(out["settled"], true);
+}
+
+#[test]
+fn southern_and_western_coordinates_are_accepted() {
+    for coords in [
+        "-33.87,151.21",
+        "59.9,-10.7",
+        "+59.9, +10.7",
+        "0,0",
+        "-90,-180",
+    ] {
+        assert!(
+            build(
+                "weather.coordinates",
+                &json!({"name": "Here", "coords": coords})
+            )
+            .is_ok(),
+            "{coords}"
+        );
+    }
+    for coords in [
+        "95,0", "0,181", "a,b", "1,2,3", "1;2", "", "1,", "--1,2", "1..2,3",
+    ] {
+        assert!(
+            build(
+                "weather.coordinates",
+                &json!({"name": "Here", "coords": coords})
+            )
+            .is_err(),
+            "{coords:?}"
+        );
+    }
+}
+
+#[test]
+fn a_message_may_start_with_a_dash_but_a_name_may_not() {
+    assert_eq!(
+        argv(
+            "reminder.set",
+            json!({"minutes": 3, "message": "-take a break"})
+        ),
+        ["omarchy", "reminder", "3", "-take a break"]
+    );
+    assert!(build("reminder.set", &json!({"minutes": 3, "message": "a\nb"})).is_err());
+    assert!(build("tui.remove", &json!({"name": "-x"})).is_err());
+}
+
+#[test]
+fn a_write_the_machine_finishes_slowly_is_waited_for_longer() {
+    let uuid = "123e4567-e89b-12d3-a456-426614174000";
+    let slow = [
+        build("wifi.connection", &json!({"action": "up", "uuid": uuid})),
+        build(
+            "bluetooth.device",
+            &json!({"action": "connect", "address": "AA:BB:CC:DD:EE:FF"}),
+        ),
+        build("plugin.set", &json!({"id": "p", "on": true})),
+        build("wifi.band", &json!({"band": "5"})),
+    ];
+    for built in slow {
+        assert!(built.unwrap().settle_for >= Duration::from_secs(8));
+    }
+    let fast = build("audio.output.mute-toggle", &json!({})).unwrap();
+    assert!(fast.settle_for <= Duration::from_secs(2));
+}
+
+fn waiting_write(settle_for: Duration, after_reads: usize) -> Built {
+    let reads = std::sync::atomic::AtomicUsize::new(0);
+    Built {
+        argv: vec!["true".into()],
+        lane: "test".into(),
+        readback: vec!["hostname".into()],
+        settle: Some(Box::new(move |_, _| {
+            reads.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1 >= after_reads
+        })),
+        before: false,
+        settle_for,
+        local: false,
+    }
+}
+
+#[test]
+fn a_change_that_shows_late_is_waited_for_within_its_budget() {
+    let began = std::time::Instant::now();
+    let out = execute(None, &waiting_write(Duration::from_secs(5), 8)).unwrap();
+    assert_eq!(out["settled"], true, "{out}");
+    assert!(
+        began.elapsed() >= Duration::from_millis(900),
+        "{:?}",
+        began.elapsed()
+    );
+    assert!(out["snapshot"]["hostname"].is_string());
+}
+
+#[test]
+fn a_change_that_never_shows_gives_up_at_its_budget_and_says_so() {
+    let began = std::time::Instant::now();
+    let out = execute(None, &waiting_write(Duration::from_millis(400), usize::MAX)).unwrap();
+    assert_eq!(out["settled"], false);
+    assert!(
+        began.elapsed() < Duration::from_secs(3),
+        "{:?}",
+        began.elapsed()
+    );
+    assert!(
+        out["snapshot"]["hostname"].is_string(),
+        "it still carries what it read"
+    );
 }

@@ -308,13 +308,15 @@ mod tests {
     fn a_request_that_is_not_a_command_is_refused() {
         let (run, log) = slow_recorder(Duration::ZERO);
         let (dir, _daemon) = serve_commands("cmd-refuse", run);
-        match client::command_in(&dir, &json!({"op": "version"}), "omarchy") {
-            Command::Lost(message) => assert_eq!(message, "not a command"),
-            other => panic!("{other:?}"),
-        }
-        match client::command_in(&dir, &json!({"op": "nope"}), "omarchy") {
-            Command::Lost(message) => assert!(message.starts_with("bad command"), "{message}"),
-            other => panic!("{other:?}"),
+        // Refused before anything was queued, so the caller may run it itself.
+        for body in [json!({"op": "version"}), json!({"op": "nope"})] {
+            assert!(
+                matches!(
+                    client::command_in(&dir, &body, "omarchy"),
+                    Command::Unavailable
+                ),
+                "{body}"
+            );
         }
         assert!(log.lock().unwrap().is_empty());
     }

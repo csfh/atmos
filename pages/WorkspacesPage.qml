@@ -45,7 +45,6 @@ PrefsPage {
 
   function setCount(n) {
     n = WsJs.clampShown(n)
-    Omarchy.workspaceBarCount = n
     Omarchy.dispatchSetting("workspaceBarCount", n)
   }
 
@@ -152,7 +151,6 @@ PrefsPage {
       PrefsToggle {
         checked: Omarchy.workspaceBarNames
         onToggled: function(next) {
-          Omarchy.workspaceBarNames = next
           Omarchy.dispatchSetting("workspaceBarNames", next)
         }
       }

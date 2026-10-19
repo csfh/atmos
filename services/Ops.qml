@@ -3,6 +3,7 @@ import QtQuick
 import "Failure.js" as FailureJs
 import "Requests.js" as Requests
 import "Snapshot.js" as SnapshotJs
+import "SnapshotGroups.js" as SnapshotGroups
 
 // Typed writes. The daemon runs each one on its own lane, in order with the
 // writes and reads around it (docs/architecture.md, the command bus), and the
@@ -56,6 +57,13 @@ QtObject {
         Omarchy.applySnapshot(SnapshotJs.plain(snapshot))
         // The input file may carry a gesture the snapshot keys do not say.
         if (snapshot.hyprInput !== undefined) Omarchy.applyHyprWorkspaceGestureFromFile()
+      }
+      // The machine had not shown the change when the backend stopped waiting
+      // (a radio or a device can take longer): read the group again, so the
+      // answer that comes later still gets to the window.
+      if (env.result && env.result.settled === false) {
+        var late = snapshot ? SnapshotGroups.groupForKey(Object.keys(snapshot)[0]) : ""
+        if (late) IoQueue.enqueueRead(late)
       }
       var refresh = Omarchy.snapshotRefreshGroup(opts.refresh)
       if (refresh !== "none") IoQueue.enqueueRead(refresh)

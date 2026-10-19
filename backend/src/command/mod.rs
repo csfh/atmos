@@ -111,19 +111,15 @@ pub fn snapshot_keys(
             wanted.push(key.clone());
         }
     }
-    let mut last = (serde_json::Map::new(), Vec::new());
-    let mut settled = expect.is_empty();
-    for read in 0..writes::SETTLE_READS {
-        if read > 0 {
-            std::thread::sleep(writes::SETTLE_GAP);
-        }
+    let began = std::time::Instant::now();
+    let (mut last, mut settled);
+    loop {
         last = crate::snapshot::keys::read(&wanted);
-        if expect.iter().all(|(k, v)| last.0.get(k) == Some(v)) {
-            settled = true;
-        }
-        if settled {
+        settled = expect.iter().all(|(k, v)| last.0.get(k) == Some(v));
+        if settled || began.elapsed() >= writes::SETTLE_FAST {
             break;
         }
+        std::thread::sleep(writes::SETTLE_GAP);
     }
     json!({"values": last.0, "unknown": last.1, "settled": settled})
 }

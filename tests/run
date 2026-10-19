@@ -4,6 +4,12 @@ set -euo pipefail
 ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$ROOT"
 
+# No test may read or start the daemon of the session it runs in: a ratmos that
+# finds a daemon answers from its samples instead of from the test's fixture.
+SCRATCH=$(mktemp -d /tmp/atmos-tests-XXXXXX)
+trap 'rm -rf "$SCRATCH"' EXIT
+export XDG_RUNTIME_DIR="$SCRATCH" ATMOS_NO_AUTOSTART=1
+
 if [[ ! -x node_modules/.bin/oxlint || ! -x node_modules/.bin/oxfmt ]]; then
   echo "not ok - npm install (oxlint/oxfmt missing)"
   exit 1

@@ -220,6 +220,11 @@ fn command_reply(reply: &Value) -> Command {
         // An older daemon cut the line at 4 KiB, and a command carries the
         // environment: it read half of it, so nothing was queued.
         Some(message) if message.starts_with("bad request") => Command::Unavailable,
+        // A daemon that does not know this command yet, or does not treat it as
+        // one: it refused before queueing anything.
+        Some(message) if message.starts_with("bad command") || message == "not a command" => {
+            Command::Unavailable
+        }
         Some(message) => Command::Lost(message.to_string()),
         None => Command::Lost("the daemon refused the command".into()),
     }
@@ -421,6 +426,29 @@ mod tests {
         assert!(matches!(
             command_in(&dir, &body, "omarchy"),
             Command::Unavailable
+        ));
+    }
+
+    #[test]
+    fn a_daemon_that_refuses_a_command_before_queueing_it_leaves_it_to_the_caller() {
+        for refusal in [
+            "bad command: unknown variant `write`, expected one of `version`",
+            "not a command",
+            "unknown op",
+            "bad request: EOF while parsing",
+        ] {
+            assert!(
+                matches!(
+                    command_reply(&json!({"ok": false, "message": refusal})),
+                    Command::Unavailable
+                ),
+                "{refusal}"
+            );
+        }
+        // A command that was taken and then failed is not run again.
+        assert!(matches!(
+            command_reply(&json!({"ok": false, "message": "the command did not finish in time"})),
+            Command::Lost(_)
         ));
     }
 

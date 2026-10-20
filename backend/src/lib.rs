@@ -43,7 +43,7 @@ use crate::route::{generic_lease, invalidate_topics, job_lease, route_command, s
 use crate::runner::Run;
 use serde_json::{Map, Value};
 
-pub const VERSION: &str = "0.3.0";
+pub const VERSION: &str = "0.4.0";
 
 pub fn run(args: &[String], stdin: &str, stdout: &mut dyn Write, stderr: &mut dyn Write) -> i32 {
     match dispatch(args, stdin, stdout, stderr) {

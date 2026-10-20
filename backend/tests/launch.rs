@@ -47,7 +47,7 @@ fn snapshot_launches_match_on_one_fixture() {
     );
     assert_eq!(first.stdout, second.stdout);
     let text = String::from_utf8(first.stdout).unwrap();
-    assert!(text.contains("\"version\": \"0.3.0\""), "{text}");
+    assert!(text.contains("\"version\": \"0.4.0\""), "{text}");
     assert!(text.contains("fixture-theme-alpha"), "{text}");
     for (_, _, value) in samples {
         assert!(text.contains(value), "{value} missing from snapshot");

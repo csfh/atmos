@@ -117,7 +117,7 @@ fn replies_carry_the_request_id() {
     let reply = server.next();
     assert_eq!(reply["id"], 7);
     assert_eq!(reply["ok"], true);
-    assert_eq!(reply["result"], "0.3.0");
+    assert_eq!(reply["result"], "0.4.0");
     assert!(server.finish().success());
     cleanup(&root);
 }

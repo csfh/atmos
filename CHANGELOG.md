@@ -2,6 +2,21 @@
 
 Notable changes to Atmos. Each section is a git tag on `main` and `stable`. Install and in-app Update follow the `stable` branch.
 
+## [v0.4.0] - 2026-10-20
+
+### Changed
+
+- One daemon is the authority (`docs/adr/`). `ratmos daemon` starts on a socket, owns every read and write, and watches the files the settings come from. A window's `ratmos serve` is only a bridge to it: it asks the daemon for every request, and the daemon runs it in a child with the window's environment. Samples come from a separate, governed, idle-priority `ratmos sampler` process, and the window's rates run on the sample's own timestamp.
+- Atmos does nothing without the daemon. A window that cannot reach one shows an unavailable screen, keeps looking for one, and starts one itself unless `ATMOS_NO_AUTOSTART=1`. A daemon older than the window is refused the same way.
+- The settings snapshot is five topics the daemon holds (`settings.look|network|accounts|system|host`), read when a window needs them and again when a write, a job or a changed file says they are stale. The window reads no snapshot group and queues no read.
+- Writes are typed and ordered on lanes with the reads they affect. The window shows what the backend read back and builds no patch of its own. Long jobs and interactive tools run in the daemon and outlive the window.
+
+### Fixed
+
+- A failed `hyprctl`, `systemctl` or `lsblk` is reported as an error and kept out of the pages. It used to show as an empty monitor list, service list or disk list.
+- A tool that fails in the settings snapshot is listed in `_failed`, and the window keeps the last value it had instead of replacing it with a default. Diagnostics lists the stale keys.
+- A brightness change no longer empties the monitor list.
+
 ## [v0.3.0] - 2026-10-16
 
 ### Added

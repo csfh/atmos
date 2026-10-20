@@ -58,7 +58,15 @@ const sample = (name, field) => {
     user: "me",
     type: "theme-set",
     payload: "{}",
+    theme: "x",
+    group: "wheel",
+    iface: "wlan0",
+    text: "hello",
+    ssid: "net",
+    action: "up",
+    json: "{}",
   };
+  if (name === "webcam.resize" && field === "action") return "reset";
   if (field === "path") return /^hook\.(remove|sample)$/.test(name) ? hookPath : "/tmp/a";
   return table[field];
 };
@@ -87,6 +95,116 @@ for (const [, name, body] of literalArgs) {
     );
   }
 }
+
+// The same for jobs and interactive tools: every `Requests.job("name", { ... })`
+// the window sends is a registry name, and its literal arguments are accepted.
+const jobCheck = (name, args) => {
+  const out = spawnSync(ratmosBinary(), ["job-check", name, JSON.stringify(args)], {
+    encoding: "utf8",
+  });
+  return JSON.parse(out.stdout);
+};
+const jobSources = [
+  ...sources,
+  ...fs
+    .readdirSync(path.join(repo, "pages"))
+    .flatMap((f) => (f.endsWith(".qml") ? [`pages/${f}`] : [])),
+];
+const jobText = jobSources.map(read).join("\n");
+const jobNames = new Set([...jobText.matchAll(/Requests\.job\("([^"]+)"/g)].map((m) => m[1]));
+assert(jobNames.size >= 50, `the window starts many jobs (found ${jobNames.size})`);
+for (const name of jobNames) {
+  const reply = jobCheck(name, {});
+  assert(
+    !(reply.ok === false && /unknown job/.test(reply.error)),
+    `the backend knows the job ${name}`,
+  );
+}
+const jobSample = (name, field) => {
+  const table = {
+    url: "https://example.org/t.git",
+    name: "x",
+    command: "true",
+    icon: "x",
+    style: "tile",
+    servers: "1.1.1.1",
+    full: "Full Name",
+    wheel: true,
+    password: "pw",
+    minutes: 5,
+    key: "ssh-ed25519 AAAA",
+    action: "copy",
+    header: "h",
+    ssid: "net",
+    identity: "me",
+    device: "/dev/sda1",
+    current: "a",
+    new: "b",
+    config: "root",
+    id: "12",
+    path: "/tmp/a",
+    plan: name === "settings.undo" ? "/tmp/undo.json" : "{}",
+    lang: "ruby",
+    iface: "wlan0",
+    mode: "smart",
+    dest: "slurp",
+    machine: "box",
+    words: ["browser", "chrome"],
+    fullscreen: true,
+    desktopAudio: false,
+    microphone: false,
+    webcam: true,
+    webcamSize: "medium",
+  };
+  if (name === "channel.set" && field === "name") return "stable";
+  if (name.startsWith("branding.") && field === "action") return "image";
+  if (name === "software.run" && field === "action") return "install";
+  if (name === "diag.report" && field === "dest") return "/tmp/report.txt";
+  return table[field];
+};
+const jobLiterals = [...jobText.matchAll(/Requests\.job\("([^"]+)",\s*\{([^}]*)\}\)/g)];
+assert(jobLiterals.length >= 40, `found the job argument literals (${jobLiterals.length})`);
+for (const [, name, body] of jobLiterals) {
+  const fields = {};
+  for (const part of body.split(",")) {
+    const m = part.match(/^\s*(\w+):\s*(.+?)\s*$/);
+    if (!m) continue;
+    const [, field, value] = m;
+    if (/^"[^"]*"$/.test(value)) fields[field] = JSON.parse(value);
+    else if (/^(true|false)$/.test(value)) fields[field] = value === "true";
+    else if (/^\d+$/.test(value)) fields[field] = Number(value);
+    else fields[field] = jobSample(name, field);
+  }
+  const reply = jobCheck(name, fields);
+  assert(
+    reply.ok === true,
+    `the window's arguments for the job ${name} are accepted: ${JSON.stringify(fields)} ${reply.error || ""}`,
+  );
+}
+
+// The software page runs each catalog entry through software.run: the backend
+// has to accept every install and remove line the catalog holds, and build the
+// command the catalog names.
+const catalogSoftware = load("services/Software.js").catalog();
+let softwareLines = 0;
+for (const item of catalogSoftware) {
+  for (const verb of ["install", "remove"]) {
+    const line = item[verb];
+    if (!line) continue;
+    softwareLines++;
+    const reply = jobCheck("software.run", { action: line[1], words: line.slice(2) });
+    assert(
+      reply.ok === true && line[0] === "omarchy",
+      `software.run accepts ${line.join(" ")} ${reply.error || ""}`,
+    );
+    assertEqual(
+      reply.argv.slice(-(line.length - 1)).join(" "),
+      line.slice(1).join(" "),
+      `software.run builds ${line.join(" ")}`,
+    );
+  }
+}
+assert(softwareLines >= 40, `the catalog has many software lines (found ${softwareLines})`);
 
 assertEqual(
   ask({ op: "write", name: "no.such.write", args: {} }).error.code,

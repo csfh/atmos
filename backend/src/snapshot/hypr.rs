@@ -1,9 +1,7 @@
 //! The live Hyprland surface: option values, monitors, input devices, layout,
 //! and the managed-block markers.
 
-use super::sh::{
-    self, alt, file_has, first_line, is_uint, jq_text, ok, omarchy, out, present, read,
-};
+use super::sh::{self, alt, file_has, first_line, is_uint, jq_text, ok, out, present, read};
 use crate::hyprland::{self, Kind};
 use regex_lite::Regex;
 use serde_json::{json, Map, Value};
@@ -11,11 +9,16 @@ use std::path::Path;
 
 /// `hyprctl -j getoption NAME`, or {} when it is not JSON.
 fn option(name: &str) -> Value {
-    let raw = out("hyprctl", &["-j", "getoption", name]);
+    let raw = sh::must("hyprctl", &["-j", "getoption", name]).unwrap_or_default();
     serde_json::from_str::<Value>(&raw)
         .ok()
         .filter(Value::is_object)
-        .unwrap_or_else(|| json!({}))
+        .unwrap_or_else(|| {
+            if !raw.is_empty() {
+                sh::fail(format!("hyprctl getoption {name}: not JSON"));
+            }
+            json!({})
+        })
 }
 
 /// jq `num(o; fb)`: int, float, or the first word of css, else the fallback.
@@ -133,7 +136,7 @@ pub fn input(gesture: bool) -> Value {
 
 /// The tiled layout of the active workspace: scrolling or dwindle.
 pub fn workspace_layout() -> String {
-    let raw = out("hyprctl", &["activeworkspace", "-j"]);
+    let raw = sh::must("hyprctl", &["activeworkspace", "-j"]).unwrap_or_default();
     let layout = serde_json::from_str::<Value>(&raw)
         .ok()
         .and_then(|v| alt(v.get("tiledLayout")).map(jq_text))
@@ -192,7 +195,9 @@ pub fn monitors() -> Option<Vec<Value>> {
 /// exist and how they are set up leaves it out.
 pub fn monitors_with(levels: bool) -> Option<Vec<Value>> {
     if !present("hyprctl") {
-        return Some(Vec::new());
+        // Not "no monitors": there is no way to ask.
+        sh::fail("hyprctl is not installed");
+        return None;
     }
     let args = ["monitors", "all", "-j"];
     let parsed = match sh::capture("hyprctl", &args) {
@@ -219,6 +224,9 @@ pub fn monitors_with(levels: bool) -> Option<Vec<Value>> {
         Ok(rows) => rows,
         Err(why) => {
             eprintln!("ratmos: hyprctl monitors all -j gave no monitor list ({why}); keeping the last one");
+            sh::fail(format!(
+                "hyprctl monitors all -j gave no monitor list ({why})"
+            ));
             return None;
         }
     };
@@ -366,7 +374,7 @@ pub fn gesture(input_file: &Path) -> (bool, bool, bool) {
 }
 
 pub fn dnd(home: &str) -> bool {
-    let state = out("omarchy-shell", &["notifications", "isDnd"]);
+    let state = sh::must("omarchy-shell", &["notifications", "isDnd"]).unwrap_or_default();
     if state == "on" {
         return true;
     }
@@ -383,7 +391,7 @@ pub fn dnd(home: &str) -> bool {
 }
 
 pub fn reminders() -> (u64, bool, Value) {
-    let raw = omarchy(&["reminder", "show", "--json"]);
+    let raw = sh::omarchy_must(&["reminder", "show", "--json"]).unwrap_or_default();
     let doc: Value = serde_json::from_str(&raw).unwrap_or(Value::Null);
     if raw.is_empty() {
         return (0, false, json!([]));

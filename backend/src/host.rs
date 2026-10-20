@@ -364,7 +364,7 @@ pub fn confine(root: Option<&Path>, raw: &str) -> Result<PathBuf> {
     Ok(candidate)
 }
 
-fn signature(path: &Path) -> String {
+pub(crate) fn signature(path: &Path) -> String {
     if !path.exists() {
         return "missing".into();
     }

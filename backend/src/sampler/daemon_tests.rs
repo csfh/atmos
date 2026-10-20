@@ -29,6 +29,7 @@ pub fn test_config(dial: &Arc<Dial>) -> Config {
         },
         probe: Box::new(dial.clone()),
         job_timeout: Duration::from_secs(5),
+        job_runner: crate::sampler::jobs::Runner::Direct,
         run_command: Box::new(|_, body, _| json!({"ok": true, "result": {"ran": body}})),
     }
 }

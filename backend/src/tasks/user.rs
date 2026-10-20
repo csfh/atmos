@@ -228,12 +228,17 @@ pub fn add_desktop_launcher(name: &str, command: &str, icon: &str) -> Result<()>
     Ok(())
 }
 
-/// Write the Favorites list. UI chrome, not Omarchy settings.
-pub fn favorites_write(raw: &str) -> Result<()> {
-    let file = crate::host::env_path(
+/// Where the Favorites list lives.
+pub fn favorites_file() -> std::path::PathBuf {
+    crate::host::env_path(
         "ATMOS_FAVORITES_FILE",
         format!("{}/.local/state/omarchy/atmos-favorites.json", home()),
-    );
+    )
+}
+
+/// Write the Favorites list. UI chrome, not Omarchy settings.
+pub fn favorites_write(raw: &str) -> Result<()> {
+    let file = favorites_file();
     let data: serde_json::Value =
         serde_json::from_str(raw).map_err(|_| usage_error("usage: set-favorites write <json>"))?;
     let items = match &data {

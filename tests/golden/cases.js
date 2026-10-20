@@ -109,6 +109,14 @@ const cases = [
     backend: "omarchy",
     request: R.snapshotKeys(["audioOutputMuted", "plugins", "nope"]),
   },
+  { name: "snapshot-topic-fixture", backend: "omarchy", request: R.snapshotTopic("settings.look") },
+  { name: "error-snapshot-topic-unknown", backend: "omarchy", request: R.snapshotTopic("nope") },
+  { name: "snapshot-invalidate-fixture", backend: "omarchy", request: R.snapshotInvalidate([]) },
+  {
+    name: "error-snapshot-invalidate-unknown",
+    backend: "omarchy",
+    request: R.snapshotInvalidate(["settings.nope"]),
+  },
   { name: "display-scale-fixture", backend: "omarchy", request: R.displayScale("1.5") },
   { name: "error-display-scale-bad", backend: "omarchy", request: R.displayScale("x") },
   {

@@ -19,12 +19,12 @@ function signalName(raw) {
   return "";
 }
 
-// `task` is the argv prefix that runs the signal task, from Backend.task.
-function signalArgv(pid, signal, task) {
+// The arguments of the typed `process.signal` write, or null.
+function signalArgs(pid, signal) {
   var p = parsePid(pid);
   var sig = signalName(signal);
-  if (!p || !sig || !Array.isArray(task) || task.length === 0) return null;
-  return task.concat([String(p), sig]);
+  if (!p || !sig) return null;
+  return { pid: p, signal: sig };
 }
 
 function normalize(row) {
@@ -308,7 +308,7 @@ if (typeof module !== "undefined" && module.exports) {
     ROW_CAP: ROW_CAP,
     parsePid: parsePid,
     signalName: signalName,
-    signalArgv: signalArgv,
+    signalArgs: signalArgs,
     normalize: normalize,
     list: list,
     sortChips: sortChips,

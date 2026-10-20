@@ -131,12 +131,6 @@ fn argv_is_exactly_what_the_window_used_to_run() {
 fn a_task_write_runs_this_binary() {
     let line = argv("snapper.timeline", json!({"on": true}));
     assert_eq!(&line[1..], ["task", "set-snapper-policy", "timeline", "on"]);
-    assert!(build("fstrim", &json!({"on": true})).unwrap().local);
-    assert!(
-        !build("plugin.set", &json!({"id": "p", "on": true}))
-            .unwrap()
-            .local
-    );
 }
 
 #[test]
@@ -343,7 +337,9 @@ fn waiting_write(settle_for: Duration, after_reads: usize) -> Built {
         })),
         before: false,
         settle_for,
-        local: false,
+        stdin: None,
+        launch: false,
+        affects: Vec::new(),
     }
 }
 

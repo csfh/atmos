@@ -25,53 +25,58 @@ assertEqual(
 );
 assertEqual(net.sanitizeWgPath("wg0.conf"), "", "sanitizeWgPath requires an absolute path");
 
+const U = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+const as = (op) => JSON.stringify(op);
 assertEqual(
-  net.argvFor("metered", { uuid: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee", value: "yes" }).join(" "),
-  "metered aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee yes",
-  "argvFor metered",
+  as(net.opFor("metered", { uuid: U, value: "yes" })),
+  as({ name: "wifi.metered", args: { uuid: U, value: "yes" } }),
+  "opFor metered",
 );
 assertEqual(
-  net.argvFor("priority", { uuid: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee", value: 10 }).join(" "),
-  "priority aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee 10",
-  "argvFor priority",
+  as(net.opFor("priority", { uuid: U, value: 10 })),
+  as({ name: "wifi.priority", args: { uuid: U, value: 10 } }),
+  "opFor priority",
 );
 assertEqual(
-  net.argvFor("mac", { uuid: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee", value: "random" }).join(" "),
-  "mac aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee random",
-  "argvFor mac",
+  as(net.opFor("mac", { uuid: U, value: "random" })),
+  as({ name: "wifi.mac", args: { uuid: U, value: "random" } }),
+  "opFor mac",
 );
 assertEqual(
-  net
-    .argvFor("ipv4", {
-      uuid: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+  as(
+    net.opFor("ipv4", {
+      uuid: U,
       method: "manual",
       address: "10.0.0.8",
       prefix: 24,
       gateway: "10.0.0.1",
       dns: "1.1.1.1",
-    })
-    .join(" "),
-  "ipv4 aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee manual 10.0.0.8 24 10.0.0.1 1.1.1.1",
-  "argvFor static ipv4",
+    }),
+  ),
+  as({
+    name: "wifi.ipv4-manual",
+    args: { uuid: U, address: "10.0.0.8", prefix: 24, gateway: "10.0.0.1", dns: "1.1.1.1" },
+  }),
+  "opFor static ipv4",
 );
 assertEqual(
-  net.argvFor("ipv4", { uuid: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee", method: "auto" }).join(" "),
-  "ipv4 aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee auto",
-  "argvFor dhcp ipv4",
+  as(net.opFor("ipv4", { uuid: U, method: "auto" })),
+  as({ name: "wifi.ipv4-auto", args: { uuid: U } }),
+  "opFor dhcp ipv4",
 );
 assertEqual(
-  net.argvFor("wireguard-import", { path: "/home/x/wg0.conf" }).join(" "),
-  "wireguard-import /home/x/wg0.conf",
-  "argvFor wireguard-import",
+  as(net.opFor("wireguard-import", { path: "/home/x/wg0.conf" })),
+  as({ name: "wifi.wireguard-import", args: { path: "/home/x/wg0.conf" } }),
+  "opFor wireguard-import",
 );
 assertEqual(
-  net.argvFor("hotspot", { on: true, ssid: "Desk", password: "abcdefgh" }).join(" "),
-  "hotspot on Desk abcdefgh",
-  "argvFor hotspot on",
+  as(net.opFor("hotspot", { on: true, ssid: "Desk", password: "abcdefgh" })),
+  as({ name: "wifi.hotspot-on", args: { ssid: "Desk", password: "abcdefgh" } }),
+  "opFor hotspot on",
 );
-assertEqual(net.argvFor("hotspot", { on: false }).join(" "), "hotspot off", "argvFor hotspot off");
 assertEqual(
-  net.argvFor("metered", { uuid: "bad", value: "yes" }),
-  null,
-  "argvFor refuses a bad uuid",
+  as(net.opFor("hotspot", { on: false })),
+  as({ name: "wifi.hotspot-off", args: {} }),
+  "opFor hotspot off",
 );
+assertEqual(net.opFor("metered", { uuid: "bad", value: "yes" }), null, "opFor refuses a bad uuid");

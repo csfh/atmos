@@ -13,6 +13,15 @@ PrefsPage {
   description: "What this machine is doing, in one place. Copy report is the text to paste on Discord instead of twelve shell commands."
 
   readonly property var diag: DiagJs.normalize(Omarchy.diagnostics)
+  // Keys a producer could not read keep the value they had; this says which and why.
+  readonly property var failedKeys: Object.keys(Omarchy.snapshotFailed || ({}))
+  readonly property string failedText: {
+    var list = []
+    var i
+    for (i = 0; i < Math.min(root.failedKeys.length, 12); i++)
+      list.push(root.failedKeys[i] + ": " + String(Omarchy.snapshotFailed[root.failedKeys[i]]).substring(0, 140))
+    return list.join("\n") + (root.failedKeys.length > 12 ? "\nand " + (root.failedKeys.length - 12) + " more" : "")
+  }
   readonly property bool reportBusy: Omarchy.jobKind === "diag-report" && Omarchy.jobBusy
   property string reportStatus: ""
   property string savedPath: ""
@@ -32,6 +41,20 @@ PrefsPage {
     var dir = slash > 0 ? text.substring(0, slash) : (Omarchy.picturesDir || "")
     if (!dir) dir = Quickshell.env("HOME") || ""
     return "file://" + dir
+  }
+
+  PrefsGroup {
+    title: "Settings that could not be read"
+    query: root.query
+    detail: "A tool that failed leaves the value you were shown where it was, and says so here."
+
+    SettingRow {
+      label: root.failedKeys.length + (root.failedKeys.length === 1 ? " setting is stale" : " settings are stale")
+      description: root.failedText
+      query: root.query
+      available: root.failedKeys.length > 0
+      keywords: ["stale", "failed", "could not read", "settings"]
+    }
   }
 
   PrefsGroup {

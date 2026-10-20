@@ -47,6 +47,16 @@ pub enum Request {
         #[serde(default)]
         expect: serde_json::Map<String, Value>,
     },
+    /// One settings topic, read from the machine now. The daemon starts this as
+    /// a child with a window's environment to fill a topic (docs/adr/0011).
+    #[serde(rename = "snapshot.topic")]
+    SnapshotTopic { topic: String },
+    /// Read some settings topics again; none named means all of them.
+    #[serde(rename = "snapshot.invalidate")]
+    SnapshotInvalidate {
+        #[serde(default)]
+        topics: Vec<String>,
+    },
     #[serde(rename = "write")]
     Write {
         name: String,
@@ -242,6 +252,8 @@ mod tests {
             Request::DisplayGet { .. } => "display.get",
             Request::DisplaySnapshot => "display.snapshot",
             Request::SnapshotKeys { .. } => "snapshot.keys",
+            Request::SnapshotTopic { .. } => "snapshot.topic",
+            Request::SnapshotInvalidate { .. } => "snapshot.invalidate",
             Request::Write { .. } => "write",
             Request::DisplayBrightness { .. } => "display.brightness",
             Request::DisplayScale { .. } => "display.scale",
@@ -274,6 +286,8 @@ mod tests {
             json!({"op": "display.get", "kind": "monitors"}),
             json!({"op": "display.snapshot"}),
             json!({"op": "snapshot.keys", "keys": ["theme"]}),
+            json!({"op": "snapshot.topic", "topic": "settings.look"}),
+            json!({"op": "snapshot.invalidate"}),
             json!({"op": "write", "name": "plugin.set", "args": {"id": "p", "on": true}}),
             json!({"op": "display.brightness", "monitor": "DP-3", "percent": 40}),
             json!({"op": "display.scale", "scale": "1.5"}),

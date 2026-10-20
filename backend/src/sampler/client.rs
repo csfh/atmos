@@ -2,15 +2,16 @@
 //!
 //! A fresh enough sample comes straight from the cache. Otherwise the daemon
 //! is asked for the kind with interactive priority and the reply carries the
-//! sample. `None` means there is no daemon to ask, and the caller collects.
+//! sample. `None` means there is no daemon to ask: a terminal command collects,
+//! and a window's `serve` refuses (`require`).
 
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Write};
 use std::os::unix::net::UnixStream;
 use std::path::Path;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::mpsc::{channel, Sender};
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::{Arc, Condvar, Mutex, MutexGuard};
 use std::time::Duration;
 
 use serde_json::{json, Value};
@@ -24,11 +25,6 @@ pub fn fetch(kind: &str) -> Option<Value> {
 
 pub fn fetch_in(dir: &Path, kind: &str) -> Option<Value> {
     fetch_sample_in(dir, kind).map(|sample| sample.value)
-}
-
-/// The same read, with the time the sample was collected at.
-pub fn fetch_sample(kind: &str) -> Option<Sample> {
-    fetch_sample_in(&cache::dir_from_env()?, kind)
 }
 
 pub fn fetch_sample_in(dir: &Path, kind: &str) -> Option<Sample> {
@@ -126,10 +122,25 @@ fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
 }
 
 static BRIDGE: Mutex<Option<Arc<Bridge>>> = Mutex::new(None);
+static CHANGED: Condvar = Condvar::new();
+/// The window is looking for a daemon: starting one, or connecting to it.
+static TRYING: AtomicBool = AtomicBool::new(false);
+/// This process serves a window, which does nothing without the daemon
+/// (docs/adr/0010): a read or write that finds none is refused, not run here.
+static REQUIRED: AtomicBool = AtomicBool::new(false);
+
+pub fn require(now: bool) {
+    REQUIRED.store(now, Ordering::SeqCst);
+}
+
+pub fn required() -> bool {
+    REQUIRED.load(Ordering::SeqCst)
+}
 
 /// Make `bridge` the session this process talks to the daemon over.
 pub fn install(bridge: Arc<Bridge>) {
     *lock(&BRIDGE) = Some(bridge);
+    CHANGED.notify_all();
 }
 
 /// The session ended; calls go back to the one-shot socket.
@@ -137,6 +148,47 @@ pub fn uninstall() {
     if let Some(bridge) = lock(&BRIDGE).take() {
         bridge.close();
     }
+    CHANGED.notify_all();
+}
+
+/// Say whether this process is looking for a daemon right now.
+pub fn trying(now: bool) {
+    let held = lock(&BRIDGE);
+    TRYING.store(now, Ordering::SeqCst);
+    drop(held);
+    CHANGED.notify_all();
+}
+
+/// Wait for the session to the daemon while the window is still looking for
+/// one: a window that has just opened has no session for a moment, and a job
+/// started in that moment is not to be refused. Returns at once when there is
+/// a session, or when nobody is looking for a daemon.
+pub fn wait_for_session(limit: Duration) -> bool {
+    let until = std::time::Instant::now() + limit;
+    let mut held = lock(&BRIDGE);
+    loop {
+        if held.is_some() {
+            return true;
+        }
+        let left = until.saturating_duration_since(std::time::Instant::now());
+        if !TRYING.load(Ordering::SeqCst) || left.is_zero() {
+            return false;
+        }
+        held = CHANGED
+            .wait_timeout(held, left)
+            .map(|(guard, _)| guard)
+            .unwrap_or_else(|err| err.into_inner().0);
+    }
+}
+
+/// Ask the daemon one request over the window's session, if there is one.
+pub fn call(body: &Value, wait: Duration) -> Option<Value> {
+    bridge()?.call(body, wait).ok()
+}
+
+/// Send one frame over the window's session, if there is one.
+pub fn send_frame(frame: &Value) -> bool {
+    bridge().is_some_and(|bridge| bridge.send(frame))
 }
 
 fn bridge() -> Option<Arc<Bridge>> {
@@ -175,11 +227,21 @@ pub fn command(body: &Value, backend_id: &str) -> Command {
     command_in(&dir, body, backend_id)
 }
 
-fn command_ask(body: &Value, backend_id: &str) -> Value {
-    let env: serde_json::Map<String, Value> = std::env::vars()
+/// This process's environment as the daemon is to run a child in it. The daemon
+/// may be another copy of the program, so the app root is named even when
+/// nothing set it: a read that looks at the app's own files (`search.query`)
+/// means this window's.
+pub fn window_env() -> serde_json::Map<String, Value> {
+    let mut env: serde_json::Map<String, Value> = std::env::vars()
         .map(|(key, value)| (key, Value::String(value)))
         .collect();
-    json!({"op": "command", "request": body, "backend": backend_id, "env": env})
+    env.entry("ATMOS_ROOT")
+        .or_insert_with(|| Value::String(crate::platform::app_root().display().to_string()));
+    env
+}
+
+fn command_ask(body: &Value, backend_id: &str) -> Value {
+    json!({"op": "command", "request": body, "backend": backend_id, "env": window_env()})
 }
 
 pub fn command_in(dir: &Path, body: &Value, backend_id: &str) -> Command {
@@ -311,6 +373,20 @@ mod tests {
     use crate::sampler::daemon::tests::serve;
     use std::io::Read;
     use std::sync::atomic::Ordering;
+
+    #[test]
+    fn the_environment_a_window_sends_names_its_app_root() {
+        let env = window_env();
+        // The daemon may be another copy of the program: the root is the
+        // window's, whether or not something set it.
+        let expected = std::env::var("ATMOS_ROOT")
+            .unwrap_or_else(|_| crate::platform::app_root().display().to_string());
+        assert_eq!(env["ATMOS_ROOT"], expected);
+        assert!(
+            env.contains_key("PATH"),
+            "the rest of the environment goes too"
+        );
+    }
 
     #[test]
     fn no_daemon_means_the_caller_collects() {

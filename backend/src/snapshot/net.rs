@@ -43,7 +43,7 @@ fn nmcli(args: &[&str]) -> String {
 }
 
 pub fn dns() -> String {
-    let dns = omarchy(&["dns"]);
+    let dns = super::sh::omarchy_must(&["dns"]).unwrap_or_default();
     if ["Cloudflare", "Google", "DHCP", "Custom"].contains(&dns.as_str()) {
         dns
     } else {
@@ -141,10 +141,13 @@ pub fn network() -> Map<String, Value> {
             .filter(|l| !l.trim().is_empty())
             .collect::<Vec<_>>());
     }
-    let radio = out("nmcli", &["radio", "wifi"]) == "enabled";
-    let hw = out("nmcli", &["-t", "-f", "WIFI-HW", "radio"]) == "enabled";
+    let (mut radio, mut hw) = (false, false);
+    if present("nmcli") {
+        radio = super::sh::must("nmcli", &["radio", "wifi"]).as_deref() == Some("enabled");
+        hw = super::sh::must("nmcli", &["-t", "-f", "WIFI-HW", "radio"]).as_deref()
+            == Some("enabled");
+    }
     f.insert("dns".into(), json!(dns()));
-    f.insert("bluetooth".into(), json!(bluetooth()));
     f.insert("wifiConnected".into(), json!(connected));
     f.insert("wifiBand".into(), json!(band));
     f.insert("wifiBandSelected".into(), json!(selected));
@@ -161,12 +164,30 @@ pub fn network() -> Map<String, Value> {
     f.insert("wifiHw".into(), json!(hw));
     f.insert("wifiRadio".into(), json!(radio));
     f.insert("wifiConnections".into(), wifi_connections());
+    f
+}
+
+/// Bluetooth is its own producer: a controller that hangs must not hold back
+/// the network state.
+pub fn bluetooth_fields() -> Map<String, Value> {
+    let mut f = Map::new();
+    f.insert("bluetooth".into(), json!(bluetooth()));
     f.insert("bluetoothDevices".into(), bluetooth_devices());
+    f
+}
+
+pub fn tailscale_fields() -> Map<String, Value> {
+    let mut f = Map::new();
     let (installed, running, peers) = tailscale();
     f.insert("tailscaleInstalled".into(), json!(installed));
     f.insert("tailscaleRunning".into(), json!(running));
     f.insert("tailscalePeers".into(), peers);
     f
+}
+
+/// Whether Tailscale is on the machine: the program, or its daemon running.
+pub fn tailscale_installed() -> bool {
+    tailscale().0
 }
 
 fn wifi_connections() -> Value {
@@ -305,15 +326,16 @@ pub fn audio() -> Map<String, Value> {
     let mut f = Map::new();
     let (mut sinks, mut sources) = (Vec::new(), Vec::new());
     if present("pactl") {
-        let default_sink = out("pactl", &["get-default-sink"]);
-        let default_source = out("pactl", &["get-default-source"]);
+        let must = |args: &[&str]| super::sh::must("pactl", args).unwrap_or_default();
+        let default_sink = must(&["get-default-sink"]);
+        let default_source = must(&["get-default-source"]);
         sinks = audio_rows(
-            &out("pactl", &["-f", "json", "list", "sinks"]),
+            &must(&["-f", "json", "list", "sinks"]),
             &default_sink,
             false,
         );
         sources = audio_rows(
-            &out("pactl", &["-f", "json", "list", "sources"]),
+            &must(&["-f", "json", "list", "sources"]),
             &default_source,
             true,
         );

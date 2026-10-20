@@ -25,16 +25,6 @@ function isScalar(v) {
   return typeof v === "string" || typeof v === "number" || typeof v === "boolean";
 }
 
-function cloneRow(row) {
-  var out = {};
-  var key;
-  if (!row || typeof row !== "object") return out;
-  for (key in row) {
-    if (Object.prototype.hasOwnProperty.call(row, key)) out[key] = row[key];
-  }
-  return out;
-}
-
 function parseSnapshot(raw) {
   var text = String(raw || "").replace(/^\s+|\s+$/g, "");
   if (!text) return null;
@@ -640,8 +630,22 @@ function adopt(currentRecord, patch, adapters) {
 // patch (managed flags and the like) is kept. Lists and objects stay as the
 // patch has them, because the backend's rows are not the page's rows. A reply
 // with no value (a live command domain reads back null) changes nothing.
+// What a sample may set: its keys, less the ones the window wrote after the
+// sample began. `wrote` maps a key to when its write was sent and `since` is
+// when the sample's collection began, on the same clock. A sample that began
+// after the write was sent is the machine's answer to it, and is taken.
+function dropStaleKeys(values, wrote, since) {
+  var out = {};
+  var key;
+  for (key in values) {
+    if (hasOwn(values, key) && !(Number(wrote[key]) > Number(since))) out[key] = values[key];
+  }
+  return out;
+}
+
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
+    dropStaleKeys: dropStaleKeys,
     mergeSnapshot: mergeSnapshot,
     parseSnapshot: parseSnapshot,
     adopt: adopt,

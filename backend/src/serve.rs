@@ -44,6 +44,10 @@ pub struct Config {
     pub root: Option<PathBuf>,
 }
 
+/// How long a request waits for the session to the daemon while the window is
+/// still looking for one.
+pub(crate) const SESSION_WAIT: Duration = Duration::from_secs(8);
+
 pub(crate) type Out = Arc<Mutex<Box<dyn Write + Send>>>;
 
 #[derive(Default)]
@@ -65,17 +69,23 @@ pub fn serve(config: Config, input: impl BufRead, out: Box<dyn Write + Send>) {
     let (wake, woken) = mpsc::channel::<()>();
 
     let subs = Arc::new(crate::serve_link::Subs::default());
-    let watcher = {
-        let (config, out, watch, stop, subs) = (
+    // A window has no files of its own to look at: the daemon looks for it and
+    // its events come in over the session (docs/adr/0010). Only a fixture root
+    // is looked at here.
+    let daemon = crate::serve_link::daemon_dir(&config).is_some();
+    crate::sampler::client::require(daemon);
+    let watcher = (!daemon).then(|| {
+        let (config, out, watch, stop) = (
             Arc::clone(&config),
             Arc::clone(&out),
             Arc::clone(&watch),
             Arc::clone(&stop),
-            Arc::clone(&subs),
         );
-        thread::spawn(move || watch_loop(&config, &out, &watch, &stop, &woken, &subs))
-    };
+        thread::spawn(move || watch_loop(&config, &out, &watch, &stop, &woken))
+    });
 
+    // Before the first request is read, so a job that comes first waits.
+    crate::serve_link::expect_daemon(&config);
     let linker = {
         let (config, out, subs) = (Arc::clone(&config), Arc::clone(&out), Arc::clone(&subs));
         thread::spawn(move || crate::serve_link::run(&config, &out, &subs))
@@ -104,6 +114,15 @@ pub fn serve(config: Config, input: impl BufRead, out: Box<dyn Write + Send>) {
             send(&out, &with_id(reply, id));
             continue;
         }
+        if let Some(op) = value
+            .get("op")
+            .and_then(Value::as_str)
+            .filter(|op| op.starts_with("job."))
+        {
+            let reply = job_op(&config, op, &value);
+            send(&out, &with_id(reply, id));
+            continue;
+        }
         if value.get("op").and_then(Value::as_str) == Some("sub.set") {
             let reply = match crate::serve_link::parse_topics(&value) {
                 Ok(topics) => {
@@ -119,9 +138,15 @@ pub fn serve(config: Config, input: impl BufRead, out: Box<dyn Write + Send>) {
         }
         let (config, out) = (Arc::clone(&config), Arc::clone(&out));
         thread::spawn(move || {
-            let envelope = match handle(config.backend, config.root.as_deref(), &value) {
-                Ok(envelope) => envelope,
-                Err(err) => error_envelope(config.backend, &err),
+            // Nothing a window asks is answered without the daemon (docs/adr/0010);
+            // one that arrives while the daemon is being started waits for it.
+            let envelope = if daemon && !crate::sampler::client::wait_for_session(SESSION_WAIT) {
+                error_envelope(config.backend, &Error::unavailable("answer the request"))
+            } else {
+                match handle(config.backend, config.root.as_deref(), &value) {
+                    Ok(envelope) => envelope,
+                    Err(err) => error_envelope(config.backend, &err),
+                }
             };
             send(&out, &with_id(envelope, id));
         });
@@ -130,9 +155,74 @@ pub fn serve(config: Config, input: impl BufRead, out: Box<dyn Write + Send>) {
     stop.store(true, Ordering::SeqCst);
     let _ = wake.send(());
     subs.stop();
-    let _ = watcher.join();
+    if let Some(watcher) = watcher {
+        let _ = watcher.join();
+    }
     // The linker may be inside a daemon launch; the process ends it.
     drop(linker);
+}
+
+/// `job.start`, `job.input`, `job.cancel`, `job.attach`: frames for the daemon,
+/// which runs the job. They are answered here with whether the frame left. With
+/// no daemon there is no job to run, and the window is told so.
+fn job_op(config: &Config, op: &str, request: &Value) -> Value {
+    // A window that has just opened has no session for a moment.
+    crate::sampler::client::wait_for_session(SESSION_WAIT);
+    if op == "job.list" {
+        return match crate::sampler::client::call(&json!({"op": "jobs"}), Duration::from_secs(5)) {
+            Some(reply) => crate::ok_envelope(
+                config.backend,
+                json!({ "jobs": reply.get("jobs").cloned().unwrap_or(json!([])) }),
+            ),
+            None => unavailable(config),
+        };
+    }
+    let frame = match op {
+        "job.start" => {
+            let env = crate::sampler::client::window_env();
+            let mut frame = json!({
+                "t": "job",
+                "cid": request.get("cid").cloned().unwrap_or(Value::Null),
+                "name": request.get("name").cloned().unwrap_or(Value::Null),
+                "label": request.get("label").cloned().unwrap_or(Value::Null),
+                "args": request.get("args").cloned().unwrap_or(Value::Null),
+                "env": env,
+            });
+            if let Some(stdin) = request.get("stdin").and_then(Value::as_str) {
+                frame["stdin"] = json!(stdin);
+            }
+            frame
+        }
+        "job.input" => json!({
+            "t": "input",
+            "job": request.get("job").cloned().unwrap_or(Value::Null),
+            "data": request.get("data").cloned().unwrap_or(Value::Null),
+            "close": request.get("close").cloned().unwrap_or(Value::Bool(false)),
+        }),
+        "job.cancel" => {
+            json!({"t": "cancel", "job": request.get("job").cloned().unwrap_or(Value::Null)})
+        }
+        "job.attach" => json!({
+            "t": "attach",
+            "job": request.get("job").cloned().unwrap_or(Value::Null),
+            "from": request.get("from").cloned().unwrap_or(json!(0)),
+        }),
+        _ => {
+            return error_envelope(
+                config.backend,
+                &Error::bad_request(format!("unknown op {op}")),
+            )
+        }
+    };
+    if crate::sampler::client::send_frame(&frame) {
+        crate::ok_envelope(config.backend, json!({ "sent": true }))
+    } else {
+        unavailable(config)
+    }
+}
+
+fn unavailable(config: &Config) -> Value {
+    error_envelope(config.backend, &Error::unavailable("run the job"))
 }
 
 fn set_watch(config: &Config, watch: &Mutex<Watch>, request: &Value, wake: &Sender<()>) -> Value {
@@ -175,7 +265,6 @@ fn watch_loop(
     watch: &Mutex<Watch>,
     stop: &AtomicBool,
     woken: &Receiver<()>,
-    subs: &crate::serve_link::Subs,
 ) {
     let mut last_stamp: Option<Vec<(String, String)>> = None;
     let mut last_chrome: Option<Value> = None;
@@ -202,15 +291,6 @@ fn watch_loop(
         }
         let root = config.root.as_deref();
 
-        // The daemon is looking for this window, and its events come in over
-        // the session. This loop is what a window does when there is none.
-        if subs.bridged.load(Ordering::SeqCst) {
-            last_stamp = None;
-            last_chrome = None;
-            last_accounts = None;
-            let _ = woken.recv_timeout(Duration::from_secs(1));
-            continue;
-        }
         if !paths.is_empty() {
             if let Ok(doc) = host::stamp(root, &Paths { paths }) {
                 let sigs = signatures(&doc);

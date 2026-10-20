@@ -78,13 +78,30 @@ assertEqual(proto.decodeLine("").type, "invalid", "an empty line is invalid");
 
 assertEqual(proto.unavailable("down").ok, false, "unavailable is a failed envelope");
 assertEqual(proto.unavailable().error.code, "unavailable", "unavailable has a code");
+assertEqual(proto.parseEnvelope, undefined, "there is no one-shot path left to parse");
+
+const gone = proto.unavailableNotice("up", {
+  why: "no daemon (refused)",
+  attempt: 2,
+  retryMs: 2000,
+});
+assertEqual(gone.title, "Atmos backend unavailable", "the screen has one title");
+assertEqual(gone.detail, "no daemon (refused)", "the screen says why");
 assertEqual(
-  proto.parseEnvelope('{"ok":true,"result":2}', 0).result,
-  2,
-  "a one-shot envelope parses",
+  gone.status,
+  "Starting it and looking again in 2s.",
+  "the screen says when it looks again",
 );
-assertEqual(proto.parseEnvelope("", 1).ok, false, "no output from a failed run is unavailable");
-assertEqual(proto.parseEnvelope("junk", 0).ok, false, "junk output is unavailable");
+assertEqual(
+  proto.unavailableNotice("down", null).detail,
+  "The backend process stopped.",
+  "a stopped server is named",
+);
+assertEqual(
+  proto.unavailableNotice("up", null).detail,
+  "The Atmos daemon does not answer.",
+  "a missing reason still reads",
+);
 
 assertEqual(proto.restartDelay(1), 1000, "the first restart waits a second");
 assertEqual(proto.restartDelay(3), 4000, "restarts back off");
@@ -142,3 +159,31 @@ const sampleEvent = proto.decodeLine(
 );
 assertEqual(sampleEvent.type, "event", "a sample is an event");
 assertEqual(sampleEvent.frame.sampledAt, 7, "the event keeps its whole frame");
+
+// Jobs: a name and arguments, with this window's own id and a label.
+const start = proto.jobStartBody(7, "theme.install", { url: "u" }, "theme-install");
+assertEqual(start.op, "job.start", "a job starts with job.start");
+assertEqual(start.cid, "7", "the window's id is a string");
+assertEqual(start.name, "theme.install", "the job is named");
+assertEqual(start.args.url, "u", "the arguments are carried");
+assertEqual(proto.jobStartBody("a", "x").label, "", "a job with no label has an empty one");
+assertEqual(proto.jobInputBody(4, "pw\n", true).close, true, "input can close the job's stdin");
+assertEqual(proto.jobInputBody(4, "x").close, false, "input does not close by default");
+assertEqual(proto.jobCancelBody("9").job, 9, "a cancel names the daemon's job number");
+assertEqual(proto.jobAttachBody(4, -3).from, 0, "attaching never starts before the first line");
+assertEqual(proto.jobRefused(null).code, 127, "no answer is a job that could not start");
+assertEqual(
+  proto.jobRefused({ ok: false, error: { code: "bad_request", message: "unknown job x" } }).code,
+  2,
+  "a refused job is a failure with its reason",
+);
+assertEqual(requests.job("a.b", { x: 1 }).op, "job", "Requests.job builds a job description");
+assert(
+  requests.OPS.indexOf("job") === -1,
+  "a job description is not a wire op: Backend sends it as job.start",
+);
+assertEqual(
+  requests.label(requests.job("account.set-password", { name: "u", password: "secret" })).join(" "),
+  "account.set-password u",
+  "a job's label never carries a password",
+);

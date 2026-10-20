@@ -25,6 +25,8 @@ const fn secs(n: u64) -> Duration {
 /// and a reader tolerates a few missed samples before it asks for a fresh one.
 pub fn of(kind: &str) -> Policy {
     let (interval, max_age, first) = match kind {
+        // Never sampled on a clock, and as good as the last invalidation says.
+        name if super::is_settings(name) => (secs(0), secs(u32::MAX as u64), secs(0)),
         "live" => (secs(30), Duration::from_secs(1), secs(0)),
         "services" => (secs(300), secs(900), secs(2)),
         "disks" => (secs(300), secs(900), secs(4)),

@@ -23,6 +23,41 @@ const COMMAND_WAIT: Duration = Duration::from_secs(150);
 /// The longest a read may be held back, whatever the caller asked for.
 const BARRIER_CAP: Duration = Duration::from_secs(10);
 
+/// How many reads run a child at once. A page that asks once per item (a grid
+/// of themes) would otherwise start a process for every one of them together.
+const READ_SLOTS: usize = 4;
+
+/// A counting semaphore for the children of reads.
+#[derive(Default)]
+pub(super) struct Slots {
+    taken: std::sync::Mutex<usize>,
+    freed: std::sync::Condvar,
+}
+
+pub(super) struct Slot<'a>(&'a Slots);
+
+impl Slots {
+    fn acquire(&self) -> Slot<'_> {
+        let mut taken = self.taken.lock().unwrap_or_else(|err| err.into_inner());
+        while *taken >= READ_SLOTS {
+            taken = self
+                .freed
+                .wait(taken)
+                .unwrap_or_else(|err| err.into_inner());
+        }
+        *taken += 1;
+        Slot(self)
+    }
+}
+
+impl Drop for Slot<'_> {
+    fn drop(&mut self) {
+        let mut taken = self.0.taken.lock().unwrap_or_else(|err| err.into_inner());
+        *taken -= 1;
+        self.0.freed.notify_one();
+    }
+}
+
 fn strings(value: Option<&Value>) -> Vec<String> {
     value
         .and_then(Value::as_array)
@@ -36,15 +71,23 @@ fn strings(value: Option<&Value>) -> Vec<String> {
 
 impl Daemon {
     /// `{"op":"command","request":{...},"backend":"omarchy","env":{...}}`
-    pub(super) fn command_op(&self, request: &Value) -> Value {
+    pub(super) fn command_op(self: &Arc<Self>, request: &Value) -> Value {
         let body = request.get("request").cloned().unwrap_or(Value::Null);
         let parsed = match Request::parse(body.clone()) {
             Ok(parsed) => parsed,
             Err(err) => return json!({"ok": false, "message": format!("bad command: {err}")}),
         };
-        let Some(plan) = command::plan(&parsed) else {
-            return json!({"ok": false, "message": "not a command"});
-        };
+        // A write has the lane its entry names; anything else is a read, which
+        // has a lane of its own so reads never wait for each other.
+        let command = command::plan(&parsed);
+        let is_command = command.is_some();
+        // A speed test holds its child for seconds on purpose; it must not
+        // take a slot from the quick reads.
+        let slotted =
+            !is_command && !matches!(parsed, Request::SpeedtestDisk(_) | Request::SpeedtestNet(_));
+        let plan = command.unwrap_or_else(command::read_plan);
+        self.commands_run
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         let backend = request
             .get("backend")
             .and_then(Value::as_str)
@@ -61,13 +104,22 @@ impl Daemon {
             .unwrap_or_default();
         let affects: Vec<&str> = plan.affects.iter().map(String::as_str).collect();
         let run = Arc::clone(&self.run_command);
+        let slots = Arc::clone(&self.read_slots);
         let reply = self
             .commands
             .submit(&plan.lane, plan.key.as_deref(), &affects, move || {
+                // A write has its lane to keep it in order; a read waits its turn.
+                let _slot = slotted.then(|| slots.acquire());
                 run(&backend, &body, &env)
             });
         match reply.recv_timeout(COMMAND_WAIT) {
-            Ok(reply) => json!({"ok": true, "envelope": reply.value, "coalesced": reply.coalesced}),
+            Ok(reply) => {
+                // What the write read back is what the topics now show.
+                if is_command && reply.value["ok"].as_bool() == Some(true) {
+                    self.apply_readback(&reply.value["result"]);
+                }
+                json!({"ok": true, "envelope": reply.value, "coalesced": reply.coalesced})
+            }
             Err(_) => json!({"ok": false, "message": "the command did not finish in time"}),
         }
     }
@@ -305,20 +357,67 @@ mod tests {
     }
 
     #[test]
-    fn a_request_that_is_not_a_command_is_refused() {
-        let (run, log) = slow_recorder(Duration::ZERO);
-        let (dir, _daemon) = serve_commands("cmd-refuse", run);
-        // Refused before anything was queued, so the caller may run it itself.
-        for body in [json!({"op": "version"}), json!({"op": "nope"})] {
-            assert!(
-                matches!(
-                    client::command_in(&dir, &body, "omarchy"),
-                    Command::Unavailable
-                ),
-                "{body}"
-            );
+    fn a_read_is_run_by_the_daemon_on_a_lane_of_its_own_and_a_nonsense_request_is_refused() {
+        let (run, log) = slow_recorder(Duration::from_millis(300));
+        let (dir, daemon) = serve_commands("cmd-reads", run);
+        // Two reads at once do not wait for each other.
+        let began = Instant::now();
+        let reads: Vec<_> = (0..2)
+            .map(|_| {
+                let dir = dir.clone();
+                std::thread::spawn(move || {
+                    client::command_in(&dir, &json!({"op": "version"}), "omarchy")
+                })
+            })
+            .collect();
+        for read in reads {
+            assert!(matches!(read.join().unwrap(), Command::Done { .. }));
         }
-        assert!(log.lock().unwrap().is_empty());
+        assert!(
+            began.elapsed() < Duration::from_millis(550),
+            "{:?}",
+            began.elapsed()
+        );
+        assert_eq!(log.lock().unwrap().len(), 2);
+        assert_eq!(daemon.status()["commandsRun"], 2);
+        // Refused before anything was queued.
+        assert!(matches!(
+            client::command_in(&dir, &json!({"op": "nope"}), "omarchy"),
+            Command::Unavailable
+        ));
+        assert_eq!(log.lock().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn a_burst_of_reads_never_runs_more_children_than_there_are_slots() {
+        let (now, most) = (
+            Arc::new(std::sync::atomic::AtomicUsize::new(0)),
+            Arc::new(std::sync::atomic::AtomicUsize::new(0)),
+        );
+        let (a, b) = (now.clone(), most.clone());
+        let (dir, _daemon) = serve_commands(
+            "cmd-burst",
+            Box::new(move |_, _, _| {
+                let at_once = a.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
+                b.fetch_max(at_once, std::sync::atomic::Ordering::SeqCst);
+                std::thread::sleep(Duration::from_millis(20));
+                a.fetch_sub(1, std::sync::atomic::Ordering::SeqCst);
+                json!({"ok": true, "result": {}})
+            }),
+        );
+        let askers: Vec<_> = (0..24)
+            .map(|_| {
+                let dir = dir.clone();
+                std::thread::spawn(move || {
+                    client::command_in(&dir, &json!({"op": "version"}), "omarchy")
+                })
+            })
+            .collect();
+        for asker in askers {
+            assert!(matches!(asker.join().unwrap(), Command::Done { .. }));
+        }
+        let most = most.load(std::sync::atomic::Ordering::SeqCst);
+        assert!((2..=READ_SLOTS).contains(&most), "{most} children at once");
     }
 
     #[test]

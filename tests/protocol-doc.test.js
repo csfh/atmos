@@ -13,7 +13,16 @@ const errors = fs.readFileSync(path.join(root, "backend", "src", "error.rs"), "u
 
 const ops = [...request.matchAll(/#\[serde\(rename = "([^"]+)"\)\]/g)].map((m) => m[1]);
 assert(ops.length > 0, "request.rs lists ops");
-for (const op of [...ops, "watch.set", "sub.set"]) {
+for (const op of [
+  ...ops,
+  "watch.set",
+  "sub.set",
+  "job.start",
+  "job.input",
+  "job.cancel",
+  "job.attach",
+  "job.list",
+]) {
   assert(doc.includes(`| \`${op}\` |`), `docs/protocol.md has a row for ${op}`);
 }
 

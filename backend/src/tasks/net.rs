@@ -68,7 +68,7 @@ pub fn radio(on: bool, skip_live: bool) -> Result<()> {
 
 fn connection_live(args: &[String], stdin: &[u8]) -> Result<()> {
     let usage = || {
-        bad("Usage: set-wifi-connection radio <on|off> | up <uuid> | down <uuid> | delete <uuid> | join <ssid> | down-ssid <ssid> | delete-ssid <ssid> | metered <uuid> <yes|no|unknown> | priority <uuid> <n> | mac <uuid> <mode> | ipv4 <uuid> auto | ipv4 <uuid> manual <addr> <prefix> [gateway] [dns] | wireguard-import <file> | hotspot on <ssid> <password> | hotspot off")
+        bad("Usage: set-wifi-connection radio <on|off> | up <uuid> | down <uuid> | delete <uuid> | join <ssid> | down-ssid <ssid> | delete-ssid <ssid> | metered <uuid> <yes|no|unknown> | priority <uuid> <n> | mac <uuid> <mode> | ipv4 <uuid> auto | ipv4 <uuid> manual <addr> <prefix> [gateway] [dns] | wireguard-import <file> | hotspot on <ssid> [<password>, or a line on stdin] | hotspot off")
     };
     let arg = |i: usize| args.get(i).map_or("", String::as_str);
     let (action, target) = (arg(0), arg(1));
@@ -279,7 +279,19 @@ fn connection_live(args: &[String], stdin: &[u8]) -> Result<()> {
                 let _ = nmcli(&["connection", "down", "id", "Hotspot"], None);
                 return Ok(());
             }
-            let (ssid, password) = (arg(2), arg(3));
+            // The password arrives as the first line of stdin, so it is not in
+            // the arguments of this process or in any list of jobs; the old
+            // fourth argument still works for a caller in a terminal.
+            let from_stdin = String::from_utf8_lossy(stdin);
+            let first_line = from_stdin.lines().next().unwrap_or("");
+            let (ssid, password) = (
+                arg(2),
+                if arg(3).is_empty() {
+                    first_line
+                } else {
+                    arg(3)
+                },
+            );
             if ssid.is_empty() || ssid.contains('\n') || ssid.chars().count() > 32 {
                 return Err(usage());
             }

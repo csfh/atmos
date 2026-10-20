@@ -11,12 +11,6 @@ const LSBLK: &[&str] = &[
     "NAME,PATH,SIZE,TYPE,FSTYPE,LABEL,UUID,MOUNTPOINT,MODEL,TRAN,ROTA,HOTPLUG,PKNAME,RM",
 ];
 
-/// What the snapshot embeds: a tool that fails leaves the lists empty.
-pub fn collect() -> Value {
-    let tree: Value = serde_json::from_str(&capture("lsblk", LSBLK)).unwrap_or(Value::Null);
-    build(&tree, &capture("df", &["-B1", "-P"]))
-}
-
 /// What the disks page shows. With no device list from `lsblk` there is no
 /// page to show, and that is said, not drawn as a machine without disks.
 pub fn try_collect() -> Result<Value, String> {

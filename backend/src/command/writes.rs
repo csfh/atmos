@@ -35,9 +35,12 @@ pub struct Built {
     pub before: bool,
     /// How long the read-back is repeated waiting for `settle`.
     pub settle_for: Duration,
-    /// Needs the caller's own process tree (a sudo or polkit step). It is run
-    /// where the caller is and never handed to the daemon.
-    pub local: bool,
+    /// What the command reads on stdin.
+    pub stdin: Option<String>,
+    /// Starts something that stays open, as a unit of its own, and does not wait.
+    pub launch: bool,
+    /// Display kinds it changes (see `table::Entry::affects`).
+    pub affects: Vec<String>,
 }
 
 impl Built {
@@ -51,8 +54,16 @@ impl Built {
             settle: None,
             before: false,
             settle_for: SETTLE_FAST,
-            local: false,
+            stdin: None,
+            launch: false,
+            affects: Vec::new(),
         }
+    }
+
+    /// Display kinds the command changes, dropped when it ends.
+    fn touches(mut self, kinds: &[&str]) -> Built {
+        self.affects = kinds.iter().map(|k| k.to_string()).collect();
+        self
     }
 
     fn settle(mut self, check: Check) -> Built {
@@ -72,11 +83,6 @@ impl Built {
     /// connecting, the bar reloading.
     fn slow(mut self) -> Built {
         self.settle_for = SETTLE_SLOW;
-        self
-    }
-
-    fn local(mut self) -> Built {
-        self.local = true;
         self
     }
 }
@@ -572,7 +578,7 @@ pub fn build(name: &str, args: &Value) -> Result<Built> {
                 &["desktopApps"],
             )
             .settle(names_gone("desktopApps", id.to_string()))
-            .local()
+            .touches(&["software"])
         }
         "avatar.set" => {
             let user = word(args, "user")?;
@@ -587,7 +593,6 @@ pub fn build(name: &str, args: &Value) -> Result<Built> {
                 &["avatarPath"],
             )
             .settle(equals("avatarPath", json!(path)))
-            .local()
         }
         "avatar.clear" => {
             let user = word(args, "user")?;
@@ -598,7 +603,6 @@ pub fn build(name: &str, args: &Value) -> Result<Built> {
                 &["avatarPath"],
             )
             .settle(equals("avatarPath", json!("")))
-            .local()
         }
         "snapper.number-limit" => {
             let n = uint(args, "n", 1, 50)?;
@@ -609,7 +613,6 @@ pub fn build(name: &str, args: &Value) -> Result<Built> {
                 &["snapperNumberLimit"],
             )
             .settle(equals("snapperNumberLimit", json!(n)))
-            .local()
         }
         "snapper.timeline" => {
             let on = flag(args, "on")?;
@@ -623,7 +626,6 @@ pub fn build(name: &str, args: &Value) -> Result<Built> {
                 &["snapperTimeline"],
             )
             .settle(equals("snapperTimeline", json!(on)))
-            .local()
         }
         "fstrim" => {
             let on = flag(args, "on")?;
@@ -634,14 +636,80 @@ pub fn build(name: &str, args: &Value) -> Result<Built> {
                 &["fstrimEnabled"],
             )
             .settle(equals("fstrimEnabled", json!(on)))
-            .local()
         }
-        other => {
-            return Err(
-                Error::new(Kind::BadRequest, format!("unknown write {other}")).with_context("name"),
+        other => match super::entries::find(other).filter(|entry| {
+            matches!(
+                entry.kind,
+                super::table::Kind::Command | super::table::Kind::Launch
             )
-        }
+        }) {
+            Some(entry) => from_table(entry, args)?,
+            None => {
+                return Err(
+                    Error::new(Kind::BadRequest, format!("unknown write {other}"))
+                        .with_context("name"),
+                )
+            }
+        },
     })
+}
+
+/// A command or launcher from the table: no read-back, no settling.
+fn from_table(entry: &super::table::Entry, args: &Value) -> Result<Built> {
+    use super::table;
+    let lane = if entry.lane.is_empty() {
+        entry.name
+    } else {
+        entry.lane
+    };
+    let mut built = Built::new(lane, entry.name, table::argv(entry, args)?, &[]);
+    built.stdin = table::stdin(entry, args)?;
+    built.launch = entry.kind == table::Kind::Launch;
+    built.affects = entry.affects.iter().map(|k| k.to_string()).collect();
+    built.readback = entry.readback.iter().map(|k| k.to_string()).collect();
+    Ok(built)
+}
+
+/// Start `built` as a unit of its own and do not wait for it. Without a user
+/// manager it is a detached child, which does not outlive a daemon restart but
+/// does not hold the lane either.
+fn launch(built: &Built) -> Result<()> {
+    use crate::sampler::jobs::{unit_argv, Runner};
+    static LAUNCHED: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let n = LAUNCHED.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+    let env: Vec<(String, String)> = std::env::vars().collect();
+    if Runner::detect() == Runner::Systemd {
+        let unit = format!("atmos-launch-{}-{n}", std::process::id());
+        let argv = unit_argv(&unit, "Atmos launch", &built.argv, &env, false);
+        let (program, rest) = argv
+            .split_first()
+            .ok_or_else(|| Error::new(Kind::Failed, "empty"))?;
+        let done = Run::new(program)
+            .args(rest)
+            .timeout(Duration::from_secs(20))
+            .output()?;
+        if done.success() {
+            return Ok(());
+        }
+        return Err(Error::new(
+            Kind::Command,
+            format!("{}: {}", built.argv.join(" "), done.stderr_text().trim()),
+        ));
+    }
+    use std::os::unix::process::CommandExt;
+    let (program, rest) = built
+        .argv
+        .split_first()
+        .ok_or_else(|| Error::new(Kind::Failed, "empty"))?;
+    std::process::Command::new(program)
+        .args(rest)
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .process_group(0)
+        .spawn()
+        .map(|_| ())
+        .map_err(|err| Error::from(err).with_context(program.clone()))
 }
 
 // ---- running one --------------------------------------------------------
@@ -661,16 +729,17 @@ pub fn execute(root: Option<&Path>, built: &Built) -> Result<Value> {
         return Ok(json!({"argv": built.argv, "snapshot": {}, "settled": true}));
     }
     let before = if built.before {
-        crate::snapshot::keys::read(&built.readback).0
+        crate::snapshot::keys::read(&built.readback).values
     } else {
         Map::new()
     };
     run_command(built)?;
-    let mut now;
+    let (mut now, mut failed);
     let mut settled = built.settle.is_none();
     let began = std::time::Instant::now();
     loop {
-        now = crate::snapshot::keys::read(&built.readback).0;
+        let read = crate::snapshot::keys::read(&built.readback);
+        (now, failed) = (read.values, read.failed);
         match &built.settle {
             None => break,
             Some(check) if check(&before, &now) => {
@@ -681,7 +750,13 @@ pub fn execute(root: Option<&Path>, built: &Built) -> Result<Value> {
             Some(_) => std::thread::sleep(SETTLE_GAP),
         }
     }
-    Ok(json!({"snapshot": now, "settled": settled}))
+    // A key the machine could not be asked about is named, and left out of the
+    // snapshot, so the window keeps what it showed.
+    let mut reply = json!({"snapshot": now, "settled": settled});
+    if !failed.is_empty() {
+        reply["failed"] = json!(failed);
+    }
+    Ok(reply)
 }
 
 fn run_command(built: &Built) -> Result<()> {
@@ -699,10 +774,16 @@ fn run_command(built: &Built) -> Result<()> {
             };
         }
     }
-    let done = Run::new(program)
+    if built.launch {
+        return launch(built);
+    }
+    let mut run = Run::new(program)
         .args(rest)
-        .timeout(Duration::from_secs(120))
-        .output()?;
+        .timeout(Duration::from_secs(120));
+    if let Some(input) = &built.stdin {
+        run = run.input(input.clone());
+    }
+    let done = run.output()?;
     if done.success() {
         return Ok(());
     }

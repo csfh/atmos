@@ -37,13 +37,13 @@ const omarchyQml =
   fs.readFileSync(path.join(__dirname, "..", "services", "IoQueue.qml"), "utf8") +
   fs.readFileSync(path.join(__dirname, "..", "services", "SnapshotStore.qml"), "utf8");
 assert(
-  omarchyQml.indexOf('enqueueRead(IoQueue.queue, "rest")') !== -1,
-  "startSession follows look with rest",
+  omarchyQml.indexOf("SnapshotFeed.start()") !== -1 && omarchyQml.indexOf("enqueueRead(") === -1,
+  "startSession holds the settings topics and queues no read",
 );
 assert(
   omarchyQml.indexOf("function copyDiagnosticReport()") !== -1 &&
-    omarchyQml.indexOf('Backend.task("diag-report"') !== -1,
-  "Omarchy copies a diagnostic report through the diag-report task",
+    omarchyQml.indexOf('Requests.job("diag.report"') !== -1,
+  "Omarchy copies a diagnostic report through the diag.report job",
 );
 assert(
   omarchyQml.indexOf("Diagnostics.js") !== -1 && omarchyQml.indexOf("normalizeDiagnostics") !== -1,
@@ -1332,36 +1332,39 @@ assert(
   "copyLastError uses clipboardPayload",
 );
 assert(
-  omarchySrc.indexOf("omarchy agent prompt") !== -1,
-  "askAgentAboutError launches omarchy agent prompt",
+  omarchySrc.indexOf('"agent.prompt"') !== -1,
+  "askAgentAboutError sends the typed agent.prompt",
 );
 assert(
   omarchySrc.indexOf("function commandFailureText(") !== -1,
   "failed jobs combine stdout and stderr",
 );
-assert(omarchySrc.indexOf("id: mutOut") !== -1, "mutProc keeps stdout for failure text");
 assert(
   omarchySrc.indexOf("function runInteractive(") !== -1 &&
-    omarchySrc.indexOf("property Process interactiveProc: Process") !== -1 &&
-    omarchySrc.indexOf("prefs-interactive") !== -1 &&
-    omarchySrc.indexOf("kill 0") !== -1,
-  "interactive tools use their own Process and kill the process group on cancel",
+    omarchySrc.indexOf("function startInteractive(") !== -1 &&
+    omarchySrc.indexOf("Backend.startJob(op") !== -1 &&
+    omarchySrc.indexOf("Backend.jobCancel(root.interactiveCid)") !== -1,
+  "interactive tools are daemon jobs of their own and stop by cancelling the job",
+);
+assert(
+  omarchySrc.indexOf("jobStderrBuf") !== -1 && omarchySrc.indexOf("onJobStream") !== -1,
+  "a job keeps its stdout and stderr apart for failure text",
 );
 const runInteractiveStart = omarchySrc.indexOf("function runInteractive(");
 const runInteractiveEnd = omarchySrc.indexOf("function commandFailureText(", runInteractiveStart);
 const runInteractiveBody = omarchySrc.slice(runInteractiveStart, runInteractiveEnd);
 assert(
-  runInteractiveBody.indexOf("enqueueIo") === -1 && runInteractiveBody.indexOf("mutProc") === -1,
+  runInteractiveBody.indexOf("enqueueIo") === -1,
   "runInteractive does not hold the mut queue",
 );
 const brandingStart = omarchySrc.indexOf("function setScreensaverBranding(");
 const brandingEnd = omarchySrc.indexOf("function setTimezone(", brandingStart);
 const brandingBody = omarchySrc.slice(brandingStart, brandingEnd);
 assert(
-  brandingBody.indexOf('runInteractive(["omarchy", "branding", "screensaver"') !== -1 &&
-    brandingBody.indexOf('runInteractive(["omarchy", "branding", "about"') !== -1 &&
-    brandingBody.indexOf('runCommand(["omarchy", "branding", "screensaver", "reset"]') !== -1 &&
-    brandingBody.indexOf('runCommand(["omarchy", "branding", "about", "reset"]') !== -1,
+  brandingBody.indexOf('runInteractive(Requests.job("branding.screensaver"') !== -1 &&
+    brandingBody.indexOf('runInteractive(Requests.job("branding.about"') !== -1 &&
+    brandingBody.indexOf('which: "screensaver"') !== -1 &&
+    brandingBody.indexOf('which: "about"') !== -1,
   "branding Choose/Edit stay off the mut queue; reset stays on it",
 );
 const captureStart = omarchySrc.indexOf("function captureScreenshot(");
@@ -1377,16 +1380,14 @@ assert(
   "capture pickers stay off the mut queue; stop cancels a pending start",
 );
 assert(
-  omarchySrc.indexOf(
-    'function openBackgroundFolder() { launchDetached(["omarchy", "theme", "bg", "install"]) }',
-  ) !== -1 &&
-    omarchySrc.indexOf('function openAether() { launchDetached(["aether"]) }') !== -1 &&
-    omarchySrc.indexOf('launchDetached(["omarchy", "launch", "terminal", "herdr"])') !== -1,
-  "folder and GUI launches detach instead of holding mutProc",
+  omarchySrc.indexOf('Requests.write("theme.bg-folder"') !== -1 &&
+    omarchySrc.indexOf('Requests.write("aether"') !== -1 &&
+    omarchySrc.indexOf('Requests.write("terminal.herdr"') !== -1,
+  "folder and GUI launches are typed launchers, not queued commands",
 );
 assert(
-  omarchySrc.indexOf('runInteractive(["omarchy", "theme", "bg-switcher"]') !== -1 &&
-    omarchySrc.indexOf("omarchy file select") !== -1 &&
+  omarchySrc.indexOf('runInteractive(Requests.job("theme.bg-switcher"') !== -1 &&
+    omarchySrc.indexOf('Requests.job("theme.bg-file"') !== -1 &&
     omarchySrc.indexOf('kind: "background-file"') !== -1 &&
     omarchySrc.indexOf('kind: "theme-switcher"') !== -1,
   "unused switcher helpers stay off the mut queue if a later UI wires them",
@@ -1398,9 +1399,8 @@ assert(
 );
 assert(
   omarchySrc.indexOf("function toggleFavorite(") !== -1 &&
-    omarchySrc.indexOf("atmos-favorites.json") !== -1 &&
-    omarchySrc.indexOf('"set-favorites"') !== -1,
-  "Omarchy writes favorites through the set-favorites task",
+    omarchySrc.indexOf('Requests.write("favorites.write"') !== -1,
+  "Omarchy writes favorites through the typed favorites.write",
 );
 const favoritesPageSrc = fs.readFileSync(
   path.join(__dirname, "..", "pages", "FavoritesPage.qml"),
@@ -1679,10 +1679,9 @@ assert(
   "Omarchy keeps unmanaged workspace gesture state and refuses to toggle it",
 );
 assert(
-  omarchySrc.indexOf("applyHyprWorkspaceGestureFromFile") !== -1 &&
-    omarchySrc.indexOf("inputLuaCache") !== -1 &&
-    omarchySrc.indexOf('domain.indexOf("hyprInput") === 0') !== -1,
-  "Omarchy refreshes workspace gesture ownership from the file after an input write",
+  omarchySrc.indexOf("applyHyprWorkspaceGestureFromFile") === -1 &&
+    omarchySrc.indexOf("inputLuaCache") === -1,
+  "Omarchy does not read input.lua for the gesture: the backend's Input producer does, and an input write invalidates its topic",
 );
 assert(
   omarchySrc.indexOf("layouts = HyprPrefs.sanitizeLayoutList(layouts)") !== -1,
@@ -1712,19 +1711,22 @@ assert(
   "Omarchy validates full name with AccountsJs.isFullName",
 );
 
-// runGumJob hands the command to the gum-job task, which puts a yes-saying
-// gum ahead of the real one on PATH.
+// A gum job is a registry entry flagged gum: the daemon puts the yes-saying
+// gum ahead of the real command (docs/protocol.md, Jobs).
 assert(
-  omarchySrc.indexOf('Backend.task("gum-job", argv)') !== -1 &&
-    omarchySrc.indexOf('Backend.task("gum-job", ["omarchy", "hibernation", "remove"])') !== -1,
-  "gum jobs run through the gum-job task",
+  omarchySrc.indexOf('Requests.job("software.run"') !== -1 &&
+    omarchySrc.indexOf('Requests.job("hibernation.remove"') !== -1,
+  "gum jobs are named registry jobs",
 );
 
-// A job whose input is read to EOF hangs unless stdin is closed after the
-// write. enqueueIo re-arms stdinEnabled per job, so closing is safe.
+// A password is an argument of the job, which the daemon feeds the command as
+// its stdin and closes: it is never in a command line, a job list or a label.
 assert(
-  /write\(root\.jobStdin\)[\s\S]{0,400}stdinEnabled = false/.test(omarchySrc),
-  "jobProc closes stdin after writing",
+  omarchySrc.indexOf('Requests.job("account.set-password", { name: name, password: password })') !==
+    -1 &&
+    omarchySrc.indexOf('Requests.job("sudo.enable", { minutes: minutes, password: password })') !==
+      -1,
+  "passwords reach jobs as arguments, not command lines",
 );
 
 const applySrc = fs.readFileSync(
@@ -1765,7 +1767,7 @@ assert(
   "export writes through ratmos on the shared connection, one request at a time",
 );
 assert(
-  exportPage.indexOf("workspaceGestureUnmanaged: Omarchy.liveWorkspaceGestureUnmanaged()") !== -1,
+  exportPage.indexOf("workspaceGestureUnmanaged: Omarchy.hyprWorkspaceGestureUnmanaged") !== -1,
   "import re-scans input.lua for an unmanaged workspace gesture",
 );
 
@@ -1939,17 +1941,17 @@ const brightnessBody = omarchyOpsSrc.slice(
   omarchyOpsSrc.indexOf("function setInternalDisplay"),
 );
 assert(
-  brightnessBody.indexOf("op: Requests.displayBrightness(name, percent)") !== -1 &&
+  brightnessBody.indexOf("runCommand(Requests.displayBrightness(name, percent)") !== -1 &&
     brightnessBody.indexOf("apply:") === -1,
   "setDisplayBrightness is a typed op with no patch of its own",
 );
 assert(
   omarchyOpsSrc.indexOf("patchFocusedMonitorScale") === -1 &&
-    (omarchyOpsSrc.match(/op: Requests\.displayScale\(scale\)/g) || []).length === 2,
+    (omarchyOpsSrc.match(/runCommand\(Requests\.displayScale\(scale\)/g) || []).length === 2,
   "monitor scale, set and reverted, is a typed op with no patch of its own",
 );
 assert(
-  omarchyOpsSrc.indexOf('if (opts.op) return enqueueIo({ kind: "op"') !== -1 &&
+  omarchyOpsSrc.indexOf('enqueueIo({ kind: "op", opts: run') !== -1 &&
     omarchyOpsSrc.indexOf('if (job.kind === "op") return Ops.run(job.opts)') !== -1,
   "a typed op goes through enqueueIo, so it keeps the sudo prompt and the revert guard, and skips the job queue",
 );
@@ -1958,21 +1960,29 @@ assert(
     opsSrc.indexOf("Omarchy.applySnapshot(SnapshotJs.plain(snapshot))") !== -1,
   "Ops applies the reply's snapshot only for the newest write of a key",
 );
-// A full snapshot read that began before a write can finish after it. It must
-// not put back the old value of a key the write has since set.
+// A topic sampled before a write can be pushed after it. It must not put back
+// the old value of a key the write has since set (the daemon also throws such a
+// sample away, docs/adr/0011).
 assert(
-  omarchyOpsSrc.indexOf("job.startedAt = Date.now()") !== -1 &&
-    omarchyOpsSrc.indexOf("Ops.dropStale(env.result, job.startedAt)") !== -1 &&
+  fs
+    .readFileSync(path.join(__dirname, "..", "services", "SnapshotFeed.qml"), "utf8")
+    .indexOf("Ops.dropStale(doc, Number(frame.sampledAt))") !== -1 &&
     opsSrc.indexOf("function dropStale(") !== -1 &&
-    opsSrc.indexOf("root.noteWritten(snapshot)") !== -1,
+    opsSrc.indexOf("root.noteWritten(snapshot, sentAt)") !== -1,
   "a read that started before a write does not overwrite the keys the write set",
 );
-// A write the machine had not finished showing when the backend stopped waiting
-// is read again, so the late answer still reaches the window.
 assert(
-  opsSrc.indexOf("env.result.settled === false") !== -1 &&
-    opsSrc.indexOf("IoQueue.enqueueRead(late)") !== -1,
-  "an unsettled write refreshes the group that owns its keys",
+  omarchySrc.indexOf("job.sentAt = Date.now()") !== -1 &&
+    omarchySrc.indexOf("Ops.noteWritten(shown, job && job.sentAt)") !== -1,
+  "a setting is marked written when it was sent, so the daemon's later re-read of it is taken",
+);
+// A write the machine had not finished showing when the backend stopped waiting
+// is read again by the daemon, which pushes the late answer (docs/adr/0011).
+assert(
+  fs
+    .readFileSync(path.join(__dirname, "..", "backend", "src", "sampler", "settings.rs"), "utf8")
+    .indexOf("if !settled {") !== -1 && opsSrc.indexOf("enqueueRead") === -1,
+  "an unsettled write is read again by the daemon, not queued by the window",
 );
 const monitorPageSrc = fs.readFileSync(
   path.join(__dirname, "..", "pages", "MonitorPage.qml"),
@@ -2433,32 +2443,19 @@ assert(
 );
 assert(
   omarchySrc.indexOf("function signalProcess(") !== -1 &&
-    omarchySrc.indexOf("ProcessesJs.signalArgv") !== -1 &&
+    omarchySrc.indexOf("ProcessesJs.signalArgs") !== -1 &&
     omarchySrc.indexOf('refresh: "none"') !== -1,
   "Omarchy.signalProcess runs through runCommand",
 );
-assert(omarchySrc.indexOf('ATMOS_PAGE") || "home"') !== -1, "Omarchy starts the session from Home");
+assert(
+  omarchySrc.indexOf("function startSession()") !== -1 && omarchySrc.indexOf("ATMOS_PAGE") === -1,
+  "Omarchy starts the session by holding the topics, whichever page opens first",
+);
 assert(
   shellSrc.indexOf('id: "appearance", title: "Appearance"') === -1,
   "shell does not inline hub titles",
 );
 
-assert(
-  omarchyQml.indexOf("SnapshotGroups.setSnapshotGroupForHub(HubsJs.snapshotGroupForHub)") !== -1,
-  "Omarchy installs Hubs.snapshotGroupForHub on SnapshotGroups at load",
-);
-assert(
-  omarchyQml.indexOf("var first = SnapshotGroups.snapshotGroupForHub(hub)") !== -1,
-  "startSession uses SnapshotGroups.snapshotGroupForHub",
-);
-const completedStart = omarchyQml.indexOf("Component.onCompleted:");
-const completedEnd = omarchyQml.indexOf("readonly property var watchSpecs", completedStart);
-const completedBody = omarchyQml.slice(completedStart, completedEnd);
-assert(
-  completedBody.indexOf("setSnapshotGroupForHub") !== -1 &&
-    completedBody.indexOf("setSnapshotGroupForHub") < completedBody.indexOf("startSession"),
-  "Omarchy wires snapshotGroupForHub before startSession",
-);
 assert(
   settingsSrc.indexOf('title: "Idle and light"') !== -1,
   "export Markdown keeps Idle and light",
@@ -2492,24 +2489,31 @@ assert(
 );
 assert(runJobBody.indexOf("opts.apply") === -1, "a job carries no patch of its own");
 assert(
-  runCommandBody.indexOf("Preview.active") !== -1 &&
-    runCommandBody.indexOf("bypassPreview") !== -1 &&
-    runCommandBody.indexOf("holdChange") !== -1 &&
-    runCommandBody.indexOf("recordChange") !== -1,
+  runCommandBody.indexOf("previewHeld") !== -1 &&
+    runCommandBody.indexOf("recordChange") !== -1 &&
+    omarchySrc.slice(omarchySrc.indexOf("function previewHeld(")).indexOf("Preview.active") !==
+      -1 &&
+    omarchySrc.slice(omarchySrc.indexOf("function previewHeld(")).indexOf("bypassPreview") !== -1 &&
+    omarchySrc.slice(omarchySrc.indexOf("function previewHeld(")).indexOf("holdChange") !== -1,
   "runCommand holds in Preview and records a real write",
 );
 assert(
-  omarchySrc.indexOf("HistoryJs.applyHeld(held, runCommand)") !== -1,
+  omarchySrc.indexOf("HistoryJs.applyHeld(held, replay)") !== -1,
   "applyHeld replays through History.js so every option is forwarded",
 );
+const runSettingBody = omarchySrc.slice(
+  omarchySrc.indexOf("function runSetting("),
+  omarchySrc.indexOf("function scriptOpts("),
+);
 assert(
-  runCommandBody.indexOf("opts.stdin") !== -1 &&
-    runCommandBody.indexOf("opts.key") !== -1 &&
-    runCommandBody.indexOf("opts.op") !== -1 &&
-    runCommandBody.indexOf("opts.readback") !== -1 &&
-    runCommandBody.indexOf("opts.refresh") !== -1 &&
-    runCommandBody.indexOf("opts.sudo") !== -1,
-  "runCommand still forwards key, the typed op or the keys to read back, refresh, sudo, and stdin",
+  runCommandBody.indexOf("for (k in opts) run[k] = opts[k]") !== -1 &&
+    runCommandBody.indexOf("run.op = op") !== -1 &&
+    runCommandBody.indexOf("opts.sudo") !== -1 &&
+    runSettingBody.indexOf("opts.key") !== -1 &&
+    runSettingBody.indexOf("opts.readback") !== -1 &&
+    runSettingBody.indexOf("opts.refresh") !== -1 &&
+    runSettingBody.indexOf("opts.sudo") !== -1,
+  "runCommand forwards every option and the typed op; runSetting forwards key, readback, refresh and sudo",
 );
 const previewQml = fs.readFileSync(path.join(__dirname, "..", "services", "Preview.qml"), "utf8");
 assert(
@@ -2526,22 +2530,20 @@ assert(
 );
 const themeQmlSrc = fs.readFileSync(path.join(__dirname, "..", "services", "Theme.qml"), "utf8");
 assert(themeQmlSrc.indexOf("inotifywait") === -1, "inotifywait is not in Theme.qml");
-const watchStart = omarchySrc.indexOf("readonly property var specs:");
-const watchEnd = omarchySrc.indexOf("function scheduleRefresh", watchStart);
-const watchBody = omarchySrc.slice(watchStart, watchEnd);
-assert(watchBody.indexOf("extraThemesDir") === -1, "extraThemesDir is not in watchSpecs");
-assert(watchBody.indexOf("packagedThemesDir") !== -1, "packaged themes dir may stay FileView");
 assert(omarchySrc.indexOf("inotifywait") === -1, "Omarchy does not run inotifywait");
 assert(
-  omarchySrc.indexOf("Backend.watch(") !== -1 && omarchySrc.indexOf("extraThemesDir") !== -1,
-  "extraThemesDir is included in the paths ratmos watches",
+  omarchySrc.indexOf("readonly property var specs:") === -1 &&
+    fs
+      .readFileSync(path.join(__dirname, "..", "backend", "src", "snapshot", "topics.rs"), "utf8")
+      .indexOf('".config/omarchy/themes", &[LOOK]') !== -1,
+  "the daemon watches the extra themes folder, and the window watches no file for a refresh",
 );
 const jobProcStart = omarchySrc.indexOf("function onJobExited(");
 assert(jobProcStart !== -1, "the job exit handler exists");
 const jobProcSrc = omarchySrc.slice(jobProcStart);
 assert(
-  jobProcSrc.indexOf("enqueueRead") !== -1 && jobProcSrc.indexOf("applyWritePatch") === -1,
-  "a finished job refreshes the group it names and applies no patch of its own",
+  jobProcSrc.indexOf("enqueueRead") === -1 && jobProcSrc.indexOf("applyWritePatch") === -1,
+  "a finished job queues no read and applies no patch of its own: the daemon invalidates what a job can change and pushes it",
 );
 
 assert(

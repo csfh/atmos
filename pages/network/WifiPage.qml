@@ -505,7 +505,7 @@ PrefsPage {
             gateway: staticGateway.currentText(),
             dns: staticDns.currentText()
           }
-          if (!NetPrefs.argvFor("ipv4", { uuid: root.staticUuid, method: "manual", address: spec.address, prefix: spec.prefix, gateway: spec.gateway, dns: spec.dns })) {
+          if (!NetPrefs.opFor("ipv4", { uuid: root.staticUuid, method: "manual", address: spec.address, prefix: spec.prefix, gateway: spec.gateway, dns: spec.dns })) {
             root.staticError = "Check the address and prefix."
             return
           }

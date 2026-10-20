@@ -411,7 +411,7 @@ fn a_window_sends_its_commands_and_barriers_over_its_session() {
 }
 
 #[test]
-fn a_window_whose_daemon_dies_runs_the_command_itself() {
+fn a_window_whose_daemon_dies_refuses_the_command_and_reconnects() {
     let scene = Scene::new("cmd-bridge-gone");
     let daemon = scene.daemon();
     let mut window = Window::open(&scene);
@@ -420,9 +420,46 @@ fn a_window_whose_daemon_dies_runs_the_command_itself() {
     thread::sleep(Duration::from_millis(300));
     window.send(&json!({"id": 1, "op": "display.brightness", "monitor": "DP-3", "percent": 21}));
     let reply = window.reply(1);
+    assert_eq!(reply["ok"], false, "{reply}");
+    assert_eq!(reply["error"]["code"], "unavailable", "{reply}");
+    assert!(
+        !scene.log().iter().any(|line| line.ends_with("21%")),
+        "nothing ran in the window"
+    );
+    // The daemon is back; the window finds it again by itself.
+    let _daemon = scene.daemon();
+    let mut id = 1;
+    let reply = loop {
+        id += 1;
+        window
+            .send(&json!({"id": id, "op": "display.brightness", "monitor": "DP-3", "percent": 22}));
+        let reply = window.reply(id);
+        if reply["ok"] == true || id > 30 {
+            break reply;
+        }
+        thread::sleep(Duration::from_millis(500));
+    };
     assert_eq!(reply["ok"], true, "{reply}");
-    assert!(reply["result"].get("coalesced").is_none(), "ran in place");
-    assert!(scene.log().iter().any(|line| line.ends_with("21%")));
+    assert_eq!(reply["result"]["coalesced"], false, "through the daemon");
+}
+
+#[test]
+fn a_file_write_and_a_setting_go_through_the_daemons_lanes() {
+    let scene = Scene::new("cmd-files");
+    let _daemon = scene.daemon();
+    let target = scene.run.join("note.txt");
+    let wrote = scene.request(
+        &json!({"op": "host.write", "path": target.display().to_string(), "text": "hello"}),
+    );
+    assert_eq!(wrote["ok"], true, "{wrote}");
+    assert_eq!(
+        wrote["result"]["coalesced"], false,
+        "it went through the daemon"
+    );
+    assert_eq!(fs::read_to_string(&target).unwrap(), "hello");
+    let set =
+        scene.request(&json!({"op": "settings.set", "domain": "hyprLook.gapsIn", "value": 4}));
+    assert_eq!(set["result"]["coalesced"], false, "{set}");
 }
 
 #[test]

@@ -266,7 +266,7 @@ assert(
   "setBackgroundPath still applies a picked path through dispatchSetting",
 );
 assert(
-  bgOmarchySrc.indexOf('runInteractive(["omarchy", "theme", "bg-switcher"]') !== -1 &&
+  bgOmarchySrc.indexOf('runInteractive(Requests.job("theme.bg-switcher"') !== -1 &&
     bgOmarchySrc.indexOf('kind: "background-file"') !== -1 &&
     bgOmarchySrc.indexOf("function runInteractive(") !== -1,
   "native background pickers do not hold the mut queue",

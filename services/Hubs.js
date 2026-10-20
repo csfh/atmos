@@ -46,7 +46,6 @@ function hubs() {
       title: "Home",
       description: "Live load, memory, temperatures, network, and this user's processes.",
       navGroup: "home",
-      snapshotGroup: "look",
       icon: "dashboard-line",
       file: "HomePage.qml",
       keywords: keywordList(
@@ -60,7 +59,6 @@ function hubs() {
       title: "Monitor",
       description: "Live cores, memory, disk I/O, traffic, sensors, and a full process table.",
       navGroup: "home",
-      snapshotGroup: "look",
       icon: "pulse-line",
       file: "MonitorPage.qml",
       keywords: keywordList(
@@ -81,7 +79,6 @@ function hubs() {
       title: "Sentinel",
       description: "Processes hogging CPU or memory, and ports held open by long-running ones.",
       navGroup: "home",
-      snapshotGroup: "all",
       icon: "radar-line",
       file: "SentinelPage.qml",
       keywords: keywordList(
@@ -95,7 +92,6 @@ function hubs() {
       title: "Favorites",
       description: "Settings you starred, in one place.",
       navGroup: "look",
-      snapshotGroup: "look",
       icon: "star-line",
       file: "FavoritesPage.qml",
       keywords: keywordList("favorite favourite star pin bookmark saved", ["favorite", "star"]),
@@ -106,7 +102,6 @@ function hubs() {
       title: "Appearance",
       description: "Theme, wallpaper, fonts, and how the desktop looks.",
       navGroup: "look",
-      snapshotGroup: "look",
       icon: "palette-line",
       file: "AppearancePage.qml",
       keywords: keywordList(
@@ -123,7 +118,6 @@ function hubs() {
       title: "Displays",
       description: "Monitors, scale, and brightness.",
       navGroup: "look",
-      snapshotGroup: "look",
       icon: "computer-line",
       file: "DisplaysPage.qml",
       keywords: keywordList(
@@ -137,7 +131,6 @@ function hubs() {
       title: "Windows",
       description: "Gaps, borders, bindings, and window rules.",
       navGroup: "look",
-      snapshotGroup: "look",
       icon: "layout-grid-line",
       file: "WindowsPage.qml",
       keywords: keywordList(
@@ -151,7 +144,6 @@ function hubs() {
       title: "Workspaces",
       description: "Count, names, monitors, and how you switch.",
       navGroup: "look",
-      snapshotGroup: "look",
       icon: "layout-masonry-line",
       file: "WorkspacesPage.qml",
       keywords: keywordList(
@@ -165,7 +157,6 @@ function hubs() {
       title: "Bar",
       description: "Position, clock, and widgets.",
       navGroup: "look",
-      snapshotGroup: "look",
       icon: "layout-top-2-line",
       file: "BarPage.qml",
       keywords: keywordList(
@@ -179,7 +170,6 @@ function hubs() {
       title: "Notifications",
       description: "Do not disturb and reminders.",
       navGroup: "look",
-      snapshotGroup: "look",
       icon: "notification-3-line",
       file: "NotificationsPage.qml",
       keywords: keywordList(
@@ -193,7 +183,6 @@ function hubs() {
       title: "Profiles",
       description: "Apply a bundle of settings at once.",
       navGroup: "look",
-      snapshotGroup: "all",
       icon: "profile-line",
       file: "ProfilesPage.qml",
       keywords: keywordList(
@@ -207,7 +196,6 @@ function hubs() {
       title: "Input",
       description: "Pointer, keyboard, and gestures.",
       navGroup: "input",
-      snapshotGroup: "all",
       icon: "mouse-line",
       file: "InputPage.qml",
       keywords: keywordList(
@@ -221,7 +209,6 @@ function hubs() {
       title: "Keybindings",
       description: "Search, add, and override Hyprland chords.",
       navGroup: "input",
-      snapshotGroup: "all",
       icon: "keyboard-box-line",
       file: "windows/BindingsPage.qml",
       keywords: keywordList(
@@ -235,7 +222,6 @@ function hubs() {
       title: "Accessibility",
       description: "Motion, text size, and assistive tools.",
       navGroup: "input",
-      snapshotGroup: "all",
       icon: "accessibility-line",
       file: "AccessibilityPage.qml",
       keywords: keywordList(
@@ -249,7 +235,6 @@ function hubs() {
       title: "Sound",
       description: "Volume, sinks, and sources.",
       navGroup: "input",
-      snapshotGroup: "all",
       icon: "volume-up-line",
       file: "SoundPage.qml",
       keywords: keywordList(
@@ -263,7 +248,6 @@ function hubs() {
       title: "Capture",
       description: "Screenshots, recordings, and OCR.",
       navGroup: "input",
-      snapshotGroup: "all",
       icon: "screenshot-2-line",
       file: "CapturePage.qml",
       keywords: keywordList(
@@ -277,7 +261,6 @@ function hubs() {
       title: "Hardware",
       description: "CPU, memory, firmware identity, and the rest of the machine.",
       navGroup: "device",
-      snapshotGroup: "all",
       icon: "cpu-line",
       file: "HardwarePage.qml",
       keywords: keywordList(
@@ -291,7 +274,6 @@ function hubs() {
       title: "Drivers",
       description: "GPU stack, hybrid switching, and firmware updates.",
       navGroup: "device",
-      snapshotGroup: "all",
       icon: "ram-2-line",
       file: "DriversPage.qml",
       keywords: keywordList(
@@ -305,7 +287,6 @@ function hubs() {
       title: "Disks",
       description: "Drives, snapshots, and swap.",
       navGroup: "device",
-      snapshotGroup: "disks",
       icon: "hard-drive-2-line",
       file: "DisksPage.qml",
       keywords: keywordList(
@@ -319,7 +300,6 @@ function hubs() {
       title: "Network",
       description: "Wi-Fi, DNS, VPN, and speed test.",
       navGroup: "device",
-      snapshotGroup: "network",
       icon: "wifi-line",
       file: "NetworkPage.qml",
       keywords: keywordList(
@@ -336,7 +316,6 @@ function hubs() {
       title: "Bluetooth",
       description: "Adapter, pairing, and trusted devices.",
       navGroup: "device",
-      snapshotGroup: "network",
       icon: "bluetooth-line",
       file: "network/BluetoothPage.qml",
       keywords: keywordList(
@@ -350,7 +329,6 @@ function hubs() {
       title: "Power",
       description: "Profiles and battery.",
       navGroup: "device",
-      snapshotGroup: "all",
       icon: "battery-2-charge-line",
       file: "PowerPage.qml",
       keywords: keywordList(
@@ -364,7 +342,6 @@ function hubs() {
       title: "Idle",
       description: "Screensaver, lock, and lid.",
       navGroup: "device",
-      snapshotGroup: "look",
       icon: "lock-2-line",
       file: "IdlePage.qml",
       keywords: keywordList(
@@ -378,7 +355,6 @@ function hubs() {
       title: "Defaults",
       description: "Browser, terminal, editor, and MIME.",
       navGroup: "apps",
-      snapshotGroup: "all",
       icon: "links-line",
       file: "DefaultsPage.qml",
       keywords: keywordList("browser terminal editor chrome firefox nvim pdf mime image video", [
@@ -392,7 +368,6 @@ function hubs() {
       title: "Agentic",
       description: "Installed coding agents, the default Omarchy opens, and MCP.",
       navGroup: "apps",
-      snapshotGroup: "all",
       icon: "robot-2-line",
       file: "AgenticPage.qml",
       keywords: keywordList(
@@ -406,7 +381,6 @@ function hubs() {
       title: "Applications",
       description: "Desktop, TUI, and web launchers.",
       navGroup: "apps",
-      snapshotGroup: "all",
       icon: "apps-2-line",
       file: "ApplicationsPage.qml",
       keywords: keywordList(
@@ -420,7 +394,6 @@ function hubs() {
       title: "Software",
       description: "Packages and extras.",
       navGroup: "apps",
-      snapshotGroup: "all",
       icon: "box-3-line",
       file: "SoftwarePage.qml",
       keywords: keywordList(
@@ -434,7 +407,6 @@ function hubs() {
       title: "Hooks",
       description: "Theme-set and other scripts.",
       navGroup: "apps",
-      snapshotGroup: "all",
       icon: "code-s-slash-line",
       file: "HooksPage.qml",
       keywords: keywordList(
@@ -448,7 +420,6 @@ function hubs() {
       title: "System",
       description: "Host, locale, updates, and about.",
       navGroup: "general",
-      snapshotGroup: "system",
       icon: "settings-3-line",
       file: "SystemPage.qml",
       keywords: keywordList(
@@ -467,7 +438,6 @@ function hubs() {
       title: "Tweaks",
       description: "Overflow settings with a one-click reset.",
       navGroup: "general",
-      snapshotGroup: "all",
       icon: "equalizer-line",
       file: "TweaksPage.qml",
       keywords: keywordList(
@@ -481,7 +451,6 @@ function hubs() {
       title: "Omafile",
       description: "Share this Omarchy system as a Markdown file, or apply one.",
       navGroup: "general",
-      snapshotGroup: "all",
       icon: "file-transfer-line",
       file: "ExportPage.qml",
       keywords: keywordList(
@@ -495,7 +464,6 @@ function hubs() {
       title: "Accounts",
       description: "Face, password, users, and groups.",
       navGroup: "admin",
-      snapshotGroup: "accounts",
       icon: "user-3-line",
       file: "AccountsPage.qml",
       keywords: keywordList(
@@ -509,7 +477,6 @@ function hubs() {
       title: "Security",
       description: "Fingerprint, SSH, and sudo.",
       navGroup: "admin",
-      snapshotGroup: "all",
       icon: "shield-keyhole-line",
       file: "SecurityPage.qml",
       keywords: keywordList("fingerprint fido2 yubikey ssh sshd sudo passwordless docker pam u2f", [
@@ -523,7 +490,6 @@ function hubs() {
       title: "Services",
       description: "Search, filter, and control user and system units.",
       navGroup: "admin",
-      snapshotGroup: "all",
       icon: "server-line",
       file: "ServicesPage.qml",
       keywords: keywordList(
@@ -587,14 +553,6 @@ function fileHub(rel) {
     if (base.indexOf(FILE_PREFIXES[i][0]) === 0) return FILE_PREFIXES[i][1];
   }
   return "";
-}
-
-function snapshotGroupForHub(hub) {
-  var id = rootHub(hub);
-  if (!id) return "look";
-  var found = hubById(id);
-  if (found && found.snapshotGroup) return found.snapshotGroup;
-  return "all";
 }
 
 function navPages() {
@@ -686,7 +644,6 @@ if (typeof module !== "undefined" && module.exports) {
     hubTitle: hubTitle,
     hubIds: hubIds,
     fileHub: fileHub,
-    snapshotGroupForHub: snapshotGroupForHub,
     navPages: navPages,
     searchHubs: searchHubs,
     searchContext: searchContext,

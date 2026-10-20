@@ -84,10 +84,8 @@ ShellRoot {
     return false
   }
 
-  readonly property bool modalOpen: errorDialog.visible
-    || sudoModeDialog.visible
-    || keysDialog.visible
-    || focusIsUnderPopup(window.activeFocusItem)
+  readonly property bool modalOpen: errorDialog.visible || sudoModeDialog.visible
+    || keysDialog.visible || !Backend.available || focusIsUnderPopup(window.activeFocusItem)
 
   readonly property bool navBusy: typing || modalOpen
 
@@ -1410,5 +1408,6 @@ ShellRoot {
       enabled: pageStack.depth > 1 && !errorDialog.visible && !sudoModeDialog.visible
       onTapped: pageStack.pop()
     }
+    BackendUnavailable {}
   }
 }

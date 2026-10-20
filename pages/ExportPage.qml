@@ -193,7 +193,7 @@ PrefsPage {
     root.stepTotal = root.plan.changes.length
     root.stepKey = ""
     root.lastUndoNeedsRoot = SettingsJs.passwordCount(root.plan) > 0
-    Omarchy.runJob(Backend.task("settings-apply", ["--progress"]), SettingsJs.planToJson(root.plan), "settings-import", {
+    Omarchy.runJob(Requests.job("settings.apply", { plan: SettingsJs.planToJson(root.plan) }), "settings-import", {
       sudo: root.lastUndoNeedsRoot,
       onStdoutLine: root.onApplyStdout,
       onFinished: root.onApplyFinished
@@ -210,7 +210,7 @@ PrefsPage {
     root.stepKey = ""
     // --no-backup, or undoing would leave a way back of its own and a
     // second undo would put the import straight back.
-    Omarchy.runJob(Backend.task("settings-apply", ["--no-backup", "--plan", root.lastBackupDir + "/undo.json"]), "", "settings-undo", {
+    Omarchy.runJob(Requests.job("settings.undo", { plan: root.lastBackupDir + "/undo.json" }), "settings-undo", {
       sudo: root.lastUndoNeedsRoot,
       onStdoutLine: root.onApplyStdout,
       onFinished: root.onApplyFinished
@@ -291,7 +291,7 @@ PrefsPage {
     root.lastDoc = doc
     root.plan = SettingsJs.planImport(doc, Omarchy.snapshotData, null, {
       hardware: Omarchy.dmiProduct,
-      workspaceGestureUnmanaged: Omarchy.liveWorkspaceGestureUnmanaged(),
+      workspaceGestureUnmanaged: Omarchy.hyprWorkspaceGestureUnmanaged,
     })
     root.importStatus = root.plan.changes.length === 0
       ? "Nothing to change. " + root.plan.summary

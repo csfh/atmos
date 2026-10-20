@@ -116,7 +116,7 @@ pub fn write_place(
     })
 }
 
-fn place_path(root: Option<&Path>, rel: &str) -> PathBuf {
+pub(crate) fn place_path(root: Option<&Path>, rel: &str) -> PathBuf {
     if let Some(root) = root {
         return root.join(rel);
     }

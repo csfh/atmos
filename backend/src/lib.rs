@@ -22,6 +22,7 @@ mod mcp;
 mod patch;
 mod platform;
 mod request;
+mod route;
 mod runner;
 mod sampler;
 mod search;
@@ -38,6 +39,7 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use crate::request::Request;
+use crate::route::{generic_lease, invalidate_topics, job_lease, route_command, set_domain};
 use crate::runner::Run;
 use serde_json::{Map, Value};
 
@@ -125,6 +127,26 @@ fn dispatch(
             }
             drop(lease);
             Ok(code)
+        }
+        // `job-check NAME [JSON]`: whether the registry accepts a job or an
+        // interactive tool with these arguments, and the command it would run.
+        // The window's tests use it; nothing runs.
+        "job-check" => {
+            let name = parsed.rest.first().map(String::as_str).unwrap_or("");
+            let args: serde_json::Value = match parsed.rest.get(1) {
+                Some(text) => serde_json::from_str(text)?,
+                None => serde_json::json!({}),
+            };
+            match command::jobs::build(name, &args) {
+                Ok(spec) => {
+                    write_json(stdout, &serde_json::json!({"ok": true, "argv": spec.argv}))?
+                }
+                Err(err) => write_json(
+                    stdout,
+                    &serde_json::json!({"ok": false, "error": err.message}),
+                )?,
+            }
+            Ok(0)
         }
         "daemon" => sampler::daemon::run(),
         "sampler" => sampler::worker::run(),
@@ -303,6 +325,12 @@ pub(crate) fn handle(backend: Backend, root: Option<&Path>, body: &Value) -> Res
     if root.is_none() && !direct {
         sampler::client::barrier(&command::reads(&parsed), command::BARRIER_WAIT);
     }
+    // A window's `serve` is a bridge: the daemon answers, in a child with the
+    // window's environment (docs/adr/0012).
+    if root.is_none() && !direct && sampler::client::required() && route::for_the_daemon(&parsed) {
+        let result = route::forward(backend, parsed, body)?;
+        return Ok(ok_envelope(backend, result));
+    }
     let request = parsed;
     let result = match request {
         Request::Version => Value::String(VERSION.into()),
@@ -313,25 +341,9 @@ pub(crate) fn handle(backend: Backend, root: Option<&Path>, body: &Value) -> Res
             domain,
             value,
             readback,
-        } => {
-            write_domain(backend, root, &domain, &value)?;
-            // A setting can start or stop a unit; the other inventories do not follow settings.
-            if root.is_none() {
-                sampler::drop_kinds(&["services"]);
-            }
-            let place = place_for(backend, &domain)?;
-            let mut reply = serde_json::json!({
-                "domain": domain,
-                "value": read_domain(backend, root, &domain)?,
-                "file": place.rel,
-                "encoding": place.encoding(),
-            });
-            // What else the setting changed, as the machine now reports it.
-            if root.is_none() && !readback.is_empty() {
-                reply["snapshot"] = Value::Object(snapshot::keys::read(&readback).0);
-            }
-            reply
-        }
+        } => route_command(backend, root, direct, body, || {
+            set_domain(backend, root, &domain, &value, &readback)
+        })?,
         Request::SettingsSnapshot { group, keys } => {
             Value::Object(snapshot::settings(backend, root, &group, keys.as_deref())?)
         }
@@ -341,15 +353,35 @@ pub(crate) fn handle(backend: Backend, root: Option<&Path>, body: &Value) -> Res
         }
         Request::DisplaySnapshot => load_displays(backend, root, display::KINDS),
         Request::SnapshotKeys { keys, expect } => command::snapshot_keys(root, &keys, &expect),
+        Request::SnapshotTopic { topic } => {
+            if !snapshot::topics::is_topic(&topic) {
+                return Err(Error::bad_request(format!("not a settings topic: {topic}"))
+                    .with_context("topic"));
+            }
+            // A fixture root has no machine to read.
+            Value::Object(if root.is_some() {
+                Default::default()
+            } else {
+                snapshot::topics::collect(&topic)
+            })
+        }
+        Request::SnapshotInvalidate { topics } => {
+            if let Some(bad) = topics
+                .iter()
+                .find(|t| !sampler::is_topic(t) || *t == "live")
+            {
+                return Err(Error::bad_request(format!(
+                    "not a topic that can be read again: {bad}"
+                ))
+                .with_context("topics"));
+            }
+            invalidate_topics(root, &topics)?
+        }
         Request::Write { name, args } => {
             let built = command::writes::build(&name, &args)?;
-            if built.local {
-                write_here(root, &built)?
-            } else {
-                route_command(backend, root, direct, body, || {
-                    command::writes::execute(root, &built)
-                })?
-            }
+            route_command(backend, root, direct, body, || {
+                command::writes::execute(root, &built)
+            })?
         }
         Request::DisplayScale { scale } => {
             route_command(backend, root, direct, body, || command::scale(root, &scale))?
@@ -364,89 +396,24 @@ pub(crate) fn handle(backend: Backend, root: Option<&Path>, body: &Value) -> Res
         Request::HostAccounts(args) => host::accounts(backend, root, &args)?,
         Request::HostStamp(args) => host::stamp(root, &args)?,
         Request::HostRead(args) => host::read_files(root, &args)?,
-        Request::HostWrite(args) => host::write_file(root, &args)?,
-        Request::HostOpen { path } => host::open_file(root, &path)?,
+        Request::HostWrite(args) => route_command(backend, root, direct, body, || {
+            host::write_file(root, &args)
+        })?,
+        Request::HostOpen { path } => {
+            route_command(backend, root, direct, body, || host::open_file(root, &path))?
+        }
         Request::SpeedtestDisk(args) => host::speed_disk(backend, root, &args)?,
         Request::SpeedtestNet(args) => host::speed_net(backend, root, &args)?,
         Request::UnitOutput(args) => host::unit_output(backend, root, &args)?,
         Request::AgentsMcpList => agents::list(root)?,
-        Request::AgentsMcpSet { agent, on, replace } => agents::set(root, &agent, on, replace)?,
+        Request::AgentsMcpSet { agent, on, replace } => {
+            route_command(backend, root, direct, body, || {
+                agents::set(root, &agent, on, replace)
+            })?
+        }
         Request::AgentsMcpCheck => agents::check(root)?,
     };
     Ok(ok_envelope(backend, result))
-}
-
-/// A job that keeps its own process tree (privileged, streamed, interactive)
-/// holds a lane of its own while it runs, so a read of what it changes waits for
-/// it instead of racing it. Its own lane: jobs never queue behind each other.
-/// Without a daemon the job just runs.
-fn job_lease() -> Option<sampler::client::Lease> {
-    sampler::client::lease(
-        &format!("job:{}", std::process::id()),
-        sampler::AFTER_JOB,
-        std::time::Duration::from_millis(500),
-    )
-}
-
-/// The `generic` lane: `apply -- <argv>` is a write the daemon knows nothing
-/// about, so writes through it go one at a time across windows and, like any
-/// job, hold back reads of what a job can change. A lane that stays busy for
-/// longer than a moment (a long streamed job holds it) is not waited for: the
-/// write runs unordered rather than stall behind it.
-fn generic_lease() -> Option<sampler::client::Lease> {
-    sampler::client::lease(
-        "generic",
-        sampler::AFTER_JOB,
-        std::time::Duration::from_millis(300),
-    )
-}
-
-/// A write that needs the caller's own process tree (a sudo or polkit step)
-/// runs here, in the window's `serve`, holding a lane of its own so reads of
-/// what it changes wait for it. It is never handed to the daemon.
-fn write_here(root: Option<&Path>, built: &command::writes::Built) -> Result<Value> {
-    let lease = root.is_none().then(|| {
-        sampler::client::lease(
-            &format!("write:{}", built.lane),
-            &[command::SETTINGS],
-            std::time::Duration::from_millis(300),
-        )
-    });
-    let result = command::writes::execute(root, built);
-    drop(lease);
-    result
-}
-
-/// A typed command goes to the daemon's lane for it and comes back with the
-/// answer of the command that ran (see `command`). With no daemon, or a fixture
-/// root, or inside the child the daemon started for it, it runs here.
-fn route_command(
-    backend: Backend,
-    root: Option<&Path>,
-    direct: bool,
-    body: &Value,
-    inline: impl FnOnce() -> Result<Value>,
-) -> Result<Value> {
-    if root.is_some() || direct {
-        return inline();
-    }
-    match sampler::client::command(body, backend.id()) {
-        sampler::client::Command::Unavailable => inline(),
-        sampler::client::Command::Lost(message) => Err(Error::new(error::Kind::Failed, message)),
-        sampler::client::Command::Done {
-            envelope,
-            coalesced,
-        } => {
-            if envelope["ok"].as_bool() != Some(true) {
-                return Err(command::error_of(&envelope));
-            }
-            let mut result = envelope["result"].clone();
-            if let Some(map) = result.as_object_mut() {
-                map.insert("coalesced".into(), Value::Bool(coalesced));
-            }
-            Ok(result)
-        }
-    }
 }
 
 fn settings_list(backend: Backend) -> Result<Vec<Value>> {
@@ -555,7 +522,7 @@ fn run_command(program: &str, args: &[&str]) -> Result<()> {
     Run::new(program).args(args).checked().map(|_| ())
 }
 
-fn place_for(backend: Backend, key: &str) -> Result<domain::Place> {
+pub(crate) fn place_for(backend: Backend, key: &str) -> Result<domain::Place> {
     let spec = domain::find(key).ok_or_else(|| format!("unknown domain {key}"))?;
     domain::locate(backend, spec)
 }

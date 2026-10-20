@@ -772,21 +772,17 @@ assertEqual(before.kbLayoutOverride, "us", "the old input is not changed");
 const blank = hypr.kbOverridePlan(null, "", "", false, snapshotLib.mergeSnapshot);
 assertEqual(blank.revert.layouts, "", "no previous input reverts to nothing");
 const cmd = { coalesceKey: "k", stdin: "s", sudo: true };
-const write = (name, args) => ({ op: "write", name, args });
-const armed = hypr.kbRunOptions(cmd, plan.revert, false, write);
-assertEqual(armed.op.name, "hypr.apply", "the write is the typed hypr.apply");
-assertEqual(armed.op.args.payload, "s", "it carries the planned payload");
-assertEqual(armed.op.args.group, "input", "for the input group");
+const armed = hypr.kbRunOptions(cmd, plan.revert, false);
 assertEqual(armed.guard.id, "kbOverride", "a normal write arms the guard");
 assertEqual(armed.key, "k", "the coalesce key is used");
 assertEqual(armed.sudo, true, "sudo carries through");
 assertEqual(
-  hypr.kbRunOptions(cmd, plan.revert, true, write).guard,
+  hypr.kbRunOptions(cmd, plan.revert, true).guard,
   null,
   "a revert does not arm the guard",
 );
 assertEqual(
-  hypr.kbRunOptions({}, plan.revert, false, write).key,
+  hypr.kbRunOptions({}, plan.revert, false).key,
   "hyprInput",
   "the key defaults to hyprInput",
 );

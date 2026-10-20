@@ -13,6 +13,8 @@ var OPS = [
   "display.get",
   "display.snapshot",
   "snapshot.keys",
+  "snapshot.topic",
+  "snapshot.invalidate",
   "write",
   "display.brightness",
   "display.scale",
@@ -65,10 +67,53 @@ function snapshotKeys(keys, expect) {
   return body;
 }
 
+// One settings topic read from the machine now (docs/adr/0011). The daemon
+// asks for this itself to fill a topic; a frontend holds the topics instead.
+function snapshotTopic(topic) {
+  return { op: "snapshot.topic", topic: String(topic) };
+}
+
+// Ask the daemon to read settings topics again (what a Refresh button sends).
+// None named means every topic.
+function snapshotInvalidate(topics) {
+  return {
+    op: "snapshot.invalidate",
+    topics: Array.isArray(topics) ? topics.map(String) : [],
+  };
+}
+
 // A typed write by name (docs/protocol.md, Writes). The backend checks the
 // arguments and builds the command; the reply's snapshot is what to show.
 function write(name, args) {
   return { op: "write", name: String(name), args: args && typeof args === "object" ? args : {} };
+}
+
+// A job or an interactive tool by name (docs/protocol.md, Jobs). Backend.startJob
+// sends it as job.start; the daemon runs it and streams what it prints. A
+// password or a plan is an argument and reaches the job as its stdin.
+function job(name, args) {
+  return { op: "job", name: String(name), args: args && typeof args === "object" ? args : {} };
+}
+
+// A short readable name for a typed op, for the history and the Preview list:
+// the name and its plain arguments. Secrets and long text are left out, and
+// the window never builds a command line.
+var HIDDEN = ["password", "current", "new", "header", "plan", "json", "payload", "text", "stdin"];
+
+function label(op) {
+  var body = op && typeof op === "object" ? op : {};
+  var parts = [String(body.name || body.op || "")];
+  var args = body.args && typeof body.args === "object" ? body.args : body;
+  var key;
+  for (key in args) {
+    if (!Object.prototype.hasOwnProperty.call(args, key)) continue;
+    if (HIDDEN.indexOf(key) !== -1) continue;
+    if (args === body && (key === "op" || key === "name" || key === "args")) continue;
+    var value = args[key];
+    if (value === null || typeof value === "object") continue;
+    parts.push(String(value).slice(0, 60));
+  }
+  return parts;
 }
 
 // The focused monitor's scale, run by the daemon like the brightness write

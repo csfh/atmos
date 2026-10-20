@@ -43,18 +43,25 @@ function unavailable(message) {
   };
 }
 
-// Parse the whole stdout of a one-shot `ratmos request`.
-function parseEnvelope(text, exitCode) {
-  var raw = String(text || "").replace(/^\s+|\s+$/g, "");
-  if (raw) {
-    try {
-      var value = JSON.parse(raw);
-      if (value && typeof value === "object" && typeof value.ok === "boolean") return value;
-    } catch (e) {
-      // fall through
-    }
+// What the "Atmos backend unavailable" screen says. link is the server
+// process's state, down the daemon's: { why, attempt, retryMs } from the
+// server's backend event.
+function unavailableNotice(link, down) {
+  var d = down || {};
+  var why = String(d.why || "");
+  if (link === "down") {
+    return {
+      title: "Atmos backend unavailable",
+      detail: "The backend process stopped.",
+      status: "Starting it again.",
+    };
   }
-  return unavailable(exitCode === 0 ? "The backend sent no answer" : "The backend failed to run");
+  var retry = Math.ceil((Number(d.retryMs) || 0) / 1000);
+  return {
+    title: "Atmos backend unavailable",
+    detail: why || "The Atmos daemon does not answer.",
+    status: retry > 0 ? "Starting it and looking again in " + retry + "s." : "Starting it.",
+  };
 }
 
 // How long to wait before restarting a server that stopped. Doubles from one
@@ -66,6 +73,43 @@ function restartDelay(failures) {
 
 // A server that dies this soon after starting counts as a failed start.
 var STABLE_MS = 5000;
+
+// The job.start body: a registry name and its arguments, run in the daemon.
+// `cid` is this window's own id for the job; the events that come back carry it.
+function jobStartBody(cid, name, args, label) {
+  return {
+    op: "job.start",
+    cid: String(cid),
+    name: String(name),
+    args: args && typeof args === "object" ? args : {},
+    label: String(label || ""),
+  };
+}
+
+function jobInputBody(job, data, close) {
+  return { op: "job.input", job: Number(job), data: String(data || ""), close: close === true };
+}
+
+function jobCancelBody(job) {
+  return { op: "job.cancel", job: Number(job) };
+}
+
+// Point a running job at this window again; `from` is the first line not yet seen.
+function jobAttachBody(job, from) {
+  return { op: "job.attach", job: Number(job), from: Math.max(0, Math.floor(Number(from) || 0)) };
+}
+
+// What a failed job.start looks like to the caller: a job that ended at once.
+function jobRefused(env) {
+  var message = env && env.error && env.error.message ? String(env.error.message) : "";
+  var unavailable = !env || !env.error || env.error.code === "unavailable";
+  return {
+    ok: false,
+    code: unavailable ? 127 : 2,
+    message: message || "The backend is not running",
+    warnings: [],
+  };
+}
 
 // The watch.set body for what the frontend wants pushed.
 function watchBody(spec) {

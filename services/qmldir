@@ -11,3 +11,5 @@ singleton Ops 1.0 Ops.qml
 singleton Paths 1.0 Paths.qml
 singleton IoQueue 1.0 IoQueue.qml
 singleton SnapshotStore 1.0 SnapshotStore.qml
+singleton DisplayFeed 1.0 DisplayFeed.qml
+singleton SnapshotFeed 1.0 SnapshotFeed.qml

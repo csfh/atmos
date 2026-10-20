@@ -14,13 +14,12 @@ assertEqual(proc.parsePid("2201"), 2201, "parsePid accepts a user pid");
 assertEqual(proc.signalName("term"), "TERM", "signalName accepts TERM");
 assertEqual(proc.signalName("SIGKILL"), "KILL", "signalName accepts SIGKILL");
 assertEqual(proc.signalName("STOP"), "", "signalName refuses STOP");
-assertEqual(proc.signalArgv(1, "TERM", ["/x"]), null, "signalArgv refuses pid 1");
-assertEqual(proc.signalArgv(9, "STOP", ["/x"]), null, "signalArgv refuses STOP");
-assertEqual(proc.signalArgv(9, "TERM", []), null, "signalArgv needs a task prefix");
+assertEqual(proc.signalArgs(1, "TERM"), null, "signalArgs refuses pid 1");
+assertEqual(proc.signalArgs(9, "STOP"), null, "signalArgs refuses STOP");
 assertEqual(
-  proc.signalArgv(9, "TERM", ["/x/ratmos", "task", "signal-process"]).join(" "),
-  "/x/ratmos task signal-process 9 TERM",
-  "signalArgv is the task, pid, then TERM",
+  JSON.stringify(proc.signalArgs(9, "term")),
+  JSON.stringify({ pid: 9, signal: "TERM" }),
+  "signalArgs is the pid and the signal name",
 );
 
 const rows = [

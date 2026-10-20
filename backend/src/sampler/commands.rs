@@ -215,6 +215,13 @@ impl Commands {
         self.changed.notify_all();
     }
 
+    /// Run the invalidation hook for `topics` now. A job that is not on the
+    /// barrier (it may run for minutes) says what it changed this way when it
+    /// ends.
+    pub fn invalidate(&self, topics: &[String]) {
+        (self.done)(topics);
+    }
+
     /// Wait until nothing pending touches any of `topics`. False on timeout.
     pub fn barrier(&self, topics: &[String], timeout: Duration) -> bool {
         let state = lock(&self.state);

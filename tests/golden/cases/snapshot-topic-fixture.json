@@ -1,0 +1,17 @@
+{
+  "backend": "omarchy",
+  "request": {
+    "op": "snapshot.topic",
+    "topic": "settings.look"
+  },
+  "response": {
+    "ok": true,
+    "platform": {
+      "compositor": "hyprland",
+      "family": "arch",
+      "id": "omarchy"
+    },
+    "result": {},
+    "version": "0.3.0"
+  }
+}

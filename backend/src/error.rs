@@ -17,6 +17,8 @@ pub enum Kind {
     /// A child process failed or could not start.
     Command,
     Timeout,
+    /// The Atmos daemon is not there to do it, and nothing else will.
+    Unavailable,
     /// Anything that does not fit a more specific kind.
     Failed,
 }
@@ -31,6 +33,7 @@ impl Kind {
             Kind::Io,
             Kind::Command,
             Kind::Timeout,
+            Kind::Unavailable,
         ]
         .into_iter()
         .find(|kind| kind.code() == code)
@@ -45,6 +48,7 @@ impl Kind {
             Kind::Io => "io",
             Kind::Command => "command",
             Kind::Timeout => "timeout",
+            Kind::Unavailable => "unavailable",
             Kind::Failed => "failed",
         }
     }
@@ -79,6 +83,14 @@ impl Error {
 
     pub fn command(message: impl Into<String>) -> Self {
         Error::new(Kind::Command, message)
+    }
+
+    /// What a window is told when the daemon cannot be reached (docs/adr/0010).
+    pub fn unavailable(what: &str) -> Self {
+        Error::new(
+            Kind::Unavailable,
+            format!("The Atmos daemon did not answer, so there is nothing to {what}"),
+        )
     }
 
     pub fn with_context(mut self, context: impl Into<String>) -> Self {

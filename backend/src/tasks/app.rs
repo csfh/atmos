@@ -78,18 +78,6 @@ pub fn write_channel(name: &str) -> Result<()> {
     atomic_write_text(&config_home().join("channel"), "stable\n")
 }
 
-fn package_version() -> String {
-    let first = std::fs::read_to_string(crate::platform::app_root().join("PACKAGED"))
-        .ok()
-        .and_then(|t| t.lines().next().map(String::from))
-        .unwrap_or_default();
-    if Regex::new(r"^[0-9A-Za-z][0-9A-Za-z.+_~-]{0,39}$").is_ok_and(|re| re.is_match(&first)) {
-        first
-    } else {
-        String::new()
-    }
-}
-
 pub fn setup_state() -> &'static str {
     let lua = std::fs::read_to_string(hypr_dir().join("hyprland.lua")).unwrap_or_default();
     if lua.contains("hypr.atmos") {
@@ -450,10 +438,6 @@ pub fn update(action: &str) -> Result<i32> {
         "Updated. If the window looks the same, quit Atmos and open it again.",
     );
     Ok(0)
-}
-
-pub fn version() -> String {
-    package_version()
 }
 
 #[cfg(test)]

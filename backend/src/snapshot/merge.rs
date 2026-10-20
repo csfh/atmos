@@ -43,23 +43,41 @@ pub fn settings_snapshot(backend: Backend, root: Option<&Path>) -> Result<Map<St
     Ok(snapshot)
 }
 
-/// Live Omarchy reads merge `capture` with the files `settings.set` writes.
-/// `--root` never reaches this path, so fixture launches stay file-only.
+/// Live Omarchy reads are the topics the group names, each read by its own
+/// producers with the files `settings.set` writes laid over them. A key whose
+/// tool failed is left out and named under `_failed`.
 fn live(group: &str, keys: Option<&[String]>) -> Result<Map<String, Value>> {
+    if !group.is_empty() && !super::GROUPS.contains(&group) {
+        return Err(format!("snapshot group must be one of {}", super::GROUPS.join(", ")).into());
+    }
+    let names = super::topics::for_group(group);
+    let docs: Vec<Map<String, Value>> = std::thread::scope(|scope| {
+        let handles: Vec<_> = names
+            .iter()
+            .map(|name| scope.spawn(|| super::topics::collect(name)))
+            .collect();
+        handles
+            .into_iter()
+            .map(|handle| handle.join().unwrap_or_default())
+            .collect()
+    });
     let mut snapshot = Map::new();
-    if let Ok(Value::Object(map)) = super::capture(group) {
-        snapshot = map;
+    let mut failed = Map::new();
+    for doc in docs {
+        for (key, value) in doc {
+            if key == super::topics::FAILED {
+                if let Value::Object(map) = value {
+                    failed.extend(map.into_iter().filter(|(k, _)| wanted(k, keys)));
+                }
+            } else if wanted(&key, keys) {
+                snapshot.insert(key, value);
+            }
+        }
     }
     let group_name = if group.is_empty() { "all" } else { group };
     snapshot.insert("group".into(), Value::String(group_name.into()));
-    for spec in crate::domain::specs() {
-        if !wanted(spec.key, keys) {
-            continue;
-        }
-        // One unreadable system file must not drop the rest of the page.
-        if let Ok(value) = crate::read_domain(Backend::Omarchy, None, spec.key) {
-            overlay_domain(&mut snapshot, spec.key, value);
-        }
+    if !failed.is_empty() {
+        snapshot.insert(super::topics::FAILED.into(), Value::Object(failed));
     }
     Ok(snapshot)
 }
@@ -82,7 +100,7 @@ fn nested(
     Ok(doc)
 }
 
-fn overlay_domain(doc: &mut Map<String, Value>, key: &str, value: Value) {
+pub(super) fn overlay_domain(doc: &mut Map<String, Value>, key: &str, value: Value) {
     if value.is_null() {
         return;
     }

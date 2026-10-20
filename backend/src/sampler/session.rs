@@ -13,6 +13,9 @@
 //!   `{"t":"event","topic":K,"stale":true,"error":"..."}` and
 //!   `{"t":"res","id":7,"body":{...}}`.
 //!
+//! A held kind that is not in the cache, or older than its policy allows, is
+//! collected when the window holds it, so a page does not wait for the schedule.
+//!
 //! `live` is sampled here, in the daemon at normal priority, only while a
 //! session holds it and no faster than the quickest holder asks. That is work
 //! a window is waiting on, so it is never background work.
@@ -45,7 +48,7 @@ fn topics_of(frame: &Value) -> HashMap<String, u64> {
         return out;
     };
     for (kind, spec) in map {
-        if !crate::display::is_kind(kind) {
+        if !super::is_topic(kind) {
             continue;
         }
         let asked = spec.get("intervalMs").and_then(Value::as_u64).unwrap_or(0);
@@ -70,6 +73,49 @@ fn write_frame(wire: &Mutex<UnixStream>, frame: &Value) -> bool {
     writeln!(out, "{frame}").is_ok()
 }
 
+/// `{"t":"job","cid":..,"name":..,"args":{..},"env":{..},"stdin":".."}`: run a
+/// registered job in the daemon with the window's environment. A name or
+/// arguments the registry refuses ends at once, with the reason.
+fn start_job(daemon: &Arc<Daemon>, owner: &Arc<super::bus::Subscriber>, frame: &Value) {
+    let cid = frame
+        .get("cid")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
+    let name = frame.get("name").and_then(Value::as_str).unwrap_or("");
+    let label = frame
+        .get("label")
+        .and_then(Value::as_str)
+        .unwrap_or(name)
+        .to_string();
+    let args = frame.get("args").cloned().unwrap_or(Value::Null);
+    let env: Vec<(String, String)> = frame
+        .get("env")
+        .and_then(Value::as_object)
+        .map(|map| {
+            map.iter()
+                .filter_map(|(key, value)| Some((key.clone(), value.as_str()?.to_string())))
+                .collect()
+        })
+        .unwrap_or_default();
+    match crate::command::jobs::build(name, &args) {
+        Ok(spec) => {
+            // What the job reads comes from its entry, never from the frame,
+            // so a password is only ever an argument of the entry that takes it.
+            let stdin = spec.stdin.clone();
+            daemon
+                .jobs
+                .start(&daemon.commands, owner, cid, label, name, spec, env, stdin);
+        }
+        Err(err) => {
+            owner.send(json!({
+                "t": "job.exit", "cid": cid, "job": 0, "code": 2,
+                "summary": {"ok": false, "code": 2, "message": err.message, "warnings": []},
+            }));
+        }
+    }
+}
+
 /// Serve one session until the client goes away. Blocks.
 pub(super) fn open(daemon: &Arc<Daemon>, stream: UnixStream) {
     let _ = stream.set_read_timeout(None);
@@ -83,6 +129,7 @@ pub(super) fn open(daemon: &Arc<Daemon>, stream: UnixStream) {
         "t": "ready",
         "version": crate::VERSION,
         "build": super::launch::build_id(),
+        "proto": super::PROTOCOL,
         "pid": std::process::id(),
     });
     if writeln!(out, "{ready}").is_err() {
@@ -120,11 +167,39 @@ pub(super) fn open(daemon: &Arc<Daemon>, stream: UnixStream) {
                 // What the daemon already holds goes out at once; `live` is
                 // taken by the pump, which samples as soon as it is held.
                 for kind in kinds.iter().filter(|kind| !is_pumped(kind)) {
-                    if let Some(sample) = daemon.held(kind) {
-                        subscriber.admit_and_send(kind, &sample);
+                    let held = daemon.held(kind);
+                    // A settings topic is as good as its last invalidation.
+                    let fresh = held.as_ref().is_some_and(|sample| {
+                        super::is_settings(kind) || sample.age() <= super::policy::of(kind).max_age
+                    });
+                    if let Some(sample) = &held {
+                        subscriber.admit_and_send(kind, sample);
+                    }
+                    // Nothing held, or nothing recent enough: a window that
+                    // holds a kind is not made to wait for the schedule. The
+                    // fresh sample is published to every holder.
+                    if !fresh && !daemon.settings.recently_failed(kind) {
+                        let (daemon, kind) = (Arc::clone(daemon), kind.clone());
+                        std::thread::spawn(move || {
+                            let _ = daemon.sample(&kind, true);
+                        });
                     }
                 }
                 daemon.bus.poke();
+            }
+            Some("env") => {
+                // The newest window's environment is what a settings topic is
+                // collected with.
+                let env = frame
+                    .get("env")
+                    .and_then(Value::as_object)
+                    .map(|map| {
+                        map.iter()
+                            .filter_map(|(k, v)| Some((k.clone(), v.as_str()?.to_string())))
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                daemon.settings.set_env(env);
             }
             Some("watch") => {
                 daemon
@@ -134,6 +209,26 @@ pub(super) fn open(daemon: &Arc<Daemon>, stream: UnixStream) {
             Some("unsub") => {
                 subscriber.set(HashMap::new());
                 daemon.bus.poke();
+            }
+            Some("job") => start_job(daemon, &subscriber, &frame),
+            Some("input") => {
+                daemon.jobs.input(
+                    frame.get("job").and_then(Value::as_u64).unwrap_or(0),
+                    frame.get("data").and_then(Value::as_str).unwrap_or(""),
+                    frame.get("close").and_then(Value::as_bool) == Some(true),
+                );
+            }
+            Some("cancel") => {
+                daemon
+                    .jobs
+                    .cancel(frame.get("job").and_then(Value::as_u64).unwrap_or(0));
+            }
+            Some("attach") => {
+                let job = frame.get("job").and_then(Value::as_u64).unwrap_or(0);
+                let from = frame.get("from").and_then(Value::as_u64).unwrap_or(0);
+                if !daemon.jobs.attach(job, from, &subscriber) {
+                    subscriber.send(json!({"t": "job.gone", "job": job}));
+                }
             }
             Some("req") => {
                 let id = frame.get("id").cloned().unwrap_or(Value::Null);
@@ -150,6 +245,8 @@ pub(super) fn open(daemon: &Arc<Daemon>, stream: UnixStream) {
     }
     daemon.bus.detach(&subscriber);
     daemon.watches.remove(&subscriber);
+    // Its jobs carry on with nobody listening; a window that comes back attaches.
+    daemon.jobs.forget_owner(&subscriber);
     let _ = stream.shutdown(Shutdown::Both);
     drop(subscriber);
     let _ = writer.join();
@@ -188,11 +285,15 @@ impl Daemon {
 /// gone (a test or a logout removed it, and a second daemon may have started)
 /// and when the binary it runs has been replaced (a rebuild or an update; the
 /// version string does not change between dev builds).
-pub(super) fn exit_when_stale(dir: PathBuf) {
+pub(super) fn exit_when_stale(dir: PathBuf, jobs: Arc<super::jobs::Jobs>) {
     let exe = std::env::current_exe().ok();
     let started = exe.as_deref().and_then(super::launch::identity);
     std::thread::spawn(move || loop {
         std::thread::sleep(Duration::from_secs(5));
+        // A job in flight is not cut off for a rebuild or a vanished directory.
+        if jobs.running() > 0 {
+            continue;
+        }
         if !dir.join("daemon.lock").exists() {
             eprintln!("ratmos daemon: {} is gone; leaving", dir.display());
             std::process::exit(0);
@@ -330,6 +431,24 @@ mod tests {
     }
 
     #[test]
+    fn a_kind_that_is_not_cached_is_collected_when_a_window_holds_it() {
+        let (dir, _daemon, calls) = serve("coldhold", Duration::ZERO);
+        let mut client = Client::open(&dir);
+        client.send(json!({"t": "sub", "topics": {"hardware": {}, "disks": {}}}));
+        let mut heard = Vec::new();
+        for _ in 0..2 {
+            heard.push(client.next()["topic"].as_str().unwrap().to_string());
+        }
+        heard.sort();
+        assert_eq!(
+            heard,
+            ["disks", "hardware"],
+            "pushed without waiting for the schedule"
+        );
+        assert!(calls.load(std::sync::atomic::Ordering::SeqCst) >= 2);
+    }
+
+    #[test]
     fn a_request_frame_is_answered_with_its_id() {
         let (dir, _daemon, _calls) = serve("reqframe", Duration::ZERO);
         let mut client = Client::open(&dir);
@@ -378,6 +497,118 @@ mod tests {
             0,
             "the watch ended with the session"
         );
+    }
+
+    fn job_frame(cid: &str, script: &str, stdin: Option<&str>) -> Value {
+        let mut frame = json!({
+            "t": "job", "cid": cid, "name": format!("test.sh:{script}"),
+            "env": {"PATH": "/usr/bin:/bin"},
+        });
+        if let Some(text) = stdin {
+            frame["args"] = json!({ "stdin": text });
+        }
+        frame
+    }
+
+    fn next_until(client: &mut Client, kind: &str) -> Vec<Value> {
+        let mut seen = Vec::new();
+        loop {
+            let frame = client.next();
+            let done = frame["t"] == kind;
+            seen.push(frame);
+            if done {
+                return seen;
+            }
+        }
+    }
+
+    #[test]
+    fn a_job_runs_over_the_session_with_input_and_ends_with_its_summary() {
+        let (dir, _daemon, _calls) = serve("jobframes", Duration::ZERO);
+        let mut client = Client::open(&dir);
+        client.send(job_frame(
+            "w1",
+            "read a; echo got-$a; echo bad >&2; exit 4",
+            Some("x\n"),
+        ));
+        let frames = next_until(&mut client, "job.exit");
+        assert_eq!(frames[0]["t"], "job.started");
+        assert_eq!(frames[0]["cid"], "w1");
+        assert!(frames
+            .iter()
+            .any(|f| f["t"] == "stream" && f["line"] == "got-x"));
+        let end = frames.last().unwrap();
+        assert_eq!(end["code"], 4);
+        assert_eq!(end["summary"]["message"], "bad");
+    }
+
+    #[test]
+    fn an_unknown_job_ends_at_once_with_the_reason() {
+        let (dir, _daemon, _calls) = serve("jobunknown", Duration::ZERO);
+        let mut client = Client::open(&dir);
+        client.send(json!({"t": "job", "cid": "w", "name": "no.such.job", "args": {}}));
+        let end = client.next();
+        assert_eq!(end["t"], "job.exit");
+        assert_eq!(end["cid"], "w");
+        assert!(end["summary"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("unknown job"));
+    }
+
+    #[test]
+    fn a_job_is_cancelled_by_a_frame_and_listed_by_a_request() {
+        let (dir, _daemon, _calls) = serve("jobcancel", Duration::ZERO);
+        let mut client = Client::open(&dir);
+        client.send(job_frame("w", "echo up; sleep 30", None));
+        let started = client.next();
+        let job = started["job"].as_u64().unwrap();
+        loop {
+            if client.next()["line"] == "up" {
+                break;
+            }
+        }
+        client.send(json!({"t": "req", "id": 5, "body": {"op": "jobs"}}));
+        let listed = loop {
+            let frame = client.next();
+            if frame["t"] == "res" {
+                break frame;
+            }
+        };
+        assert_eq!(listed["body"]["jobs"][0]["state"], "running");
+        client.send(json!({"t": "cancel", "job": job}));
+        let end = next_until(&mut client, "job.exit");
+        assert_ne!(end.last().unwrap()["code"], 0);
+    }
+
+    #[test]
+    fn a_job_survives_its_window_and_the_daemon_waits_for_it() {
+        let (dir, daemon, _calls) = serve("jobsurvive", Duration::ZERO);
+        let job = {
+            let mut client = Client::open(&dir);
+            client.send(job_frame("w", "echo before; sleep 0.6; echo after", None));
+            let started = client.next();
+            loop {
+                if client.next()["line"] == "before" {
+                    break;
+                }
+            }
+            started["job"].as_u64().unwrap()
+        };
+        // The window is gone; the job is not.
+        std::thread::sleep(Duration::from_millis(150));
+        assert_eq!(daemon.jobs.running(), 1);
+        let mut again = Client::open(&dir);
+        again.send(json!({"t": "attach", "job": job, "from": 0}));
+        let frames = next_until(&mut again, "job.exit");
+        let lines: Vec<&str> = frames
+            .iter()
+            .filter(|f| f["t"] == "stream")
+            .map(|f| f["line"].as_str().unwrap())
+            .collect();
+        assert_eq!(lines, ["before", "after"]);
+        again.send(json!({"t": "attach", "job": 999, "from": 0}));
+        assert_eq!(again.next()["t"], "job.gone");
     }
 
     #[test]

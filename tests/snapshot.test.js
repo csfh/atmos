@@ -180,8 +180,12 @@ const tagged = snapshot.adopt(
   adapters,
 );
 assertEqual(tagged.theme, "x", "tagged look still merges theme");
-assertEqual(tagged.hardware.cpu.model, "X", "tagged look does not take hardware (allowedKey)");
-assert(tagged.hardware === taggedCurrent.hardware, "tagged look keeps hardware reference");
+assert(
+  groups.allowedKey("", "theme") &&
+    !groups.allowedKey("", "group") &&
+    !groups.allowedKey("", "_failed"),
+  "a pushed topic is taken whole, apart from the notes the backend adds",
+);
 assert(!("group" in tagged), "adopt never copies group onto the record");
 
 const untagged = snapshot.adopt(
@@ -195,3 +199,25 @@ assertEqual(snapshot.parseSnapshot("{"), null, "parseSnapshot rejects junk after
 assertEqual(snapshot.patchGroup({ group: "look" }), "look", "patchGroup accepts look");
 assertEqual(snapshot.patchGroup({ group: "nope" }), "", "patchGroup rejects an unknown group");
 assertEqual(snapshot.sanitizeDmi("to be filled by o.e.m."), "", "sanitizeDmi drops DMI filler");
+
+// A sample never undoes a write that came after it began (docs/adr/0011), and a
+// sample the daemon took for a write the window had sent is the answer to it.
+{
+  const wrote = { gapsIn: 1000 };
+  const values = { gapsIn: 2, gapsOut: 5 };
+  assertEqual(
+    JSON.stringify(snapshot.dropStaleKeys(values, wrote, 900)),
+    JSON.stringify({ gapsOut: 5 }),
+    "a sample that began before the write was sent does not set the key",
+  );
+  assertEqual(
+    JSON.stringify(snapshot.dropStaleKeys(values, wrote, 1100)),
+    JSON.stringify(values),
+    "a sample that began after the write was sent, as the daemon's re-read of a slow write does, is taken",
+  );
+  assertEqual(
+    JSON.stringify(snapshot.dropStaleKeys(values, {}, 0)),
+    JSON.stringify(values),
+    "a key nobody wrote is always taken",
+  );
+}

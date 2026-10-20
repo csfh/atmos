@@ -1,7 +1,7 @@
 //! Host settings read from /etc and timedatectl: hostname, time, locale,
 //! keyboard, pacman, and the environment and tweak files Atmos manages.
 
-use super::sh::{file_has, first_line, is_uint, lines, ok, out, present, read};
+use super::sh::{self, file_has, first_line, is_uint, lines, ok, out, present, read};
 use regex_lite::Regex;
 use serde_json::{json, Map, Value};
 use std::path::Path;
@@ -67,18 +67,23 @@ pub fn time() -> Map<String, Value> {
     let mut f = Map::new();
     let (mut timezone, mut zones) = (String::new(), json!([]));
     if present("timedatectl") {
-        timezone = out("timedatectl", &["show", "-p", "Timezone", "--value"]);
+        timezone =
+            sh::must("timedatectl", &["show", "-p", "Timezone", "--value"]).unwrap_or_default();
         if !tz_ok(&timezone) {
             timezone.clear();
         }
-        zones = json!(lines(&out("timedatectl", &["list-timezones"]))
-            .into_iter()
-            .filter(|z| z.as_str().is_some_and(tz_ok))
-            .collect::<Vec<_>>());
+        zones = json!(
+            lines(&sh::must("timedatectl", &["list-timezones"]).unwrap_or_default())
+                .into_iter()
+                .filter(|z| z.as_str().is_some_and(tz_ok))
+                .collect::<Vec<_>>()
+        );
     }
     let (mut ntp, mut available, mut synced) = (false, false, false);
     if present("timedatectl") {
-        let show = |prop: &str| out("timedatectl", &["show", "-p", prop, "--value"]) == "yes";
+        let show = |prop: &str| {
+            sh::must("timedatectl", &["show", "-p", prop, "--value"]).as_deref() == Some("yes")
+        };
         available = show("CanNTP");
         ntp = show("NTP");
         synced = show("NTPSynchronized");
@@ -205,7 +210,7 @@ pub struct Control {
 }
 
 /// Workspaces, monitor rules, presentation, env, tweaks, and power extras.
-pub fn control(home: &str, scope_all: bool) -> Control {
+pub fn control(home: &str) -> Control {
     use crate::hyprland::{self, Kind};
     let windows_file = crate::host::env_path(
         "ATMOS_WINDOWS_FILE",
@@ -252,66 +257,56 @@ pub fn control(home: &str, scope_all: bool) -> Control {
         .and_then(|v| v.get("on").cloned())
         .is_some_and(|v| v == Value::Bool(true));
     f.insert("presentationMode".into(), json!(on));
-    f.insert("envVars".into(), json!([]));
-    f.insert("envPathPrepend".into(), json!(""));
-    f.insert("envDetected".into(), json!({}));
-    f.insert("tweaks".into(), json!({"middlePaste": false, "electronWayland": true, "forceZeroScaling": true, "swappiness": false}));
     f.insert("systemdUnits".into(), json!([]));
-    f.insert("powerGovernor".into(), json!(""));
-    f.insert("amdPstate".into(), json!(""));
-    f.insert("chargeLimit".into(), json!(0));
-    f.insert("chargeLimitAvailable".into(), json!(false));
     f.insert("netGateway".into(), json!(""));
     f.insert("netDnsServers".into(), json!([]));
-    if scope_all {
-        let env_text = read(&env_file);
-        f.insert("envPathPrepend".into(), json!(env_path_prepend(&env_text)));
-        f.insert("envVars".into(), env_vars(&env_text));
-        f.insert("envDetected".into(), env_detected());
-        let gtk = read(&gtk_file);
+    let env_text = read(&env_file);
+    f.insert("envPathPrepend".into(), json!(env_path_prepend(&env_text)));
+    f.insert("envVars".into(), env_vars(&env_text));
+    f.insert("envDetected".into(), env_detected());
+    let gtk = read(&gtk_file);
+    f.insert(
+        "tweaks".into(),
+        json!({
+            "middlePaste": gtk.contains("gtk-enable-primary-paste=false"),
+            "electronWayland": !env_text.lines().any(|l| l.starts_with("ELECTRON_OZONE_PLATFORM_HINT=auto")),
+            "forceZeroScaling": !env_text.lines().any(|l| l.starts_with("ATMOS_XWAYLAND_ZERO_SCALING=0")),
+            "swappiness": Path::new("/etc/sysctl.d/99-atmos-swappiness.conf").is_file(),
+        }),
+    );
+    if present("systemctl") {
+        f.insert("systemdUnits".into(), crate::inventory::services::collect());
+    }
+    f.insert(
+        "powerGovernor".into(),
+        json!(first_line(Path::new(
+            "/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor"
+        ))),
+    );
+    f.insert(
+        "amdPstate".into(),
+        json!(first_line(Path::new(
+            "/sys/devices/system/cpu/cpu0/cpufreq/energy_performance_preference"
+        ))),
+    );
+    let (limit, available) = charge_limit();
+    f.insert("chargeLimit".into(), json!(limit));
+    f.insert("chargeLimitAvailable".into(), json!(available));
+    if present("nmcli") {
         f.insert(
-            "tweaks".into(),
-            json!({
-                "middlePaste": gtk.contains("gtk-enable-primary-paste=false"),
-                "electronWayland": !env_text.lines().any(|l| l.starts_with("ELECTRON_OZONE_PLATFORM_HINT=auto")),
-                "forceZeroScaling": !env_text.lines().any(|l| l.starts_with("ATMOS_XWAYLAND_ZERO_SCALING=0")),
-                "swappiness": Path::new("/etc/sysctl.d/99-atmos-swappiness.conf").is_file(),
-            }),
-        );
-        if present("systemctl") {
-            f.insert("systemdUnits".into(), crate::inventory::services::collect());
-        }
-        f.insert(
-            "powerGovernor".into(),
-            json!(first_line(Path::new(
-                "/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor"
-            ))),
+            "netGateway".into(),
+            json!(out("nmcli", &["-g", "IP4.GATEWAY", "device", "show"])
+                .lines()
+                .find(|l| !l.trim().is_empty())
+                .unwrap_or("")),
         );
         f.insert(
-            "amdPstate".into(),
-            json!(first_line(Path::new(
-                "/sys/devices/system/cpu/cpu0/cpufreq/energy_performance_preference"
-            ))),
+            "netDnsServers".into(),
+            json!(out("nmcli", &["-g", "IP4.DNS", "device", "show"])
+                .lines()
+                .filter(|l| !l.trim().is_empty())
+                .collect::<Vec<_>>()),
         );
-        let (limit, available) = charge_limit();
-        f.insert("chargeLimit".into(), json!(limit));
-        f.insert("chargeLimitAvailable".into(), json!(available));
-        if present("nmcli") {
-            f.insert(
-                "netGateway".into(),
-                json!(out("nmcli", &["-g", "IP4.GATEWAY", "device", "show"])
-                    .lines()
-                    .find(|l| !l.trim().is_empty())
-                    .unwrap_or("")),
-            );
-            f.insert(
-                "netDnsServers".into(),
-                json!(out("nmcli", &["-g", "IP4.DNS", "device", "show"])
-                    .lines()
-                    .filter(|l| !l.trim().is_empty())
-                    .collect::<Vec<_>>()),
-            );
-        }
     }
     Control { fields: f }
 }

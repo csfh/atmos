@@ -42,6 +42,7 @@ pub struct Config {
     /// How long a background collection may take before it is given up on.
     pub job_timeout: Duration,
     pub run_command: Box<RunCommand>,
+    pub job_runner: super::jobs::Runner,
 }
 
 impl Config {
@@ -52,6 +53,7 @@ impl Config {
             probe: Box::new(governor::ProcProbe),
             job_timeout: Duration::from_secs(120),
             run_command: Box::new(crate::command::run_child),
+            job_runner: super::jobs::Runner::detect(),
         }
     }
 }
@@ -65,8 +67,13 @@ pub struct Daemon {
     pub(super) bus: Bus,
     pub(super) commands: Arc<Commands>,
     pub(super) watches: Arc<super::watch::Watches>,
+    pub(super) jobs: Arc<super::jobs::Jobs>,
     pub(super) run_command: Arc<RunCommand>,
+    pub(super) settings: super::settings::Settings,
     request_frames: std::sync::atomic::AtomicU64,
+    /// Requests a window's `serve` has handed to the daemon to run.
+    pub(super) commands_run: std::sync::atomic::AtomicU64,
+    pub(super) read_slots: Arc<super::ops::Slots>,
     governor: Mutex<Governor>,
     probe: Box<dyn Probe + Send + Sync>,
     floor: Duration,
@@ -83,35 +90,57 @@ impl Daemon {
                 topics.seed(kind, &sample);
             }
         }
-        // A finished command or lease drops the display kinds it touched, so
-        // the next read collects them again.
-        let invalidate = dir.clone();
-        let commands = Commands::new(Box::new(move |affects| {
-            let kinds: Vec<&str> = affects
-                .iter()
-                .map(String::as_str)
-                .filter(|topic| crate::display::is_kind(topic))
-                .collect();
-            if !kinds.is_empty() {
-                cache::drop_kinds(&invalidate, &kinds);
+        // What a settings topic held when the last daemon left says nothing
+        // about the machine now.
+        cache::drop_kinds(&dir, crate::snapshot::topics::NAMES);
+        let settings = super::settings::Settings::default();
+        for topic in crate::snapshot::topics::NAMES {
+            settings.stamp(topic);
+        }
+        Arc::new_cyclic(|me: &std::sync::Weak<Daemon>| {
+            // A finished command or lease drops the display kinds it touched,
+            // so the next read collects them again, and invalidates the
+            // settings topics it named.
+            let (invalidate, daemon) = (dir.clone(), me.clone());
+            let commands = Commands::new(Box::new(move |affects| {
+                let kinds: Vec<&str> = affects
+                    .iter()
+                    .map(String::as_str)
+                    .filter(|topic| crate::display::is_kind(topic))
+                    .collect();
+                if !kinds.is_empty() {
+                    cache::drop_kinds(&invalidate, &kinds);
+                }
+                let named: Vec<&str> = affects
+                    .iter()
+                    .map(String::as_str)
+                    .filter(|topic| super::is_settings(topic))
+                    .collect();
+                if let (false, Some(daemon)) = (named.is_empty(), daemon.upgrade()) {
+                    daemon.invalidate(&named);
+                }
+            }));
+            Daemon {
+                dir,
+                flights: Flights::default(),
+                collect,
+                workers: Arc::new(Workers::default()),
+                topics,
+                bus: Bus::default(),
+                commands,
+                watches: Arc::new(super::watch::Watches::default()),
+                jobs: Arc::new(super::jobs::Jobs::new(config.job_runner)),
+                run_command: Arc::from(config.run_command),
+                settings,
+                request_frames: std::sync::atomic::AtomicU64::new(0),
+                commands_run: std::sync::atomic::AtomicU64::new(0),
+                read_slots: Arc::default(),
+                governor: Mutex::new(Governor::new(config.limits)),
+                probe: config.probe,
+                floor: config.floor,
+                job_timeout: config.job_timeout,
+                last: Mutex::new(HashMap::new()),
             }
-        }));
-        Arc::new(Daemon {
-            dir,
-            flights: Flights::default(),
-            collect,
-            workers: Arc::new(Workers::default()),
-            topics,
-            bus: Bus::default(),
-            commands,
-            watches: Arc::new(super::watch::Watches::default()),
-            run_command: Arc::from(config.run_command),
-            request_frames: std::sync::atomic::AtomicU64::new(0),
-            governor: Mutex::new(Governor::new(config.limits)),
-            probe: config.probe,
-            floor: config.floor,
-            job_timeout: config.job_timeout,
-            last: Mutex::new(HashMap::new()),
         })
     }
 
@@ -123,21 +152,41 @@ impl Daemon {
     /// background run goes to the sampler. A failure marks the topic stale and
     /// leaves the last good sample where it is.
     pub fn sample(&self, kind: &str, interactive: bool) -> Outcome {
-        if !crate::display::is_kind(kind) {
-            return Err(format!("unknown display kind {kind}"));
+        if !super::is_topic(kind) {
+            return Err(format!("unknown topic {kind}"));
         }
+        let settings = super::is_settings(kind);
         let outcome = self.flights.run(kind, interactive, || {
-            let at_ms = cache::now_ms();
-            let began = Instant::now();
-            let value = if interactive {
-                (self.collect)(kind)?
-            } else {
-                self.collect_in_background(kind)?
-            };
-            let sample = Sample {
-                at_ms,
-                took_ms: began.elapsed().as_millis() as u64,
-                value,
+            let mut tries = 0;
+            let sample = loop {
+                let generation = self.settings.generation(kind);
+                let at_ms = if settings {
+                    self.settings.stamp(kind)
+                } else {
+                    cache::now_ms()
+                };
+                let began = Instant::now();
+                let value = if settings {
+                    self.collect_topic(kind)?
+                } else if interactive {
+                    (self.collect)(kind)?
+                } else {
+                    self.collect_in_background(kind)?
+                };
+                // Something invalidated the topic while it was being read: what
+                // was read may be from before it, so it is read again.
+                if settings
+                    && generation != self.settings.generation(kind)
+                    && tries < super::settings::RETRIES
+                {
+                    tries += 1;
+                    continue;
+                }
+                break Sample {
+                    at_ms,
+                    took_ms: began.elapsed().as_millis() as u64,
+                    value,
+                };
             };
             if let Err(err) = cache::write(&self.dir, kind, &sample) {
                 eprintln!("ratmos daemon: cannot cache {kind}: {err}");
@@ -149,11 +198,20 @@ impl Daemon {
             self.bus.publish(kind, &sample);
             Ok(sample)
         });
+        if settings {
+            self.settings.failed(kind, outcome.is_err());
+        }
         if let Err(message) = &outcome {
             self.topics.failure(kind, message);
             self.bus.fail(kind, message);
         }
         outcome
+    }
+
+    /// Hand a sample to whoever holds the topic, and note it.
+    pub(super) fn publish_sample(&self, kind: &str, sample: &Sample) {
+        self.topics.success(kind, sample);
+        self.bus.publish(kind, sample);
     }
 
     /// Ask the sampler for `kind` and charge what it cost to the governor.
@@ -176,7 +234,7 @@ impl Daemon {
         self.request_frames.fetch_add(1, Ordering::SeqCst);
     }
 
-    fn status(&self) -> Value {
+    pub(super) fn status(&self) -> Value {
         json!({
             "ok": true,
             "version": crate::VERSION,
@@ -185,18 +243,43 @@ impl Daemon {
             "topics": self.topics.status(),
             "sessions": self.bus.count(),
             "watching": self.watches.windows(),
+            "jobsRunning": self.jobs.running(),
             "requestFrames": self.request_frames.load(Ordering::SeqCst),
+            "commandsRun": self.commands_run.load(Ordering::SeqCst),
         })
     }
 
-    pub(super) fn answer(&self, request: &Value) -> Value {
+    pub(super) fn answer(self: &Arc<Self>, request: &Value) -> Value {
         match request.get("op").and_then(Value::as_str) {
             Some("ping") => {
                 json!({"ok": true, "version": crate::VERSION, "pid": std::process::id()})
             }
             Some("status") => self.status(),
+            Some("jobs") => json!({"ok": true, "jobs": self.jobs.list()}),
             Some("command") => self.command_op(request),
             Some("barrier") => self.barrier_op(request),
+            Some("invalidate") => {
+                // What a refresh button asks: these topics are read again.
+                let named: Vec<String> = request
+                    .get("topics")
+                    .and_then(Value::as_array)
+                    .map(|list| {
+                        list.iter()
+                            .filter_map(|topic| topic.as_str().map(str::to_string))
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                let topics: Vec<&str> = if named.is_empty() {
+                    crate::snapshot::topics::NAMES.to_vec()
+                } else {
+                    named.iter().map(String::as_str).collect()
+                };
+                if let Some(bad) = topics.iter().find(|topic| !super::is_topic(topic)) {
+                    return json!({"ok": false, "message": format!("not a topic: {bad}")});
+                }
+                self.invalidate(&topics);
+                json!({"ok": true})
+            }
             Some("sample") => {
                 let kind = request.get("kind").and_then(Value::as_str).unwrap_or("");
                 match self.sample(kind, true) {
@@ -413,7 +496,10 @@ pub fn run() -> Result<i32> {
     std::thread::spawn(move || pump.pump(&AtomicBool::new(false)));
     let watcher = daemon.clone();
     std::thread::spawn(move || watcher.watches.run(&AtomicBool::new(false)));
-    super::session::exit_when_stale(watched);
+    let files = daemon.clone();
+    std::thread::spawn(move || files.watch_settings(&AtomicBool::new(false)));
+    daemon.jobs.adopt_orphans();
+    super::session::exit_when_stale(watched, daemon.jobs.clone());
     // Only a signal ends the daemon, and the lock goes with the process.
     daemon.schedule(&AtomicBool::new(false));
     Ok(0)

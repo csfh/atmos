@@ -2,18 +2,36 @@
 //! installed software, and the Atmos install itself.
 
 use super::sh::{
-    self, alt, file_has, first_line, is_uint, jq_text, lines, ok, omarchy, out, out_ok, out_within,
-    present, read,
+    self, alt, file_has, first_line, is_uint, jq_text, lines, ok, out, out_ok, out_within, present,
+    read,
 };
 use regex_lite::Regex;
 use serde_json::{json, Map, Value};
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
-pub fn disks(f: &mut Map<String, Value>) {
-    let inv = crate::inventory::disks::collect();
-    for key in ["disks", "luksDevices", "swapDevices", "snapshots"] {
-        f.insert(key.into(), inv.get(key).cloned().unwrap_or(json!([])));
-    }
+/// The starred rows. No file is an empty list; a file that is not a list of
+/// rows is a failure, not an empty list.
+pub fn favorites(f: &mut Map<String, Value>) {
+    let file = crate::tasks::user::favorites_file();
+    let items = match std::fs::read_to_string(&file) {
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => json!([]),
+        Err(err) => {
+            sh::fail(format!("{}: {err}", file.display()));
+            return;
+        }
+        Ok(text) => match serde_json::from_str::<Value>(&text) {
+            Ok(Value::Array(rows)) => json!(rows),
+            Ok(Value::Object(mut doc)) if doc.get("items").is_some_and(Value::is_array) => {
+                doc.remove("items").unwrap_or(json!([]))
+            }
+            _ => {
+                sh::fail(format!("{}: not a list of favorites", file.display()));
+                return;
+            }
+        },
+    };
+    f.insert("favorites".into(), items);
 }
 
 pub fn snapper(f: &mut Map<String, Value>) {
@@ -121,8 +139,9 @@ pub fn weather(f: &mut Map<String, Value>, home: &str) {
 }
 
 pub fn power(f: &mut Map<String, Value>) {
-    let profiles = lines(&omarchy(&["powerprofiles", "list"]));
-    let active = omarchy(&["powerprofiles", "list", "--active-state"])
+    let profiles = lines(&sh::omarchy_must(&["powerprofiles", "list"]).unwrap_or_default());
+    let active = sh::omarchy_must(&["powerprofiles", "list", "--active-state"])
+        .unwrap_or_default()
         .lines()
         .find_map(|l| {
             let mut cols = l.split('\t');
@@ -299,7 +318,8 @@ pub fn security(f: &mut Map<String, Value>, user: &str) {
 
 pub fn omarchy_info(f: &mut Map<String, Value>) {
     let head = |args: &[&str]| {
-        out("omarchy", args)
+        sh::omarchy_must(args)
+            .unwrap_or_default()
             .lines()
             .next()
             .unwrap_or("")
@@ -571,7 +591,7 @@ pub fn software(f: &mut Map<String, Value>, home: &str, tailscale_installed: boo
             "helix": present("helix"), "vim": present("vim"), "emacs": present("emacs"),
         }),
     );
-    let plugins = out_ok("omarchy", &["plugin", "list", "--json"])
+    let plugins = sh::omarchy_must(&["plugin", "list", "--json"])
         .and_then(|raw| serde_json::from_str::<Value>(&raw).ok())
         .filter(Value::is_array)
         .unwrap_or(json!([]));
@@ -583,7 +603,12 @@ pub fn keybindings() -> Value {
     if !present("omarchy") {
         return json!([]);
     }
-    let raw = out_within("omarchy", &["menu", "keybindings", "--print"], 10);
+    let raw = sh::must_within(
+        "omarchy",
+        &["menu", "keybindings", "--print"],
+        Duration::from_secs(10),
+    )
+    .unwrap_or_default();
     let rows: Vec<Value> = raw
         .lines()
         .filter_map(|line| {

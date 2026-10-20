@@ -46,17 +46,11 @@ assert(
   "Network hub search does not steal bluetooth",
 );
 assertEqual(hubs.rootHub("appearance/boot"), "appearance", "rootHub strips the child tail");
-assertEqual(hubs.snapshotGroupForHub("appearance/boot"), "look", "appearance/boot reads look");
-assertEqual(hubs.snapshotGroupForHub("network"), "network", "network hub reads network");
-assertEqual(hubs.snapshotGroupForHub("idle"), "look", "idle hub reads look");
-assertEqual(hubs.snapshotGroupForHub("hardware"), "all", "hardware hub reads all");
-assertEqual(hubs.snapshotGroupForHub(""), "look", "empty hub reads look");
 assertEqual(hubs.hubById("idle").navGroup, "device", "idle nav cluster is device");
 assertEqual(hubs.hubTitle("favorites"), "Favorites", "favorites hub title is Favorites");
 assertEqual(hubs.hubById("favorites").navGroup, "look", "favorites nav cluster is look");
 assertEqual(hubs.hubTitle("drivers"), "Drivers", "drivers hub title is Drivers");
 assertEqual(hubs.hubById("drivers").navGroup, "device", "drivers nav cluster is device");
-assertEqual(hubs.snapshotGroupForHub("drivers"), "all", "drivers hub reads all");
 assert(
   hubs.hubById("drivers").keywords.indexOf("gpu") !== -1 &&
     hubs.hubById("drivers").keywords.indexOf("firmware") !== -1 &&
@@ -79,7 +73,6 @@ assertEqual(hubs.hubById("export").navGroup, "general", "export nav cluster is g
 assertEqual(hubs.hubById("accounts").navGroup, "admin", "accounts nav cluster is admin");
 assertEqual(hubs.hubById("security").navGroup, "admin", "security nav cluster is admin");
 assertEqual(hubs.hubById("services").navGroup, "admin", "services nav cluster is admin");
-assertEqual(hubs.hubById("appearance").snapshotGroup, "look", "appearance snapshot group is look");
 
 const seenIcons = {};
 catalog.forEach(function (hub) {
@@ -194,7 +187,6 @@ assertEqual(
   "home hubs stay consecutive in nav order, sentinel after monitor",
 );
 assertEqual(hubs.hubTitle("monitor/processes"), "Processes", "processes is a Monitor child");
-assertEqual(hubs.snapshotGroupForHub("monitor"), "look", "monitor snapshot group is look");
 assert(
   hubs.hubById("monitor").keywords.indexOf("htop") !== -1 &&
     hubs.hubById("monitor").keywords.indexOf("process") !== -1,
@@ -205,7 +197,6 @@ assert(
     hubs.hubById("home").keywords.indexOf("gpu") !== -1,
   "Home search matches thermal and gpu",
 );
-assertEqual(hubs.snapshotGroupForHub("home"), "look", "home snapshot group is look");
 function consecutiveNavGroup(group) {
   const ids = nav
     .filter(function (page) {

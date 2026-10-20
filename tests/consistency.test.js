@@ -48,7 +48,7 @@ const taskNames = new Set(
 assert(taskNames.size > 20, "the backend lists its tasks");
 
 const fromFrontend = matches(frontend, /Backend\.task\("([a-z][a-z-]*)"/g);
-assert(fromFrontend.size > 15, "the front end starts tasks");
+// Typed jobs replace Backend.task one by one; what is left must still exist.
 for (const [name, file] of fromFrontend) {
   assert(taskNames.has(name), `task ${name} exists in the backend (${file})`);
 }

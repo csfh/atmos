@@ -30,13 +30,6 @@ QtObject {
   id: root
 
   readonly property string shellDir: Quickshell.shellDir
-  // The connection to ratmos lives in Backend. These two build the argv for
-  // the long jobs that still run as a process of their own.
-  function backendCommand(args) {
-    return Backend.command(args)
-  }
-
-  property var platform: ({ "id": "", "compositor": "", "family": "" })
 
   property string lastError: ""
   property string theme: ""
@@ -309,6 +302,8 @@ QtObject {
     allowedKey: SnapshotGroups.allowedKey
   })
   property bool snapshotReady: false
+  // Keys a producer could not read, and why. They keep the value they had.
+  property var snapshotFailed: ({})
 
   function applySnapshot(raw) {
     var parsed = typeof raw === "string" ? SnapshotJs.parseSnapshot(raw) : raw
@@ -321,6 +316,7 @@ QtObject {
     copyRecord(next)
     var accounts = SnapshotJs.accountStorePatch(parsed)
     if (accounts) AccountsStore.applyPatch(accounts)
+    if (parsed.favorites !== undefined) root.loadFavorites(parsed.favorites)
   }
 
   function copyRecord(next) {
@@ -346,19 +342,10 @@ QtObject {
     SnapshotStore.scheduleRefresh(group)
   }
 
-  function enqueueRead(group) {
-    SnapshotStore.enqueueRead(group)
-  }
-
-  function startSession(hub) {
-    SnapshotStore.startSession(hub)
-    root.loadDisplays()
-  }
-
-  function loadDisplays() {
-    Backend.request(Requests.displaySnapshot(), function(env) {
-      if (env && env.ok === true && env.result) root.applyDisplays(env.result)
-    })
+  function startSession() {
+    SnapshotFeed.start()
+    DisplayFeed.start()
+    IoQueue.resumeFromDaemon()
   }
 
   function applyDisplays(parsed) {
@@ -410,17 +397,8 @@ QtObject {
   }
 
   // IoQueue starts a job and says so; these do the domain work around it.
-  function onReadRequested(job) {
-    // Ask only for the keys this group shows. "all" reads everything.
-    var group = String(job.group || "all")
-    var keys = group === "all" ? undefined : SnapshotGroups.emitKeys(group)
-    job.startedAt = Date.now()
-    Backend.request(Requests.settingsSnapshot(group, keys), function(env) {
-      root.snapshotAnswered(job, env)
-    })
-  }
-
   function onSetRequested(job) {
+    job.sentAt = Date.now()
     Backend.request(Requests.settingsSet(String(job.domain || job.key || ""), job.value, job.readback), function(env) {
       root.mutationAnswered(job, env)
     })
@@ -442,30 +420,13 @@ QtObject {
     }
   }
 
-  function onMutExited(job, exitCode, out, err) {
-    if (exitCode !== 0) {
-      var shown = FailureJs.splitApply(out)
-      var banner = FailureJs.applyBanner(shown.result, exitCode, root.commandFailureText(err, shown.text))
-      root.lastError = banner
-      Feedback.finish(false, banner || "Command failed")
-    } else {
-      Feedback.finish(true, "")
-      if (job && job.readback) Ops.read({ keys: job.readback })
-      if (job && job.refresh && job.refresh !== "none")
-        WorkQueue.enqueueRead(IoQueue.queue, SnapshotGroups.normalizeGroup(job.refresh))
-    }
-    IoQueue.finished()
-  }
-
-  function onInteractiveExited(exitCode, readback, refresh, out, err) {
+  function onInteractiveExited(exitCode, readback, refresh, out, err, summary) {
     if (exitCode === 143) return
     if (exitCode !== 0) {
-      var shown = FailureJs.splitApply(out)
-      var res = shown.result
       // An interactive tool that exits non-zero having printed nothing was
       // closed by the user, not broken.
-      if (res && !res.message && !(res.warnings && res.warnings.length)) return
-      var banner = FailureJs.applyBanner(res, exitCode, root.commandFailureText(err, shown.text))
+      if (summary && !summary.message && !(summary.warnings && summary.warnings.length)) return
+      var banner = FailureJs.applyBanner(summary, exitCode, root.commandFailureText(err, out))
       if (banner) root.lastError = banner
       return
     }
@@ -479,16 +440,18 @@ QtObject {
     if (root.sudoEnabling && IoQueue.jobKind === "passwordless-sudo") {
       root.sudoEnabling = false
       if (exitCode === 0) {
-        root.passwordlessSudo = true
         root.sudoPromptOpen = false
         root.sudoError = ""
         var pending = root.sudoPendingJob
         root.sudoPendingJob = null
-        if (pending) {
+        // Sudo mode is on when the machine says so, not when the job exits.
+        Ops.read({ keys: ["passwordlessSudo"], expect: { passwordlessSudo: true } }, function() {
+          if (!pending) return
           pending.sudo = false
           root.rememberGuard(pending)
           WorkQueue.enqueueWrite(IoQueue.queue, pending)
-        }
+          IoQueue.kick()
+        })
       } else {
         root.sudoError = "Wrong password."
         root.sudoPromptOpen = true
@@ -501,7 +464,6 @@ QtObject {
     if (IoQueue.jobKind === "update-check") {
       root.lastError = ""
       IoQueue.jobKind = ""
-      WorkQueue.enqueueRead(IoQueue.queue, "all")
       IoQueue.finished()
       return
     }
@@ -514,7 +476,6 @@ QtObject {
       if (parsed.channel) root.atmosChannel = parsed.channel
       root.lastError = (exitCode !== 0 && parsed.status !== "behind") ? (parsed.summary || err || "Atmos update failed") : ""
       IoQueue.jobKind = ""
-      if (applied) WorkQueue.enqueueRead(IoQueue.queue, "all")
       IoQueue.finished()
       return
     }
@@ -528,27 +489,9 @@ QtObject {
       root.lastError = FailureJs.applyBanner(summary, exitCode, root.commandFailureText(err, out))
     } else {
       root.lastError = ""
-      if (job && job.refresh && job.refresh !== "none")
-        WorkQueue.enqueueRead(IoQueue.queue, SnapshotGroups.normalizeGroup(job.refresh))
     }
+    // The daemon invalidates what a job can change when it ends and pushes it.
     IoQueue.jobKind = ""
-    IoQueue.finished()
-  }
-
-  function snapshotAnswered(job, env) {
-    if (env && env.ok === true && env.result) {
-      root.lastError = ""
-      if (WorkQueue.shouldApplyRead(job, IoQueue.queue)) {
-        if (env.platform) root.platform = env.platform
-        // The backend already nests dotted domains and leaves out unset ones.
-        var folded = Ops.dropStale(env.result, job.startedAt)
-        if (job && job.group) folded.group = String(job.group)
-        root.applySnapshot(folded)
-      }
-    } else {
-      root.lastError = FailureJs.errorText(env && env.error) || "settings snapshot failed"
-    }
-    root.snapshotReady = true
     IoQueue.finished()
   }
 
@@ -561,11 +504,9 @@ QtObject {
       var own = env.result ? env.result.value : undefined
       if (domain && domain.indexOf(".") === -1 && shown[domain] === undefined && SnapshotJs.isScalar(own))
         shown[domain] = own
-      Ops.noteWritten(shown)
+      Ops.noteWritten(shown, job && job.sentAt)
       root.applySnapshot(shown)
-      if (domain.indexOf("hyprInput") === 0) root.applyHyprWorkspaceGestureFromFile()
-      if (job && job.refresh && job.refresh !== "none")
-        WorkQueue.enqueueRead(IoQueue.queue, SnapshotGroups.normalizeGroup(job.refresh))
+      if (job && job.refresh && job.refresh !== "none") root.scheduleRefresh(job.refresh)
     } else {
       var msg = FailureJs.errorText(env && env.error) || "Command failed"
       root.lastError = msg
@@ -597,31 +538,31 @@ QtObject {
   readonly property int guardSeconds: GuardJs.secondsLeft(guardState, guardClock)
   signal guardArmed()
 
-  function recordChange(argv, opts) {
+  function recordChange(label, opts) {
     var o = opts || {}
     changeHistory = HistoryJs.push(
       changeHistory,
-      HistoryJs.entry(argv, {
+      HistoryJs.entry(label, {
         key: o.key || "",
-        file: HistoryJs.targetFile(argv, Quickshell.env("HOME")),
+        file: HistoryJs.targetFile(label, Quickshell.env("HOME")),
         source: "you",
         sudo: o.sudo === true
       })
     )
   }
 
-  function holdChange(argv, opts) {
+  function holdChange(label, opts) {
     var o = opts || {}
-    var item = HistoryJs.entry(argv, {
+    var item = HistoryJs.entry(label, {
       key: o.key || "",
-      file: HistoryJs.targetFile(argv, Quickshell.env("HOME")),
+      file: HistoryJs.targetFile(label, Quickshell.env("HOME")),
       source: "preview",
       sudo: o.sudo === true
     })
-    // The rendered text is for reading; the argv and opts are what Apply
-    // replays. Keeping only the text makes Apply a no-op that looks like it
-    // worked, which is the worst way for this to fail.
-    item.argv = argv
+    // The rendered text is for reading; the label and opts (which carry the
+    // typed op) are what Apply replays. Keeping only the text makes Apply a
+    // no-op that looks like it worked, which is the worst way for this to fail.
+    item.argv = label
     item.opts = o
     heldChanges = HistoryJs.push(heldChanges, item)
   }
@@ -630,14 +571,24 @@ QtObject {
     heldChanges = []
   }
 
+  // Replays one held change: a typed op through runCommand, a setting through
+  // runSetting.
+  function replay(label, opts) {
+    if (!(opts && opts.op)) return root.runSetting(label, opts)
+    var o = {}
+    var k
+    for (k in opts) if (k !== "op") o[k] = opts[k]
+    root.runCommand(opts.op, o)
+  }
+
   // The only path by which a held command ever runs, so "preview" cannot
   // quietly become "apply later". Replay copies every option the original
-  // runCommand call carried (key, apply, refresh, sudo, stdin, payload, …)
-  // and sets bypassPreview so Apply cannot re-hold itself.
+  // call carried (key, refresh, sudo, readback, the op itself, ...) and sets
+  // bypassPreview so Apply cannot re-hold itself.
   function applyHeld() {
     var held = heldChanges
     heldChanges = []
-    HistoryJs.applyHeld(held, runCommand)
+    HistoryJs.applyHeld(held, replay)
   }
 
   function stripGuard(opts) {
@@ -651,29 +602,48 @@ QtObject {
     return next
   }
 
-  function runCommand(argv, opts) {
-    if (!(argv instanceof Array) || argv.length === 0) return
-    opts = opts || {}
+  // Preview stops a write and shows it instead; a revert never holds or arms.
+  // Returns true when the change was held.
+  function previewHeld(label, opts) {
     if (root.reverting) {
       opts.bypassPreview = true
       opts.guard = null
     }
-    // Preview stops the write and shows it instead. Held, not queued.
-    // A held write never reaches the machine, so it does not arm the bar.
-    if (Preview.active === true && opts.bypassPreview !== true) {
-      holdChange(argv, root.stripGuard(opts))
-      return
-    }
-    recordChange(argv, root.stripGuard(opts))
-    // A typed op goes to the daemon's lane for it, not through the job queue.
-    if (opts.op) return enqueueIo({ kind: "op", opts: opts, sudo: opts.sudo === true, guard: opts.guard && opts.guard.id ? opts.guard : null })
+    if (Preview.active !== true || opts.bypassPreview === true) return false
+    holdChange(label, root.stripGuard(opts))
+    return true
+  }
+
+  // A typed write: a name and arguments the backend checks and runs on its
+  // lane. The window builds no command line (docs/adr/0004, 0008).
+  function runCommand(op, opts) {
+    if (!(op && op.op)) return
+    opts = opts || {}
+    var label = Requests.label(op)
+    var withOp = root.stripGuard(opts)
+    withOp.op = op
+    if (root.previewHeld(label, withOp)) return
+    recordChange(label, root.stripGuard(opts))
+    var run = {}
+    var k
+    for (k in opts) run[k] = opts[k]
+    run.op = op
+    enqueueIo({ kind: "op", opts: run, sudo: opts.sudo === true, guard: opts.guard && opts.guard.id ? opts.guard : null })
+  }
+
+  // A setting: settings.set with the value the row chose, then the keys read
+  // back. `label` is for the history only.
+  function runSetting(label, opts) {
+    if (!(label instanceof Array) || label.length === 0) return
+    opts = opts || {}
+    if (opts.hasValue !== true) return
+    if (root.previewHeld(label, opts)) return
+    recordChange(label, root.stripGuard(opts))
     enqueueIo({
       kind: "mut",
-      argv: argv,
-      stdin: opts.stdin != null ? String(opts.stdin) : "",
       key: opts.key ? String(opts.key) : "",
       domain: opts.domain ? String(opts.domain) : "",
-      hasValue: opts.hasValue === true,
+      hasValue: true,
       value: opts.value,
       readback: opts.readback instanceof Array ? opts.readback : null,
       refresh: snapshotRefreshGroup(opts.refresh),
@@ -704,7 +674,7 @@ QtObject {
       opts.value = value
     }
     if (guard && guard.id) opts.guard = guard
-    runCommand(cmd.argv, opts)
+    runSetting(cmd.argv, opts)
   }
 
   // The settings that need no more than "skip a no-op, then send it". See
@@ -787,11 +757,7 @@ QtObject {
       var scale = String(desc.scale || "")
       var n = Number(scale)
       if (!scale || !isFinite(n) || n <= 0) return
-      root.runCommand(["omarchy", "hyprland", "monitor", "scaling", scale], {
-        key: "monitorScale",
-        op: Requests.displayScale(scale),
-        refresh: "none"
-      })
+      root.runCommand(Requests.displayScale(scale), { key: "monitorScale", refresh: "none" })
       return
     }
     if (desc.kind === "keyboardLayout") {
@@ -809,21 +775,6 @@ QtObject {
       }
       root.dispatchSetting("touchpadEnabled", true, null)
     }
-  }
-
-  function inputLuaText() {
-    return String(inputLuaCache || "")
-  }
-
-  function applyHyprWorkspaceGestureFromFile() {
-    var state = HyprPrefs.inputWorkspaceGestureState(root.inputLuaText())
-    hyprWorkspaceGesture = state.workspaceGesture === true
-    hyprWorkspaceGestureManaged = state.workspaceGestureManaged === true
-    hyprWorkspaceGestureUnmanaged = state.workspaceGestureUnmanaged === true
-  }
-
-  function liveWorkspaceGestureUnmanaged() {
-    return HyprPrefs.inputHasUnmanagedWorkspaceGesture(root.inputLuaText())
   }
 
   function firstPatchField(patch) {
@@ -852,12 +803,7 @@ QtObject {
     runSettingCommand(SettingsJs.commandFor("hyprInput." + field, input[field], snap, scriptOpts()), "hyprInput." + field)
   }
 
-  function runGumJob(argv, kind, opts) {
-    if (!(argv instanceof Array) || argv.length === 0) return
-    runJob(Backend.task("gum-job", argv), "", kind, opts)
-  }
-
-  // Job record: kind ("read"|"mut"|"job"|"op"), argv, stdin, key, readback,
+  // Job record: kind ("read"|"mut"|"job"|"op"), op, key, readback,
   // refresh, sudo, jobKind, onStdoutLine, onFinished.
   function enqueueIo(job) {
     if (!job) return
@@ -907,14 +853,16 @@ QtObject {
     sudoError = ""
   }
 
-  function runJob(argv, stdinText, kind, opts) {
-    if (!(argv instanceof Array) || argv.length === 0) return
+  // A job: a registry name and its arguments (Requests.job), run by the daemon
+  // so it outlives this window. `kind` names it for the pages that show it
+  // running; a password or a plan is an argument, never a command line.
+  function runJob(op, kind, opts) {
+    if (!(op && op.op === "job")) return
     opts = opts || {}
     kind = String(kind || "")
     enqueueIo({
       kind: "job",
-      argv: argv,
-      stdin: String(stdinText || ""),
+      op: op,
       jobKind: kind,
       key: opts.key ? String(opts.key) : kind,
       refresh: opts.refresh === "none" ? "none" : SnapshotGroups.normalizeGroup(opts.refresh || "all"),
@@ -931,12 +879,12 @@ QtObject {
   // Blocking pickers and region tools (file select, slurp, theme switcher)
   // stay off the queue. The queue is a single lock; holding it while a dialog
   // waits stalls every other setting.
-  function runInteractive(argv, opts) {
-    if (!(argv instanceof Array) || argv.length === 0) return
+  function runInteractive(op, opts) {
+    if (!(op && op.op === "job")) return
     opts = opts || {}
     lastError = ""
     IoQueue.startInteractive(
-      argv,
+      op,
       opts.kind,
       opts.readback && typeof opts.readback === "object" ? opts.readback : null,
       snapshotRefreshGroup(opts.refresh)
@@ -957,32 +905,28 @@ QtObject {
     dispatchSetting("theme", name)
   }
   function openThemeSwitcher() {
-    runInteractive(["bash", "-c", "theme=$(omarchy theme switcher || true); [[ -n $theme ]] && omarchy theme set \"$theme\" >/dev/null 2>&1 &"], {
+    runInteractive(Requests.job("theme.switcher", {}), {
       kind: "theme-switcher",
       refresh: "none"
     })
   }
-  function refreshTheme() { runCommand(["omarchy", "theme", "refresh"]) }
+  function refreshTheme() { runCommand(Requests.write("theme.refresh", {})) }
   function openThemeFolder() {
     if (!theme) return
-    runCommand(["bash", "-c", "dir=$(omarchy theme dir \"$1\") && [[ -d \"$dir\" ]] && xdg-open \"$dir\" >/dev/null 2>&1 &", "theme-dir", theme])
+    runCommand(Requests.write("theme.folder", { theme: theme }))
   }
   function installTheme(url) {
     url = RichUi.parseGitUrl(url)
     if (!url) return
-    runJob(["omarchy", "theme", "install", url], "", "theme-install", { refresh: "look" })
+    runJob(Requests.job("theme.install", { url: url }), "theme-install", { refresh: "look" })
   }
   function updateThemes() {
-    runJob(["omarchy", "theme", "update"], "", "theme-update", { refresh: "look" })
+    runJob(Requests.job("theme.update", {}), "theme-update", { refresh: "look" })
   }
   function removeTheme(name) {
     name = String(name || "").replace(/^\s+|\s+$/g, "")
     if (!name || name.indexOf("/") !== -1 || name.indexOf(".") === 0) return
-    runCommand(["omarchy", "theme", "remove", name], {
-      key: "theme-remove:" + name,
-      op: Requests.write("theme.remove", { name: name }),
-      refresh: name === theme ? "all" : "none"
-    })
+    runCommand(Requests.write("theme.remove", { name: name }), { key: "theme-remove:" + name, refresh: name === theme ? "all" : "none" })
   }
   function setBackgroundPath(path) {
     path = String(path || "")
@@ -990,25 +934,22 @@ QtObject {
     dispatchSetting("background", path)
   }
   function nextBackground() {
-    runCommand(["omarchy", "theme", "bg", "next"], {
-      key: "background",
-      refresh: "all"
-    })
+    runCommand(Requests.write("theme.bg-next", {}), { key: "background", refresh: "all" })
   }
   function openBackgroundSwitcher() {
-    runInteractive(["omarchy", "theme", "bg-switcher"], {
+    runInteractive(Requests.job("theme.bg-switcher", {}), {
       kind: "background-switcher",
       refresh: "all"
     })
   }
   function setBackgroundFromFile() {
-    runInteractive(["bash", "-c", "path=$(omarchy file select --title \"Set background\" --extensions \"jpg jpeg png gif webp bmp\" || true); [[ -n $path ]] && omarchy theme bg set \"$path\""], {
+    runInteractive(Requests.job("theme.bg-file", {}), {
       kind: "background-file",
       refresh: "all"
     })
   }
-  function openBackgroundFolder() { launchDetached(["omarchy", "theme", "bg", "install"]) }
-  function cacheBackgrounds() { runCommand(["omarchy", "theme", "bg", "cache"]) }
+  function openBackgroundFolder() { runCommand(Requests.write("theme.bg-folder", {})) }
+  function cacheBackgrounds() { runCommand(Requests.write("theme.bg-cache", {})) }
   function setFont(name) {
     name = String(name || "")
     if (!name || name === font) return
@@ -1020,11 +961,7 @@ QtObject {
     dispatchSetting("textSize", size)
   }
   function resetTextSize() {
-    runCommand(["omarchy", "display", "text", "size", "reset"], {
-      key: "textSize",
-      op: Requests.write("display.text-size-reset", {}),
-      refresh: "none"
-    })
+    runCommand(Requests.write("display.text-size-reset", {}), { key: "textSize", refresh: "none" })
   }
   function setMonitorScale(scale) {
     scale = String(scale || "")
@@ -1048,31 +985,22 @@ QtObject {
     }
     if (!root.reverting && previous)
       opts.guard = { id: "monitorScale", revert: { kind: "monitorScale", scale: previous } }
-    runCommand(["omarchy", "hyprland", "monitor", "scaling", scale], opts)
+    runCommand(Requests.displayScale(scale), opts)
   }
   function setDisplayBrightness(name, percent) {
     name = String(name || "")
     percent = Math.round(Number(percent))
     if (!/^[A-Za-z0-9._-]+$/.test(name)) return
     if (!isFinite(percent) || percent < 0 || percent > 100) return
-    var argv = ["omarchy", "brightness", "display", "--no-osd", "--monitor", name, percent + "%"]
-    runCommand(argv, { key: "brightness:" + name, op: Requests.displayBrightness(name, percent) })
+    runCommand(Requests.displayBrightness(name, percent), { key: "brightness:" + name })
   }
   function setInternalDisplay(on) {
     if (on === internalEnabled) return
-    runCommand(["omarchy", "hyprland", "monitor", "internal", on ? "on" : "off"], {
-      key: "internalEnabled",
-      op: Requests.write("monitor.internal", { on: on === true }),
-      refresh: "none"
-    })
+    runCommand(Requests.write("monitor.internal", { on: on === true }), { key: "internalEnabled", refresh: "none" })
   }
   function setInternalMirror(on) {
     if (on === mirroring) return
-    runCommand(["omarchy", "hyprland", "monitor", "internal", "mirror", on ? "on" : "off"], {
-      key: "mirroring",
-      op: Requests.write("monitor.mirror", { on: on === true }),
-      refresh: "none"
-    })
+    runCommand(Requests.write("monitor.mirror", { on: on === true }), { key: "mirroring", refresh: "none" })
   }
   function setTouchpad(on) {
     if (on === touchpadEnabled) return
@@ -1084,17 +1012,10 @@ QtObject {
   function adjustKeyboardBacklight(direction) {
     if (direction !== "up" && direction !== "down" && direction !== "off" && direction !== "restore") return
     if (direction === "restore") {
-      runCommand(["omarchy", "brightness", "keyboard", "--no-osd", "restore"], {
-        key: "keyboardBrightness",
-        refresh: "all"
-      })
+      runCommand(Requests.write("keyboard.backlight-restore", {}), { key: "keyboardBrightness", refresh: "all" })
       return
     }
-    runCommand(["omarchy", "brightness", "keyboard", "--no-osd", direction], {
-      key: "keyboardBrightness",
-      op: Requests.write("keyboard.backlight", { direction: direction }),
-      refresh: "none"
-    })
+    runCommand(Requests.write("keyboard.backlight", { direction: direction }), { key: "keyboardBrightness", refresh: "none" })
   }
   // `omarchy toggle bar on` sets the bar-off flag and hides the bar.
   function setClockWeekStart(day) {
@@ -1179,19 +1100,11 @@ QtObject {
   }
   function addSpacer() {
     if (spacerPresent) return
-    runCommand(["omarchy", "bar", "put", "omarchy.spacer"], {
-      key: "spacerPresent",
-      op: Requests.write("bar.spacer", { on: true }),
-      refresh: "none"
-    })
+    runCommand(Requests.write("bar.spacer", { on: true }), { key: "spacerPresent", refresh: "none" })
   }
   function removeSpacer() {
     if (!spacerPresent) return
-    runCommand(["omarchy", "plugin", "disable", "omarchy.spacer"], {
-      key: "spacerPresent",
-      op: Requests.write("bar.spacer", { on: false }),
-      refresh: "none"
-    })
+    runCommand(Requests.write("bar.spacer", { on: false }), { key: "spacerPresent", refresh: "none" })
   }
   function installDesktopApp(name, command, icon) {
     name = String(name || "")
@@ -1199,7 +1112,7 @@ QtObject {
     icon = String(icon || "application-x-executable")
     if (!name || !command) return
     if (name.indexOf("/") !== -1 || name.charAt(0) === "-") return
-    runJob(Backend.task("add-desktop-launcher", [name, command, icon]), "", "desktop-install")
+    runJob(Requests.job("app.desktop-install", { name: name, command: command, icon: icon }), "desktop-install")
   }
   function installTui(name, command, style, icon) {
     name = String(name || "")
@@ -1209,7 +1122,7 @@ QtObject {
     if (!name || !command || !icon) return
     if (style !== "float" && style !== "tile") return
     if (name.indexOf("/") !== -1 || name.charAt(0) === "-") return
-    runJob(["omarchy", "tui", "install", name, command, style, icon], "", "tui-install")
+    runJob(Requests.job("app.tui-install", { name: name, command: command, style: style, icon: icon }), "tui-install")
   }
   function installWebApp(name, url, icon) {
     name = String(name || "")
@@ -1217,36 +1130,23 @@ QtObject {
     icon = String(icon || "")
     if (!name || !url) return
     if (name.indexOf("/") !== -1 || name.charAt(0) === "-") return
-    runJob(["omarchy", "webapp", "install", name, url, icon], "", "webapp-install")
+    runJob(Requests.job("app.webapp-install", icon ? { name: name, url: url, icon: icon } : { name: name, url: url }), "webapp-install")
   }
   function removeDesktopApp(id, name) {
     id = String(id || "")
     name = String(name || id)
     if (!id) return
-    runCommand(["omarchy", "remove", "launcher", "entry", id, name], {
-      key: "desktop-remove:" + id,
-      op: Requests.write("app.remove-desktop", { id: id, name: name }),
-      refresh: "none",
-      sudo: true
-    })
+    runCommand(Requests.write("app.remove-desktop", { id: id, name: name }), { key: "desktop-remove:" + id, refresh: "none", sudo: true })
   }
   function removeTui(name) {
     name = String(name || "")
     if (!name) return
-    runCommand(["omarchy", "tui", "remove", name], {
-      key: "tui-remove:" + name,
-      op: Requests.write("tui.remove", { name: name }),
-      refresh: "none"
-    })
+    runCommand(Requests.write("tui.remove", { name: name }), { key: "tui-remove:" + name, refresh: "none" })
   }
   function removeWebApp(name) {
     name = String(name || "")
     if (!name) return
-    runCommand(["omarchy", "webapp", "remove", name], {
-      key: "webapp-remove:" + name,
-      op: Requests.write("webapp.remove", { name: name }),
-      refresh: "none"
-    })
+    runCommand(Requests.write("webapp.remove", { name: name }), { key: "webapp-remove:" + name, refresh: "none" })
   }
   function normalizedStringIds(list) {
     var next = []
@@ -1285,9 +1185,9 @@ QtObject {
   function setCustomDns(servers) {
     servers = String(servers || "").replace(/^\s+|\s+$/g, "")
     if (!servers) return
-    runJob(Backend.task("set-dns-custom", [servers]), "", "dns-custom")
+    runJob(Requests.job("dns.custom", { servers: servers }), "dns-custom")
   }
-  function openAether() { launchDetached(["aether"]) }
+  function openAether() { runCommand(Requests.write("aether", {})) }
 
   function setIdle(screensaver, lock) {
     var saver = Math.round(Number(screensaver)) || 0
@@ -1303,14 +1203,10 @@ QtObject {
     if (action !== "image" && action !== "text" && action !== "reset") return
     if (action === "reset") {
       if (!screensaverBranded) return
-      runCommand(["omarchy", "branding", "screensaver", "reset"], {
-        key: "screensaverBranding",
-        op: Requests.write("branding.reset", { which: "screensaver" }),
-        refresh: "none"
-      })
+      runCommand(Requests.write("branding.reset", { which: "screensaver" }), { key: "screensaverBranding", refresh: "none" })
       return
     }
-    runInteractive(["omarchy", "branding", "screensaver", action], {
+    runInteractive(Requests.job("branding.screensaver", { action: action }), {
       kind: "screensaver-branding",
       refresh: "all"
     })
@@ -1320,14 +1216,10 @@ QtObject {
     if (action !== "image" && action !== "text" && action !== "reset") return
     if (action === "reset") {
       if (!aboutBranded) return
-      runCommand(["omarchy", "branding", "about", "reset"], {
-        key: "aboutBranding",
-        op: Requests.write("branding.reset", { which: "about" }),
-        refresh: "none"
-      })
+      runCommand(Requests.write("branding.reset", { which: "about" }), { key: "aboutBranding", refresh: "none" })
       return
     }
-    runInteractive(["omarchy", "branding", "about", action], {
+    runInteractive(Requests.job("branding.about", { action: action }), {
       kind: "about-branding",
       refresh: "all"
     })
@@ -1339,7 +1231,6 @@ QtObject {
     if (!/^[A-Za-z0-9/_+-]+$/.test(name) || name.indexOf("..") !== -1) return
     dispatchSetting("timezone", name)
   }
-
 
   function setHostname(name) {
     name = RichUi.parseHostname(name)
@@ -1358,22 +1249,12 @@ QtObject {
     path = String(path || "")
     if (!currentUser) return
     if (!path || path.charAt(0) !== "/" || path.indexOf("..") !== -1) return
-    runCommand(Backend.task("set-avatar", ["set", currentUser, path]), {
-      key: "avatar",
-      op: Requests.write("avatar.set", { user: currentUser, path: path }),
-      refresh: "none",
-      sudo: true
-    })
+    runCommand(Requests.write("avatar.set", { user: currentUser, path: path }), { key: "avatar", refresh: "none", sudo: true })
   }
 
   function clearAvatar() {
     if (!currentUser) return
-    runCommand(Backend.task("set-avatar", ["clear", currentUser]), {
-      key: "avatar",
-      op: Requests.write("avatar.clear", { user: currentUser }),
-      refresh: "none",
-      sudo: true
-    })
+    runCommand(Requests.write("avatar.clear", { user: currentUser }), { key: "avatar", refresh: "none", sudo: true })
   }
 
   function addAccountUser(name, full, password, wheel) {
@@ -1382,32 +1263,32 @@ QtObject {
     password = String(password || "")
     if (!name || !password || password.indexOf("\n") !== -1) return
     if (!AccountsJs.isFullName(full)) return
-    runJob(Backend.task("manage-account", ["add-user", name, full, wheel === true ? "true" : "false"]), password + "\n", "account-add", { sudo: true })
+    runJob(Requests.job("account.add-user", { name: name, full: full, wheel: wheel === true, password: password }), "account-add", { sudo: true })
   }
 
   function removeAccountUser(name) {
     name = AccountsJs.parseUsername(name)
     if (!name || name === currentUser) return
-    runJob(Backend.task("manage-account", ["remove-user", name]), "", "account-remove", { sudo: true })
+    runJob(Requests.job("account.remove-user", { name: name }), "account-remove", { sudo: true })
   }
 
   function setAccountPassword(name, password) {
     name = AccountsJs.parseUsername(name)
     password = String(password || "")
     if (!name || !password || password.indexOf("\n") !== -1) return
-    runJob(Backend.task("manage-account", ["set-password", name]), password + "\n", "account-password", { sudo: true })
+    runJob(Requests.job("account.set-password", { name: name, password: password }), "account-password", { sudo: true })
   }
 
   function addAccountGroup(name) {
     name = AccountsJs.parseGroupName(name)
     if (!name) return
-    runJob(Backend.task("manage-account", ["add-group", name]), "", "account-group-add", { sudo: true })
+    runJob(Requests.job("account.add-group", { name: name }), "account-group-add", { sudo: true })
   }
 
   function removeAccountGroup(name) {
     name = AccountsJs.parseGroupName(name)
     if (!name || name === "wheel" || name === "docker") return
-    runJob(Backend.task("manage-account", ["remove-group", name]), "", "account-group-remove", { sudo: true })
+    runJob(Requests.job("account.remove-group", { name: name }), "account-group-remove", { sudo: true })
   }
 
   function setGroupMember(group, name, on) {
@@ -1415,7 +1296,7 @@ QtObject {
     name = AccountsJs.parseUsername(name)
     if (!group || !name) return
     if (on !== true && group === "wheel" && name === currentUser) return
-    runCommand(Backend.task("manage-account", ["set-member", group, name, on === true ? "on" : "off"]), {
+    runCommand(Requests.write("account.member", { group: group, user: name, on: on === true }), {
       key: "account-member-" + group + "-" + name,
       refresh: "all",
       sudo: true
@@ -1448,24 +1329,16 @@ QtObject {
 
   function resetHyprLook() {
     if (!hyprLookManaged) return
-    runCommand(Backend.task("reset-hypr", ["look"]), {
-      key: "hyprLookManaged",
-      op: Requests.write("hypr.reset", { group: "look" }),
-      refresh: "none"
-    })
+    runCommand(Requests.write("hypr.reset", { group: "look" }), { key: "hyprLookManaged", refresh: "none" })
   }
   function toggleWorkspaceLayout() {
-    runCommand(["omarchy", "hyprland", "workspace", "layout", "toggle"], {
-      key: "hyprWorkspaceLayout",
-      op: Requests.write("hypr.workspace-layout-toggle", {}),
-      refresh: "none"
-    })
+    runCommand(Requests.write("hypr.workspace-layout-toggle", {}), { key: "hyprWorkspaceLayout", refresh: "none" })
   }
   function toggleWindowTransparency() {
-    runCommand(["omarchy", "hyprland", "window", "transparency", "toggle"])
+    runCommand(Requests.write("window.transparency-toggle", {}))
   }
   function toggleTiledFullscreen() {
-    runCommand(["omarchy", "hyprland", "window", "tiled", "fullscreen", "toggle"])
+    runCommand(Requests.write("window.tiled-fullscreen-toggle", {}))
   }
 
   function writeHyprKbOverride(layouts, variants, groupToggle) {
@@ -1473,7 +1346,7 @@ QtObject {
     var snap = SnapshotJs.mergeSnapshot(snapshotData, { hyprInput: plan.input })
     var cmds = SettingsJs.planCommands(plan.rows, snap, scriptOpts())
     if (!cmds || !cmds.length || cmds[0].skip) return
-    runCommand(cmds[0].argv, HyprPrefs.kbRunOptions(cmds[0], plan.revert, root.reverting, Requests.write))
+    runCommand(Requests.write("hypr.apply", { group: "input", payload: cmds[0].stdin }), HyprPrefs.kbRunOptions(cmds[0], plan.revert, root.reverting))
   }
 
   function setHyprKbOverride(layouts, variants, groupToggle) {
@@ -1495,11 +1368,7 @@ QtObject {
   }
   function resetHyprInput() {
     if (!hyprInputManaged) return
-    runCommand(Backend.task("reset-hypr", ["input"]), {
-      key: "hyprInputManaged",
-      op: Requests.write("hypr.reset", { group: "input" }),
-      refresh: "none"
-    })
+    runCommand(Requests.write("hypr.reset", { group: "input" }), { key: "hyprInputManaged", refresh: "none" })
   }
 
   function setNightlightTemperature(n) {
@@ -1510,27 +1379,27 @@ QtObject {
   }
 
   function setupFingerprint() {
-    runGumJob(["omarchy", "setup", "security", "fingerprint"], "security-fingerprint", { sudo: true })
+    runJob(Requests.job("security.fingerprint-setup", {}), "security-fingerprint", { sudo: true })
   }
   function removeFingerprint() {
     if (!fingerprintConfigured) return
-    runGumJob(["omarchy", "remove", "security", "fingerprint"], "security-fingerprint-remove", { sudo: true })
+    runJob(Requests.job("security.fingerprint-remove", {}), "security-fingerprint-remove", { sudo: true })
   }
   function setupFido2() {
-    runGumJob(["omarchy", "setup", "security", "fido2"], "security-fido2", { sudo: true })
+    runJob(Requests.job("security.fido2-setup", {}), "security-fido2", { sudo: true })
   }
   function removeFido2() {
     if (!fido2Configured) return
-    runGumJob(["omarchy", "remove", "security", "fido2"], "security-fido2-remove", { sudo: true })
+    runJob(Requests.job("security.fido2-remove", {}), "security-fido2-remove", { sudo: true })
   }
   function setupSshd(key) {
     key = RichUi.parseSshPublicKey(key)
     if (!key) return
-    runGumJob(["omarchy", "setup", "security", "sshd", "--key=" + key], "security-sshd", { sudo: true })
+    runJob(Requests.job("security.sshd-setup", { key: key }), "security-sshd", { sudo: true })
   }
   function disableSshd() {
     if (!sshdEnabled && !sshdActive) return
-    runJob(Backend.task("set-sshd", ["disable"]), "", "security-sshd-disable", { sudo: true })
+    runJob(Requests.job("sshd.disable", {}), "security-sshd-disable", { sudo: true })
   }
   function enablePasswordlessSudo(minutes, password) {
     minutes = Math.round(Number(minutes))
@@ -1542,77 +1411,69 @@ QtObject {
     }
     if (password.indexOf("\n") !== -1) return
     sudoEnabling = true
-    runJob(
-      Backend.task("set-passwordless-sudo", ["on", String(minutes), "--sudo-ask"]),
-      password + "\n",
-      "passwordless-sudo"
-    )
+    runJob(Requests.job("sudo.enable", { minutes: minutes, password: password }), "passwordless-sudo")
   }
   function disablePasswordlessSudo() {
     if (!passwordlessSudo) return
-    runJob(Backend.task("set-passwordless-sudo", ["off"]), "", "passwordless-sudo-off", { sudo: true })
+    runJob(Requests.job("sudo.disable", {}), "passwordless-sudo-off", { sudo: true })
   }
   function setupSudolessDocker() {
-    runGumJob(["omarchy", "setup", "security", "sudoless", "docker"], "security-docker", { sudo: true })
+    runJob(Requests.job("security.docker-setup", {}), "security-docker", { sudo: true })
   }
   function removeSudolessDocker() {
     if (!sudolessDocker) return
-    runGumJob(["omarchy", "remove", "security", "sudoless", "docker"], "security-docker-remove", { sudo: true })
+    runJob(Requests.job("security.docker-remove", {}), "security-docker-remove", { sudo: true })
   }
 
   function setOmarchyChannel(name) {
     if (name !== "stable" && name !== "rc" && name !== "edge" && name !== "dev") return
     if (name === omarchyChannel) return
-    runGumJob(["omarchy", "channel", "set", name], "channel-set", { sudo: true })
+    runJob(Requests.job("channel.set", { name: name }), "channel-set", { sudo: true })
   }
   function runOmarchyUpdate() {
-    runGumJob(["omarchy", "update"], "omarchy-update", { sudo: true })
+    runJob(Requests.job("update.omarchy", {}), "omarchy-update", { sudo: true })
   }
   function checkOmarchyUpdate() {
-    runJob(["omarchy", "update", "available"], "", "update-check")
+    runJob(Requests.job("update.omarchy-check", {}), "update-check")
   }
   function setAtmosChannel(name) {
     if (AtmosUpdate.parseChannel(name) !== "stable") return
     if (name === atmosChannel) return
-    runCommand(Backend.task("set-atmos-channel", ["stable"]), {
-      key: "atmosChannel",
-      op: Requests.write("atmos.channel", { channel: "stable" }),
-      refresh: "none"
-    })
+    runCommand(Requests.write("atmos.channel", { channel: "stable" }), { key: "atmosChannel", refresh: "none" })
   }
   function checkAtmosUpdate() {
-    runJob(Backend.task("update-atmos", ["check"]), "", "atmos-update-check")
+    runJob(Requests.job("update.atmos-check", {}), "atmos-update-check")
   }
   function runAtmosUpdate() {
-    runJob(Backend.task("update-atmos", ["apply"]), "", "atmos-update")
+    runJob(Requests.job("update.atmos-apply", {}), "atmos-update")
   }
   function updateFirmware() {
-    runGumJob(["omarchy", "update", "firmware"], "update-firmware", { sudo: true })
+    runJob(Requests.job("update.firmware", {}), "update-firmware", { sudo: true })
   }
   function updateOrphanPkgs() {
-    runGumJob(["omarchy", "update", "orphan", "pkgs"], "update-orphans", { sudo: true })
+    runJob(Requests.job("update.orphans", {}), "update-orphans", { sudo: true })
   }
   function prunePkgCache() {
-    runGumJob(["omarchy", "update", "pkg", "prune"], "update-prune", { sudo: true })
+    runJob(Requests.job("update.prune", {}), "update-prune", { sudo: true })
   }
 
   function installVoxtype() {
-    runGumJob(["omarchy", "voxtype", "install"], "voxtype-install", { sudo: true })
+    runJob(Requests.job("voxtype.install", {}), "voxtype-install", { sudo: true })
   }
   function removeVoxtype() {
     if (!voxtypeInstalled) return
-    runGumJob(["omarchy", "voxtype", "remove"], "voxtype-remove", { sudo: true })
+    runJob(Requests.job("voxtype.remove", {}), "voxtype-remove", { sudo: true })
   }
   function toggleHybridGpu() {
     if (!hybridGpuAvailable) return
-    runGumJob(["omarchy", "toggle", "hybrid", "gpu"], "hybrid-gpu", { sudo: true })
+    runJob(Requests.job("hybrid-gpu.toggle", {}), "hybrid-gpu", { sudo: true })
   }
   function installTailscale() {
-    runGumJob(["omarchy", "install", "service", "tailscale"], "tailscale-install", { sudo: true })
+    runJob(Requests.job("tailscale.install", {}), "tailscale-install", { sudo: true })
   }
   function removeTailscale() {
     if (!tailscaleInstalled) return
-    runGumJob(["omarchy", "remove", "service", "tailscale"], "tailscale-remove", { sudo: true })
+    runJob(Requests.job("tailscale.remove", {}), "tailscale-remove", { sudo: true })
   }
   function setPluginEnabled(id, on) {
     id = String(id || "")
@@ -1625,43 +1486,24 @@ QtObject {
         break
       }
     }
-    runCommand(["omarchy", "plugin", on ? "enable" : "disable", id], {
-      key: "plugin:" + id,
-      op: Requests.write("plugin.set", { id: id, on: on === true }),
-      refresh: "none"
-    })
+    runCommand(Requests.write("plugin.set", { id: id, on: on === true }), { key: "plugin:" + id, refresh: "none" })
   }
   function setSnapperNumberLimit(n) {
     n = Math.round(Number(n))
     if (!isFinite(n) || n < 1 || n > 50 || n === snapperNumberLimit) return
-    runCommand(Backend.task("set-snapper-policy", ["number-limit", String(n)]), {
-      key: "snapperNumberLimit",
-      op: Requests.write("snapper.number-limit", { n: n }),
-      refresh: "none",
-      sudo: true
-    })
+    runCommand(Requests.write("snapper.number-limit", { n: n }), { key: "snapperNumberLimit", refresh: "none", sudo: true })
   }
   function setSnapperTimeline(on) {
     if (on === snapperTimeline) return
-    runCommand(Backend.task("set-snapper-policy", ["timeline", on ? "on" : "off"]), {
-      key: "snapperTimeline",
-      op: Requests.write("snapper.timeline", { on: on === true }),
-      refresh: "none",
-      sudo: true
-    })
+    runCommand(Requests.write("snapper.timeline", { on: on === true }), { key: "snapperTimeline", refresh: "none", sudo: true })
   }
   function setFstrim(on) {
     if (on === fstrimEnabled) return
-    runCommand(Backend.task("set-fstrim", [on ? "on" : "off"]), {
-      key: "fstrimEnabled",
-      op: Requests.write("fstrim", { on: on === true }),
-      refresh: "none",
-      sudo: true
-    })
+    runCommand(Requests.write("fstrim", { on: on === true }), { key: "fstrimEnabled", refresh: "none", sudo: true })
   }
   function setupDirectBoot() {
     if (!directBootAvailable) return
-    runGumJob(["omarchy", "setup", "direct", "boot"], "direct-boot", { sudo: true })
+    runJob(Requests.job("direct-boot.setup", {}), "direct-boot", { sudo: true })
   }
   function setMimeDefault(kind, desktop) {
     if (kind !== "pdf" && kind !== "image" && kind !== "video") return
@@ -1675,21 +1517,17 @@ QtObject {
   function setWifiBand(band) {
     if (band !== "auto" && band !== "2.4" && band !== "5" && band !== "6") return
     if (band === wifiBandSelected) return
-    runCommand(["omarchy", "network", "band", band], {
-      key: "wifiBandSelected",
-      op: Requests.write("wifi.band", { band: band }),
-      refresh: "none"
-    })
+    runCommand(Requests.write("wifi.band", { band: band }), { key: "wifiBandSelected", refresh: "none" })
   }
 
   function copyWifiPassword() {
     if (!wifiIface || !/^[a-zA-Z0-9._-]+$/.test(wifiIface)) return
-    runCommand(["bash", "-c", "omarchy network password \"$1\" | wl-copy -n", "wifi-password", wifiIface])
+    runCommand(Requests.write("wifi.password-copy", { iface: wifiIface }))
   }
   function fetchWifiQr() {
-    var argv = ["omarchy", "network", "qr", "--meta"]
-    if (wifiIface && /^[a-zA-Z0-9._-]+$/.test(wifiIface)) argv.push(wifiIface)
-    runJob(argv, "", "wifi-qr", { refresh: "none" })
+    var args = {}
+    if (wifiIface && /^[a-zA-Z0-9._-]+$/.test(wifiIface)) args.iface = wifiIface
+    runJob(Requests.job("wifi.qr", args), "wifi-qr", { refresh: "none" })
   }
   function applyWifiQr(exitCode, out, err) {
     lastError = ""
@@ -1716,7 +1554,7 @@ QtObject {
   function copyText(text) {
     text = RichUi.clipboardPayload(text, { singleLine: true, maxLength: 1024 })
     if (!text) return
-    runCommand(["bash", "-c", "printf '%s' \"$1\" | wl-copy -n", "copy-text", text])
+    runCommand(Requests.write("clipboard.copy", { text: text }))
   }
 
   function writeWorkspaces(items, wrap, wheel) {
@@ -1749,36 +1587,36 @@ QtObject {
   }
 
   function setConnectionMetered(uuid, value) {
-    var argv = NetworkPrefs.argvFor("metered", { uuid: uuid, value: value })
-    if (!argv) return
-    runCommand(Backend.task("set-wifi-connection", argv), { key: "wifi-metered:" + uuid, refresh: "network" })
+    var op = NetworkPrefs.opFor("metered", { uuid: uuid, value: value })
+    if (!op) return
+    runCommand(Requests.write(op.name, op.args), { key: "wifi-metered:" + uuid, refresh: "network" })
   }
   function setConnectionPriority(uuid, value) {
-    var argv = NetworkPrefs.argvFor("priority", { uuid: uuid, value: value })
-    if (!argv) return
-    runCommand(Backend.task("set-wifi-connection", argv), { key: "wifi-priority:" + uuid, refresh: "network" })
+    var op = NetworkPrefs.opFor("priority", { uuid: uuid, value: value })
+    if (!op) return
+    runCommand(Requests.write(op.name, op.args), { key: "wifi-priority:" + uuid, refresh: "network" })
   }
   function setConnectionMac(uuid, value) {
-    var argv = NetworkPrefs.argvFor("mac", { uuid: uuid, value: value })
-    if (!argv) return
-    runCommand(Backend.task("set-wifi-connection", argv), { key: "wifi-mac:" + uuid, refresh: "network" })
+    var op = NetworkPrefs.opFor("mac", { uuid: uuid, value: value })
+    if (!op) return
+    runCommand(Requests.write(op.name, op.args), { key: "wifi-mac:" + uuid, refresh: "network" })
   }
   function setConnectionIpv4(uuid, spec) {
     spec = spec && typeof spec === "object" ? spec : {}
     spec.uuid = uuid
-    var argv = NetworkPrefs.argvFor("ipv4", spec)
-    if (!argv) return
-    runCommand(Backend.task("set-wifi-connection", argv), { key: "wifi-ipv4:" + uuid, refresh: "network" })
+    var op = NetworkPrefs.opFor("ipv4", spec)
+    if (!op) return
+    runCommand(Requests.write(op.name, op.args), { key: "wifi-ipv4:" + uuid, refresh: "network" })
   }
   function importWireGuard(path) {
-    var argv = NetworkPrefs.argvFor("wireguard-import", { path: path })
-    if (!argv) return
-    runCommand(Backend.task("set-wifi-connection", argv), { key: "wireguard-import", refresh: "network" })
+    var op = NetworkPrefs.opFor("wireguard-import", { path: path })
+    if (!op) return
+    runCommand(Requests.write(op.name, op.args), { key: "wireguard-import", refresh: "network" })
   }
   function setHotspot(on, ssid, password) {
-    var argv = NetworkPrefs.argvFor("hotspot", { on: on === true, ssid: ssid, password: password })
-    if (!argv) return
-    runCommand(Backend.task("set-wifi-connection", argv), { key: "wifi-hotspot", refresh: "network" })
+    var op = NetworkPrefs.opFor("hotspot", { on: on === true, ssid: ssid, password: password })
+    if (!op) return
+    runCommand(Requests.write(op.name, op.args), { key: "wifi-hotspot", refresh: "network" })
   }
   function applyMonitorLayout(name) {
     var key = String(name || "")
@@ -1796,7 +1634,7 @@ QtObject {
   function toggleFavorite(row) {
     var next = FavoritesJs.toggleItem(favoriteItems, row)
     // The file's stamp brings the new list back; the window does not set it.
-    runCommand(Backend.task("set-favorites", ["write", FavoritesJs.serialize(next)]), { key: "favorites" })
+    runCommand(Requests.write("favorites.write", { json: FavoritesJs.serialize(next) }), { key: "favorites" })
   }
 
   function setPresentationMode(on) {
@@ -1817,19 +1655,16 @@ QtObject {
     dispatchSetting("tweaks." + String(id || ""), on === true)
   }
   function signalProcess(pid, signal) {
-    var argv = ProcessesJs.signalArgv(pid, signal, Backend.task("signal-process", []))
-    if (!argv) return
-    runCommand(argv, { key: "process:" + pid, refresh: "none" })
+    var args = ProcessesJs.signalArgs(pid, signal)
+    if (!args) return
+    runCommand(Requests.write("process.signal", args), { key: "process:" + pid, refresh: "none" })
   }
 
   function systemdAction(action, unit, scope) {
-    var argv = ["systemctl"]
-    if (scope === "user") argv.push("--user")
     if (action !== "start" && action !== "stop" && action !== "restart" && action !== "enable" && action !== "disable") return
     unit = String(unit || "")
     if (!/^[A-Za-z0-9:_.@\\-]+$/.test(unit)) return
-    argv.push(action, unit)
-    runCommand(argv, { key: "systemd:" + unit, refresh: "all", sudo: scope !== "user" })
+    runCommand(Requests.write(scope === "user" ? "systemd.user" : "systemd.system", { action: action, unit: unit }), { key: "systemd:" + unit, refresh: "all", sudo: scope !== "user" })
   }
   function applyProfileValues(values) {
     if (!values || typeof values !== "object") return
@@ -1842,13 +1677,13 @@ QtObject {
   function copyLastError() {
     var text = RichUi.clipboardPayload(lastError, { maxLength: 8192 })
     if (!text) return
-    runCommand(["bash", "-c", "printf '%s' \"$1\" | wl-copy -n", "copy-text", text])
+    runCommand(Requests.write("clipboard.copy", { text: text }))
   }
 
   function copyDiagnosticReport() {
     var header = DiagnosticsJs.reportText(diagnostics)
     if (!header) return
-    runJob(Backend.task("diag-report", ["copy"]), header, "diag-report", { refresh: "none" })
+    runJob(Requests.job("diag.report", { action: "copy", header: header }), "diag-report", { refresh: "none" })
   }
 
   function saveDiagnosticReport(path) {
@@ -1856,13 +1691,13 @@ QtObject {
     if (!dest || dest.indexOf("\n") !== -1 || dest.charAt(0) !== "/") return
     var header = DiagnosticsJs.reportText(diagnostics)
     if (!header) return
-    runJob(Backend.task("diag-report", ["save", dest]), header, "diag-report", { refresh: "none" })
+    runJob(Requests.job("diag.report", { action: "save", dest: dest, header: header }), "diag-report", { refresh: "none" })
   }
 
   function askAgentAboutDiagnostics() {
     var header = DiagnosticsJs.reportText(diagnostics)
     if (!header) return
-    runJob(Backend.task("diag-report", ["agent"]), header, "diag-report", { refresh: "none" })
+    runJob(Requests.job("diag.report", { action: "agent", header: header }), "diag-report", { refresh: "none" })
   }
 
   function clearLastError() {
@@ -1872,7 +1707,7 @@ QtObject {
   function askAgentAboutError() {
     var prompt = RichUi.agentErrorPrompt(lastError)
     if (!prompt) return
-    runCommand(["bash", "-c", "omarchy agent prompt \"$1\" >/dev/null 2>&1 &", "agent-prompt", prompt])
+    runCommand(Requests.write("agent.prompt", { text: prompt }))
     lastError = ""
   }
 
@@ -1886,7 +1721,7 @@ QtObject {
     if (!ssid || !identity || !password) return
     if (ssid.length > 64 || identity.length > 256 || password.length > 256) return
     if (/[\r\n\0]/.test(ssid) || /[\r\n\0]/.test(identity) || /[\r\n\0]/.test(password)) return
-    runJob(Backend.task("enterprise-wifi-connect", [ssid, identity]), password + "\n", "wifi-enterprise")
+    runJob(Requests.job("wifi.enterprise", { ssid: ssid, identity: identity, password: password }), "wifi-enterprise")
   }
   function wifiUuidForSsid(ssid) {
     ssid = String(ssid || "")
@@ -1909,35 +1744,23 @@ QtObject {
       activateWifiConnection(uuid)
       return
     }
-    runJob(Backend.task("set-wifi-connection", ["join", ssid]), password.length ? password + "\n" : "", "wifi-join")
+    runJob(Requests.job("wifi.join", password.length ? { ssid: ssid, password: password } : { ssid: ssid }), "wifi-join")
   }
   function activateWifiConnection(uuid) {
     uuid = String(uuid || "")
     if (!/^[0-9a-fA-F-]{36}$/.test(uuid)) return
     var list = SnapshotJs.toList(wifiConnections)
-    runCommand(Backend.task("set-wifi-connection", ["up", uuid]), {
-      key: "wifi:" + uuid,
-      op: Requests.write("wifi.connection", { action: "up", uuid: uuid }),
-      refresh: "none"
-    })
+    runCommand(Requests.write("wifi.connection", { action: "up", uuid: uuid }), { key: "wifi:" + uuid, refresh: "none" })
   }
   function deactivateWifiConnection(uuid) {
     uuid = String(uuid || "")
     if (!/^[0-9a-fA-F-]{36}$/.test(uuid)) return
-    runCommand(Backend.task("set-wifi-connection", ["down", uuid]), {
-      key: "wifi:" + uuid,
-      op: Requests.write("wifi.connection", { action: "down", uuid: uuid }),
-      refresh: "none"
-    })
+    runCommand(Requests.write("wifi.connection", { action: "down", uuid: uuid }), { key: "wifi:" + uuid, refresh: "none" })
   }
   function forgetWifiConnection(uuid) {
     uuid = String(uuid || "")
     if (!/^[0-9a-fA-F-]{36}$/.test(uuid)) return
-    runCommand(Backend.task("set-wifi-connection", ["delete", uuid]), {
-      key: "wifi:" + uuid,
-      op: Requests.write("wifi.connection", { action: "delete", uuid: uuid }),
-      refresh: "none"
-    })
+    runCommand(Requests.write("wifi.connection", { action: "delete", uuid: uuid }), { key: "wifi:" + uuid, refresh: "none" })
   }
   function deactivateWifiSsid(ssid) {
     ssid = String(ssid || "")
@@ -1947,10 +1770,7 @@ QtObject {
       deactivateWifiConnection(uuid)
       return
     }
-    runCommand(Backend.task("set-wifi-connection", ["down-ssid", ssid]), {
-      key: "wifi:" + ssid,
-      refresh: "all"
-    })
+    runCommand(Requests.write("wifi.ssid", { action: "down-ssid", ssid: ssid }), { key: "wifi:" + ssid, refresh: "all" })
   }
   function forgetWifiSsid(ssid) {
     ssid = String(ssid || "")
@@ -1960,56 +1780,38 @@ QtObject {
       forgetWifiConnection(uuid)
       return
     }
-    runCommand(Backend.task("set-wifi-connection", ["delete-ssid", ssid]), {
-      key: "wifi:" + ssid,
-      refresh: "all"
-    })
+    runCommand(Requests.write("wifi.ssid", { action: "delete-ssid", ssid: ssid }), { key: "wifi:" + ssid, refresh: "all" })
   }
   function restartWifi() {
-    runCommand(["omarchy", "restart", "wifi"], { refresh: "network" })
+    runCommand(Requests.write("restart", { what: "wifi" }), { refresh: "network" })
   }
   function restartBluetooth() {
-    runCommand(["omarchy", "restart", "bluetooth"], { refresh: "network" })
+    runCommand(Requests.write("restart", { what: "bluetooth" }), { refresh: "network" })
   }
   function pairBluetoothDevice(address) {
     address = String(address || "")
     if (!/^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/.test(address)) return
-    runCommand(["omarchy", "bluetooth", "device", "pair", address], {
-      key: "bluetooth:" + address,
-      refresh: "all"
-    })
+    runCommand(Requests.write("bluetooth.pair", { address: address }), { key: "bluetooth:" + address, refresh: "all" })
   }
   function connectBluetoothDevice(address) {
     address = String(address || "")
     if (!/^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/.test(address)) return
-    runCommand(["omarchy", "bluetooth", "device", "connect", address], {
-      key: "bluetooth:" + address,
-      op: Requests.write("bluetooth.device", { action: "connect", address: address }),
-      refresh: "none"
-    })
+    runCommand(Requests.write("bluetooth.device", { action: "connect", address: address }), { key: "bluetooth:" + address, refresh: "none" })
   }
   function disconnectBluetoothDevice(address) {
     address = String(address || "")
     if (!/^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/.test(address)) return
-    runCommand(["omarchy", "bluetooth", "device", "disconnect", address], {
-      key: "bluetooth:" + address,
-      op: Requests.write("bluetooth.device", { action: "disconnect", address: address }),
-      refresh: "none"
-    })
+    runCommand(Requests.write("bluetooth.device", { action: "disconnect", address: address }), { key: "bluetooth:" + address, refresh: "none" })
   }
   function trustBluetoothDevice(address) {
     address = String(address || "")
     if (!/^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/.test(address)) return
-    runCommand(["bluetoothctl", "trust", address], { key: "bluetooth-trust:" + address, refresh: "network" })
+    runCommand(Requests.write("bluetooth.trust", { address: address }), { key: "bluetooth-trust:" + address, refresh: "network" })
   }
   function forgetBluetoothDevice(address) {
     address = String(address || "")
     if (!/^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/.test(address)) return
-    runCommand(["omarchy", "bluetooth", "device", "forget", address], {
-      key: "bluetooth:" + address,
-      op: Requests.write("bluetooth.device", { action: "forget", address: address }),
-      refresh: "none"
-    })
+    runCommand(Requests.write("bluetooth.device", { action: "forget", address: address }), { key: "bluetooth:" + address, refresh: "none" })
   }
   function setAudioOutputVolume(percent) {
     percent = Math.round(Number(percent))
@@ -2018,11 +1820,7 @@ QtObject {
     dispatchSetting("audioOutputVolume", percent)
   }
   function toggleAudioOutputMute() {
-    runCommand(["omarchy", "audio", "output", "volume", "mute-toggle"], {
-      key: "audioOutputMuted",
-      op: Requests.write("audio.output.mute-toggle", {}),
-      refresh: "none"
-    })
+    runCommand(Requests.write("audio.output.mute-toggle", {}), { key: "audioOutputMuted", refresh: "none" })
   }
   function setAudioInputVolume(percent) {
     percent = Math.round(Number(percent))
@@ -2031,11 +1829,7 @@ QtObject {
     dispatchSetting("audioInputVolume", percent)
   }
   function toggleAudioInputMute() {
-    runCommand(["omarchy", "audio", "input", "mute"], {
-      key: "audioInputMuted",
-      op: Requests.write("audio.input.mute-toggle", {}),
-      refresh: "none"
-    })
+    runCommand(Requests.write("audio.input.mute-toggle", {}), { key: "audioInputMuted", refresh: "none" })
   }
   function setAudioSink(name) {
     name = String(name || "")
@@ -2043,11 +1837,7 @@ QtObject {
     var list = audioSinks
     for (var i = 0; i < list.length; i++) {
       if (list[i] && String(list[i].name) === name) {
-        runCommand(["omarchy", "audio", "output", "set", "default", String(list[i].id), name], {
-          key: "audioSink",
-          op: Requests.write("audio.output.default", { id: String(list[i].id), name: name }),
-          refresh: "none"
-        })
+        runCommand(Requests.write("audio.output.default", { id: String(list[i].id), name: name }), { key: "audioSink", refresh: "none" })
         return
       }
     }
@@ -2058,23 +1848,16 @@ QtObject {
     var list = audioSources
     for (var j = 0; j < list.length; j++) {
       if (list[j] && String(list[j].name) === name) {
-        runCommand(["omarchy", "audio", "input", "set", "default", String(list[j].id), name], {
-          key: "audioSource",
-          op: Requests.write("audio.input.default", { id: String(list[j].id), name: name }),
-          refresh: "none"
-        })
+        runCommand(Requests.write("audio.input.default", { id: String(list[j].id), name: name }), { key: "audioSource", refresh: "none" })
         return
       }
     }
   }
   function switchAudioOutput() {
-    runCommand(["omarchy", "audio", "output", "switch"], {
-      key: "audioSink",
-      refresh: "all"
-    })
+    runCommand(Requests.write("audio.output-switch", {}), { key: "audioSink", refresh: "all" })
   }
   function restartAudio() {
-    runCommand(["omarchy", "restart", "audio"])
+    runCommand(Requests.write("restart", { what: "audio" }))
   }
   function validMountPath(dir) {
     return RichUi.validMountPath(dir)
@@ -2084,7 +1867,7 @@ QtObject {
     if (!dir || dir.length > 1024) return
     if (dir.charAt(0) !== "/" || dir.indexOf("..") !== -1) return
     if (/[\r\n\0]/.test(dir)) return
-    launchDetached(["xdg-open", dir])
+    runCommand(Requests.write("open.path", { path: dir }))
   }
   function changeDrivePassword(device, currentPass, newPass) {
     device = String(device || "")
@@ -2092,40 +1875,36 @@ QtObject {
     newPass = String(newPass || "")
     if (!device || device.charAt(0) !== "/" || device.indexOf("..") !== -1) return
     if (!currentPass || !newPass) return
-    runJob(Backend.task("luks-change-key", []), device + "\n" + currentPass + "\n" + newPass + "\n", "luks", { sudo: true })
+    runJob(Requests.job("luks.change-key", { device: device, current: currentPass, new: newPass }), "luks", { sudo: true })
   }
   function createSnapshot() {
-    runJob(["omarchy", "snapshot", "create"], "", "snapshot-create", { sudo: true })
+    runJob(Requests.job("snapshot.create", {}), "snapshot-create", { sudo: true })
   }
   function restoreSnapshot(config, id) {
     config = String(config || "")
     id = String(id || "")
     if (!/^[A-Za-z0-9_-]+$/.test(config)) return
     if (!/^[0-9]+$/.test(id)) return
-    runJob(Backend.task("rollback-snapshot", [config, id]), "", "snapshot-rollback", { sudo: true })
+    runJob(Requests.job("snapshot.rollback", { config: config, id: id }), "snapshot-rollback", { sudo: true })
   }
   function setupHibernation() {
-    runJob(["omarchy", "hibernation", "setup", "--force"], "", "hibernation-setup", { sudo: true })
+    runJob(Requests.job("hibernation.setup", {}), "hibernation-setup", { sudo: true })
   }
   function removeHibernation() {
-    runJob(Backend.task("gum-job", ["omarchy", "hibernation", "remove"]), "", "hibernation-remove", { sudo: true })
+    runJob(Requests.job("hibernation.remove", {}), "hibernation-remove", { sudo: true })
   }
 
 
   function setPowerProfile(name) {
     if (!name || name === powerProfile) return
-    runCommand(["omarchy", "powerprofiles", "set", "autodetect", name], {
-      key: "powerProfile",
-      op: Requests.write("power.profile", { name: name }),
-      refresh: "none"
-    })
+    runCommand(Requests.write("power.profile", { name: name }), { key: "powerProfile", refresh: "none" })
   }
 
 
 
 
   function showBatteryNotification() {
-    runCommand(["omarchy", "notification", "battery"])
+    runCommand(Requests.write("notification", { kind: "battery" }))
   }
 
 
@@ -2148,11 +1927,7 @@ QtObject {
     var name = RichUi.parseWeatherLocation(weatherLocation)
     if (!name || weatherAuto) return
     if (coords === weatherCoords) return
-    runCommand(["omarchy", "weather", "location", "--set", name, coords], {
-      key: "weatherCoords",
-      op: Requests.write("weather.coordinates", { name: name, coords: coords }),
-      refresh: "none"
-    })
+    runCommand(Requests.write("weather.coordinates", { name: name, coords: coords }), { key: "weatherCoords", refresh: "none" })
   }
 
   function setWeatherUnit(unit) {
@@ -2173,34 +1948,26 @@ QtObject {
     message = String(message || "").replace(/^\s+|\s+$/g, "")
     var argv = ["omarchy", "reminder", minutes]
     if (message.length > 0) argv.push(message)
-    runCommand(argv, {
-      key: "reminder",
-      op: Requests.write("reminder.set", { minutes: parseInt(minutes, 10), message: message }),
-      refresh: "none"
-    })
+    runCommand(Requests.write("reminder.set", { minutes: parseInt(minutes, 10), message: message }), { key: "reminder", refresh: "none" })
   }
 
   function clearReminders() {
     if (!reminderActive) return
-    runCommand(["omarchy", "reminder", "clear"], {
-      key: "reminder",
-      op: Requests.write("reminder.clear", {}),
-      refresh: "none"
-    })
+    runCommand(Requests.write("reminder.clear", {}), { key: "reminder", refresh: "none" })
   }
 
   function showReminders() {
-    runCommand(["omarchy", "reminder", "show"])
+    runCommand(Requests.write("reminder.show", {}))
   }
 
   function sendTestNotification() {
-    runCommand(["omarchy", "notification", "send", "Atmos", "This is a test toast."])
+    runCommand(Requests.write("notification.test", {}))
   }
   function sendTimeNotification() {
-    runCommand(["omarchy", "notification", "time"])
+    runCommand(Requests.write("notification", { kind: "time" }))
   }
   function sendWeatherNotification() {
-    runCommand(["omarchy", "notification", "weather"])
+    runCommand(Requests.write("notification", { kind: "weather" }))
   }
 
   function captureScreenshot(mode, dest) {
@@ -2208,56 +1975,48 @@ QtObject {
     dest = String(dest || "slurp")
     if (mode !== "smart" && mode !== "region" && mode !== "windows" && mode !== "fullscreen") return
     if (dest !== "slurp" && dest !== "copy" && dest !== "save") return
-    runInteractive(["omarchy", "capture", "screenshot", mode, dest], { kind: "screenshot" })
+    runInteractive(Requests.job("capture.screenshot", { mode: mode, dest: dest }), { kind: "screenshot" })
   }
   function startScreenrecording(desktopAudio, microphone, webcam, webcamSize, fullscreen) {
-    var argv = ["omarchy", "capture", "screenrecording"]
-    if (fullscreen) argv.push("--fullscreen")
-    if (desktopAudio) argv.push("--with-desktop-audio")
-    if (microphone) argv.push("--with-microphone-audio")
-    if (webcam) argv.push("--with-webcam")
     var size = String(webcamSize || "medium")
     if (size !== "small" && size !== "medium" && size !== "large") size = "medium"
-    if (webcam) argv.push("--webcam-size=" + size)
-    runInteractive(argv, {
+    var args = { fullscreen: !!fullscreen, desktopAudio: !!desktopAudio, microphone: !!microphone, webcam: !!webcam }
+    if (webcam) args.webcamSize = size
+    runInteractive(Requests.job("capture.recording", args), {
       kind: "recording",
       readback: { keys: ["recordingActive", "webcamOverlay"], expect: { recordingActive: true } },
       refresh: "none"
     })
   }
+  // A picker still open is cancelled; once the recorder runs, the tool ends it.
   function stopScreenrecording() {
-    if (IoQueue.interactiveKind === "recording" && IoQueue.interactiveRunning)
-      IoQueue.stopInteractive()
-    runCommand(["omarchy", "capture", "screenrecording", "--stop-recording"], {
-      key: "recordingActive",
-      op: Requests.write("recording.stop", {}),
-      refresh: "none"
-    })
+    if (!recordingActive && IoQueue.interactiveKind === "recording" && IoQueue.interactiveRunning) IoQueue.stopInteractive()
+    else runCommand(Requests.write("recording.stop", {}), { key: "recordingActive", refresh: "none" })
   }
   function captureText() {
-    runInteractive(["omarchy", "capture", "text"], { kind: "capture-text" })
+    runInteractive(Requests.job("capture.text", {}), { kind: "capture-text" })
   }
   function captureQr() {
-    runInteractive(["omarchy", "capture", "qr"], { kind: "capture-qr" })
+    runInteractive(Requests.job("capture.qr", {}), { kind: "capture-qr" })
   }
   function resizeWebcam(action) {
     action = String(action || "")
     if (action !== "smaller" && action !== "larger" && action !== "reset" && action !== "small" && action !== "medium" && action !== "large") return
-    runCommand(["omarchy", "capture", "webcam", "resize", action])
+    runCommand(Requests.write("webcam.resize", { action: action }))
   }
 
   function shareClipboard() {
-    runCommand(["omarchy", "share", "clipboard"])
+    runCommand(Requests.write("share.clipboard", {}))
   }
   function shareFile(path) {
     path = String(path || "")
     if (!path || path.charAt(0) !== "/" || path.indexOf("..") !== -1) return
-    runCommand(["omarchy", "share", "file", path])
+    runCommand(Requests.write("share.file", { path: path }))
   }
   function shareFolder(path) {
     path = String(path || "")
     if (!path || path.charAt(0) !== "/" || path.indexOf("..") !== -1) return
-    runCommand(["omarchy", "share", "folder", path])
+    runCommand(Requests.write("share.folder", { path: path }))
   }
   function tailscaleSend(machine, path) {
     machine = String(machine || "").replace(/^\s+|\s+$/g, "")
@@ -2265,34 +2024,34 @@ QtObject {
     path = String(path || "")
     if (path.length > 0) {
       if (path.charAt(0) !== "/" || path.indexOf("..") !== -1) return
-      runInteractive(["omarchy", "tailscale", "send", machine, path], { kind: "tailscale-send" })
+      runInteractive(Requests.job("tailscale.send", { machine: machine, path: path }), { kind: "tailscale-send" })
       return
     }
-    runInteractive(["omarchy", "tailscale", "send", machine], { kind: "tailscale-send" })
+    runInteractive(Requests.job("tailscale.send", { machine: machine }), { kind: "tailscale-send" })
   }
   function tailscaleReceive() {
-    runInteractive(["omarchy", "tailscale", "receive", "--once"], { kind: "tailscale-receive" })
+    runInteractive(Requests.job("tailscale.receive", {}), { kind: "tailscale-receive" })
   }
 
   function runSoftware(argv, kind) {
     if (!(argv instanceof Array) || argv.length < 2) return
     if (argv[0] !== "omarchy") return
-    runGumJob(argv, kind || "software", { sudo: true })
+    runJob(Requests.job("software.run", { action: argv[1], words: argv.slice(2) }), kind || "software", { sudo: true })
   }
   function installDevEnv(lang) {
     lang = String(lang || "")
     if (!/^[a-z]+$/.test(lang)) return
-    runGumJob(["omarchy", "install", "dev", "env", lang], "dev-env-install", { sudo: true })
+    runJob(Requests.job("dev-env.install", { lang: lang }), "dev-env-install", { sudo: true })
   }
   function removeDevEnv(lang) {
     lang = String(lang || "")
     if (!/^[a-z]+$/.test(lang)) return
-    runGumJob(["omarchy", "remove", "dev", "env", lang], "dev-env-remove", { sudo: true })
+    runJob(Requests.job("dev-env.remove", { lang: lang }), "dev-env-remove", { sudo: true })
   }
   function installDockerDb(name) {
     name = String(name || "")
     if (!/^[A-Za-z]+$/.test(name)) return
-    runGumJob(["omarchy", "install", "docker", "dbs", name], "docker-db-install", { sudo: true })
+    runJob(Requests.job("docker-db.install", { name: name }), "docker-db-install", { sudo: true })
   }
 
   function isHookId(name) {
@@ -2316,11 +2075,7 @@ QtObject {
     var base = path.split("/").pop()
     var dest = hookDest(type, base)
     if (!dest) return
-    runCommand(["omarchy", "hook", "install", type, path], {
-      key: "hook:" + dest,
-      op: Requests.write("hook.install", { type: type, path: path }),
-      refresh: "none"
-    })
+    runCommand(Requests.write("hook.install", { type: type, path: path }), { key: "hook:" + dest, refresh: "none" })
   }
 
   function createHook(type, name, command) {
@@ -2330,11 +2085,7 @@ QtObject {
     if (!isHookId(type) || !name || !command) return
     var dest = hookDest(type, name)
     if (!dest) return
-    runCommand(Backend.task("create-hook", [type, name, command]), {
-      key: "hook:" + dest,
-      op: Requests.write("hook.create", { type: type, name: name, command: command }),
-      refresh: "none"
-    })
+    runCommand(Requests.write("hook.create", { type: type, name: name, command: command }), { key: "hook:" + dest, refresh: "none" })
   }
 
   function removeHook(path) {
@@ -2343,22 +2094,14 @@ QtObject {
     if (path.indexOf(root) !== 0) return
     if (path.indexOf("..") !== -1) return
     if (path.length >= 7 && path.substring(path.length - 7) === ".sample") return
-    runCommand(["rm", "-f", path], {
-      key: "hook:" + path,
-      op: Requests.write("hook.remove", { path: path }),
-      refresh: "none"
-    })
+    runCommand(Requests.write("hook.remove", { path: path }), { key: "hook:" + path, refresh: "none" })
   }
 
   function setHookSample(path, enabled) {
     path = String(path || "")
     var root = Quickshell.env("HOME") + "/.config/omarchy/hooks/"
     if (path.indexOf(root) !== 0 || path.indexOf("..") !== -1) return
-    runCommand(Backend.task("set-hook-sample", [enabled ? "enable" : "disable", path]), {
-      key: "hook:" + path,
-      op: Requests.write("hook.sample", { path: path, enabled: enabled === true }),
-      refresh: "none"
-    })
+    runCommand(Requests.write("hook.sample", { path: path, enabled: enabled === true }), { key: "hook:" + path, refresh: "none" })
   }
 
   function runHook(name, arg) {
@@ -2366,35 +2109,34 @@ QtObject {
     if (!isHookId(name)) return
     arg = String(arg || "").replace(/^\s+|\s+$/g, "")
     if (arg)
-      runCommand(["omarchy", "hook", name, arg])
+      runCommand(Requests.write("hook.run", { name: name, arg: arg }))
     else
-      runCommand(["omarchy", "hook", name])
+      runCommand(Requests.write("hook.run", { name: name }))
   }
 
   function openHookFolder(type) {
     type = String(type || "")
     if (!isHookId(type)) return
-    var dir = Quickshell.env("HOME") + "/.config/omarchy/hooks/" + type + ".d"
-    runCommand(["bash", "-c", "mkdir -p \"$1\"; xdg-open \"$1\" >/dev/null 2>&1 &", "prefs-hooks", dir])
+    runCommand(Requests.write("hook.folder", { type: type }))
   }
 
   function editHook(path) {
     path = String(path || "")
     var root = Quickshell.env("HOME") + "/.config/omarchy/hooks/"
     if (path.indexOf(root) !== 0 || path.indexOf("..") !== -1) return
-    launchDetached(["xdg-open", path])
+    runCommand(Requests.write("open.path", { path: path }))
   }
 
   function editMonitorsLua() {
     var path = String(Paths.monitorsLuaFile || "")
     var root = Quickshell.env("HOME") + "/.config/hypr/"
     if (path.indexOf(root) !== 0 || path.indexOf("..") !== -1) return
-    launchDetached(["xdg-open", path])
+    runCommand(Requests.write("open.path", { path: path }))
   }
 
   function launchHerdr() {
     if (!(extras && extras.herdr === true)) return
-    launchDetached(["omarchy", "launch", "terminal", "herdr"])
+    runCommand(Requests.write("terminal.herdr", {}))
   }
 
   function setNightlightSchedule(day, night, nightOn) {
@@ -2592,38 +2334,31 @@ QtObject {
     writeWindowRules(next)
   }
 
-  function launchDetached(argv) {
-    if (!(argv instanceof Array) || argv.length === 0) return
-    var cmd = ["bash", "-c", "exec \"$@\" >/dev/null 2>&1 &", "prefs-open"]
-    for (var i = 0; i < argv.length; i++) cmd.push(argv[i])
-    runCommand(cmd)
-  }
-
   function openPrinters() {
     if (printerSetup)
-      launchDetached(["system-config-printer"])
+      runCommand(Requests.write("printers.setup", {}))
     else
       openCupsAdmin()
   }
 
   function openCupsAdmin() {
-    launchDetached(["xdg-open", "http://127.0.0.1:631"])
+    runCommand(Requests.write("cups.admin", {}))
   }
 
   function restartShell() {
-    runCommand(["omarchy", "restart", "shell"])
+    runCommand(Requests.write("restart", { what: "shell" }))
   }
 
   function refreshHyprland() {
-    runJob(Backend.task("refresh-hyprland", []), "", "refresh-hyprland")
+    runJob(Requests.job("refresh.hyprland", {}), "refresh-hyprland")
   }
 
   function refreshShell() {
-    runJob(["omarchy", "refresh", "shell"], "", "refresh-shell")
+    runJob(Requests.job("refresh.shell", {}), "refresh-shell")
   }
 
   function resetAtmos() {
-    runJob(Backend.task("reset-atmos", []), "", "reset-atmos")
+    runJob(Requests.job("reset.atmos", {}), "reset-atmos")
   }
 
   function setPlymouth(name) {
@@ -2634,17 +2369,17 @@ QtObject {
 
   function resetPlymouth() {
     if (plymouth === "default") return
-    runJob(["omarchy", "plymouth", "reset"], "", "plymouth-reset", { sudo: true })
+    runJob(Requests.job("plymouth.reset", {}), "plymouth-reset", { sudo: true })
   }
   function setPlymouthFromPath(path) {
     path = String(path || "")
     if (!path || path.charAt(0) !== "/" || path.indexOf("..") !== -1) return
-    runJob(["bash", "-c", "bg=$(omarchy theme color background); text=$(omarchy theme color foreground); omarchy plymouth set \"$bg\" \"$text\" \"$1\"", "plymouth-set", path], "", "plymouth-set", { sudo: true })
+    runJob(Requests.job("plymouth.set", { path: path }), "plymouth-set", { sudo: true })
   }
   function previewPlymouthFromPath(path) {
     path = String(path || "")
     if (!path || path.charAt(0) !== "/" || path.indexOf("..") !== -1) return
-    runJob(["bash", "-c", "bg=$(omarchy theme color background); text=$(omarchy theme color foreground); out=$(mktemp --suffix=.png); omarchy plymouth preview \"$bg\" \"$text\" \"$1\" \"$out\"; echo \"$out\"", "plymouth-preview", path], "", "plymouth-preview")
+    runJob(Requests.job("plymouth.preview", { path: path }), "plymouth-preview")
   }
 
   function installedOptions(all, available) {
@@ -2652,20 +2387,15 @@ QtObject {
   }
 
   Component.onCompleted: {
-    SnapshotGroups.setSnapshotGroupForHub(HubsJs.snapshotGroupForHub)
     Theme.currentThemeSwapped.connect(root.applyThemeNameFromFile)
-    SnapshotStore.stamped.connect(root.onStamped)
-    IoQueue.readRequested.connect(root.onReadRequested)
     IoQueue.setRequested.connect(root.onSetRequested)
     IoQueue.writeStarting.connect(root.onWriteStarting)
     IoQueue.jobStarting.connect(root.onJobStarting)
-    IoQueue.mutExited.connect(root.onMutExited)
     IoQueue.jobExited.connect(root.onJobExited)
     IoQueue.interactiveExited.connect(root.onInteractiveExited)
-    Backend.lostConnection.connect(function() {
-      root.lastError = "The backend stopped. Restarting it."
-    })
-    startSession(Quickshell.env("ATMOS_PAGE") || "home")
+    // The feeds put their topics to the daemon again by themselves.
+    Backend.reconnected.connect(IoQueue.resumeFromDaemon)
+    startSession()
   }
 
   function applyThemeNameFromFile(slug) {
@@ -2681,20 +2411,5 @@ QtObject {
   onThemesChanged: {
     var mapped = ThemeJs.themeNameFromSlug(root.theme, root.themes)
     if (mapped && mapped !== root.theme) root.applySnapshot(JSON.stringify({ theme: mapped }))
-  }
-
-  property string inputLuaCache: ""
-
-  // SnapshotStore watches the files and says when one has a stamp. These are
-  // the two files whose contents Omarchy reads itself.
-  function onStamped(path, text, first, changed) {
-    if (path === Paths.inputLuaFile) {
-      if (text !== root.inputLuaCache) {
-        root.inputLuaCache = text
-        root.applyHyprWorkspaceGestureFromFile()
-      }
-    }
-    if (path === Paths.favoritesFile && (first || changed))
-      root.loadFavorites(text)
   }
 }

@@ -9,6 +9,9 @@
 //! `HYPRLAND_INSTANCE_SIGNATURE`.
 
 mod args;
+pub mod entries;
+pub mod jobs;
+pub mod table;
 pub mod writes;
 
 use std::path::Path;
@@ -47,11 +50,12 @@ pub fn plan(request: &Request) -> Option<Plan> {
     match request {
         Request::Write { name, args } => {
             let built = writes::build(name, args).ok()?;
-            // A write that needs the caller's own process tree is not the daemon's.
-            (!built.local).then(|| Plan {
+            let mut affects = vec![SETTINGS.to_string()];
+            affects.extend(built.affects);
+            Some(Plan {
                 lane: built.lane,
                 key: None,
-                affects: vec![SETTINGS.into()],
+                affects,
             })
         }
         Request::DisplayBrightness { monitor, .. } => Some(Plan {
@@ -67,7 +71,46 @@ pub fn plan(request: &Request) -> Option<Plan> {
             key: Some("scale".into()),
             affects: vec![MONITORS.into(), SETTINGS.into()],
         }),
+        // Every write the server used to make in its own process goes through
+        // a lane too (docs/adr/0011). A lane names the whole target, so two
+        // different writes never share one and neither is lost.
+        Request::SettingsSet { domain, .. } => Some(Plan {
+            lane: format!("settings:{domain}"),
+            key: None,
+            // A setting can start or stop a unit, and its own topic holds it.
+            affects: vec![
+                SETTINGS.into(),
+                "services".into(),
+                crate::snapshot::topics::topic_of_domain(domain).into(),
+            ],
+        }),
+        Request::HostWrite(file) => Some(Plan {
+            lane: format!("file:{}", file.path),
+            key: None,
+            affects: Vec::new(),
+        }),
+        Request::HostOpen { .. } => Some(Plan {
+            lane: "open".into(),
+            key: None,
+            affects: Vec::new(),
+        }),
+        Request::AgentsMcpSet { agent, .. } => Some(Plan {
+            lane: format!("agents:{agent}"),
+            key: None,
+            affects: Vec::new(),
+        }),
         _ => None,
+    }
+}
+
+/// A read the daemon runs for a window: a lane of its own, nothing affected.
+pub fn read_plan() -> Plan {
+    static READS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let n = READS.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+    Plan {
+        lane: format!("read:{n}"),
+        key: None,
+        affects: Vec::new(),
     }
 }
 
@@ -82,6 +125,8 @@ pub fn reads(request: &Request) -> Vec<String> {
             topics
         }
         Request::SettingsGet { .. } | Request::SnapshotKeys { .. } => vec![SETTINGS.into()],
+        // A read of a topic waits for the writes ahead of it, as every read does.
+        Request::SnapshotInvalidate { .. } => vec![SETTINGS.into()],
         Request::DisplayGet { kind } => vec![kind.clone()],
         Request::DisplaySnapshot => crate::display::KINDS
             .iter()
@@ -115,13 +160,13 @@ pub fn snapshot_keys(
     let (mut last, mut settled);
     loop {
         last = crate::snapshot::keys::read(&wanted);
-        settled = expect.iter().all(|(k, v)| last.0.get(k) == Some(v));
+        settled = expect.iter().all(|(k, v)| last.values.get(k) == Some(v));
         if settled || began.elapsed() >= writes::SETTLE_FAST {
             break;
         }
         std::thread::sleep(writes::SETTLE_GAP);
     }
-    json!({"values": last.0, "unknown": last.1, "settled": settled})
+    json!({"values": last.values, "unknown": last.unknown, "failed": last.failed, "settled": settled})
 }
 
 /// `omarchy brightness display`, then the monitor list as the machine now
@@ -311,6 +356,56 @@ mod tests {
             scale(Some(Path::new("/nonexistent")), "1.25").unwrap(),
             json!({"scale": "1.25"})
         );
+    }
+
+    #[test]
+    fn what_serve_used_to_write_itself_has_a_lane_named_for_its_whole_target() {
+        let set = |domain: &str| {
+            plan(&parse(
+                json!({"op": "settings.set", "domain": domain, "value": 1}),
+            ))
+            .unwrap()
+        };
+        assert_eq!(set("theme").lane, "settings:theme");
+        assert_ne!(set("theme").lane, set("font").lane);
+        assert_eq!(set("theme").key, None, "a setting is never coalesced");
+        assert_eq!(
+            set("theme").affects,
+            ["settings", "services", "settings.look"],
+            "a setting invalidates the topic that holds it"
+        );
+        assert_eq!(set("hostname").affects[2], "settings.system");
+        let file = |path: &str| {
+            plan(&parse(
+                json!({"op": "host.write", "path": path, "text": "x"}),
+            ))
+            .unwrap()
+        };
+        assert_ne!(file("/a").lane, file("/b").lane);
+        let mcp = |agent: &str| {
+            plan(&parse(
+                json!({"op": "agents.mcp.set", "agent": agent, "on": true}),
+            ))
+            .unwrap()
+        };
+        assert_ne!(mcp("claude").lane, mcp("codex").lane);
+        assert!(plan(&parse(json!({"op": "host.open", "path": "/a"}))).is_some());
+    }
+
+    #[test]
+    fn a_systemd_write_and_an_app_removal_drop_the_inventory_they_change() {
+        let plan_of = |name: &str, args: Value| {
+            plan(&parse(json!({"op": "write", "name": name, "args": args}))).unwrap()
+        };
+        let unit = plan_of(
+            "systemd.user",
+            json!({"action": "restart", "unit": "waybar.service"}),
+        );
+        assert_eq!(unit.affects, ["settings", "services"]);
+        let app = plan_of("app.remove-desktop", json!({"id": "x.desktop"}));
+        assert!(app.affects.contains(&"software".to_string()));
+        let toggle = plan_of("audio.output.mute-toggle", json!({}));
+        assert_eq!(toggle.affects, ["settings"]);
     }
 
     #[test]

@@ -63,9 +63,13 @@ pub fn load(root: Option<&Path>, platform: Backend, kind: &str) -> Result<Value>
     if platform != Backend::Omarchy {
         return Ok(stamp(Value::Object(Map::new()), platform, named));
     }
-    // The sampling daemon keeps these warm; without one the kind is collected here.
+    // The sampling daemon keeps these warm. A window has nothing else to ask;
+    // a terminal command collects the kind itself.
     if let Some(doc) = crate::sampler::client::fetch(kind) {
         return Ok(doc);
+    }
+    if crate::sampler::client::required() {
+        return Err(Error::unavailable("collect"));
     }
     collect(platform, kind)
 }

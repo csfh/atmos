@@ -144,10 +144,6 @@ async function replay(c, index) {
   );
 
   // What the front end does with the reply.
-  assert(
-    same(proto.parseEnvelope(JSON.stringify(golden.response), 0), golden.response),
-    `${c.name}: parseEnvelope keeps the reply`,
-  );
   const decoded = proto.decodeLine(JSON.stringify({ ...golden.response, id: 9 }));
   assert(decoded.type === "reply" && decoded.id === 9, `${c.name}: decodeLine reads it as a reply`);
 }

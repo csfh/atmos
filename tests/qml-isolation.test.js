@@ -55,8 +55,11 @@ assert(
   "accounts come from ratmos",
 );
 assert(
-  snapshotStore.indexOf("Backend.watch(") !== -1 && snapshotStore.indexOf("Backend.stamp") !== -1,
-  "file watches are pushed by ratmos, not polled",
+  snapshotStore.indexOf("Backend.watch(") === -1 &&
+    snapshotStore.indexOf("Requests.snapshotInvalidate") !== -1 &&
+    snapshotStore.indexOf("Timer {") !== -1 &&
+    !/interval: 1000/.test(snapshotStore),
+  "the daemon watches the settings files; the window only batches its asks to read again",
 );
 assert(
   backend.indexOf('command(["serve"])') !== -1 && backend.indexOf("/bin/ratmos") !== -1,
@@ -98,18 +101,15 @@ assert(
 );
 const ioQueueSrc = fs.readFileSync(path.join(__dirname, "..", "services", "IoQueue.qml"), "utf8");
 assert(
-  ioQueueSrc.indexOf("mutProc.command = Backend.applyCommand(job.argv)") !== -1 &&
-    omarchy.indexOf('if (job.kind === "op") return Ops.run(job.opts)') !== -1,
-  "host actions go through ratmos: untyped ones through apply, typed writes through Ops",
+  omarchy.indexOf('if (job.kind === "op") return Ops.run(job.opts)') !== -1,
+  "typed writes go through Ops",
 );
 assert(
-  ioQueueSrc.indexOf("function startInteractive(") !== -1 &&
-    ioQueueSrc.indexOf("Backend.applyCommand(wrapped)") !== -1,
-  "interactive tools start through ratmos",
-);
-assert(
-  ioQueueSrc.indexOf("Backend.applyCommand(job.argv)") !== -1,
-  "queued jobs and writes start through ratmos apply",
+  ioQueueSrc.indexOf("Backend.startJob(job.op") !== -1 &&
+    ioQueueSrc.indexOf("function startInteractive(") !== -1 &&
+    ioQueueSrc.indexOf("Backend.startJob(op") !== -1 &&
+    ioQueueSrc.indexOf("Process") === -1,
+  "queued jobs and interactive tools are daemon jobs, and IoQueue runs no process",
 );
 const systemd = omarchy.slice(
   omarchy.indexOf("function systemdAction("),
@@ -118,3 +118,44 @@ const systemd = omarchy.slice(
 assert(systemd.indexOf("runCommand") !== -1, "systemctl start and stop go through runCommand");
 
 console.log("ok - quickshell host reads go through ratmos");
+
+// A job outlives its window (docs/adr/0009): a window that opens while one
+// runs follows it again, and a window whose link dropped attaches again.
+const backendSrc = fs.readFileSync(path.join(__dirname, "..", "services", "Backend.qml"), "utf8");
+assert(
+  ioQueueSrc.indexOf("Backend.listJobs(function(rows) { root.resume(rows) })") !== -1 &&
+    omarchy.indexOf("IoQueue.resumeFromDaemon()") !== -1,
+  "a window that opens while a job runs follows it",
+);
+assert(
+  ioQueueSrc.indexOf("Backend.adoptJob(row") !== -1 &&
+    backendSrc.indexOf("function attachJobs()") !== -1 &&
+    backendSrc.indexOf("root.attachJobs()") !== -1,
+  "jobs are attached again after the link to the daemon comes back",
+);
+
+// Nothing works without the daemon (docs/adr/0010): the window has no one-shot
+// process, no poll, and shows one screen when the backend is not there.
+assert(
+  !/runOneShot|pollOnce|pollSubs|StdioCollector|fallbackTimer/.test(backendSrc) &&
+    (backendSrc.match(/\bProcess\s*\{/g) || []).length === 1,
+  "Backend.qml keeps `ratmos serve` and nothing that runs a request on its own",
+);
+const shellSrc = fs.readFileSync(path.join(__dirname, "..", "shell.qml"), "utf8");
+assert(
+  /BackendUnavailable\s*\{/.test(shellSrc) &&
+    backendSrc.indexOf("readonly property bool available") !== -1 &&
+    fs
+      .readFileSync(path.join(__dirname, "..", "components", "BackendUnavailable.qml"), "utf8")
+      .indexOf("visible: !Backend.available") !== -1,
+  "the window has one Atmos backend unavailable screen, shown when Backend is not available",
+);
+assert(
+  backendSrc.indexOf("signal reconnected()") !== -1 &&
+    omarchy.indexOf("Backend.reconnected.connect(") !== -1 &&
+    fs
+      .readFileSync(path.join(__dirname, "..", "components", "BackendUnavailable.qml"), "utf8")
+      .indexOf("Keys.onPressed") !== -1,
+  "a backend that comes back is read from again, and the screen takes the keys",
+);
+console.log("ok - nothing works without the daemon");

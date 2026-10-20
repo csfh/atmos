@@ -161,6 +161,13 @@ impl Bus {
             .wait_timeout_while(guard, timeout, |now| *now == seen);
     }
 
+    /// Whether any session holds `kind`.
+    pub fn holds(&self, kind: &str) -> bool {
+        lock(&self.subscribers)
+            .iter()
+            .any(|subscriber| subscriber.interval_of(kind).is_some())
+    }
+
     /// The shortest interval anyone wants `kind` at.
     pub fn interval(&self, kind: &str) -> Option<Duration> {
         lock(&self.subscribers)

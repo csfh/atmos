@@ -13,7 +13,6 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use serde_json::{json, Value};
 
-use crate::display;
 use crate::error::{Error, Result};
 use crate::fsutil::{atomic_write, atomic_write_text};
 
@@ -81,11 +80,11 @@ pub fn ensure_dir(dir: &Path) -> Result<()> {
 }
 
 fn sample_path(dir: &Path, kind: &str) -> Option<PathBuf> {
-    display::is_kind(kind).then(|| dir.join(format!("{kind}.json")))
+    super::is_topic(kind).then(|| dir.join(format!("{kind}.json")))
 }
 
 fn dirty_path(dir: &Path, kind: &str) -> Option<PathBuf> {
-    display::is_kind(kind).then(|| dir.join(format!("{kind}.dirty")))
+    super::is_topic(kind).then(|| dir.join(format!("{kind}.dirty")))
 }
 
 fn dirty_ms(dir: &Path, kind: &str) -> Option<u64> {

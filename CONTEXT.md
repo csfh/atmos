@@ -1,6 +1,6 @@
 # Glossary
 
-**Snapshot group** — Wire identity of a snapshot JSON payload: `look`, `rest`, `all`, `network`, `disks`, `accounts`, `system`. Not a UI cluster and not an export bucket.
+**Snapshot group** — What a caller of `settings.snapshot` or a Refresh button calls a part of the snapshot: `look`, `rest`, `all`, `network`, `disks`, `accounts`, `system`. The daemon holds the snapshot as five **settings topics** (`settings.look`, `settings.network`, `settings.accounts`, `settings.system`, `settings.host`), each key in exactly one; a group is only a request for some of them. Not a UI cluster and not an export bucket.
 
 **Nav group** — Sidebar cluster in the prefs window: `look`, `input`, `device`, `apps`, `general`, `admin`.
 
@@ -12,13 +12,13 @@
 
 **Adopt** — `Snapshot.adopt(current, patch, adapters)` merges a patch into the last record, clamps only patched keys, and keeps unpatched object/array references.
 
-**Emit** — Producing snapshot JSON for a group (`ratmos snapshot`, keyed by SnapshotGroups).
+**Emit** — Producing a settings topic or a group's document (`snapshot.topic`, `settings.snapshot`): the producers in `snapshot/keys.rs` with the settings files laid over them.
 
-**Apply** — Copying an adopted record onto Omarchy properties (`copyRecord`), or an optimistic `job.apply` patch on an enqueueIo job.
+**Apply** — Copying an adopted record onto Omarchy properties (`copyRecord`). There is no optimistic patch any more: after a write the window applies the keys the backend read back (ADR 0005).
 
 **Omarchy bag** — The `Omarchy.qml` singleton: live property bag plus argv. Not a prefs store. `hyprLook` and `hyprInput` stay nested; pages bind those objects.
 
-**copyRecord** — Mechanical assign of adopted keys onto Omarchy properties via `adoptValue` / `adoptArray`. Walks `SnapshotGroups.copyableBagKeys()`. Does not clamp, sanitize, or normalize. Account keys stay on AccountsStore.
+**copyRecord** — Mechanical assign of adopted keys onto Omarchy properties via `adoptValue` / `adoptArray`. Walks `SnapshotGroups.copyableBagKeys()`, the keys the window has a property for. Does not clamp, sanitize, or normalize. Account keys stay on AccountsStore.
 
 **Adapter** — A seam that talks to QML, disk, or a process. Two adapters make a real seam.
 
@@ -40,7 +40,7 @@
 
 **job.apply** — Optional object on an enqueueIo job (`kind` `mut` or `job`). `mutProc` and `jobProc` adopt it on success as an object (no JSON round-trip through the Emit parser), then enqueue the job's refresh group.
 
-**emitKeys** — Snapshot key identity in SnapshotGroups. `allowedKey`, `copyableBagKeys`, `groupForKey`, and `tagApply` read it. `ratmos snapshot` is the live Emit adapter that fills values.
+**SnapshotGroups.KEYS** — The snapshot keys the window mirrors. Which topic holds a key is the backend's (`backend/src/snapshot/topics.rs`).
 
 **Backend (QML)** — `services/Backend.qml`, the one connection to `ratmos`. It owns a single `ratmos serve` process, `request(body, callback)`, and `watch(owner, spec)`. If the server cannot run it falls back to one process per request and a once-a-second poll. Builders for every request live in `services/Requests.js`; the line protocol is `services/BackendProtocol.js`.
 
@@ -52,7 +52,7 @@
 
 **IoQueue** — `services/IoQueue.qml`. The queue that serialises writes and reads, and the processes for jobs that are not plain backend requests (`ratmos apply` for argv writes and streaming jobs, plus blocking interactive tools). It starts a job and reports how it ended through signals; Omarchy does the domain work and calls `finished()`.
 
-**SnapshotStore** — `services/SnapshotStore.qml`. Which snapshot groups to read at the start of a session, batched refreshes, and the file watch list. A pushed stamp for a changed file re-reads that file's group; the two files Omarchy reads itself arrive on `stamped`.
+**SnapshotStore** — `services/SnapshotStore.qml`. Batches the window's asks to read topics again (`snapshot.invalidate`). **SnapshotFeed** (`SnapshotFeed.qml`) holds the five settings topics and applies what the daemon pushes; **DisplayFeed** does the same for the five inventories.
 
 **Paths** — `services/Paths.qml`. Every file, directory, and script path Atmos touches.
 

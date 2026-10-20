@@ -8,7 +8,6 @@ use std::sync::{Mutex, MutexGuard};
 use serde_json::{json, Value};
 
 use super::cache::Sample;
-use crate::display::KINDS;
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Topic {
@@ -67,10 +66,10 @@ impl Topics {
     pub fn status(&self) -> Value {
         let topics = lock(&self.0);
         let mut out = serde_json::Map::new();
-        for kind in KINDS {
-            let topic = topics.get(*kind).cloned().unwrap_or_default();
+        for kind in super::all_topics() {
+            let topic = topics.get(kind).cloned().unwrap_or_default();
             out.insert(
-                (*kind).to_string(),
+                kind.to_string(),
                 json!({
                     "seq": topic.seq,
                     "sampledAt": topic.sampled_at,
@@ -143,11 +142,12 @@ mod tests {
     }
 
     #[test]
-    fn status_lists_every_kind() {
+    fn status_lists_every_kind_and_every_settings_topic() {
         let status = Topics::default().status();
-        for kind in KINDS {
-            assert_eq!(status[*kind]["seq"], 0, "{kind}");
-            assert_eq!(status[*kind]["stale"], false, "{kind}");
+        for kind in crate::sampler::all_topics() {
+            assert_eq!(status[kind]["seq"], 0, "{kind}");
+            assert_eq!(status[kind]["stale"], false, "{kind}");
         }
+        assert!(status["settings.look"].is_object() && status["hardware"].is_object());
     }
 }

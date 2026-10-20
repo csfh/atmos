@@ -19,13 +19,20 @@ function body(src, name, next) {
   return src.slice(start, end);
 }
 
-const io = body(omarchy, "onReadRequested", "snapshotRefreshGroup");
+const io = body(omarchy, "onSetRequested", "snapshotRefreshGroup");
 assert(
-  io.indexOf("Requests.settingsSnapshot") !== -1 &&
-    io.indexOf("Requests.settingsSet") !== -1 &&
+  io.indexOf("Requests.settingsSet") !== -1 &&
     io.indexOf("Backend.request") !== -1 &&
     io.indexOf("gui-snapshot") === -1,
-  "settings loads and writes go through backend request ops",
+  "settings writes go through backend request ops",
+);
+const feed = fs.readFileSync(path.join(__dirname, "..", "services", "SnapshotFeed.qml"), "utf8");
+assert(
+  omarchy.indexOf("SnapshotFeed.start()") !== -1 &&
+    feed.indexOf('Backend.subscribe("settings"') !== -1 &&
+    omarchy.indexOf("Requests.settingsSnapshot") === -1 &&
+    feed.indexOf("Ops.dropStale") !== -1,
+  "the settings snapshot is held and pushed by the daemon, and a sample never undoes a later write",
 );
 const displayApply = body(omarchy, "applyDisplays", "domainValue");
 assert(
@@ -42,8 +49,12 @@ assert(
   "a failed display kind does not replace the last good page",
 );
 assert(
-  omarchy.indexOf("Requests.displaySnapshot") !== -1 && omarchy.indexOf("loadDisplays") !== -1,
-  "display inventories are requested from the Rust backend",
+  omarchy.indexOf("DisplayFeed.start()") !== -1 &&
+    fs
+      .readFileSync(path.join(__dirname, "..", "services", "DisplayFeed.qml"), "utf8")
+      .indexOf('Backend.subscribe("displays"') !== -1 &&
+    omarchy.indexOf("Requests.displaySnapshot") === -1,
+  "display inventories are held and pushed by the daemon, not read when a page opens",
 );
 assert(
   live.indexOf('Backend.subscribe("live"') !== -1 &&

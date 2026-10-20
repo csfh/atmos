@@ -9,7 +9,9 @@
 
 use serde_json::{json, Map, Value};
 
-use super::{host, hypr, net, system, theme_fields, toggle_off, Env};
+use std::collections::BTreeMap;
+
+use super::{host, hypr, net, sh, system, theme_fields, toggle_off, Env};
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum Producer {
@@ -31,6 +33,8 @@ enum Producer {
     Software,
     Snapper,
     Network,
+    Bluetooth,
+    Tailscale,
     Audio,
     Power,
     Weather,
@@ -46,7 +50,8 @@ enum Producer {
     CrashCapture,
     Defaults,
     DefaultApps,
-    Dns,
+    Keybindings,
+    Favorites,
     Input,
     Security,
     OmarchyInfo,
@@ -211,8 +216,6 @@ const OWNERS: &[(Producer, &[&str])] = &[
             "netKind",
             "netSsid",
             "wifiConnections",
-            "bluetoothDevices",
-            "bluetooth",
             "wifiRadio",
             "dns",
             "netDnsServers",
@@ -221,12 +224,14 @@ const OWNERS: &[(Producer, &[&str])] = &[
             "netIp",
             "netSignal",
             "netSpeed",
-            "tailscaleInstalled",
-            "tailscalePeers",
-            "tailscaleRunning",
             "wifiHw",
             "wifiIface",
         ],
+    ),
+    (Producer::Bluetooth, &["bluetooth", "bluetoothDevices"]),
+    (
+        Producer::Tailscale,
+        &["tailscaleInstalled", "tailscalePeers", "tailscaleRunning"],
     ),
     (
         Producer::Audio,
@@ -322,7 +327,8 @@ const OWNERS: &[(Producer, &[&str])] = &[
         Producer::DefaultApps,
         &["browser", "terminal", "editor", "agent"],
     ),
-    (Producer::Dns, &[]),
+    (Producer::Keybindings, &["keybindings"]),
+    (Producer::Favorites, &["favorites"]),
     (
         Producer::Security,
         &[
@@ -386,6 +392,38 @@ const OWNERS: &[(Producer, &[&str])] = &[
         ],
     ),
 ];
+
+/// The topic a producer's keys are held in (docs/adr/0011). A match with no
+/// wildcard, so a new producer has to say.
+fn topic(producer: Producer) -> &'static str {
+    use Producer::*;
+    match producer {
+        Theme | LiveToggles | Nightlight | Toggles | Bar | HyprLook | Markers | Monitors
+        | Devices | Dnd | Reminders | Branding | Input => super::topics::LOOK,
+        Network | Bluetooth | Tailscale | Audio => super::topics::NETWORK,
+        Accounts | FullName => super::topics::ACCOUNTS,
+        Time | Locale | Keyboard | Hostname | ParallelDownloads | CrashCapture | Control
+        | Defaults | DefaultApps => super::topics::SYSTEM,
+        Apps | Atmos | Software | Snapper | Power | Weather | Hooks | MarkerFlags | Security
+        | OmarchyInfo | HardwareFlags | GpuExtras | FocusPrint | Keybindings | Favorites => {
+            super::topics::HOST
+        }
+    }
+}
+
+/// The topic that holds `key`, None for a key nobody owns.
+pub fn topic_of_key(key: &str) -> Option<&'static str> {
+    owner_of(key).map(topic)
+}
+
+/// Every key held in `name`.
+pub fn keys_in(name: &str) -> Vec<&'static str> {
+    OWNERS
+        .iter()
+        .filter(|(producer, _)| topic(*producer) == name)
+        .flat_map(|(_, keys)| keys.iter().copied())
+        .collect()
+}
 
 fn owner_of(key: &str) -> Option<Producer> {
     OWNERS
@@ -461,9 +499,11 @@ fn produce(producer: Producer, env: &Env) -> Map<String, Value> {
             f.insert("fullName".into(), json!(system::full_name()));
         }
         Producer::Atmos => host::atmos(&mut f, &env.home),
-        Producer::Software => host::software(&mut f, &env.home, false),
+        Producer::Software => host::software(&mut f, &env.home, net::tailscale_installed()),
         Producer::Snapper => host::snapper(&mut f),
         Producer::Network => f.extend(net::network()),
+        Producer::Bluetooth => f.extend(net::bluetooth_fields()),
+        Producer::Tailscale => f.extend(net::tailscale_fields()),
         Producer::Audio => f.extend(net::audio()),
         Producer::Power => host::power(&mut f),
         Producer::Weather => host::weather(&mut f, &env.home),
@@ -471,7 +511,7 @@ fn produce(producer: Producer, env: &Env) -> Map<String, Value> {
             f.insert("hooks".into(), crate::inventory::hooks::collect());
         }
         Producer::MarkerFlags => host::marker_flags(&mut f, &env.home),
-        Producer::Control => f.extend(system::control(&env.home, true).fields),
+        Producer::Control => f.extend(system::control(&env.home).fields),
         Producer::Time => f.extend(system::time()),
         Producer::Locale => {
             let (locale, locales) = system::locale();
@@ -501,9 +541,10 @@ fn produce(producer: Producer, env: &Env) -> Map<String, Value> {
                 f.insert(key.into(), super::text(&["default", key]));
             }
         }
-        Producer::Dns => {
-            f.insert("dns".into(), json!(net::dns()));
+        Producer::Keybindings => {
+            f.insert("keybindings".into(), host::keybindings());
         }
+        Producer::Favorites => host::favorites(&mut f),
         Producer::Input => super::input_surface(env, &mut f),
         Producer::Security => host::security(&mut f, &env.user),
         Producer::OmarchyInfo => host::omarchy_info(&mut f),
@@ -514,30 +555,47 @@ fn produce(producer: Producer, env: &Env) -> Map<String, Value> {
     f
 }
 
-/// What the machine reports now for `keys`, and the keys nobody owns.
-pub fn read(keys: &[String]) -> (Map<String, Value>, Vec<String>) {
+/// What `read` found.
+#[derive(Default)]
+pub struct Read {
+    pub values: Map<String, Value>,
+    /// Keys nobody owns.
+    pub unknown: Vec<String>,
+    /// Keys whose producer could not read the machine, and why. They are not in
+    /// `values`: a reader keeps the value it had, never one made up here.
+    pub failed: BTreeMap<String, String>,
+}
+
+fn keys_of(producer: Producer) -> &'static [&'static str] {
+    OWNERS
+        .iter()
+        .find(|(owner, _)| *owner == producer)
+        .map_or(&[], |(_, keys)| keys)
+}
+
+/// What the machine reports now for `keys`.
+pub fn read(keys: &[String]) -> Read {
     let mut wanted: Vec<Producer> = Vec::new();
-    let mut unknown = Vec::new();
+    let mut found = Read::default();
     for key in keys {
         match owner_of(key) {
             Some(producer) if !wanted.contains(&producer) => wanted.push(producer),
             Some(_) => {}
-            None => unknown.push(key.clone()),
+            None => found.unknown.push(key.clone()),
         }
     }
-    let mut out = Map::new();
     if wanted.is_empty() {
-        return (out, unknown);
+        return found;
     }
     let env = Env::read();
     // Producers are independent, and some take a while (a DDC panel, pacman),
     // so they run side by side.
-    let made: Vec<Map<String, Value>> = std::thread::scope(|scope| {
+    let made: Vec<(Map<String, Value>, Vec<String>)> = std::thread::scope(|scope| {
         let handles: Vec<_> = wanted
             .iter()
             .map(|producer| {
                 let env = &env;
-                scope.spawn(move || produce(*producer, env))
+                scope.spawn(move || sh::watching(|| produce(*producer, env)))
             })
             .collect();
         handles
@@ -545,14 +603,24 @@ pub fn read(keys: &[String]) -> (Map<String, Value>, Vec<String>) {
             .map(|handle| handle.join().unwrap_or_default())
             .collect()
     });
-    for map in made {
+    for (producer, (map, faults)) in wanted.iter().zip(made) {
+        if !faults.is_empty() {
+            let why = faults.join("; ");
+            for key in keys_of(*producer)
+                .iter()
+                .filter(|k| keys.iter().any(|w| w == *k))
+            {
+                found.failed.insert(key.to_string(), why.clone());
+            }
+            continue;
+        }
         for (key, value) in map {
             if keys.contains(&key) {
-                out.insert(key, value);
+                found.values.insert(key, value);
             }
         }
     }
-    (out, unknown)
+    found
 }
 
 #[cfg(test)]
@@ -571,8 +639,8 @@ mod tests {
 
     #[test]
     fn unknown_keys_are_reported_and_known_ones_are_not() {
-        let (_, unknown) = read(&["nope".into(), "also.nope".into()]);
-        assert_eq!(unknown, ["nope", "also.nope"]);
+        let found = read(&["nope".into(), "also.nope".into()]);
+        assert_eq!(found.unknown, ["nope", "also.nope"]);
         assert!(known("audioOutputMuted"));
         assert!(known("plugins"));
         assert!(!known("tweaks.middlePaste"));
@@ -580,8 +648,8 @@ mod tests {
 
     #[test]
     fn nothing_is_run_for_no_keys() {
-        let (values, unknown) = read(&[]);
-        assert!(values.is_empty() && unknown.is_empty());
+        let found = read(&[]);
+        assert!(found.values.is_empty() && found.unknown.is_empty() && found.failed.is_empty());
     }
 }
 

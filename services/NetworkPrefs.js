@@ -88,52 +88,54 @@ function sanitizeWgPath(raw) {
   return text;
 }
 
-function argvFor(action, opts) {
+// The typed write for a network setting, { name, args }, or null when a value
+// is not one the backend would take. The backend checks them again.
+function opFor(action, opts) {
   var act = String(action || "");
   var o = opts && typeof opts === "object" ? opts : {};
+  var uuid;
   if (act === "metered") {
-    var uuid = sanitizeUuid(o.uuid);
+    uuid = sanitizeUuid(o.uuid);
     var metered = sanitizeMetered(o.value);
     if (!uuid || !metered) return null;
-    return ["metered", uuid, metered];
+    return { name: "wifi.metered", args: { uuid: uuid, value: metered } };
   }
   if (act === "priority") {
     uuid = sanitizeUuid(o.uuid);
     if (!uuid) return null;
-    return ["priority", uuid, String(clampPriority(o.value))];
+    return { name: "wifi.priority", args: { uuid: uuid, value: clampPriority(o.value) } };
   }
   if (act === "mac") {
     uuid = sanitizeUuid(o.uuid);
     var mac = sanitizeMac(o.value);
     if (!uuid || !mac) return null;
-    return ["mac", uuid, mac];
+    return { name: "wifi.mac", args: { uuid: uuid, value: mac } };
   }
   if (act === "ipv4") {
     uuid = sanitizeUuid(o.uuid);
     if (!uuid) return null;
-    if (o.method === "auto") return ["ipv4", uuid, "auto"];
+    if (o.method === "auto") return { name: "wifi.ipv4-auto", args: { uuid: uuid } };
     var address = sanitizeIpv4(o.address);
     var prefix = sanitizePrefix(o.prefix);
     var gateway = sanitizeIpv4(o.gateway);
     var dns = sanitizeDns(o.dns);
     if (!address || !prefix) return null;
-    var argv = ["ipv4", uuid, "manual", address, String(prefix)];
-    if (gateway) argv.push(gateway);
-    else argv.push("");
-    if (dns) argv.push(dns);
-    return argv;
+    var args = { uuid: uuid, address: address, prefix: prefix };
+    if (gateway) args.gateway = gateway;
+    if (dns) args.dns = dns;
+    return { name: "wifi.ipv4-manual", args: args };
   }
   if (act === "wireguard-import") {
     var path = sanitizeWgPath(o.path);
     if (!path) return null;
-    return ["wireguard-import", path];
+    return { name: "wifi.wireguard-import", args: { path: path } };
   }
   if (act === "hotspot") {
-    if (o.on === false) return ["hotspot", "off"];
+    if (o.on === false) return { name: "wifi.hotspot-off", args: {} };
     var ssid = sanitizeHotspotSsid(o.ssid);
     var password = sanitizeHotspotPassword(o.password);
     if (!ssid || !password) return null;
-    return ["hotspot", "on", ssid, password];
+    return { name: "wifi.hotspot-on", args: { ssid: ssid, password: password } };
   }
   return null;
 }
@@ -148,6 +150,6 @@ if (typeof module !== "undefined" && module.exports) {
     sanitizePrefix: sanitizePrefix,
     sanitizeHotspotSsid: sanitizeHotspotSsid,
     sanitizeWgPath: sanitizeWgPath,
-    argvFor: argvFor,
+    opFor: opFor,
   };
 }

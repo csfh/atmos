@@ -3,7 +3,6 @@ import QtQuick
 import "Failure.js" as FailureJs
 import "Requests.js" as Requests
 import "Snapshot.js" as SnapshotJs
-import "SnapshotGroups.js" as SnapshotGroups
 
 // Typed writes. The daemon runs each one on its own lane, in order with the
 // writes and reads around it (docs/architecture.md, the command bus), and the
@@ -25,14 +24,14 @@ QtObject {
   // value from before. These keys were written since the read began, so they
   // are not taken from it.
   function dropStale(values, since) {
-    var out = {}
-    var key
-    for (key in values) if (!(root.wrote[key] > since)) out[key] = values[key]
-    return out
+    return SnapshotJs.dropStaleKeys(values, root.wrote, since)
   }
 
-  function noteWritten(values) {
-    var now = Date.now()
+  // `at` is when the write was sent, not when it was answered: a re-read the
+  // daemon starts for it (a slow device settling) began in between, and is
+  // the one that must be taken.
+  function noteWritten(values, at) {
+    var now = at > 0 ? at : Date.now()
     var key
     for (key in values) root.wrote[key] = now
   }
@@ -41,6 +40,7 @@ QtObject {
     var key = String(opts.key || opts.op.op)
     var seq = (root.sent[key] || 0) + 1
     root.sent[key] = seq
+    var sentAt = Date.now()
     Feedback.begin()
     Backend.request(opts.op, function(env) {
       if (!env || env.ok !== true) {
@@ -53,33 +53,31 @@ QtObject {
       var snapshot = env.result && env.result.snapshot
       // A newer write for this key is on its way; its reply is the one to show.
       if (snapshot && root.sent[key] === seq) {
-        root.noteWritten(snapshot)
+        root.noteWritten(snapshot, sentAt)
         Omarchy.applySnapshot(SnapshotJs.plain(snapshot))
-        // The input file may carry a gesture the snapshot keys do not say.
-        if (snapshot.hyprInput !== undefined) Omarchy.applyHyprWorkspaceGestureFromFile()
       }
-      // The machine had not shown the change when the backend stopped waiting
-      // (a radio or a device can take longer): read the group again, so the
-      // answer that comes later still gets to the window.
-      if (env.result && env.result.settled === false) {
-        var late = snapshot ? SnapshotGroups.groupForKey(Object.keys(snapshot)[0]) : ""
-        if (late) IoQueue.enqueueRead(late)
-      }
+      // A change the machine had not shown when the backend stopped waiting (a
+      // radio or a device can take longer) is read again by the daemon, which
+      // pushes the answer when it comes.
       var refresh = Omarchy.snapshotRefreshGroup(opts.refresh)
-      if (refresh !== "none") IoQueue.enqueueRead(refresh)
+      if (refresh !== "none") Omarchy.scheduleRefresh(refresh)
     })
   }
 
   // Show what the machine reports now for some keys, once a write the window
   // did not run itself (an interactive one) has finished. spec is
   // { keys, expect }: expect names values to wait for, as a write's settle does.
-  function read(spec) {
+  // done(shown) is called once the answer is shown, with whether it settled.
+  function read(spec, done) {
     if (!spec || !(spec.keys instanceof Array) || spec.keys.length === 0) return
+    var sentAt = Date.now()
     Backend.request(Requests.snapshotKeys(spec.keys, spec.expect), function(env) {
-      if (env && env.ok === true && env.result && env.result.values) {
-        root.noteWritten(env.result.values)
+      var shown = !!(env && env.ok === true && env.result && env.result.values)
+      if (shown) {
+        root.noteWritten(env.result.values, sentAt)
         Omarchy.applySnapshot(SnapshotJs.plain(env.result.values))
       }
+      if (typeof done === "function") done(shown && env.result.settled !== false)
     })
   }
 }

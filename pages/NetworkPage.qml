@@ -225,7 +225,7 @@ PrefsPage {
     nameFilters: ["WireGuard configs (*.conf *.nmconnection)"]
     onAccepted: {
       var path = RichUi.pathFromUrl(selectedFile)
-      if (!NetPrefs.argvFor("wireguard-import", { path: path })) {
+      if (!NetPrefs.opFor("wireguard-import", { path: path })) {
         root.wgError = "Pick an absolute .conf file."
         return
       }
@@ -280,7 +280,7 @@ PrefsPage {
             text: "Start"
             primary: true
             onClicked: {
-              if (!NetPrefs.argvFor("hotspot", { on: true, ssid: root.hotspotSsid, password: root.hotspotPassword })) {
+              if (!NetPrefs.opFor("hotspot", { on: true, ssid: root.hotspotSsid, password: root.hotspotPassword })) {
                 root.hotspotError = "SSID and an 8–63 character password."
                 return
               }

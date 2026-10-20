@@ -1,54 +1,17 @@
 const { load, assert, assertEqual } = require("./harness");
 
 const queue = load("services/WorkQueue.js");
-const netIo = queue.createWorkQueue();
-queue.enqueueRead(netIo, "network");
-assertEqual(netIo.reads[0].group, "network", "enqueueRead keeps a network group");
-assertEqual(
-  queue.addPendingRefresh(["look"], "rest").join(","),
-  "look,rest",
-  "pending look plus rest stays both",
-);
-assertEqual(
-  queue.addPendingRefresh(["look", "rest"], "all").join(","),
-  "look,all",
-  "pending all keeps look and drops rest",
-);
-const sessionIo = queue.createWorkQueue();
-queue.enqueueRead(sessionIo, "look");
-queue.enqueueRead(sessionIo, "rest");
-assertEqual(sessionIo.reads[0].group, "look", "session queues look before rest");
-assertEqual(sessionIo.reads[1].group, "rest", "session queues rest after look");
 const io = queue.createWorkQueue();
-queue.enqueueRead(io, "look");
-queue.enqueueWrite(io, { kind: "mut", argv: ["true"] });
-queue.enqueueRead(io, "rest");
-const drained = [];
-while (true) {
-  const job = queue.takeNext(io);
-  if (!job) break;
-  drained.push(job);
-  queue.release(io);
-}
-assertEqual(drained[0].kind, "mut", "write jobs run before waiting reads");
-assertEqual(drained[1].group, "look", "queued look runs before rest");
-assertEqual(drained[2].group, "rest", "rest stays last when look was already queued");
-assert(queue.isIdle(io), "worker is idle when both queues are empty");
-queue.enqueueRead(io, "look");
-queue.enqueueRead(io, "look");
-assertEqual(io.reads.length, 1, "duplicate look reads coalesce");
-queue.enqueueRead(io, "all");
-assertEqual(
-  io.reads[io.reads.length - 1].group,
-  "all",
-  "all keeps a pending look then replaces rest",
-);
-assert(
-  io.reads.some(function (job) {
-    return job.group === "look";
-  }),
-  "all does not drop a waiting look",
-);
+assert(queue.takeNext(io) === null, "a new queue has nothing to run");
+assertEqual(Object.keys(io).indexOf("reads"), -1, "nothing reads through the queue");
+queue.enqueueWrite(io, { kind: "mut", key: "a", argv: ["true"] });
+queue.enqueueWrite(io, { kind: "mut", key: "b", argv: ["true"] });
+assertEqual(queue.takeNext(io).key, "a", "writes run in the order they came");
+assert(queue.takeNext(io) === null, "one write runs at a time");
+queue.release(io);
+assertEqual(queue.takeNext(io).key, "b", "the next write runs once the lock is released");
+queue.release(io);
+assert(queue.takeNext(io) === null, "nothing runs when the queue is empty");
 
 const brightIo = queue.createWorkQueue();
 queue.enqueueWrite(brightIo, {
@@ -103,21 +66,6 @@ assert(
   }),
   "dropWriteKey removes the named brightness write",
 );
-
-const staleIo = queue.createWorkQueue();
-queue.enqueueRead(staleIo, "all");
-const staleRead = queue.takeNext(staleIo);
-assert(staleRead && staleRead.kind === "read", "stale-read test starts a snapshot job");
-queue.enqueueWrite(staleIo, { kind: "mut", key: "brightness:DP-1", argv: ["x"] });
-assert(
-  !queue.shouldApplyRead(staleRead, staleIo),
-  "snapshot started before a later write is not applied",
-);
-queue.release(staleIo);
-const lateWrite = queue.takeNext(staleIo);
-assertEqual(lateWrite.key, "brightness:DP-1", "write runs after the discarded snapshot");
-queue.release(staleIo);
-assert(queue.isIdle(staleIo), "queue is idle after discarding a stale read and running the write");
 
 const keyedIo = queue.createWorkQueue();
 queue.enqueueWrite(keyedIo, { kind: "mut", key: "presentationMode", argv: ["on"] });

@@ -363,24 +363,64 @@ fn two_windows_are_fed_by_one_daemon_each_at_its_own_rate() {
 }
 
 #[test]
-fn a_window_keeps_sampling_when_the_daemon_goes_away() {
+fn a_window_says_when_the_daemon_goes_away_and_samples_again_when_it_returns() {
     let run = short_run_dir("gone");
     let daemon = start_daemon(&run);
     let mut server = Server::start_live(&run);
     server.send(&json!({"id": 1, "op": "sub.set", "topics": {"live": {"intervalMs": 300}}}));
+    server.until(|line| line["event"] == "backend" && line["state"] == "up");
     let before = server.until(|line| line["event"] == "sample");
     drop(daemon);
-    let mut after = before.clone();
+    // Told, with a reason and when it looks again; nothing is sampled here instead.
+    let down = server.until(|line| line["event"] == "backend" && line["state"] == "down");
+    assert!(
+        down["why"].as_str().is_some_and(|why| !why.is_empty()),
+        "{down}"
+    );
+    assert!(down["retryMs"].as_u64().unwrap() >= 1000, "{down}");
+    let _daemon = start_daemon(&run);
+    server.until(|line| line["event"] == "backend" && line["state"] == "up");
+    let after = server.until(|line| line["event"] == "sample" && line.get("error").is_none());
+    assert!(after["sampledAt"].as_u64() > before["sampledAt"].as_u64());
+    server.finish();
+    let _ = fs::remove_dir_all(&run);
+}
+
+#[test]
+fn a_window_with_no_daemon_collects_nothing_itself() {
+    let run = short_run_dir("nodaemon");
+    let mut server = Server::start_live(&run);
+    server.send(&json!({"id": 1, "op": "sub.set", "topics": {"live": {"intervalMs": 200}}}));
+    server.send(&json!({"id": 2, "op": "display.get", "kind": "live"}));
+    server.send(&json!({"id": 3, "op": "write", "name": "recording.stop", "args": {}}));
+    server.send(&json!({"id": 4, "op": "settings.get", "domain": "theme"}));
+    let down = server.until(|line| line["event"] == "backend");
+    assert_eq!(down["state"], "down", "{down}");
+    let (mut read, mut write, mut setting) = (None, None, None);
+    let mut samples = 0;
     for _ in 0..40 {
-        let line = server.until(|line| line["event"] == "sample");
-        if line["sampledAt"] != before["sampledAt"] && line.get("error").is_none() {
-            after = line;
-            if after["sampledAt"].as_u64() > before["sampledAt"].as_u64() {
-                break;
-            }
+        let Ok(line) = server.lines.recv_timeout(Duration::from_millis(600)) else {
+            break;
+        };
+        match line["id"].as_u64() {
+            Some(2) => read = Some(line),
+            Some(3) => write = Some(line),
+            Some(4) => setting = Some(line),
+            _ if line["event"] == "sample" => samples += 1,
+            _ => {}
+        }
+        if read.is_some() && write.is_some() && setting.is_some() {
+            break;
         }
     }
-    assert!(after["sampledAt"].as_u64() > before["sampledAt"].as_u64());
+    assert_eq!(read.expect("a reply")["error"]["code"], "unavailable");
+    assert_eq!(write.expect("a reply")["error"]["code"], "unavailable");
+    assert_eq!(
+        setting.expect("a reply")["error"]["code"],
+        "unavailable",
+        "a setting is not read behind the screen either"
+    );
+    assert_eq!(samples, 0, "no sample came from this window");
     server.finish();
     let _ = fs::remove_dir_all(&run);
 }
@@ -505,7 +545,7 @@ fn a_window_that_has_a_daemon_is_told_about_its_files_by_the_daemon() {
 }
 
 #[test]
-fn a_window_whose_daemon_goes_away_keeps_hearing_about_its_files() {
+fn a_window_whose_daemon_returns_hears_about_its_files_again() {
     let run = short_run_dir("stampsgone");
     let daemon = start_daemon(&run);
     let file = run.join("watched.txt");
@@ -514,11 +554,338 @@ fn a_window_whose_daemon_goes_away_keeps_hearing_about_its_files() {
     server.send(&json!({"id": 1, "op": "watch.set", "paths": [file.display().to_string()]}));
     server.until(|line| line["event"] == "stamp");
     drop(daemon);
-    thread::sleep(Duration::from_millis(1500));
+    server.until(|line| line["event"] == "backend" && line["state"] == "down");
     fs::write(&file, "three").unwrap();
+    let _daemon = start_daemon(&run);
+    // The window's watch is put to the new daemon, which reports what it finds.
     let changed = server
         .until(|line| line["event"] == "stamp" && line["result"]["items"][0]["text"] == "three");
     assert_eq!(changed["event"], "stamp");
     server.finish();
+    let _ = fs::remove_dir_all(&run);
+}
+
+#[test]
+fn a_request_sent_as_the_window_opens_waits_for_the_session() {
+    let run = short_run_dir("early");
+    let _daemon = start_daemon(&run);
+    let mut server = Server::start_live(&run);
+    // Before the window has had time to open its session.
+    server.send(&json!({"id": 1, "op": "display.get", "kind": "live"}));
+    let reply = server.until(|line| line["id"] == 1);
+    assert_eq!(reply["ok"], true, "{reply}");
+    server.finish();
+    let _ = fs::remove_dir_all(&run);
+}
+
+/// A window with its own environment: a scratch HOME and a PATH of fake tools,
+/// which is what the daemon collects a settings topic with (docs/adr/0011).
+struct Window {
+    server: Server,
+    dir: std::path::PathBuf,
+}
+
+fn fake(dir: &std::path::Path, name: &str, body: &str) {
+    use std::os::unix::fs::PermissionsExt;
+    let path = dir.join("bin").join(name);
+    fs::write(&path, format!("#!/bin/sh\n{body}\n")).unwrap();
+    fs::set_permissions(&path, fs::Permissions::from_mode(0o755)).unwrap();
+}
+
+fn window_with_tools(run: &std::path::Path, name: &str) -> Window {
+    let dir = std::path::PathBuf::from(format!("/tmp/rt-win-{name}-{}", std::process::id()));
+    let _ = fs::remove_dir_all(&dir);
+    fs::create_dir_all(dir.join("bin")).unwrap();
+    // `theme current` answers with what the test last wrote to the `theme` file.
+    fake(
+        &dir,
+        "omarchy",
+        &format!(
+            r#"if [ "$*" = "theme current" ]; then
+  [ -f {d}/broken ] && {{ echo 'no state' >&2; exit 3; }}
+  cat {d}/theme; exit 0
+fi
+case "$*" in *list|"theme extras") printf 'a\nb\n' ;; *) echo ok ;; esac"#,
+            d = dir.display()
+        ),
+    );
+    fs::write(dir.join("theme"), "tokyo-night").unwrap();
+    let mut child = Command::new(env!("CARGO_BIN_EXE_ratmos"))
+        .args(["--backend", "omarchy", "serve"])
+        .env_clear()
+        .env(
+            "PATH",
+            format!("{}:/usr/bin:/bin", dir.join("bin").display()),
+        )
+        .env("HOME", &dir)
+        .env("XDG_RUNTIME_DIR", run)
+        .env("ATMOS_NO_AUTOSTART", "1")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .expect("spawn ratmos serve");
+    let stdin = child.stdin.take();
+    let stdout = child.stdout.take().unwrap();
+    let (tx, lines) = mpsc::channel();
+    thread::spawn(move || {
+        for line in BufReader::new(stdout).lines().map_while(Result::ok) {
+            if let Ok(value) = serde_json::from_str::<Value>(&line) {
+                if tx.send(value).is_err() {
+                    break;
+                }
+            }
+        }
+    });
+    Window {
+        server: Server {
+            child,
+            stdin,
+            lines,
+        },
+        dir,
+    }
+}
+
+impl Drop for Window {
+    fn drop(&mut self) {
+        let _ = fs::remove_dir_all(&self.dir);
+    }
+}
+
+fn topic_event(server: &Server, topic: &str) -> Value {
+    server.until(|line| {
+        line["event"] == "sample" && line["kind"] == topic && line.get("result").is_some()
+    })
+}
+
+#[test]
+fn a_window_that_holds_a_settings_topic_is_pushed_it_and_the_next_one_when_it_changes() {
+    let run = short_run_dir("topic");
+    let _daemon = start_daemon(&run);
+    let mut window = window_with_tools(&run, "topic");
+    window
+        .server
+        .send(&json!({"id": 1, "op": "sub.set", "topics": {"settings.look": {}}}));
+    let first = topic_event(&window.server, "settings.look");
+    assert_eq!(first["result"]["theme"], "tokyo-night", "{first}");
+    // Other tools of the topic may fail on a machine with no session; the theme did not.
+    assert!(first["result"]["_failed"].get("theme").is_none(), "{first}");
+    // Something changed the theme; the window asks for the topic again.
+    fs::write(window.dir.join("theme"), "gruvbox").unwrap();
+    window
+        .server
+        .send(&json!({"id": 2, "op": "snapshot.invalidate", "topics": ["settings.look"]}));
+    let next = window
+        .server
+        .until(|line| line["event"] == "sample" && line["result"]["theme"] == "gruvbox");
+    assert!(next["sampledAt"].as_u64() > first["sampledAt"].as_u64());
+    drop(window);
+    let _ = fs::remove_dir_all(&run);
+}
+
+#[test]
+fn a_tool_that_fails_leaves_a_key_out_of_the_pushed_topic_and_says_why() {
+    let run = short_run_dir("topicfail");
+    let _daemon = start_daemon(&run);
+    let mut window = window_with_tools(&run, "topicfail");
+    fs::write(window.dir.join("broken"), "").unwrap();
+    window
+        .server
+        .send(&json!({"id": 1, "op": "sub.set", "topics": {"settings.look": {}}}));
+    let event = topic_event(&window.server, "settings.look");
+    assert!(
+        event["result"].get("theme").is_none(),
+        "no value was made up: {event}"
+    );
+    let why = event["result"]["_failed"]["theme"]
+        .as_str()
+        .expect("a reason");
+    assert!(why.contains("theme current"), "{why}");
+    assert!(
+        event["result"].get("monitors").is_some()
+            || event["result"]["_failed"].get("monitors").is_some()
+    );
+    drop(window);
+    let _ = fs::remove_dir_all(&run);
+}
+
+#[test]
+fn a_setting_written_by_a_window_comes_back_in_the_topic_that_holds_it() {
+    let run = short_run_dir("topicset");
+    let _daemon = start_daemon(&run);
+    let mut window = window_with_tools(&run, "topicset");
+    window
+        .server
+        .send(&json!({"id": 1, "op": "sub.set", "topics": {"settings.look": {}}}));
+    let first = topic_event(&window.server, "settings.look");
+    assert!(
+        first["result"].get("hyprLook").is_none() || first["result"]["hyprLook"]["gapsIn"] != 4
+    );
+    window
+        .server
+        .send(&json!({"id": 2, "op": "settings.set", "domain": "hyprLook.gapsIn", "value": 4}));
+    let reply = window.server.until(|line| line["id"] == 2);
+    assert_eq!(reply["ok"], true, "{reply}");
+    assert_eq!(
+        reply["result"]["coalesced"], false,
+        "it went through a lane of the daemon"
+    );
+    // The daemon invalidated the topic the setting lives in and pushed it again.
+    let after = window
+        .server
+        .until(|line| line["event"] == "sample" && line["result"]["hyprLook"]["gapsIn"] == 4);
+    assert!(after["sampledAt"].as_u64() > first["sampledAt"].as_u64());
+    drop(window);
+    let _ = fs::remove_dir_all(&run);
+}
+
+#[test]
+fn opening_a_file_from_a_window_replies_at_once_whatever_the_opener_does() {
+    let run = short_run_dir("opener");
+    let _daemon = start_daemon(&run);
+    let mut window = window_with_tools(&run, "opener");
+    // An opener that stays up as long as the app it starts.
+    fake(&window.dir, "xdg-open", "sleep 30");
+    fs::write(window.dir.join("note.txt"), "x").unwrap();
+    let began = std::time::Instant::now();
+    window.server.send(&json!({
+        "id": 1, "op": "host.open",
+        "path": window.dir.join("note.txt").display().to_string(),
+    }));
+    let reply = window.server.until(|line| line["id"] == 1);
+    assert_eq!(reply["ok"], true, "{reply}");
+    assert!(
+        began.elapsed() < Duration::from_secs(5),
+        "{:?}",
+        began.elapsed()
+    );
+    drop(window);
+    let _ = fs::remove_dir_all(&run);
+}
+
+fn commands_run(run: &std::path::Path) -> u64 {
+    daemon_status(run)["commandsRun"].as_u64().unwrap()
+}
+
+/// Every op a window can send is answered by the daemon, except the three that
+/// only ask it for something it already holds (docs/adr/0012): `serve` reads no
+/// file, runs no tool and collects nothing itself.
+#[test]
+fn every_op_a_window_sends_is_answered_by_the_daemon() {
+    let run = short_run_dir("bridge");
+    let _daemon = start_daemon(&run);
+    let mut window = window_with_tools(&run, "bridge");
+    fake(&window.dir, "systemctl", "echo active");
+    fake(&window.dir, "journalctl", "echo log");
+    let note = window.dir.join("note.txt");
+    fs::write(&note, "x").unwrap();
+    let path = note.display().to_string();
+    let bodies = vec![
+        json!({"op": "version"}),
+        json!({"op": "platform"}),
+        json!({"op": "settings.list"}),
+        json!({"op": "settings.get", "domain": "theme"}),
+        json!({"op": "settings.set", "domain": "hyprLook.gapsIn", "value": 3}),
+        json!({"op": "settings.snapshot", "group": "look", "keys": ["theme"]}),
+        json!({"op": "snapshot.keys", "keys": ["hostname"]}),
+        json!({"op": "snapshot.topic", "topic": "settings.accounts"}),
+        json!({"op": "write", "name": "audio.output.mute-toggle", "args": {}}),
+        json!({"op": "display.scale", "scale": "1.5"}),
+        json!({"op": "display.brightness", "monitor": "DP-3", "percent": 20}),
+        json!({"op": "search.query", "query": "bright"}),
+        json!({"op": "host.chrome"}),
+        json!({"op": "host.themePack", "name": "x", "home": window.dir.display().to_string()}),
+        json!({"op": "host.accounts", "user": "u", "home": window.dir.display().to_string()}),
+        json!({"op": "host.stamp", "paths": [path]}),
+        json!({"op": "host.read", "paths": [path]}),
+        json!({"op": "host.write", "path": window.dir.join("out.txt").display().to_string(), "text": "t"}),
+        json!({"op": "host.open", "path": path}),
+        json!({"op": "unit.output", "kind": "status", "scope": "user", "unit": "x.service"}),
+        json!({"op": "speedtest.disk"}),
+        json!({"op": "speedtest.net", "phase": "down"}),
+        json!({"op": "agents.mcp.list"}),
+        json!({"op": "agents.mcp.check"}),
+        json!({"op": "agents.mcp.set", "agent": "nobody", "on": false}),
+    ];
+    fake(&window.dir, "xdg-open", "true");
+    // Nothing is left out: every op `request.rs` accepts is in one list or the other.
+    let native = ["display.get", "display.snapshot", "snapshot.invalidate"];
+    let accepted: Vec<&str> = include_str!("../src/request.rs")
+        .lines()
+        .filter_map(|line| {
+            line.trim()
+                .strip_prefix("#[serde(rename = \"")?
+                .strip_suffix("\")]")
+        })
+        .collect();
+    for op in &accepted {
+        assert!(
+            native.contains(op)
+                || bodies.iter().any(|body| body["op"] == *op)
+                || *op == "display.scale"
+                || *op == "display.brightness",
+            "{op} is not tested over a window's serve"
+        );
+    }
+    for (n, body) in bodies.iter().enumerate() {
+        let before = commands_run(&run);
+        let id = 100 + n as u64;
+        let mut asked = body.clone();
+        asked["id"] = json!(id);
+        window.server.send(&asked);
+        let reply = window.server.until(|line| line["id"] == id);
+        assert!(reply.get("ok").is_some(), "{body}: {reply}");
+        assert_eq!(
+            commands_run(&run),
+            before + 1,
+            "the daemon ran {body} (reply {reply})"
+        );
+    }
+    // These three only ask the daemon for what it holds.
+    for body in [
+        json!({"op": "display.get", "kind": "services"}),
+        json!({"op": "display.snapshot"}),
+        json!({"op": "snapshot.invalidate", "topics": ["settings.look"]}),
+    ] {
+        let before = commands_run(&run);
+        let mut asked = body.clone();
+        asked["id"] = json!(900);
+        window.server.send(&asked);
+        window.server.until(|line| line["id"] == 900);
+        assert_eq!(commands_run(&run), before, "serve answered {body} itself");
+    }
+    drop(window);
+    let _ = fs::remove_dir_all(&run);
+}
+
+#[test]
+fn a_window_refuses_a_daemon_too_old_to_run_its_reads() {
+    use std::os::unix::net::UnixListener;
+    let run = short_run_dir("oldproto");
+    fs::create_dir_all(run.join("atmos")).unwrap();
+    // A daemon from before reads were its job: it says `ready` and nothing about a protocol.
+    let listener = UnixListener::bind(run.join("atmos/ratmos.sock")).unwrap();
+    thread::spawn(move || {
+        for stream in listener.incoming().flatten() {
+            thread::spawn(move || {
+                let mut line = String::new();
+                let _ = BufReader::new(&stream).read_line(&mut line);
+                let mut out = &stream;
+                let _ = writeln!(out, r#"{{"ok":true,"t":"ready","version":"0.0.1"}}"#);
+                thread::sleep(Duration::from_secs(5));
+            });
+        }
+    });
+    let mut server = Server::start_live(&run);
+    server.send(&json!({"id": 1, "op": "sub.set", "topics": {"live": {}}}));
+    let down = server.until(|line| line["event"] == "backend" && line["state"] == "down");
+    assert!(
+        down["why"]
+            .as_str()
+            .unwrap()
+            .contains("older than this window"),
+        "{down}"
+    );
     let _ = fs::remove_dir_all(&run);
 }

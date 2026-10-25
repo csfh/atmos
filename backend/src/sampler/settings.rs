@@ -157,10 +157,9 @@ impl Daemon {
     /// Read one settings topic from the machine, in a child that carries the
     /// newest window's environment.
     pub(super) fn collect_topic(&self, topic: &str) -> std::result::Result<Value, String> {
-        let env = self.settings.env();
-        if env.is_empty() {
-            return Err("no window has told the daemon its environment yet".into());
-        }
+        // The newest window's, or the daemon's own when no window has one to tell: a window
+        // whose session is the daemon's tells it nothing (docs/adr/0014).
+        let env = super::client::or_own_env(self.settings.env());
         let body = json!({"op": "snapshot.topic", "topic": topic});
         let envelope = (self.run_command)("omarchy", &body, &env);
         if envelope["ok"].as_bool() == Some(true) {
@@ -310,14 +309,30 @@ mod tests {
         );
     }
 
+    /// A topic is collected with the newest window's environment, and with the daemon's own when
+    /// no window has told it one: a window whose session is the daemon's tells it nothing
+    /// (docs/adr/0014), and a child is never run with an environment of nothing.
     #[test]
-    fn a_topic_needs_the_environment_of_a_window() {
-        let (_dir, daemon, calls) = counting("snap-noenv");
-        let err = daemon.sample("settings.look", true).unwrap_err();
-        assert!(err.contains("environment"), "{err}");
-        assert_eq!(calls.load(Ordering::SeqCst), 0);
+    fn a_topic_is_collected_with_the_newest_windows_environment_or_else_the_daemons_own() {
+        type Seen = Arc<std::sync::Mutex<Vec<Vec<(String, String)>>>>;
+        let seen: Seen = Arc::default();
+        let record = seen.clone();
+        let (_dir, daemon) = serve_commands(
+            "snap-ownenv",
+            Box::new(move |_, _, env| {
+                record.lock().unwrap().push(env.to_vec());
+                json!({"ok": true, "result": {"n": 1}})
+            }),
+        );
+        daemon.sample("settings.look", true).unwrap();
         daemon.settings.set_env(env());
-        assert_eq!(daemon.sample("settings.look", true).unwrap().value["n"], 1);
+        daemon.sample("settings.network", true).unwrap();
+        let seen = seen.lock().unwrap();
+        assert!(
+            seen[0].iter().any(|(k, _)| k == "PATH"),
+            "no window said: the daemon's own, which has a PATH"
+        );
+        assert_eq!(seen[1], env(), "a window said: exactly that");
     }
 
     #[test]
@@ -474,19 +489,32 @@ mod tests {
 
     #[test]
     fn a_topic_that_failed_a_moment_ago_is_not_collected_again_by_every_sub_frame() {
-        let (_dir, daemon, calls) = counting("snap-backoff");
-        // No environment: every collection fails.
+        let healthy = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let ok_calls = Arc::new(AtomicUsize::new(0));
+        let (up, counted) = (healthy.clone(), ok_calls.clone());
+        let (_dir, daemon) = serve_commands(
+            "snap-backoff",
+            Box::new(move |_, _, _| {
+                if up.load(Ordering::SeqCst) {
+                    let n = counted.fetch_add(1, Ordering::SeqCst) + 1;
+                    json!({"ok": true, "result": {"n": n}})
+                } else {
+                    json!({"ok": false, "error": {"code": "command", "message": "hyprctl failed"}})
+                }
+            }),
+        );
+        // The tool fails: every collection does.
         for _ in 0..3 {
             let _ = daemon.sample("settings.look", true);
         }
         assert!(daemon.settings.recently_failed("settings.look"));
-        daemon.settings.set_env(env());
+        healthy.store(true, Ordering::SeqCst);
         daemon.sample("settings.look", true).unwrap();
         assert!(
             !daemon.settings.recently_failed("settings.look"),
             "a success clears it"
         );
-        assert_eq!(calls.load(Ordering::SeqCst), 1);
+        assert_eq!(ok_calls.load(Ordering::SeqCst), 1);
     }
 
     #[test]

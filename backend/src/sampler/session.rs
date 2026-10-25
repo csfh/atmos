@@ -89,15 +89,17 @@ fn start_job(daemon: &Arc<Daemon>, owner: &Arc<super::bus::Subscriber>, frame: &
         .unwrap_or(name)
         .to_string();
     let args = frame.get("args").cloned().unwrap_or(Value::Null);
-    let env: Vec<(String, String)> = frame
-        .get("env")
-        .and_then(Value::as_object)
-        .map(|map| {
-            map.iter()
-                .filter_map(|(key, value)| Some((key.clone(), value.as_str()?.to_string())))
-                .collect()
-        })
-        .unwrap_or_default();
+    let env: Vec<(String, String)> = super::client::or_own_env(
+        frame
+            .get("env")
+            .and_then(Value::as_object)
+            .map(|map| {
+                map.iter()
+                    .filter_map(|(key, value)| Some((key.clone(), value.as_str()?.to_string())))
+                    .collect()
+            })
+            .unwrap_or_default(),
+    );
     match crate::command::jobs::build(name, &args) {
         Ok(spec) => {
             // What the job reads comes from its entry, never from the frame,

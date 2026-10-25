@@ -148,8 +148,18 @@ fn dispatch(
             }
             Ok(0)
         }
-        "daemon" => sampler::daemon::run(),
-        "sampler" => sampler::worker::run(),
+        // `daemon [--with-sampler]` keeps a sampler of its own (docs/adr/0014); `sampler
+        // [--owned]` leaves with the daemon that started it instead of waiting for another.
+        "daemon" => match parsed.rest.as_slice() {
+            [] => sampler::daemon::run(false),
+            [flag] if flag == "--with-sampler" => sampler::daemon::run(true),
+            other => Err(format!("daemon takes only --with-sampler, not {other:?}").into()),
+        },
+        "sampler" => match parsed.rest.as_slice() {
+            [] => sampler::worker::run(false),
+            [flag] if flag == "--owned" => sampler::worker::run(true),
+            other => Err(format!("sampler takes only --owned, not {other:?}").into()),
+        },
         // `sentinel KIND apply|reset|list FILE [JSON]`: the Hyprland blocks Atmos
         // manages, on any file. Tests and bug reports use it; the window does not.
         "sentinel" => {
@@ -293,7 +303,7 @@ fn parse_args(args: &[String]) -> Result<Parsed> {
         if positionals.len() == 1
             && matches!(
                 arg.as_str(),
-                "task" | "root" | "install" | "mcp" | "launch" | "sentinel"
+                "task" | "root" | "install" | "mcp" | "launch" | "sentinel" | "daemon" | "sampler"
             )
         {
             positionals.extend(args[index..].iter().cloned());

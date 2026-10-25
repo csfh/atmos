@@ -174,12 +174,23 @@ pub fn serve_jobs(stream: UnixStream, collect: &dyn Fn(&str) -> Reply) -> std::i
     Ok(())
 }
 
-/// `ratmos sampler`: stay connected to the daemon and collect for it.
-pub fn run() -> Result<i32> {
+/// `ratmos sampler [--owned]`: stay connected to the daemon and collect for it, going back to
+/// waiting for one whenever the daemon goes.
+///
+/// Owned, which is how a daemon with `--with-sampler` starts it (docs/adr/0014), it leaves with
+/// that daemon instead: when the connection ends, and when the process that started it is no
+/// longer its parent. Left to itself it would wait for the next daemon for ever, and a daemon
+/// that was replaced would find the old sampler still there and start a second beside it.
+pub fn run(owned: bool) -> Result<i32> {
     let dir = cache::dir_from_env().ok_or("ratmos sampler needs XDG_RUNTIME_DIR")?;
     let socket = cache::socket(&dir);
+    let parent = std::os::unix::process::parent_id();
     eprintln!("ratmos sampler {} waiting for the daemon", crate::VERSION);
     loop {
+        if owned && std::os::unix::process::parent_id() != parent {
+            eprintln!("ratmos sampler: its daemon is gone; leaving");
+            return Ok(0);
+        }
         if let Ok(stream) = UnixStream::connect(&socket) {
             let result = serve_jobs(stream, &|kind| {
                 crate::display::collect(crate::platform::Backend::Omarchy, kind)
@@ -187,6 +198,10 @@ pub fn run() -> Result<i32> {
             });
             if let Err(err) = result {
                 eprintln!("ratmos sampler: lost the daemon: {err}");
+            }
+            if owned {
+                eprintln!("ratmos sampler: its daemon is gone; leaving");
+                return Ok(0);
             }
         }
         std::thread::sleep(Duration::from_secs(2));

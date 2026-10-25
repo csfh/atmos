@@ -93,15 +93,17 @@ impl Daemon {
             .and_then(Value::as_str)
             .unwrap_or("omarchy")
             .to_string();
-        let env: Vec<(String, String)> = request
-            .get("env")
-            .and_then(Value::as_object)
-            .map(|map| {
-                map.iter()
-                    .filter_map(|(key, value)| Some((key.clone(), value.as_str()?.to_string())))
-                    .collect()
-            })
-            .unwrap_or_default();
+        let env: Vec<(String, String)> = super::client::or_own_env(
+            request
+                .get("env")
+                .and_then(Value::as_object)
+                .map(|map| {
+                    map.iter()
+                        .filter_map(|(key, value)| Some((key.clone(), value.as_str()?.to_string())))
+                        .collect()
+                })
+                .unwrap_or_default(),
+        );
         let affects: Vec<&str> = plan.affects.iter().map(String::as_str).collect();
         let run = Arc::clone(&self.run_command);
         let slots = Arc::clone(&self.read_slots);

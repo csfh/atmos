@@ -427,8 +427,12 @@ fn session(stream: UnixStream, out: &Out, subs: &Subs) {
     let wire = lock(&bridge).clone();
     // The settings topics are collected with the environment of a window that
     // holds them (`hyprctl` and `omarchy` need the session's).
+    // A window whose session is the daemon's has none to tell (docs/adr/0014).
     if let Some(wire) = &wire {
-        wire.send(&json!({"t": "env", "env": client::window_env()}));
+        let env = client::window_env();
+        if !env.is_empty() {
+            wire.send(&json!({"t": "env", "env": env}));
+        }
     }
     let mut sent: Option<u64> = None;
     while alive.load(Ordering::SeqCst) {

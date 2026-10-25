@@ -889,3 +889,156 @@ fn a_window_refuses_a_daemon_too_old_to_run_its_reads() {
     );
     let _ = fs::remove_dir_all(&run);
 }
+
+/// The processes whose parent is `pid`, as `(pid, command line)`, from `/proc`.
+fn children_of(pid: u32) -> Vec<(u32, String)> {
+    let mut found = Vec::new();
+    for entry in fs::read_dir("/proc").unwrap().flatten() {
+        let Ok(child) = entry.file_name().to_string_lossy().parse::<u32>() else {
+            continue;
+        };
+        let Ok(stat) = fs::read_to_string(format!("/proc/{child}/stat")) else {
+            continue;
+        };
+        // `pid (comm) state ppid ...`, where comm may hold spaces and parentheses.
+        let Some((_, after)) = stat.rsplit_once(')') else {
+            continue;
+        };
+        if after
+            .split_whitespace()
+            .nth(1)
+            .and_then(|p| p.parse::<u32>().ok())
+            == Some(pid)
+        {
+            let cmd = fs::read_to_string(format!("/proc/{child}/cmdline"))
+                .unwrap_or_default()
+                .replace('\0', " ");
+            found.push((child, cmd));
+        }
+    }
+    found
+}
+
+/// Whether `pid` is still a process that runs: gone, or only waiting to be reaped.
+fn alive(pid: u32) -> bool {
+    fs::read_to_string(format!("/proc/{pid}/stat"))
+        .ok()
+        .and_then(|stat| {
+            stat.rsplit_once(')')
+                .and_then(|(_, after)| after.split_whitespace().next().map(|s| s != "Z"))
+        })
+        .unwrap_or(false)
+}
+
+/// A daemon with `flags`, and `path` as its `PATH` when given.
+fn start_daemon_with(
+    run: &std::path::Path,
+    flags: &[&str],
+    path: Option<&std::path::Path>,
+) -> Daemon {
+    let mut command = Command::new(env!("CARGO_BIN_EXE_ratmos"));
+    command
+        .arg("daemon")
+        .args(flags)
+        .env("XDG_RUNTIME_DIR", run);
+    if let Some(path) = path {
+        command.env("PATH", path);
+    }
+    let daemon = Daemon(
+        command
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .expect("spawn ratmos daemon"),
+    );
+    let socket = run.join("atmos/ratmos.sock");
+    for _ in 0..100 {
+        if std::os::unix::net::UnixStream::connect(&socket).is_ok() {
+            return daemon;
+        }
+        thread::sleep(Duration::from_millis(50));
+    }
+    panic!("the daemon never listened");
+}
+
+/// With `--with-sampler` the daemon starts a sampler of its own, a child of it at the lowest
+/// priorities, and the sampler ends when the daemon does: it must not wait for the next one for
+/// ever, or a replaced daemon would start a second beside the old (docs/adr/0014).
+#[test]
+fn a_daemon_with_a_sampler_of_its_own_starts_it_and_it_leaves_with_the_daemon() {
+    let run = short_run_dir("owned");
+    // Only `nice` is on its PATH: the sampler starts, and what it would collect (`lsblk`,
+    // `systemctl`) is not there to run, so it costs nothing while the other tests run beside it.
+    let tools = run.join("tools");
+    fs::create_dir_all(&tools).unwrap();
+    let nice = ["/usr/bin/nice", "/bin/nice"]
+        .into_iter()
+        .find(|p| std::path::Path::new(p).exists())
+        .expect("nice");
+    std::os::unix::fs::symlink(nice, tools.join("nice")).unwrap();
+    let mut daemon = start_daemon_with(&run, &["--with-sampler"], Some(&tools));
+
+    let mut sampler = None;
+    for _ in 0..150 {
+        let status = daemon_status(&run);
+        if status["sampler"]["connected"] == true {
+            sampler = status["sampler"]["pid"].as_u64().map(|p| p as u32);
+            break;
+        }
+        thread::sleep(Duration::from_millis(100));
+    }
+    let sampler = sampler.expect("a sampler connected to the daemon");
+    let children = children_of(daemon.0.id());
+    let own = children
+        .iter()
+        .find(|(pid, _)| *pid == sampler)
+        .expect("the sampler is the daemon's child");
+    assert!(own.1.contains("sampler --owned"), "{own:?}");
+    assert_eq!(
+        children.len(),
+        1,
+        "one sampler and nothing else: {children:?}"
+    );
+
+    // The daemon is killed without a chance to say goodbye.
+    daemon.0.kill().unwrap();
+    daemon.0.wait().unwrap();
+    let until = std::time::Instant::now() + Duration::from_secs(10);
+    while alive(sampler) && std::time::Instant::now() < until {
+        thread::sleep(Duration::from_millis(100));
+    }
+    assert!(!alive(sampler), "the sampler outlived its daemon");
+    let _ = fs::remove_dir_all(&run);
+}
+
+/// Without the flag nothing is started: an install's units start the sampler, or a hand does,
+/// and a daemon that started one as well would sample twice.
+#[test]
+fn a_daemon_without_the_flag_starts_no_sampler() {
+    let run = short_run_dir("unowned");
+    let daemon = start_daemon_with(&run, &[], None);
+    // Longer than the grace the keeper would take to start one.
+    thread::sleep(Duration::from_millis(2500));
+    assert_eq!(daemon_status(&run)["sampler"]["connected"], false);
+    assert!(children_of(daemon.0.id()).is_empty());
+    let _ = fs::remove_dir_all(&run);
+}
+
+#[test]
+fn the_daemon_and_the_sampler_take_only_their_own_flags() {
+    let run = short_run_dir("flags");
+    for args in [["daemon", "--nope"], ["sampler", "--nope"]] {
+        let out = Command::new(env!("CARGO_BIN_EXE_ratmos"))
+            .args(args)
+            .env("XDG_RUNTIME_DIR", &run)
+            .output()
+            .unwrap();
+        assert!(!out.status.success(), "{args:?}");
+        assert!(
+            String::from_utf8_lossy(&out.stderr).contains("takes only"),
+            "{args:?}"
+        );
+    }
+    let _ = fs::remove_dir_all(&run);
+}

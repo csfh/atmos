@@ -23,6 +23,7 @@ use super::cache::{self, Sample};
 use super::commands::Commands;
 use super::flight::{Flights, Outcome};
 use super::governor::{self, Governor, Limits, Probe, Verdict};
+use super::owned::OwnedSampler;
 use super::schedule::{self, Schedule};
 use super::topics::Topics;
 use super::worker::Workers;
@@ -342,7 +343,14 @@ impl Daemon {
     }
 
     /// The scheduled lane. Returns when `stop` is set.
+    #[cfg(test)]
     pub fn schedule(&self, stop: &AtomicBool) {
+        self.schedule_with(stop, None);
+    }
+
+    /// [`Daemon::schedule`], and keeping a sampler of its own alive when there is a keeper
+    /// (`ratmos daemon --with-sampler`).
+    pub(super) fn schedule_with(&self, stop: &AtomicBool, mut keeper: Option<OwnedSampler>) {
         let mut schedule = Schedule::new(Instant::now(), |kind| {
             cache::read(&self.dir, kind).map(|sample| sample.age())
         });
@@ -359,7 +367,11 @@ impl Daemon {
                     schedule.bring_forward(known, due);
                 }
             }
-            sampler.look(self.workers.available(), now);
+            match keeper.as_mut() {
+                // The daemon's own: it says so when it starts one, so no "sampling is off".
+                Some(keeper) => keeper.keep(self.workers.available(), now),
+                None => sampler.look(self.workers.available(), now),
+            }
             let ready = due <= now
                 && now >= held_until
                 && self.flights.interactive_active() == 0
@@ -476,8 +488,9 @@ pub fn bind(dir: &Path) -> Result<(UnixListener, std::fs::File)> {
     Ok((listener, lock))
 }
 
-/// `ratmos daemon`
-pub fn run() -> Result<i32> {
+/// `ratmos daemon [--with-sampler]`: with the flag the daemon starts a sampler of its own and
+/// keeps it alive (docs/adr/0014), where otherwise `ratmos-sampler.service` or a hand starts one.
+pub fn run(with_sampler: bool) -> Result<i32> {
     let dir = cache::dir_from_env().ok_or("ratmos daemon needs XDG_RUNTIME_DIR")?;
     let (listener, _lock) = bind(&dir)?;
     let watched = dir.clone();
@@ -501,7 +514,8 @@ pub fn run() -> Result<i32> {
     daemon.jobs.adopt_orphans();
     super::session::exit_when_stale(watched, daemon.jobs.clone());
     // Only a signal ends the daemon, and the lock goes with the process.
-    daemon.schedule(&AtomicBool::new(false));
+    let keeper = with_sampler.then(OwnedSampler::production);
+    daemon.schedule_with(&AtomicBool::new(false), keeper);
     Ok(0)
 }
 

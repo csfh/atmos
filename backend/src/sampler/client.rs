@@ -231,13 +231,54 @@ pub fn command(body: &Value, backend_id: &str) -> Command {
 /// may be another copy of the program, so the app root is named even when
 /// nothing set it: a read that looks at the app's own files (`search.query`)
 /// means this window's.
+///
+/// A window that says its session is the daemon's (`ATMOS_SESSION=daemon`, which a window in a
+/// sandbox sets, since it sees only a few variables and none of the desktop's) sends none: the
+/// daemon runs what it asks in the daemon's own environment ([`or_own_env`]), which the
+/// application's `oma` gave it from the real session (docs/adr/0014).
 pub fn window_env() -> serde_json::Map<String, Value> {
+    sent_env(session_is_the_daemons(
+        std::env::var(SESSION).ok().as_deref(),
+    ))
+}
+
+/// The variable that says a window has no session of its own, and the value that says whose it
+/// has instead.
+pub const SESSION: &str = "ATMOS_SESSION";
+const DAEMONS: &str = "daemon";
+
+fn session_is_the_daemons(value: Option<&str>) -> bool {
+    value == Some(DAEMONS)
+}
+
+fn sent_env(daemons_session: bool) -> serde_json::Map<String, Value> {
+    if daemons_session {
+        serde_json::Map::new()
+    } else {
+        own_env()
+    }
+}
+
+fn own_env() -> serde_json::Map<String, Value> {
     let mut env: serde_json::Map<String, Value> = std::env::vars()
         .map(|(key, value)| (key, Value::String(value)))
         .collect();
     env.entry("ATMOS_ROOT")
         .or_insert_with(|| Value::String(crate::platform::app_root().display().to_string()));
     env
+}
+
+/// What a command, a job or a settings topic runs with: the environment a window sent, or this
+/// process's own when it sent none. A child is always given an environment, never the lack of
+/// one, since the child runs with a cleared one (`PATH` is its first need).
+pub fn or_own_env(sent: Vec<(String, String)>) -> Vec<(String, String)> {
+    if !sent.is_empty() {
+        return sent;
+    }
+    own_env()
+        .into_iter()
+        .filter_map(|(key, value)| Some((key, value.as_str()?.to_owned())))
+        .collect()
 }
 
 fn command_ask(body: &Value, backend_id: &str) -> Value {
@@ -385,6 +426,31 @@ mod tests {
         assert!(
             env.contains_key("PATH"),
             "the rest of the environment goes too"
+        );
+    }
+
+    #[test]
+    fn a_child_is_given_what_a_window_sent_or_else_the_daemons_own_environment() {
+        let sent = vec![("PATH".to_owned(), "/window/bin".to_owned())];
+        assert_eq!(or_own_env(sent.clone()), sent, "a window's word is kept");
+        let own = or_own_env(Vec::new());
+        assert!(
+            own.iter().any(|(k, _)| k == "PATH"),
+            "the daemon's own PATH, not none: a child runs with a cleared environment"
+        );
+        assert!(own.iter().any(|(k, _)| k == "ATMOS_ROOT"));
+    }
+
+    #[test]
+    fn a_window_whose_session_is_the_daemons_sends_no_environment() {
+        assert!(session_is_the_daemons(Some("daemon")));
+        for other in [None, Some(""), Some("window"), Some("Daemon")] {
+            assert!(!session_is_the_daemons(other), "{other:?}");
+        }
+        assert!(sent_env(true).is_empty(), "nothing is sent");
+        assert!(
+            sent_env(false).contains_key("PATH"),
+            "any other value keeps the old way"
         );
     }
 

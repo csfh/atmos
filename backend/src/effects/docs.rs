@@ -156,6 +156,13 @@ pub fn write_doc(root: Option<&Path>, path: &Path, key: &str, value: &Value) -> 
     }
 }
 
+/// Privileged documents whose live effect in `live::after_write` writes them,
+/// elevating when it has to, and reports a failure. The others still fail on a
+/// live write: some are reports, and some effects start a unit and do not wait.
+pub fn written_by_effect(key: &str) -> bool {
+    privileged(key) && matches!(key, "chargeLimit" | "passwordlessSudo" | "snapperTimeline")
+}
+
 pub(super) fn privileged(key: &str) -> bool {
     matches!(
         key,

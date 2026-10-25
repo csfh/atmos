@@ -44,12 +44,17 @@ function elevationCount() {
 }
 
 function run(limit, extraEnv) {
-  return spawnSync(ratmosBinary(), ["task", "set-charge-limit", limit], {
+  return task(["set-charge-limit", limit], extraEnv);
+}
+
+function task(args, extraEnv) {
+  return spawnSync(ratmosBinary(), ["task"].concat(args), {
     encoding: "utf8",
     env: Object.assign(
       {},
       process.env,
       {
+        HOME: fixture,
         PATH: stubs + ":" + (process.env.PATH || ""),
         ATMOS_ROOT_TEST: "1",
         ATMOS_POWER_SUPPLY_DIR: path.dirname(battery),
@@ -156,6 +161,13 @@ try {
   } finally {
     fs.renameSync(macsmc, battery);
   }
+
+  // The settings page sends settings.set. Its place for the limit is under
+  // /sys, where a user cannot take a lock, so only the effect may write it.
+  reset(adaptive);
+  result = task(["settings-set", "chargeLimit", "75"]);
+  assertEqual(result.status, 0, "settings.set reaches the charge limit effect " + result.stderr);
+  assertEqual(fs.readFileSync(end, "utf8"), "75\n", "settings.set writes the limit");
 
   fs.unlinkSync(end);
   result = run("80");

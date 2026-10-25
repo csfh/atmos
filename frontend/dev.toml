@@ -1,0 +1,8 @@
+# `oma dev frontend`: build both halves, make the Bundle, install it over the installed copy and
+# run it (docs/oma.md; ODK's ADR 0051). Not part of the Bundle. Paths are from this directory.
+build = [
+  ["cargo", "build", "--release", "--manifest-path", "../backend/Cargo.toml"],
+  ["cargo", "build", "--release"],
+]
+executable = "target/release/atmos-ui"
+include = ["../backend/target/release/ratmos=bin/ratmos"]

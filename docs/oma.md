@@ -2,7 +2,17 @@
 
 The Rust window (`frontend/`, `docs/adr/0013`) is an `.oma` Bundle with `ratmos` in it (`docs/adr/0014`). `oma` and the Bundle format are ODK's, in `../odk`.
 
-## Make it
+## Develop it
+
+```
+oma dev frontend
+```
+
+`frontend/dev.toml` says how: it builds `ratmos` and the window with cargo, makes the Bundle with `ratmos` in it, installs it over the installed copy (the one place `oma` replaces an installed application, ODK's ADR 0051) and runs it. It shows the consent dialog only when the Bundle asks for more than the record holds, and stops the daemon of the copy it replaces before it installs, so the window never talks to a `ratmos` from an earlier build. It says so if something else, such as the user unit of an installed `ratmos`, is still serving `$XDG_RUNTIME_DIR/atmos/ratmos.sock`. It replaces `~/Applications/Atmos.oma`, and runs the build commands in `dev.toml` as you.
+
+## Make it by hand
+
+What `oma dev` does, one step at a time, for a build that is not the project's own:
 
 ```
 cargo build --release --manifest-path backend/Cargo.toml
@@ -23,7 +33,7 @@ oma install dist/Atmos.oma
 oma run dev.csfh.atmos
 ```
 
-`oma install` shows the consent dialog and records the answer. `oma run` starts the Bundle's daemon (`bin/ratmos daemon --with-sampler`, which also starts its sampler) as a user unit when nothing is listening on `$XDG_RUNTIME_DIR/atmos/ratmos.sock`, and then the window, which finds `bin/ratmos` beside itself and runs `ratmos serve` from it.
+`oma install` refuses an Identifier that is installed already; use `oma dev`, or delete `~/Applications/Atmos.oma`, to replace it. It shows the consent dialog and records the answer. `oma run` starts the Bundle's daemon (`bin/ratmos daemon --with-sampler`, which also starts its sampler) as a user unit when nothing is listening on `$XDG_RUNTIME_DIR/atmos/ratmos.sock`, and then the window, which finds `bin/ratmos` beside itself and runs `ratmos serve` from it.
 
 ## Trying it without your session
 

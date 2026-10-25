@@ -1,0 +1,22 @@
+# The Atmos window as an OMA Bundle (docs/adr/0014). Build it as docs/oma.md says: the window is
+# the executable, and `ratmos` goes in beside it as `bin/ratmos` (`oma bundle --include`), which is
+# both the daemon `oma run` starts and the `ratmos serve` the window runs.
+manifest_version = 1
+identifier = "dev.csfh.atmos"
+name = "Atmos"
+version = "0.4.0"
+description = "Preferences for Omarchy"
+executable = "atmos-ui"
+categories = ["Settings"]
+
+[permissions]
+gpu = true
+
+# The daemon runs outside the sandbox, because what it does (hyprctl, omarchy, systemctl, sudo) is
+# the user's own session. The consent dialog says so. One socket is the whole of the window's way
+# to it, and `ratmos.socket` of an install of Atmos listens on the same file, so only one daemon
+# runs (ADR 0050).
+[daemon]
+executable = "bin/ratmos"
+args = ["daemon", "--with-sampler"]
+socket = "atmos/ratmos.sock"

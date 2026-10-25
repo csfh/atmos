@@ -19,6 +19,7 @@ An ADR records one decision that shaped Atmos: what was decided, why, and what i
 | [0011](0011-the-settings-snapshot-is-held-as-topics.md) | The settings snapshot is held as topics | Accepted |
 | [0012](0012-serve-is-a-bridge.md) | `ratmos serve` is a bridge | Accepted |
 | [0013](0013-the-window-is-rust-on-odk.md) | The window is Rust, built on ODK's components alone | Accepted |
+| [0014](0014-the-window-is-an-oma-bundle-with-its-backend-in-it.md) | The window is an OMA Bundle with its backend in it | Accepted |
 
 ## Format
 

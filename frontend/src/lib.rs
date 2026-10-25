@@ -5,6 +5,7 @@ pub mod app;
 pub mod client;
 pub mod hubs;
 pub mod live;
+pub mod pages;
 pub mod protocol;
 pub mod sentinel;
 pub mod status;

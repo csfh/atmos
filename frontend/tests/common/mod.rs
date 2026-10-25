@@ -101,3 +101,73 @@ pub fn script(connections: usize) -> (Scripted, Vec<Server>) {
     }
     (Scripted(queue), servers)
 }
+
+/// What a scripted daemon answers a request with.
+pub enum Reply {
+    /// `ok: true`, with this as the result.
+    Ok(Value),
+    /// `ok: false`, with this code and message.
+    Err(&'static str, &'static str),
+}
+
+/// A server that reads every request, keeps it, and answers it, on a thread of its own, and can
+/// push an event whenever the test says so.
+pub struct Auto {
+    seen: Arc<Mutex<Vec<Value>>>,
+    out: Arc<Mutex<UnixStream>>,
+}
+
+impl Server {
+    /// Answers each request by `reply` for as long as the client is connected.
+    pub fn auto(self, reply: impl Fn(&Value) -> Reply + Send + 'static) -> Auto {
+        let seen = Arc::new(Mutex::new(Vec::new()));
+        let out = Arc::new(Mutex::new(self.out.try_clone().unwrap()));
+        let (kept, speak) = (seen.clone(), out.clone());
+        let mut lines = self.lines;
+        thread::spawn(move || {
+            let mut line = String::new();
+            loop {
+                line.clear();
+                if lines.read_line(&mut line).unwrap_or(0) == 0 {
+                    return;
+                }
+                let Ok(request) = serde_json::from_str::<Value>(&line) else {
+                    continue;
+                };
+                let envelope = match reply(&request) {
+                    Reply::Ok(result) => {
+                        serde_json::json!({"id": request["id"], "ok": true, "result": result})
+                    }
+                    Reply::Err(code, message) => serde_json::json!({
+                        "id": request["id"], "ok": false, "result": null,
+                        "error": {"code": code, "message": message, "context": null}}),
+                };
+                kept.lock().unwrap().push(request);
+                let mut out = speak.lock().unwrap();
+                let _ = writeln!(out, "{envelope}");
+            }
+        });
+        Auto { seen, out }
+    }
+}
+
+impl Auto {
+    /// An event or a line the server pushes.
+    pub fn say(&self, value: Value) {
+        let mut out = self.out.lock().unwrap();
+        writeln!(out, "{value}").unwrap();
+    }
+
+    /// The requests the client has made so far.
+    pub fn requests(&self) -> Vec<Value> {
+        self.seen.lock().unwrap().clone()
+    }
+
+    /// The requests of one op, or of a `write` of one name.
+    pub fn of(&self, op: &str) -> Vec<Value> {
+        self.requests()
+            .into_iter()
+            .filter(|r| r["op"] == op || (r["op"] == "write" && r["name"] == op))
+            .collect()
+    }
+}

@@ -3,7 +3,7 @@ name: tests
 on:
   pull_request:
   push:
-    branches: [main, stable, atmos-v1.0.0-rc]
+    branches: [main, stable]
 
 concurrency:
   group: tests-${{ github.workflow }}-${{ github.ref }}
@@ -17,33 +17,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      # The Rust window (frontend/, docs/adr/0013) builds on ODK checked out beside this
-      # repository, where `tests/frontend` and frontend/Cargo.toml look for it. Without it the
-      # frontend step says "skip" and the window is not tested. Follow ODK's branch of the same
-      # name until both are on main.
-      - uses: actions/checkout@v4
-        with:
-          repository: csfh/odk
-          ref: atmos-v1.0.0-rc
-          path: odk-src
-      - name: ODK beside this repository
-        run: ln -s "$GITHUB_WORKSPACE/odk-src" "$(dirname "$GITHUB_WORKSPACE")/odk"
-      - name: System libraries for GPUI
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            libxcb1-dev libxkbcommon-dev libxkbcommon-x11-dev libwayland-dev \
-            libfontconfig1-dev libvulkan-dev libasound2-dev
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: clippy, rustfmt
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: |
-            backend
-            frontend
-            odk-src
-          cache-on-failure: true
       - uses: actions/setup-node@v4
         with:
           node-version: "22"

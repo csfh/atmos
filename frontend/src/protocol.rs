@@ -14,6 +14,9 @@ pub const OPS: &[&str] = &[
     "sub.set",
     "snapshot.invalidate",
     "job.start",
+    "write",
+    "settings.get",
+    "settings.set",
 ];
 
 /// The server restarts after this long at the first failure, doubling to the ceiling. A server that
@@ -136,6 +139,23 @@ pub fn sub_set(topics: &[(&str, u64)]) -> Value {
 /// name and arguments, never a command line.
 pub fn job_start(cid: &str, name: &str, args: &Value, label: &str) -> Value {
     json!({ "op": "job.start", "cid": cid, "name": name, "args": args, "label": label })
+}
+
+/// A typed write: a registry entry by `name`, with `args` the entry checks
+/// (`backend/src/command/entries.rs`). The window never sends a command line.
+pub fn write(name: &str, args: &Value) -> Value {
+    json!({ "op": "write", "name": name, "args": args })
+}
+
+/// One setting's stored value, `null` when it is unset.
+pub fn settings_get(domain: &str) -> Value {
+    json!({ "op": "settings.get", "domain": domain })
+}
+
+/// Stores a setting. `value` must be what the domain's type is: an integer domain refuses
+/// `80.0`, so a number from a field is sent as an integer.
+pub fn settings_set(domain: &str, value: &Value) -> Value {
+    json!({ "op": "settings.set", "domain": domain, "value": value })
 }
 
 /// Read these topics again. None named means the five settings topics. What a Refresh sends.
@@ -324,6 +344,24 @@ mod tests {
         assert_eq!(body["topics"]["live"]["intervalMs"], 2000);
         assert_eq!(body["topics"]["hardware"]["intervalMs"], 0);
         assert_eq!(sub_set(&[])["topics"], json!({}));
+    }
+
+    #[test]
+    fn a_write_and_a_setting_name_what_they_are_about() {
+        assert_eq!(
+            write("process.signal", &json!({"pid": 4242, "signal": "TERM"})),
+            json!({"op": "write", "name": "process.signal", "args": {"pid": 4242, "signal": "TERM"}})
+        );
+        assert_eq!(
+            settings_get("sentinelCpuPercent"),
+            json!({"op": "settings.get", "domain": "sentinelCpuPercent"})
+        );
+        let set = settings_set("sentinelCpuPercent", &json!(80));
+        assert_eq!(set["value"], 80);
+        assert!(
+            set["value"].is_i64(),
+            "an integer domain takes an integer, not 80.0"
+        );
     }
 
     #[test]

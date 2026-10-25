@@ -90,3 +90,42 @@ fn group_headings_are_those_of_layout_js() {
         .collect();
     assert_eq!(ours, theirs);
 }
+
+/// The text of the registry entry named `name` in `entries.rs`: from its name to the next entry.
+fn entry(name: &str) -> String {
+    let source = repo("backend/src/command/entries.rs");
+    let at = source
+        .find(&format!("\"{name}\""))
+        .unwrap_or_else(|| panic!("the registry has no `{name}`"));
+    let rest = &source[at..];
+    rest[..rest[1..].find("Entry::new(").map_or(rest.len(), |n| n + 1)].to_owned()
+}
+
+#[test]
+fn the_signal_write_is_the_registry_entry_the_page_assumes() {
+    let e = entry("process.signal");
+    let (low, high) = atmos_ui::actions::PID_RANGE;
+    let range = format!("V(\"pid\", A::Uint({low}, {}))", "4_194_304");
+    assert_eq!(high, 4_194_304);
+    assert!(e.contains(&range), "the pid range moved: {e}");
+    assert!(
+        e.contains("V(\"signal\", A::Is(&[\"TERM\", \"KILL\"]))"),
+        "{e}"
+    );
+}
+
+#[test]
+fn the_clipboard_write_takes_its_text_on_stdin_under_the_name_the_page_sends() {
+    let e = entry("clipboard.copy");
+    assert!(e.contains("In::Field(\"text\")"), "{e}");
+}
+
+/// The limits are stored as integers: a number from a field that is sent as `80.0` is refused.
+#[test]
+fn the_three_limits_are_integer_settings_in_the_shell_file() {
+    let domains = repo("backend/src/domain.rs");
+    for limit in atmos_ui::sentinel::Limit::ALL {
+        let row = format!("(\"{}\", \"shell\", Int)", limit.domain());
+        assert!(domains.contains(&row), "{row} is not a domain");
+    }
+}

@@ -64,6 +64,12 @@ echo "ok - ratmos clippy"
 cargo test --manifest-path backend/Cargo.toml
 echo "ok - ratmos tests"
 
+if [[ ! -x tests/frontend ]]; then
+  echo "not ok - tests/frontend is not executable"
+  exit 1
+fi
+./tests/frontend
+
 shopt -s nullglob
 for t in tests/*.test.js; do
   node "$t"

@@ -1,0 +1,28 @@
+[package]
+name = "atmos-ui"
+version = "0.4.0"
+edition = "2024"
+rust-version = "1.96"
+description = "The Atmos window, built on ODK"
+license = "MIT"
+
+# Its own Cargo root: it must not attach to a parent workspace, and `backend/` is a separate one.
+[workspace]
+
+[dependencies]
+odk = { path = "../../odk/crates/odk" }
+async-channel = "2"
+serde_json = "1"
+
+[dev-dependencies]
+odk = { path = "../../odk/crates/odk", features = ["test-support"] }
+
+# Profiles and patches are read from the root manifest only (see odk's Cargo.toml).
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3
+
+[patch.crates-io]
+xattr = { path = "../../odk/patches/xattr" }

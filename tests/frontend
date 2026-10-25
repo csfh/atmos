@@ -1,0 +1,34 @@
+#!/bin/bash
+# The Rust window (frontend/, docs/adr/0013): cargo fmt --check, clippy and its tests, which open
+# no window. It builds on ODK, checked out beside this repository, so without ../odk it says so and
+# stops: GitHub Actions has no ODK.
+set -euo pipefail
+
+ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+cd "$ROOT/frontend"
+
+if [[ ! -d ../../odk/crates/odk ]]; then
+  echo "skip - frontend (ODK is not checked out at $(dirname "$ROOT")/odk)"
+  exit 0
+fi
+if ! command -v cargo >/dev/null 2>&1; then
+  echo "not ok - cargo is required to build the frontend"
+  exit 1
+fi
+
+# Its tests start the real ratmos, in a private home and runtime directory, and a ratmos that is
+# not built is skipped by them. Build the debug one and name it, so they never run a stale copy
+# (a release build or bin/ratmos can be days old).
+cargo build --manifest-path "$ROOT/backend/Cargo.toml" --quiet
+export ATMOS_BACKEND="$ROOT/backend/target/debug/ratmos"
+
+# The Bundle's manifest is checked by the real `oma` (docs/oma.md), built from ODK beside this repository.
+cargo build --manifest-path "$ROOT/../odk/Cargo.toml" -p oma --quiet
+export OMA="$ROOT/../odk/target/debug/oma"
+
+cargo fmt --check
+echo "ok - frontend cargo fmt --check"
+cargo clippy --all-targets -- -D warnings
+echo "ok - frontend clippy"
+cargo test
+echo "ok - frontend tests"

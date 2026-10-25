@@ -1,7 +1,7 @@
 #!/bin/bash
 # Block a commit when the staged state is hidden by later edits, or when
-# oxlint, oxfmt --check, the file budget, or (when
-# backend/ is staged) cargo fmt --check or clippy fails.
+# oxlint, oxfmt --check, the file budget, (when backend/ is staged)
+# cargo fmt --check or clippy, or (when frontend/ is staged) tests/frontend fails.
 set -euo pipefail
 
 root=$(git rev-parse --show-toplevel)
@@ -24,6 +24,10 @@ fi
 if [[ -n $(git diff --cached --name-only -- backend) ]]; then
   cargo fmt --manifest-path backend/Cargo.toml --check
   cargo clippy --manifest-path backend/Cargo.toml --all-targets -- -D warnings
+fi
+
+if [[ -n $(git diff --cached --name-only -- frontend) ]]; then
+  ./tests/frontend
 fi
 
 if [[ ! -x tests/file-budget ]]; then

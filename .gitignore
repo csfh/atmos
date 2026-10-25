@@ -6,3 +6,5 @@ node_modules/
 www/dist
 backend/target/
 /.worktrees/
+frontend/target/
+dist/

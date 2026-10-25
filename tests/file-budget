@@ -11,7 +11,17 @@ const fs = require("fs");
 const path = require("path");
 
 const CAP = 800;
-const SCAN = ["bin", "backend/src", "components", "pages", "scripts", "services", "shell.qml"];
+const SCAN = [
+  "bin",
+  "backend/src",
+  "frontend/src",
+  "frontend/tests",
+  "components",
+  "pages",
+  "scripts",
+  "services",
+  "shell.qml",
+];
 const SOURCE = /\.(qml|js|rs|py|sh)$/;
 const BASELINE = "tests/file-budget.baseline";
 

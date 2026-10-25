@@ -18,6 +18,7 @@ An ADR records one decision that shaped Atmos: what was decided, why, and what i
 | [0010](0010-nothing-works-without-the-daemon.md) | Nothing works without the daemon | Accepted |
 | [0011](0011-the-settings-snapshot-is-held-as-topics.md) | The settings snapshot is held as topics | Accepted |
 | [0012](0012-serve-is-a-bridge.md) | `ratmos serve` is a bridge | Accepted |
+| [0013](0013-the-window-is-rust-on-odk.md) | The window is Rust, built on ODK's components alone | Accepted |
 
 ## Format
 

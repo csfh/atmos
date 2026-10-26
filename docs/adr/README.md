@@ -23,6 +23,7 @@ An ADR records one decision that shaped Atmos: what was decided, why, and what i
 | [0015](0015-a-cached-topic-is-sent-only-when-its-files-have-not-moved.md) | A cached settings topic is sent only when its files have not moved | Accepted |
 | [0016](0016-what-a-write-names-is-made-current-and-a-reading-wins.md) | What a write names is made current, and a reading wins over a stored value | Accepted |
 | [0017](0017-v1-does-not-update-installs-older-than-v1.md) | v1 does not update installs older than v1 | Accepted |
+| [0019](0019-a-passwordless-sudo-grant-ends-at-boot-too.md) | A passwordless sudo grant ends at boot too | Accepted |
 
 ## Format
 

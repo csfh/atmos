@@ -1,6 +1,6 @@
 # The Atmos window as an OMA Bundle (docs/adr/0014). Build it as docs/oma.md says: the window is
-# the executable, and `ratmos` goes in beside it as `bin/ratmos` (`oma bundle --include`), which is
-# both the daemon `oma run` starts and the `ratmos serve` the window runs.
+# the executable, and `ratmos` goes in beside it as `bin/ratmos` (`odk oma bundle --include`), which is
+# both the daemon `odk oma run` starts and the `ratmos serve` the window runs.
 manifest_version = 1
 identifier = "dev.csfh.atmos"
 name = "Atmos"

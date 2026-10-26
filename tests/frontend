@@ -22,9 +22,12 @@ fi
 cargo build --manifest-path "$ROOT/backend/Cargo.toml" --quiet
 export ATMOS_BACKEND="$ROOT/backend/target/debug/ratmos"
 
-# The Bundle's manifest is checked by the real `oma` (docs/oma.md), built from ODK beside this repository.
+# The Bundle's manifest is checked by the real `odk-oma` (the program behind `odk oma`) (docs/oma.md), built from ODK beside this repository.
 cargo build --manifest-path "$ROOT/../odk/Cargo.toml" -p oma --quiet
-export OMA="$ROOT/../odk/target/debug/oma"
+export OMA="$ROOT/../odk/target/debug/odk-oma"
+
+# No test hears the user's own odkd (ODK's ADR 0062): the window draws its fallback palette.
+export ODKD_SOCKET=none
 
 cargo fmt --check
 echo "ok - frontend cargo fmt --check"

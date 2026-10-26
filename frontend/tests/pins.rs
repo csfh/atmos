@@ -130,7 +130,7 @@ fn the_three_limits_are_integer_settings_in_the_shell_file() {
     }
 }
 
-/// `oma dev frontend` builds what `docs/oma.md` says it does: the include lands where the manifest
+/// `odk oma dev frontend` builds what `docs/oma.md` says it does: the include lands where the manifest
 /// declares the daemon, and both builds are the ones the packaging commands run.
 #[test]
 fn dev_toml_builds_the_window_and_puts_ratmos_where_the_manifest_runs_the_daemon() {

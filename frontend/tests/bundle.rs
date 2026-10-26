@@ -1,20 +1,20 @@
 //! `manifest.toml` makes a Bundle the real `oma` accepts, with the daemon declared and `ratmos`
-//! beside the window (docs/adr/0014, ODK's ADR 0050). It runs `oma bundle` and `oma inspect` on a
+//! beside the window (docs/adr/0014, ODK's ADR 0050). It runs `odk oma bundle` and `odk oma inspect` on a
 //! stand-in executable, in a private home: no window opens and nothing is installed.
 //!
-//! `oma` is the one `tests/frontend` builds (`OMA`), or ODK's debug build beside this
+//! `odk-oma`, the program behind `odk oma`, is the one `tests/frontend` builds (`OMA`), or ODK's debug build beside this
 //! repository; without either the test says so and stops.
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
 fn oma() -> Option<PathBuf> {
-    let beside = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../odk/target/debug/oma");
+    let beside = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../odk/target/debug/odk-oma");
     let path = std::env::var_os("OMA").map_or(beside, PathBuf::from);
     if path.is_file() {
         Some(path)
     } else {
-        eprintln!("skipped: no oma (cargo build -p oma, in ODK)");
+        eprintln!("skipped: no odk-oma (cargo build -p oma, in ODK)");
         None
     }
 }

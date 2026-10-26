@@ -99,8 +99,9 @@ pub struct Entry {
     pub gum: bool,
     /// Needs root: the window asks for passwordless sudo first.
     pub root: bool,
-    /// Display kinds the command changes, besides the settings: they are
-    /// dropped when it ends, so the next read of them collects again.
+    /// Display kinds and settings topics the command or interactive tool
+    /// changes: they are dropped when it ends, so the next read of them
+    /// collects again. A `Job` changes every settings topic without saying.
     pub affects: &'static [&'static str],
     /// Snapshot keys read back once it has run, which is what the window shows.
     pub readback: &'static [&'static str],

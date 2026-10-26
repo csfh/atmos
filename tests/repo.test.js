@@ -1977,11 +1977,12 @@ assert(
   "a setting is marked written when it was sent, so the daemon's later re-read of it is taken",
 );
 // A write the machine had not finished showing when the backend stopped waiting
-// is read again by the daemon, which pushes the late answer (docs/adr/0011).
+// is read again by the daemon, which pushes the late answer (docs/adr/0011, 0016).
 assert(
   fs
     .readFileSync(path.join(__dirname, "..", "backend", "src", "sampler", "settings.rs"), "utf8")
-    .indexOf("if !settled {") !== -1 && opsSrc.indexOf("enqueueRead") === -1,
+    .indexOf("if !(settled && self.patch_topic(topic, patch)) {") !== -1 &&
+    opsSrc.indexOf("enqueueRead") === -1,
   "an unsettled write is read again by the daemon, not queued by the window",
 );
 const monitorPageSrc = fs.readFileSync(

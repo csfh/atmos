@@ -1,8 +1,9 @@
 //! Settings snapshot assembly.
 //!
-//! `capture` reads the live machine. The request document merges that with the
-//! domain files `settings.set` writes. A fixture, the plain backend, and
-//! `ratmos snapshot` read those files alone. Both callers come through here so
+//! `capture` reads the live machine. The request document fills in from the
+//! domain files `settings.set` writes only where the machine has no reading
+//! (docs/adr/0016). A fixture, the plain backend, and `ratmos snapshot` read
+//! those files alone. Both callers come through here so
 //! the merge rules stay in one place.
 
 use crate::error::Result;
@@ -12,9 +13,9 @@ use std::path::Path;
 
 /// The `settings.snapshot` document.
 ///
-/// Live Omarchy merges `capture` with the domain files. A null file value does
-/// not erase a captured field, and a file value does not cover a live command
-/// status. Anything else nests the domain files. Dotted domains fold into the
+/// Live Omarchy is what the producers read, with a domain file's value only
+/// where a producer has no reading (`stored`). A null file value never erases
+/// a captured field. Dotted domains fold into the
 /// object the Quickshell snapshot already uses. An unset value is absent.
 pub fn settings(
     backend: Backend,
@@ -44,7 +45,7 @@ pub fn settings_snapshot(backend: Backend, root: Option<&Path>) -> Result<Map<St
 }
 
 /// Live Omarchy reads are the topics the group names, each read by its own
-/// producers with the files `settings.set` writes laid over them. A key whose
+/// producers, with the files `settings.set` writes where they have no reading. A key whose
 /// tool failed is left out and named under `_failed`.
 fn live(group: &str, keys: Option<&[String]>) -> Result<Map<String, Value>> {
     if !group.is_empty() && !super::GROUPS.contains(&group) {
@@ -100,26 +101,64 @@ fn nested(
     Ok(doc)
 }
 
-pub(super) fn overlay_domain(doc: &mut Map<String, Value>, key: &str, value: Value) {
-    if value.is_null() {
+/// How a domain's stored value stands against what its producer reads
+/// (docs/adr/0016).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum Stored {
+    /// The producer's reading is what is in effect and wins; the stored value
+    /// is shown only where the producer has no reading (its tool failed, or it
+    /// reads nothing for the key).
+    Fallback,
+    /// Live command status: the tool's answer is the value, and a file value
+    /// never stands in for it, not even when the tool failed.
+    Never,
+    /// The producer reads nothing real for the key, so the stored value is it.
+    Wins,
+}
+
+pub(super) fn stored(key: &str) -> Stored {
+    match key {
+        "nightlight" | "audioOutputMuted" | "audioInputMuted" | "barVisible"
+        | "screensaverEnabled" | "stayAwake" | "touchpadEnabled" | "touchscreenEnabled"
+        | "doNotDisturb" => Stored::Never,
+        // The Atmos producer reports the constant "stable"; the channel file is the setting.
+        "atmosChannel" => Stored::Wins,
+        _ => Stored::Fallback,
+    }
+}
+
+/// Whether the producer said nothing of `key`: the key, or for `head.tail`
+/// the field of the object `head`, is absent or null.
+pub(super) fn unread(doc: &Map<String, Value>, key: &str) -> bool {
+    let found = match key.split_once('.') {
+        Some((head, tail)) => doc
+            .get(head)
+            .and_then(Value::as_object)
+            .and_then(|object| object.get(tail)),
+        None => doc.get(key),
+    };
+    found.is_none_or(Value::is_null)
+}
+
+/// Lays a domain's stored value into a document the producers filled, by the
+/// domain's rule. `read` is only called when the value would be used, so a
+/// reading that wins costs no read of the stored file.
+pub(super) fn lay_stored(
+    doc: &mut Map<String, Value>,
+    key: &str,
+    read: impl FnOnce() -> Option<Value>,
+) {
+    let wanted = match stored(key) {
+        Stored::Never => false,
+        Stored::Wins => true,
+        Stored::Fallback => unread(doc, key),
+    };
+    if !wanted {
         return;
     }
-    // These switches are live command status. A file value must not cover them.
-    if matches!(
-        key,
-        "nightlight"
-            | "audioOutputMuted"
-            | "audioInputMuted"
-            | "barVisible"
-            | "screensaverEnabled"
-            | "stayAwake"
-            | "touchpadEnabled"
-            | "touchscreenEnabled"
-            | "doNotDisturb"
-    ) {
-        return;
+    if let Some(value) = read().filter(|value| !value.is_null()) {
+        nest_domain(doc, key, value);
     }
-    nest_domain(doc, key, value);
 }
 
 /// A dotted domain such as `hyprLook.gaps` lands inside the object `hyprLook`.
@@ -175,11 +214,15 @@ mod tests {
         assert_eq!(doc["hyprLook"]["gapsIn"], json!(4));
     }
 
+    fn lay(doc: &mut Map<String, Value>, key: &str, value: Value) {
+        lay_stored(doc, key, || Some(value));
+    }
+
     #[test]
     fn a_null_file_value_does_not_erase_a_captured_field() {
         let mut doc = Map::new();
         doc.insert("theme".into(), json!("rose"));
-        overlay_domain(&mut doc, "theme", Value::Null);
+        lay(&mut doc, "theme", Value::Null);
         assert_eq!(doc["theme"], json!("rose"));
     }
 
@@ -189,16 +232,126 @@ mod tests {
         doc.insert("nightlight".into(), json!(true));
         doc.insert("barVisible".into(), json!(false));
         doc.insert("doNotDisturb".into(), json!(true));
-        overlay_domain(&mut doc, "nightlight", json!(false));
-        overlay_domain(&mut doc, "barVisible", json!(true));
-        overlay_domain(&mut doc, "doNotDisturb", json!(false));
-        overlay_domain(&mut doc, "stayAwake", json!(true));
-        overlay_domain(&mut doc, "theme", json!("rose"));
+        lay(&mut doc, "nightlight", json!(false));
+        lay(&mut doc, "barVisible", json!(true));
+        lay(&mut doc, "doNotDisturb", json!(false));
+        lay(&mut doc, "stayAwake", json!(true));
+        lay(&mut doc, "theme", json!("rose"));
         assert_eq!(doc["nightlight"], json!(true));
         assert_eq!(doc["barVisible"], json!(false));
         assert_eq!(doc["doNotDisturb"], json!(true));
-        assert!(doc.get("stayAwake").is_none());
-        assert_eq!(doc["theme"], json!("rose"));
+        assert!(
+            doc.get("stayAwake").is_none(),
+            "not even when the tool said nothing"
+        );
+        assert_eq!(doc["theme"], json!("rose"), "a reading wins");
+    }
+
+    /// Every domain a producer reads, with a reading and a stored value that
+    /// differ: the reading is shown. Under the old overlay each showed the
+    /// stored value (docs/adr/0016).
+    #[test]
+    fn what_a_producer_reads_wins_over_what_was_stored() {
+        let cases: &[(&str, Value, Value)] = &[
+            ("tweaks.middlePaste", json!(false), json!(true)),
+            ("tweaks.electronWayland", json!(true), json!(false)),
+            ("tweaks.forceZeroScaling", json!(true), json!(false)),
+            ("tweaks.swappiness", json!(false), json!(true)),
+            ("audioOutputVolume", json!(40), json!(75)),
+            ("audioInputVolume", json!(30), json!(90)),
+            ("audioTuningOn", json!(false), json!(true)),
+            ("suspendEnabled", json!(true), json!(false)),
+            ("crashCapture", json!(false), json!(true)),
+            ("bluetooth", json!(false), json!(true)),
+            ("wifiRadio", json!(true), json!(false)),
+            ("wifiBand", json!("5"), json!("2.4")),
+            ("dns", json!("DHCP"), json!("Cloudflare")),
+            ("textSize", json!(14), json!(12)),
+            ("nightlightTemperature", json!(4000), json!(3500)),
+            ("theme", json!("tokyo-night"), json!("rose")),
+            ("background", json!("b.jpg"), json!("a.jpg")),
+            ("font", json!("A"), json!("B")),
+            ("plymouth", json!("x"), json!("y")),
+            ("hyprLook.gapsIn", json!(5), json!(10)),
+            ("hyprInput.accelProfile", json!("flat"), json!("")),
+            ("hyprInput.naturalScroll", json!(true), json!(false)),
+            ("browser", json!("firefox"), json!("chromium")),
+            ("terminal", json!("ghostty"), json!("alacritty")),
+            ("editor", json!("nvim"), json!("code")),
+            ("agent", json!("a"), json!("b")),
+            ("mimePdf", json!("a.desktop"), json!("b.desktop")),
+            ("powerProfile", json!("balanced"), json!("performance")),
+            ("powerProfileAc", json!("performance"), json!("balanced")),
+            (
+                "powerProfileBattery",
+                json!("power-saver"),
+                json!("balanced"),
+            ),
+            ("timezone", json!("Europe/Copenhagen"), json!("UTC")),
+            ("ntp", json!(true), json!(false)),
+            ("omarchyChannel", json!("stable"), json!("edge")),
+            (
+                "avatarPath",
+                json!("/home/u/.face"),
+                json!("/home/u/Pictures/me.png"),
+            ),
+            ("weatherLocation", json!("Copenhagen"), json!("Oslo")),
+            ("fullName", json!("A B"), json!("C D")),
+            ("plugins", json!(["a"]), json!(["b"])),
+            ("chargeLimit", json!(80), json!(100)),
+        ];
+        let mut covered = Vec::new();
+        for (key, reading, stored) in cases {
+            assert_eq!(super::stored(key), Stored::Fallback, "{key}");
+            let mut doc = Map::new();
+            nest_domain(&mut doc, key, reading.clone());
+            lay(&mut doc, key, stored.clone());
+            let shown = match key.split_once('.') {
+                Some((head, tail)) => doc[head][tail].clone(),
+                None => doc[*key].clone(),
+            };
+            if &shown != reading {
+                covered.push(*key);
+            }
+        }
+        assert!(
+            covered.is_empty(),
+            "the stored value covered the reading of {covered:?}"
+        );
+    }
+
+    #[test]
+    fn a_stored_value_stands_in_only_where_the_producer_has_no_reading() {
+        let mut doc = Map::new();
+        // The tool failed: the key is not there, and the stored value is shown.
+        lay(&mut doc, "audioOutputVolume", json!(75));
+        assert_eq!(doc["audioOutputVolume"], json!(75));
+        // The object is there without the field: the field is filled in.
+        doc.insert("hyprLook".into(), json!({"gapsIn": 5}));
+        lay(&mut doc, "hyprLook.cursorSize", json!(24));
+        assert_eq!(doc["hyprLook"], json!({"gapsIn": 5, "cursorSize": 24}));
+        // A null reading is no reading.
+        doc.insert("textSize".into(), Value::Null);
+        lay(&mut doc, "textSize", json!(13));
+        assert_eq!(doc["textSize"], json!(13));
+    }
+
+    #[test]
+    fn the_atmos_channel_is_what_is_stored_since_the_producer_reads_none() {
+        let mut doc = Map::new();
+        doc.insert("atmosChannel".into(), json!("stable"));
+        lay(&mut doc, "atmosChannel", json!("edge"));
+        assert_eq!(doc["atmosChannel"], json!("edge"));
+    }
+
+    #[test]
+    fn a_reading_that_wins_reads_no_stored_file() {
+        let mut doc = Map::new();
+        doc.insert("theme".into(), json!("rose"));
+        lay_stored(&mut doc, "theme", || panic!("the stored file was read"));
+        lay_stored(&mut doc, "nightlight", || {
+            panic!("the stored file was read")
+        });
     }
 
     #[test]

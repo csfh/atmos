@@ -105,23 +105,30 @@ impl Daemon {
                 .unwrap_or_default(),
         );
         let affects: Vec<&str> = plan.affects.iter().map(String::as_str).collect();
+        let named = if is_command {
+            command::named_keys(&parsed)
+        } else {
+            Vec::new()
+        };
         let run = Arc::clone(&self.run_command);
         let slots = Arc::clone(&self.read_slots);
+        let daemon = Arc::clone(self);
         let reply = self
             .commands
             .submit(&plan.lane, plan.key.as_deref(), &affects, move || {
                 // A write has its lane to keep it in order; a read waits its turn.
                 let _slot = slotted.then(|| slots.acquire());
-                run(&backend, &body, &env)
+                let envelope = run(&backend, &body, &env);
+                // What the write read back is what the topics now show, and what
+                // it could not read back is read again. This runs when the write
+                // ends, also for a window that stopped waiting (docs/adr/0016).
+                if is_command {
+                    daemon.after_write(&named, &envelope);
+                }
+                envelope
             });
         match reply.recv_timeout(COMMAND_WAIT) {
-            Ok(reply) => {
-                // What the write read back is what the topics now show.
-                if is_command && reply.value["ok"].as_bool() == Some(true) {
-                    self.apply_readback(&reply.value["result"]);
-                }
-                json!({"ok": true, "envelope": reply.value, "coalesced": reply.coalesced})
-            }
+            Ok(reply) => json!({"ok": true, "envelope": reply.value, "coalesced": reply.coalesced}),
             Err(_) => json!({"ok": false, "message": "the command did not finish in time"}),
         }
     }

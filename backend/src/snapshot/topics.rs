@@ -2,9 +2,9 @@
 //!
 //! Five topics, each producer's keys in exactly one of them, so a sample of one
 //! never overwrites a newer value of another. A topic's document is its keys as
-//! the producers read them, with the settings files laid over them, and a
-//! `_failed` map of the keys whose tool did not answer (those keys are left out,
-//! so a reader keeps the value it had).
+//! the producers read them, with a settings file's value standing in only where
+//! its producer has no reading (docs/adr/0016), and a `_failed` map of the keys
+//! whose tool did not answer.
 
 use serde_json::{json, Map, Value};
 
@@ -46,18 +46,38 @@ pub fn for_group(group: &str) -> Vec<&'static str> {
     }
 }
 
+/// A domain's stored value, laid into `doc` by its rule (`merge::stored`). One
+/// unreadable system file must not drop the rest of the document.
+fn lay(doc: &mut Map<String, Value>, key: &str) {
+    super::merge::lay_stored(doc, key, || {
+        crate::read_domain(crate::platform::Backend::Omarchy, None, key).ok()
+    });
+}
+
+/// These keys as the producers read them now, with each stored domain under
+/// them laid in by its rule. A topic is collected through this, and a write
+/// reads back through it, so the two never disagree on a key.
+pub fn read_keys(wanted: &[String]) -> keys::Read {
+    let mut read = keys::read(wanted);
+    for spec in crate::domain::specs() {
+        let head = spec.key.split_once('.').map_or(spec.key, |(head, _)| head);
+        if wanted.iter().any(|key| key == head) {
+            lay(&mut read.values, spec.key);
+        }
+    }
+    read
+}
+
 /// One topic's document, read from the machine now.
 pub fn collect(name: &str) -> Map<String, Value> {
     let wanted: Vec<String> = keys::keys_in(name).iter().map(|k| k.to_string()).collect();
-    let read = keys::read(&wanted);
+    let read = read_keys(&wanted);
     let mut doc = read.values;
+    // A setting no producer reads is the file alone, in the topic its key names.
     for spec in crate::domain::specs() {
-        if topic_of_domain(spec.key) != name {
-            continue;
-        }
-        // One unreadable system file must not drop the rest of the topic.
-        if let Ok(value) = crate::read_domain(crate::platform::Backend::Omarchy, None, spec.key) {
-            super::merge::overlay_domain(&mut doc, spec.key, value);
+        let head = spec.key.split_once('.').map_or(spec.key, |(head, _)| head);
+        if topic_of_domain(spec.key) == name && !wanted.iter().any(|key| key == head) {
+            lay(&mut doc, spec.key);
         }
     }
     doc.retain(|_, value| !value.is_null());
@@ -115,6 +135,16 @@ const WATCHED: &[(&str, &[&str])] = &[
     ("/etc/vconsole.conf", &[SYSTEM]),
     ("/etc/locale.conf", &[SYSTEM]),
     ("/etc/pacman.conf", &[SYSTEM]),
+    (".config/user-dirs.dirs", &[SYSTEM]),
+    // What the Accounts and FullName producers read (`inventory/accounts.rs`,
+    // `getent passwd`), and the avatar they find.
+    ("/etc/passwd", &[ACCOUNTS]),
+    ("/etc/group", &[ACCOUNTS]),
+    ("/var/lib/AccountsService/icons", &[ACCOUNTS]),
+    (".face.icon", &[ACCOUNTS]),
+    (".face", &[ACCOUNTS]),
+    (".config/omarchy/hooks", &[HOST]),
+    ("/etc/mkinitcpio.conf.d/omarchy_resume.conf", &[HOST]),
     ("/etc/NetworkManager/conf.d/20-omarchy-dns.conf", &[NETWORK]),
     ("/var/lib/systemd/rfkill", &[NETWORK]),
     ("/run/NetworkManager/devices", &[NETWORK]),
@@ -156,6 +186,34 @@ pub fn watched() -> Vec<(std::path::PathBuf, Vec<&'static str>)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Files a producer reads that the table once missed (docs/adr/0016).
+    #[test]
+    fn the_files_the_accounts_hooks_defaults_and_hibernation_producers_read_are_watched() {
+        let table = watched();
+        let topics_of = |tail: &str| -> Vec<&'static str> {
+            table
+                .iter()
+                .filter(|(path, _)| path.ends_with(tail))
+                .flat_map(|(_, topics)| topics.iter().copied())
+                .collect()
+        };
+        for (file, topic) in [
+            ("/etc/passwd", ACCOUNTS),
+            ("/etc/group", ACCOUNTS),
+            ("/var/lib/AccountsService/icons", ACCOUNTS),
+            (".face.icon", ACCOUNTS),
+            (".face", ACCOUNTS),
+            (".config/omarchy/hooks", HOST),
+            (".config/user-dirs.dirs", SYSTEM),
+            ("/etc/mkinitcpio.conf.d/omarchy_resume.conf", HOST),
+        ] {
+            assert!(
+                topics_of(file).contains(&topic),
+                "{file} is not watched for {topic}"
+            );
+        }
+    }
 
     #[test]
     fn every_key_is_in_one_topic_and_the_topics_are_disjoint() {

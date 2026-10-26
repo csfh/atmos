@@ -53,7 +53,8 @@ pub(crate) fn set_domain(
         "encoding": place.encoding(),
     });
     if root.is_none() && !readback.is_empty() {
-        let read = snapshot::keys::read(readback);
+        // Read as the topic is collected, so the reply and the next pushed sample agree.
+        let read = snapshot::topics::read_keys(readback);
         reply["snapshot"] = Value::Object(read.values);
         if !read.failed.is_empty() {
             reply["failed"] = serde_json::json!(read.failed);

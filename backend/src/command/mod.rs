@@ -103,6 +103,20 @@ pub fn plan(request: &Request) -> Option<Plan> {
     }
 }
 
+/// The snapshot keys a write names: what it reads back once it has run. The
+/// daemon makes the topics that hold them current after it, whether it
+/// succeeded or not (docs/adr/0016). A table command names none.
+pub fn named_keys(request: &Request) -> Vec<String> {
+    match request {
+        Request::Write { name, args } => writes::build(name, args)
+            .map(|built| built.readback)
+            .unwrap_or_default(),
+        Request::SettingsSet { readback, .. } => readback.clone(),
+        Request::DisplayBrightness { .. } | Request::DisplayScale { .. } => vec!["monitors".into()],
+        _ => Vec::new(),
+    }
+}
+
 /// A read the daemon runs for a window: a lane of its own, nothing affected.
 pub fn read_plan() -> Plan {
     static READS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
@@ -159,7 +173,7 @@ pub fn snapshot_keys(
     let began = std::time::Instant::now();
     let (mut last, mut settled);
     loop {
-        last = crate::snapshot::keys::read(&wanted);
+        last = crate::snapshot::topics::read_keys(&wanted);
         settled = expect.iter().all(|(k, v)| last.values.get(k) == Some(v));
         if settled || began.elapsed() >= writes::SETTLE_FAST {
             break;

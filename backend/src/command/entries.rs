@@ -6,6 +6,8 @@ use super::table::Kind::{Command, Interactive, Job, Launch};
 use super::table::{Entry, In, A, T};
 use T::{Rest, Task, B, F, J, L, O, V, Z};
 
+use crate::snapshot::topics::{HOST, LOOK};
+
 pub static ENTRIES: &[Entry] = &[
     // ---- short commands -------------------------------------------------
     Entry::new("theme.refresh", Command, &[L("omarchy"), L("theme"), L("refresh")]).lane("theme"),
@@ -360,19 +362,23 @@ pub static ENTRIES: &[Entry] = &[
     Entry::new("dev-env.remove", Job, &[L("omarchy"), L("remove"), L("dev"), L("env"), V("lang", A::Ident)]).lane("pacman").gum().root(),
     Entry::new("docker-db.install", Job, &[L("omarchy"), L("install"), L("docker"), L("dbs"), V("name", A::Ident)]).lane("pacman").gum().root(),
     // ---- interactive tools: they need the user's session -----------------
+    // `omarchy theme set` runs on after the tool has ended, so what shows the
+    // new theme is the daemon's look at `theme.name` (docs/adr/0015).
     Entry::new(
         "theme.switcher",
         Interactive,
         &[L("bash"), L("-c"), L("theme=$(omarchy theme switcher || true); [[ -n $theme ]] && omarchy theme set \"$theme\" >/dev/null 2>&1 &")],
-    ),
-    Entry::new("theme.bg-switcher", Interactive, &[L("omarchy"), L("theme"), L("bg-switcher")]),
+    )
+    .affects(&[LOOK]),
+    Entry::new("theme.bg-switcher", Interactive, &[L("omarchy"), L("theme"), L("bg-switcher")]).affects(&[LOOK]),
     Entry::new(
         "theme.bg-file",
         Interactive,
         &[L("bash"), L("-c"), L("path=$(omarchy file select --title \"Set background\" --extensions \"jpg jpeg png gif webp bmp\" || true); [[ -n $path ]] && omarchy theme bg set \"$path\"")],
-    ),
-    Entry::new("branding.screensaver", Interactive, &[L("omarchy"), L("branding"), L("screensaver"), V("action", A::Is(&["image", "text"]))]),
-    Entry::new("branding.about", Interactive, &[L("omarchy"), L("branding"), L("about"), V("action", A::Is(&["image", "text"]))]),
+    )
+    .affects(&[LOOK]),
+    Entry::new("branding.screensaver", Interactive, &[L("omarchy"), L("branding"), L("screensaver"), V("action", A::Is(&["image", "text"]))]).affects(&[LOOK]),
+    Entry::new("branding.about", Interactive, &[L("omarchy"), L("branding"), L("about"), V("action", A::Is(&["image", "text"]))]).affects(&[LOOK]),
     Entry::new(
         "capture.screenshot",
         Interactive,
@@ -397,7 +403,9 @@ pub static ENTRIES: &[Entry] = &[
             F("webcam", "--with-webcam"),
             J("--webcam-size=", "webcamSize", A::Is(&["small", "medium", "large"])),
         ],
-    ),
+    )
+    // `recordingActive` is the host topic's.
+    .affects(&[HOST]),
     Entry::new("capture.text", Interactive, &[L("omarchy"), L("capture"), L("text")]),
     Entry::new("capture.qr", Interactive, &[L("omarchy"), L("capture"), L("qr")]),
     Entry::new("tailscale.send", Interactive, &[L("omarchy"), L("tailscale"), L("send"), V("machine", A::Ident), O("path", A::Path)]),

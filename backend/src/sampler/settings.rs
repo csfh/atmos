@@ -211,16 +211,23 @@ impl Daemon {
         }
     }
 
-    /// A write read these keys back from the machine, so the topics that hold
-    /// them are made current from what it found, without a second collection.
-    /// A key that had not settled by then is read again by invalidating its
-    /// topic.
-    pub(super) fn apply_readback(self: &Arc<Self>, result: &Value) {
-        let Some(read) = result.get("snapshot").and_then(Value::as_object) else {
-            return;
-        };
+    /// After a write: the topics that hold the keys it names are made current
+    /// (docs/adr/0016). A key it read back once the machine had settled is
+    /// patched into the cached topic, without a second collection. A topic
+    /// that holds a key it named and could not show (the write failed, the
+    /// key's tool failed, the machine had not settled, the key is not in what
+    /// came back, or nothing was cached to patch) is invalidated, so it is
+    /// read again and nothing stays as it was before the write.
+    pub(super) fn after_write(self: &Arc<Self>, named: &[String], envelope: &Value) {
+        let ok = envelope["ok"].as_bool() == Some(true);
+        let result = &envelope["result"];
+        let read = result
+            .get("snapshot")
+            .and_then(Value::as_object)
+            .filter(|_| ok);
+        let settled = result.get("settled").and_then(Value::as_bool) != Some(false);
         let mut by_topic: HashMap<&'static str, Map<String, Value>> = HashMap::new();
-        for (key, value) in read {
+        for (key, value) in read.into_iter().flatten() {
             if let Some(topic) = crate::snapshot::keys::topic_of_key(key) {
                 by_topic
                     .entry(topic)
@@ -228,20 +235,39 @@ impl Daemon {
                     .insert(key.clone(), value.clone());
             }
         }
-        let settled = result.get("settled").and_then(Value::as_bool) != Some(false);
+        let mut stale: Vec<&'static str> = Vec::new();
         for (topic, patch) in by_topic {
-            if !settled {
-                self.invalidate(&[topic]);
-                continue;
+            if !(settled && self.patch_topic(topic, patch)) {
+                stale.push(topic);
             }
-            self.patch_topic(topic, patch);
+        }
+        let failed = result
+            .get("failed")
+            .and_then(Value::as_object)
+            .filter(|_| ok);
+        let unread = named.iter().filter(|key| {
+            let shown = read.is_some_and(|read| read.contains_key(key.as_str()));
+            !shown || failed.is_some_and(|failed| failed.contains_key(key.as_str()))
+        });
+        let failed_keys = failed.into_iter().flat_map(|failed| failed.keys());
+        for key in unread.chain(failed_keys) {
+            if let Some(topic) = crate::snapshot::keys::topic_of_key(key) {
+                stale.push(topic);
+            }
+        }
+        // A topic that was patched and still holds a key that was not shown is read again too.
+        stale.sort_unstable();
+        stale.dedup();
+        if !stale.is_empty() {
+            self.invalidate(&stale);
         }
     }
 
-    fn patch_topic(&self, topic: &str, patch: Map<String, Value>) {
+    /// False when nothing was cached to patch.
+    fn patch_topic(&self, topic: &str, patch: Map<String, Value>) -> bool {
         // A topic nobody collected yet is collected whole when it is held.
         let Some(held) = cache::read(&self.dir, topic) else {
-            return;
+            return false;
         };
         // A collection that began before this write read the machine from
         // before it: it must not land over the patch.
@@ -264,6 +290,7 @@ impl Daemon {
         };
         let _ = cache::write(&self.dir, topic, &sample);
         self.publish_sample(topic, &sample);
+        true
     }
 }
 
@@ -480,7 +507,7 @@ mod tests {
         };
         assert_eq!(started.recv_timeout(Duration::from_secs(2)).unwrap(), 2);
         // ... and a write's read-back lands while it is still reading.
-        daemon.apply_readback(&json!({"snapshot": {"hyprLook": {"gapsIn": 7}}, "settled": true}));
+        daemon.after_write(&[], &json!({"ok": true, "result": {"snapshot": {"hyprLook": {"gapsIn": 7}}, "settled": true}}));
         go.send(()).unwrap();
         let sample = reader.join().unwrap().unwrap();
         assert_eq!(
@@ -540,10 +567,13 @@ mod tests {
         let first = daemon.sample("settings.look", true).unwrap();
         inbox.recv_timeout(Duration::from_secs(2)).unwrap();
         // `hyprLook` is a look key; `hostname` belongs to another topic.
-        daemon.apply_readback(&json!({
-            "snapshot": {"hyprLook": {"gapsIn": 7}, "hostname": "box"},
-            "settled": true,
-        }));
+        daemon.after_write(
+            &[],
+            &json!({"ok": true, "result": {
+                "snapshot": {"hyprLook": {"gapsIn": 7}, "hostname": "box"},
+                "settled": true,
+            }}),
+        );
         let held = cache::read(&daemon.dir, "settings.look").unwrap();
         assert_eq!(held.value["hyprLook"]["gapsIn"], 7);
         assert_eq!(held.value["b"], 2, "the rest of the topic is kept");
@@ -555,7 +585,10 @@ mod tests {
         assert!(cache::read(&daemon.dir, "settings.system").is_none());
         assert_eq!(calls.load(Ordering::SeqCst), 1, "no second collection");
         // A key the machine had not settled on is read again.
-        daemon.apply_readback(&json!({"snapshot": {"hyprLook": {}}, "settled": false}));
+        daemon.after_write(
+            &[],
+            &json!({"ok": true, "result": {"snapshot": {"hyprLook": {}}, "settled": false}}),
+        );
         let again = inbox.recv_timeout(Duration::from_secs(5)).unwrap();
         assert_eq!(again["value"]["n"], 2, "{again}");
     }

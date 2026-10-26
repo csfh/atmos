@@ -399,3 +399,57 @@ fn an_interactive_tool_holds_no_lane() {
         );
     }
 }
+
+/// What an interactive tool can change, and so which settings topics are read
+/// again when it ends (docs/adr/0016). A new tool fails here until it is
+/// classified.
+#[test]
+fn an_interactive_tool_reads_again_the_topics_it_can_change_when_it_ends() {
+    use crate::snapshot::topics::{HOST, LOOK};
+    let expected: &[(&str, &[&str])] = &[
+        ("theme.switcher", &[LOOK]),
+        ("theme.bg-switcher", &[LOOK]),
+        ("theme.bg-file", &[LOOK]),
+        ("branding.screensaver", &[LOOK]),
+        ("branding.about", &[LOOK]),
+        ("capture.screenshot", &[]),
+        ("capture.recording", &[HOST]),
+        ("capture.text", &[]),
+        ("capture.qr", &[]),
+        ("tailscale.send", &[]),
+        ("tailscale.receive", &[]),
+    ];
+    let interactive = names(&[Kind::Interactive]);
+    assert_eq!(
+        interactive.len(),
+        expected.len(),
+        "classify every interactive tool: {interactive:?}"
+    );
+    for (name, topics) in expected {
+        assert!(
+            interactive.contains(name),
+            "{name} is not an interactive tool"
+        );
+        let spec = crate::command::jobs::build(name, &sample(find(name).unwrap())).unwrap();
+        let settings: Vec<&str> = spec
+            .affects
+            .iter()
+            .map(String::as_str)
+            .filter(|topic| crate::sampler::is_settings(topic))
+            .collect();
+        assert_eq!(&settings, topics, "{name}");
+    }
+}
+
+#[test]
+fn every_name_an_entry_affects_is_a_topic_the_daemon_holds() {
+    for entry in ENTRIES {
+        for topic in entry.affects {
+            assert!(
+                crate::sampler::is_topic(topic),
+                "{} affects {topic}, which is no topic",
+                entry.name
+            );
+        }
+    }
+}

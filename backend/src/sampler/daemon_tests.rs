@@ -500,3 +500,89 @@ fn a_file_that_moved_while_a_topic_is_held_is_pushed_within_a_second_or_so() {
         .expect("the change is pushed");
     assert_eq!(pushed["value"]["v"], "three", "{pushed}");
 }
+
+/// A daemon whose look topic says how many times it was collected (`n`), whose writes answer
+/// with `write`, and a window that holds the look topic and has been sent it once.
+fn holding_look_with_writes(
+    name: &str,
+    write: Value,
+) -> (
+    Arc<Daemon>,
+    Arc<AtomicUsize>,
+    std::sync::mpsc::Receiver<Value>,
+    Arc<crate::sampler::bus::Subscriber>,
+) {
+    let calls = Arc::new(AtomicUsize::new(0));
+    let counted = calls.clone();
+    let (_dir, daemon) = serve_commands(
+        name,
+        Box::new(move |_, body, _| {
+            if body["op"] == "snapshot.topic" {
+                let n = counted.fetch_add(1, Ordering::SeqCst) + 1;
+                return json!({"ok": true, "result": {"textSize": 10, "n": n}});
+            }
+            write.clone()
+        }),
+    );
+    let (subscriber, inbox) = daemon.bus.attach();
+    subscriber.set(HashMap::from([("settings.look".to_string(), 0)]));
+    daemon.sample("settings.look", true).unwrap();
+    assert_eq!(
+        inbox.recv_timeout(Duration::from_secs(2)).unwrap()["value"]["n"],
+        1
+    );
+    (daemon, calls, inbox, subscriber)
+}
+
+/// `display.text-size-reset` names `textSize`, a look key, as what it reads back.
+fn reset_text_size(daemon: &Arc<Daemon>) -> Value {
+    daemon.answer(&json!({"op": "command", "request":
+        {"op": "write", "name": "display.text-size-reset", "args": {}}}))
+}
+
+#[test]
+fn a_write_that_settled_patches_its_topic_and_collects_nothing_more() {
+    let (daemon, calls, inbox, _held) = holding_look_with_writes(
+        "write-settled",
+        json!({"ok": true, "result": {"snapshot": {"textSize": 12}, "settled": true}}),
+    );
+    let answer = reset_text_size(&daemon);
+    assert_eq!(answer["envelope"]["ok"], true, "{answer}");
+    let pushed = inbox.recv_timeout(Duration::from_secs(2)).unwrap();
+    assert_eq!(pushed["value"]["textSize"], 12, "the read-back is shown");
+    assert_eq!(pushed["value"]["n"], 1, "patched, not collected again");
+    std::thread::sleep(Duration::from_millis(300));
+    assert_eq!(calls.load(Ordering::SeqCst), 1, "no second collection");
+}
+
+#[test]
+fn a_write_that_failed_reads_the_topics_it_names_again() {
+    let (daemon, calls, inbox, _held) = holding_look_with_writes(
+        "write-failed",
+        json!({"ok": false, "error": {"code": "command", "message": "omarchy failed"}}),
+    );
+    let answer = reset_text_size(&daemon);
+    assert_eq!(answer["envelope"]["ok"], false, "{answer}");
+    let pushed = inbox.recv_timeout(Duration::from_secs(5)).unwrap();
+    assert_eq!(
+        pushed["value"]["n"], 2,
+        "collected again after the failure: {pushed}"
+    );
+    assert_eq!(calls.load(Ordering::SeqCst), 2);
+}
+
+#[test]
+fn a_key_a_write_could_not_read_back_has_its_topic_read_again() {
+    let (daemon, calls, inbox, _held) = holding_look_with_writes(
+        "write-unread",
+        json!({"ok": true, "result": {"snapshot": {}, "settled": true,
+            "failed": {"textSize": "omarchy display text size: exit 1"}}}),
+    );
+    reset_text_size(&daemon);
+    let pushed = inbox.recv_timeout(Duration::from_secs(5)).unwrap();
+    assert_eq!(
+        pushed["value"]["n"], 2,
+        "collected again, not left as it was: {pushed}"
+    );
+    assert_eq!(calls.load(Ordering::SeqCst), 2);
+}

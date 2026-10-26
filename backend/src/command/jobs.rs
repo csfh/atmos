@@ -44,15 +44,18 @@ pub fn build(name: &str, args: &Value) -> Result<Spec> {
         .map(|k| k.to_string())
         .collect();
     affects.push(super::SETTINGS.to_string());
-    // A job can change anything the snapshot shows. A tool that only asks the
-    // user something (a picker) changes nothing: its window reads what it
-    // needs once the user has answered.
+    // A job can change anything the snapshot shows. An interactive tool
+    // changes what its entry names (a theme picker the look, a recorder the
+    // host), and a tool that only asks the user something changes nothing;
+    // either way the topics are read again when it ends (docs/adr/0016).
     if entry.kind == Kind::Job {
         affects.extend(
             crate::snapshot::topics::NAMES
                 .iter()
                 .map(|topic| topic.to_string()),
         );
+    } else {
+        affects.extend(entry.affects.iter().map(|topic| topic.to_string()));
     }
     Ok(Spec {
         argv: table::argv(entry, args)?,

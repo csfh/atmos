@@ -729,7 +729,7 @@ pub fn execute(root: Option<&Path>, built: &Built) -> Result<Value> {
         return Ok(json!({"argv": built.argv, "snapshot": {}, "settled": true}));
     }
     let before = if built.before {
-        crate::snapshot::keys::read(&built.readback).values
+        crate::snapshot::topics::read_keys(&built.readback).values
     } else {
         Map::new()
     };
@@ -738,7 +738,8 @@ pub fn execute(root: Option<&Path>, built: &Built) -> Result<Value> {
     let mut settled = built.settle.is_none();
     let began = std::time::Instant::now();
     loop {
-        let read = crate::snapshot::keys::read(&built.readback);
+        // Read as the topic is collected, so what is patched in is what a collection shows.
+        let read = crate::snapshot::topics::read_keys(&built.readback);
         (now, failed) = (read.values, read.failed);
         match &built.settle {
             None => break,

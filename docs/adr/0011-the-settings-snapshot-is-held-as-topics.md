@@ -4,6 +4,8 @@ Status: Accepted. Date: 2026-10-19.
 
 Amended by 0015: a cached topic is sent to a window only when the files it is read from have not moved since the daemon last looked, and the daemon looks before every hold.
 
+Amended by 0016: after a write, a topic that holds a key it names is patched when the write settled and read the key back, and read again otherwise; a settings file's value is shown only where its producer has no reading.
+
 ## Context
 
 The five inventories were topics (ADR 0002), but the settings snapshot was not. The window read it in groups (`look`, `rest`, `all`, `network`, `disks`, `accounts`, `system`) whenever it thought something had changed: at startup, after a write, after a job, when a watched file moved, when a Refresh button was pressed. Each read ran `serve`'s own copy of every producer, `rest` and `all` overlapped `look`, a producer that could not run a tool wrote a default in its place (an empty list, `false`, a made-up `Disconnected`), and which group a key belonged to was decided in QML. A new frontend would have to copy all of that.

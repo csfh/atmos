@@ -1146,3 +1146,49 @@ fn the_daemon_and_the_sampler_take_only_their_own_flags() {
     }
     let _ = fs::remove_dir_all(&run);
 }
+
+/// What a write reads back is what the topic shows next, and a value Atmos stored once never
+/// covers what the machine reads now (docs/adr/0016).
+#[test]
+fn a_setting_written_by_a_window_reads_back_what_its_topic_then_shows() {
+    let run = short_run_dir("agree");
+    let home = std::path::PathBuf::from(format!("/tmp/rt-win-agree-{}", std::process::id()));
+    fs::create_dir_all(&home).unwrap();
+    let _daemon = start_daemon_in(&run, &home);
+    let mut window = window_with_tools(&run, "agree");
+    // Atmos once turned middle-click paste off; the GTK file it wrote has since gone, so the
+    // machine pastes again.
+    fs::create_dir_all(window.dir.join(".config/omarchy")).unwrap();
+    fs::write(
+        window.dir.join(".config/omarchy/tweaks.json"),
+        r#"{"tweaks.middlePaste": true}"#,
+    )
+    .unwrap();
+    window
+        .server
+        .send(&json!({"id": 1, "op": "sub.set", "topics": {"settings.system": {}}}));
+    let first = topic_event(&window.server, "settings.system");
+    assert_eq!(
+        first["result"]["tweaks"]["middlePaste"], false,
+        "the GTK file, not tweaks.json: {}",
+        first["result"]["tweaks"]
+    );
+
+    window.server.send(&json!({"id": 2, "op": "settings.set",
+        "domain": "tweaks.electronWayland", "value": false, "readback": ["tweaks"]}));
+    let reply = window.server.until(|line| line["id"] == 2);
+    assert_eq!(reply["ok"], true, "{reply}");
+    let read_back = reply["result"]["snapshot"]["tweaks"].clone();
+    assert_eq!(read_back["electronWayland"], false, "{reply}");
+    let next = window.server.until(|line| {
+        line["event"] == "sample"
+            && line["kind"] == "settings.system"
+            && line["sampledAt"].as_u64() > first["sampledAt"].as_u64()
+    });
+    assert_eq!(
+        next["result"]["tweaks"], read_back,
+        "the reply and the next sample disagree"
+    );
+    drop(window);
+    let _ = fs::remove_dir_all(&run);
+}

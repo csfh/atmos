@@ -1,6 +1,6 @@
 //! The window: a sidebar of hubs, a page, and the screen shown in its place when the backend is
-//! not there. A hub that has not been ported shows its name and says so; Sentinel is the first
-//! that has (`pages/sentinel.rs`).
+//! not there. A hub that has not been ported shows its name and says so; Sentinel
+//! (`pages/sentinel.rs`) and Tweaks (`pages/tweaks.rs`) have been.
 //!
 //! The view holds what the backend has said and draws it. The client's notices arrive on a
 //! channel that one task awaits, so the view is drawn when something happened and not on a clock.
@@ -11,17 +11,21 @@ use odk::prelude::*;
 use crate::client::{Client, Link, Notice};
 use crate::hubs;
 use crate::pages::sentinel::SentinelPage;
+use crate::pages::tweaks::TweaksPage;
 use crate::protocol::{self, Daemon, Event};
-use crate::status;
+use crate::{status, tweaks};
 
 /// How often the daemon samples `live` for a page that reads it, in milliseconds: the QML window's.
 const LIVE_MS: u64 = 2000;
 
 /// The topics a page needs the daemon to hold while it is shown. A page that reads nothing live
-/// holds none, and nothing is sampled for it.
+/// holds none, and nothing is sampled for it. A settings topic is held at 0, "when it changes":
+/// the daemon collects it when it is first held and again when something changes it
+/// (docs/adr/0011).
 fn wanted(page: &str) -> Vec<(&'static str, u64)> {
     match page {
         "sentinel" => vec![("live", LIVE_MS)],
+        "tweaks" => tweaks::HELD.iter().map(|held| (held.topic, 0)).collect(),
         _ => Vec::new(),
     }
 }
@@ -36,6 +40,7 @@ pub struct Atmos {
     /// The backend's version, once it has answered.
     version: Option<SharedString>,
     sentinel: Entity<SentinelPage>,
+    tweaks: Entity<TweaksPage>,
 }
 
 impl Atmos {
@@ -52,6 +57,10 @@ impl Atmos {
         let sentinel = {
             let client = client.clone();
             cx.new(|cx| SentinelPage::new(client, cx))
+        };
+        let tweaks = {
+            let client = client.clone();
+            cx.new(|cx| TweaksPage::new(client, cx))
         };
         // The topics of the page it opens on. The server holds them again after a restart.
         drop(client.hold(&wanted(page)));
@@ -85,6 +94,7 @@ impl Atmos {
             daemon: None,
             version: None,
             sentinel,
+            tweaks,
         }
     }
 
@@ -99,6 +109,11 @@ impl Atmos {
     /// The Sentinel page, for what a test asks of it.
     pub fn sentinel(&self) -> &Entity<SentinelPage> {
         &self.sentinel
+    }
+
+    /// The Tweaks page, for what a test asks of it.
+    pub fn tweaks(&self) -> &Entity<TweaksPage> {
+        &self.tweaks
     }
 
     pub fn show(&mut self, page: &str, cx: &mut Context<Self>) {
@@ -131,9 +146,30 @@ impl Atmos {
                 sampled_at: Some(at),
                 stale: false,
                 result: Some(result),
+                ..
             }) if kind == "live" => {
                 self.sentinel
                     .update(cx, |page, cx| page.adopt(at as f64, &result, cx));
+            }
+            Notice::Event(Event::Sample {
+                kind,
+                sampled_at,
+                stale,
+                result,
+                error,
+            }) if tweaks::holds(&kind) => {
+                self.tweaks
+                    .update(cx, |page, cx| match (stale, sampled_at, result) {
+                        (false, Some(at), Some(result)) => page.adopt(&kind, at, &result, cx),
+                        (true, _, _) => page.topic_failed(
+                            &kind,
+                            error
+                                .as_deref()
+                                .unwrap_or("The daemon could not collect it."),
+                            cx,
+                        ),
+                        _ => {}
+                    });
             }
             Notice::Event(_) => {}
         }
@@ -177,8 +213,10 @@ impl Atmos {
                 .into_any_element();
         }
         // The pages that have been ported; every other hub says it has not.
-        if self.page() == "sentinel" {
-            return self.sentinel.clone().into_any_element();
+        match self.page() {
+            "sentinel" => return self.sentinel.clone().into_any_element(),
+            "tweaks" => return self.tweaks.clone().into_any_element(),
+            _ => {}
         }
         let title = hubs::find(&self.page).map_or("Atmos", |hub| hub.title);
         content_column()

@@ -1,4 +1,5 @@
-// Catalog of overflow settings. Each tweak names the file or command it writes.
+// Catalog of overflow settings. Each tweak names the file or command it writes,
+// and its default: what Omarchy sets, which Reset puts back.
 
 function catalog() {
   return [
@@ -11,6 +12,8 @@ function catalog() {
       key: "hyprInput.accelProfile",
       onValue: "flat",
       offValue: "",
+      // Omarchy sets no profile (default/hypr/input.lua), so Hyprland's adaptive one applies.
+      defaultValue: "",
       kind: "hypr-input",
     },
     {
@@ -22,6 +25,8 @@ function catalog() {
       key: "hyprInput.naturalScroll",
       onValue: true,
       offValue: false,
+      // default/hypr/input.lua: touchpad.natural_scroll = false.
+      defaultValue: false,
       kind: "hypr-input",
     },
     {
@@ -33,6 +38,8 @@ function catalog() {
       key: "tweaks.middlePaste",
       onValue: true,
       offValue: false,
+      // Omarchy turns primary paste on (install/user/first-run/gtk-primary-paste.sh).
+      defaultValue: false,
       kind: "tweak",
     },
     {
@@ -45,6 +52,8 @@ function catalog() {
       key: "tweaks.electronWayland",
       onValue: true,
       offValue: false,
+      // default/hypr/envs.lua: ELECTRON_OZONE_PLATFORM_HINT=wayland.
+      defaultValue: true,
       kind: "tweak",
     },
     {
@@ -57,6 +66,8 @@ function catalog() {
       key: "tweaks.forceZeroScaling",
       onValue: true,
       offValue: false,
+      // default/hypr/envs.lua: xwayland.force_zero_scaling = true.
+      defaultValue: true,
       kind: "tweak",
     },
   ];
@@ -136,9 +147,47 @@ function sysctlConf(state) {
   return "vm.swappiness = 10\n";
 }
 
+// What Reset writes: the tweak's default, as Omarchy sets it.
 function resetValue(tweak) {
   if (!tweak) return null;
-  return tweak.offValue;
+  return tweak.defaultValue;
+}
+
+function fieldOf(tweak) {
+  var key = String(tweak.key);
+  return key.slice(key.indexOf(".") + 1);
+}
+
+// Whether a tweak is on, from the snapshot's hyprInput and tweaks. A pointer
+// tweak is on only when Hyprland reports its on value. A tweak file value that
+// is not a boolean reads as the default, so the two that Omarchy turns on
+// (electronWayland, forceZeroScaling) are on until the snapshot says false.
+function currentOn(tweak, hyprInput, tweaks) {
+  if (!tweak || !tweak.key) return false;
+  var field = fieldOf(tweak);
+  if (tweak.kind === "hypr-input") {
+    var input = hyprInput && typeof hyprInput === "object" ? hyprInput : {};
+    return input[field] === tweak.onValue;
+  }
+  var state = tweaks && typeof tweaks === "object" ? tweaks : {};
+  return asBool(state[field], tweak.defaultValue === tweak.onValue);
+}
+
+// The setting a toggle writes: its domain, the field of the snapshot key it
+// sets, and the value.
+function writeFor(tweak, on) {
+  if (!tweak || !tweak.key) return null;
+  return {
+    domain: String(tweak.key),
+    field: fieldOf(tweak),
+    value: on === true ? tweak.onValue : tweak.offValue,
+  };
+}
+
+// The setting Reset writes: the same, with the default.
+function resetWrite(tweak) {
+  if (!tweak || !tweak.key) return null;
+  return { domain: String(tweak.key), field: fieldOf(tweak), value: resetValue(tweak) };
 }
 
 if (typeof module !== "undefined" && module.exports) {
@@ -152,5 +201,8 @@ if (typeof module !== "undefined" && module.exports) {
     environmentLines: environmentLines,
     sysctlConf: sysctlConf,
     resetValue: resetValue,
+    currentOn: currentOn,
+    writeFor: writeFor,
+    resetWrite: resetWrite,
   };
 }

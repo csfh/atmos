@@ -170,9 +170,9 @@ impl SentinelPage {
         self.limits[slot(limit)] = Stored::Ready(value);
         self.refresh(cx);
         // An integer domain takes an integer: `80`, not `80.0`.
-        let reply = self
-            .client
-            .request(&protocol::settings_set(limit.domain(), &json!(value)));
+        let reply =
+            self.client
+                .request(&protocol::settings_set(limit.domain(), &json!(value), &[]));
         cx.spawn_in(window, async move |this, cx| {
             if let Err(failure) = reply.await {
                 let _ = this.update_in(cx, |page, window, cx| {

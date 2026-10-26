@@ -77,6 +77,67 @@ assertEqual(
 );
 assertEqual(tweaks.byId("swappiness"), null, "swappiness lives on Kernel, not Tweaks");
 
+const accel = tweaks.byId("accelFlat");
+const natural = tweaks.byId("naturalScroll");
+const electron = tweaks.byId("electronWayland");
+const paste = tweaks.byId("middlePaste");
+assertEqual(tweaks.currentOn(accel, { accelProfile: "flat" }, {}), true, "flat is accelFlat on");
+assertEqual(tweaks.currentOn(accel, { accelProfile: "adaptive" }, {}), false, "adaptive is off");
+assertEqual(tweaks.currentOn(accel, null, {}), false, "no input reads off");
+assertEqual(tweaks.currentOn(natural, { naturalScroll: "true" }, {}), false, "text is not true");
+assertEqual(tweaks.currentOn(electron, {}, {}), true, "electronWayland is on until it says false");
+assertEqual(tweaks.currentOn(electron, {}, null), true, "and with no tweaks at all");
+assertEqual(tweaks.currentOn(electron, {}, { electronWayland: false }), false, "false is off");
+assertEqual(tweaks.currentOn(paste, {}, {}), false, "middlePaste is off until it says true");
+assertEqual(tweaks.currentOn(null, {}, {}), false, "no tweak is off");
+tweaks.catalog().forEach(function (t) {
+  if (t.kind !== "tweak") return;
+  assertEqual(
+    tweaks.currentOn(t, {}, {}),
+    tweaks.defaultState()[t.id],
+    t.id + " reads as its default when unset",
+  );
+});
+
+assertEqual(
+  JSON.stringify(tweaks.writeFor(accel, true)),
+  JSON.stringify({ domain: "hyprInput.accelProfile", field: "accelProfile", value: "flat" }),
+  "accelFlat on writes flat",
+);
+assertEqual(tweaks.writeFor(accel, false).value, "", "accelFlat off writes the empty profile");
+assertEqual(tweaks.writeFor(paste, true).field, "middlePaste", "a tweak's field is its id");
+assertEqual(tweaks.writeFor(electron, false).domain, "tweaks.electronWayland", "domain is the key");
+assertEqual(tweaks.writeFor(null, true), null, "no tweak writes nothing");
+// Reset puts back what Omarchy sets: the defaults, not the off values.
+const hyprDefaults = load("services/HyprPrefs.js").defaultInput();
+tweaks.catalog().forEach(function (t) {
+  assertEqual(tweaks.resetValue(t), t.defaultValue, t.id + " resets to its default");
+  assertEqual(tweaks.resetWrite(t).value, t.defaultValue, t.id + " Reset writes its default");
+  assertEqual(tweaks.resetWrite(t).domain, t.key, t.id + " Reset writes its own domain");
+  const field = t.key.slice(t.key.indexOf(".") + 1);
+  if (t.kind === "tweak") {
+    assertEqual(t.defaultValue, tweaks.defaultState()[t.id], t.id + " default is defaultState's");
+  } else {
+    assertEqual(t.defaultValue, hyprDefaults[field], t.id + " default is HyprPrefs.defaultInput's");
+  }
+  assertEqual(
+    tweaks.currentOn(t, hyprDefaults, {}),
+    t.defaultValue === t.onValue,
+    t.id + " reads as its default when the machine says nothing of it",
+  );
+});
+assertEqual(tweaks.resetValue(electron), true, "Reset turns Electron Wayland back on");
+assertEqual(tweaks.resetValue(tweaks.byId("forceZeroScaling")), true, "and zero scaling");
+assertEqual(tweaks.resetValue(accel), "", "Reset gives acceleration back to Hyprland");
+assertEqual(tweaks.resetValue(natural), false, "and natural scrolling off");
+assertEqual(tweaks.resetWrite(null), null, "no tweak resets nothing");
+assert(
+  /function resetTweak\(tweak\) \{\s*root\.writeTweak\(tweak, TweaksJs\.resetWrite\(tweak\)\)\s*\}/.test(
+    fs.readFileSync(path.join(__dirname, "..", "pages", "TweaksPage.qml"), "utf8"),
+  ),
+  "TweaksPage's Reset writes the default, once",
+);
+
 const tweaksPage = fs.readFileSync(path.join(__dirname, "..", "pages", "TweaksPage.qml"), "utf8");
 assert(tweaksPage.indexOf("groupedCatalog") !== -1, "TweaksPage renders groupedCatalog");
 assert(

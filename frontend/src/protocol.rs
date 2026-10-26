@@ -95,12 +95,13 @@ pub enum Daemon {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Event {
     Backend(Daemon),
-    /// One sample of a held topic. `result` is `None` when `stale`.
+    /// One sample of a held topic. `result` is `None` when `stale`, and `error` says why.
     Sample {
         kind: String,
         sampled_at: Option<u64>,
         stale: bool,
         result: Option<Value>,
+        error: Option<String>,
     },
     Stamp(Value),
     Chrome(Value),
@@ -153,9 +154,15 @@ pub fn settings_get(domain: &str) -> Value {
 }
 
 /// Stores a setting. `value` must be what the domain's type is: an integer domain refuses
-/// `80.0`, so a number from a field is sent as an integer.
-pub fn settings_set(domain: &str, value: &Value) -> Value {
-    json!({ "op": "settings.set", "domain": domain, "value": value })
+/// `80.0`, so a number from a field is sent as an integer. `readback` names the snapshot keys the
+/// setting changes, which the reply carries as the machine reports them after the write
+/// (docs/adr/0005); none named sends no `readback`, as `Requests.settingsSet` does.
+pub fn settings_set(domain: &str, value: &Value, readback: &[&str]) -> Value {
+    let mut body = json!({ "op": "settings.set", "domain": domain, "value": value });
+    if !readback.is_empty() {
+        body["readback"] = json!(readback);
+    }
+    body
 }
 
 /// Read these topics again. None named means the five settings topics. What a Refresh sends.
@@ -229,6 +236,7 @@ fn event(name: &str, map: &Map<String, Value>) -> Event {
             sampled_at: map.get("sampledAt").and_then(Value::as_u64),
             stale: map.get("stale").and_then(Value::as_bool).unwrap_or(false),
             result: map.get("result").cloned(),
+            error: map.get("error").and_then(Value::as_str).map(str::to_owned),
         },
         "stamp" => Event::Stamp(result()),
         "chrome" => Event::Chrome(result()),
@@ -316,7 +324,8 @@ mod tests {
                 kind: "live".into(),
                 sampled_at: Some(1_760_000_000_123),
                 stale: false,
-                result: Some(json!({ "a": 1 }))
+                result: Some(json!({ "a": 1 })),
+                error: None,
             }))
         );
         let stale = r#"{"event":"sample","kind":"live","stale":true,"error":"x"}"#;
@@ -325,8 +334,9 @@ mod tests {
             Some(Incoming::Event(Event::Sample {
                 stale: true,
                 result: None,
+                error: Some(why),
                 ..
-            }))
+            })) if why == "x"
         ));
     }
 
@@ -356,11 +366,17 @@ mod tests {
             settings_get("sentinelCpuPercent"),
             json!({"op": "settings.get", "domain": "sentinelCpuPercent"})
         );
-        let set = settings_set("sentinelCpuPercent", &json!(80));
+        let set = settings_set("sentinelCpuPercent", &json!(80), &[]);
         assert_eq!(set["value"], 80);
         assert!(
             set["value"].is_i64(),
             "an integer domain takes an integer, not 80.0"
+        );
+        assert!(set.get("readback").is_none(), "none named, none sent");
+        assert_eq!(
+            settings_set("tweaks.middlePaste", &json!(true), &["tweaks"]),
+            json!({"op": "settings.set", "domain": "tweaks.middlePaste", "value": true,
+                "readback": ["tweaks"]})
         );
     }
 

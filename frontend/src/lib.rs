@@ -9,3 +9,4 @@ pub mod pages;
 pub mod protocol;
 pub mod sentinel;
 pub mod status;
+pub mod tweaks;

@@ -159,3 +159,76 @@ fn dev_toml_builds_the_window_and_puts_ratmos_where_the_manifest_runs_the_daemon
         assert!(dev.contains(build), "{build} is not built by dev.toml");
     }
 }
+
+/// The producer whose keys include `key`, from the `OWNERS` table of `keys.rs`.
+fn producer_of<'a>(keys: &'a str, key: &str) -> Option<&'a str> {
+    let owners = &keys[keys.find("const OWNERS")?..];
+    let owners = &owners[..owners.find("\n];")?];
+    let at = owners.find(&format!("\"{key}\","))?;
+    let before = &owners[..at];
+    let name = &before[before.rfind("Producer::")? + "Producer::".len()..];
+    name.split(|c: char| !c.is_alphanumeric()).next()
+}
+
+/// The settings topic `fn topic` puts a producer's keys in, as `topics.rs` spells it.
+fn topic_of_producer(keys: &str, topics: &str, producer: &str) -> Option<String> {
+    let body = keys.split("fn topic(producer: Producer)").nth(1)?;
+    let body = body.split("match producer {").nth(1)?;
+    let body = &body[..body.find("\n}\n")?];
+    let arms: Vec<&str> = body.split("=>").collect();
+    let words = |s: &str| -> Vec<String> {
+        s.split(|c: char| !c.is_alphanumeric() && c != '_')
+            .filter(|w| !w.is_empty())
+            .map(str::to_owned)
+            .collect()
+    };
+    for i in 0..arms.len() - 1 {
+        // The names of an arm follow the previous arm's target and its comma.
+        let names = if i == 0 {
+            arms[0]
+        } else {
+            arms[i].split_once(',').map_or("", |(_, rest)| rest)
+        };
+        if words(names).iter().any(|w| w == producer) {
+            let target = arms[i + 1].split("super::topics::").nth(1)?;
+            let constant = words(target).into_iter().next()?;
+            let line = format!("pub const {constant}: &str = \"");
+            let value = topics.split(&line).nth(1)?.split('"').next()?;
+            return Some(value.to_owned());
+        }
+    }
+    None
+}
+
+/// The Tweaks page holds the topics its keys are in, and reads back keys a producer owns: a key
+/// that moved topic would leave the page waiting for ever, and no page test would see it.
+#[test]
+fn the_tweaks_page_holds_the_topics_that_own_its_keys() {
+    let keys = repo("backend/src/snapshot/keys.rs");
+    let topics = repo("backend/src/snapshot/topics.rs");
+    for held in atmos_ui::tweaks::HELD {
+        let producer = producer_of(&keys, held.key)
+            .unwrap_or_else(|| panic!("no producer owns `{}`", held.key));
+        assert_eq!(
+            topic_of_producer(&keys, &topics, producer).as_deref(),
+            Some(held.topic),
+            "`{}` is {producer}'s",
+            held.key
+        );
+    }
+    for tweak in atmos_ui::tweaks::CATALOG {
+        assert!(
+            atmos_ui::tweaks::HELD
+                .iter()
+                .any(|h| h.key == tweak.snapshot_key()),
+            "{} reads a key the page does not hold",
+            tweak.id
+        );
+        for key in tweak.kind.readback() {
+            assert!(
+                producer_of(&keys, key).is_some(),
+                "no producer owns `{key}`"
+            );
+        }
+    }
+}

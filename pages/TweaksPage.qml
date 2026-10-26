@@ -11,34 +11,30 @@ PrefsPage {
 
   readonly property var groups: TweaksJs.groupedCatalog()
 
+  // The logic is in Tweaks.js, which the Rust window's Tweaks page is held to
+  // (frontend/tests/tweaks_parity.rs).
   function currentOn(tweak) {
-    if (!tweak) return false
-    if (tweak.kind === "hypr-input") {
-      if (tweak.id === "accelFlat") return Omarchy.hyprInput.accelProfile === "flat"
-      if (tweak.id === "naturalScroll") return Omarchy.hyprInput.naturalScroll === true
-    }
-    var tweaks = Omarchy.tweaks && typeof Omarchy.tweaks === "object" ? Omarchy.tweaks : {}
-    if (tweak.id === "middlePaste") return tweaks.middlePaste === true
-    if (tweak.id === "electronWayland") return tweaks.electronWayland !== false
-    if (tweak.id === "forceZeroScaling") return tweaks.forceZeroScaling !== false
-    if (tweak.id === "swappiness") return tweaks.swappiness === true
-    return false
+    return TweaksJs.currentOn(tweak, Omarchy.hyprInput, Omarchy.tweaks)
   }
 
   function setTweak(tweak, on) {
-    if (!tweak) return
-    if (tweak.kind === "hypr-input") {
-      if (tweak.id === "accelFlat") Omarchy.writeHyprInput({ accelProfile: on ? "flat" : "" })
-      else if (tweak.id === "naturalScroll") Omarchy.writeHyprInput({ naturalScroll: on })
-      return
-    }
-    Omarchy.setTweak(tweak.id, on)
+    root.writeTweak(tweak, TweaksJs.writeFor(tweak, on))
   }
 
+  // Reset writes the tweak's default, as Omarchy sets it (TweaksJs.resetValue), once.
   function resetTweak(tweak) {
-    root.setTweak(tweak, tweak && tweak.offValue === true)
-    if (tweak && tweak.offValue === "") root.setTweak(tweak, false)
-    if (tweak && tweak.offValue === false) root.setTweak(tweak, false)
+    root.writeTweak(tweak, TweaksJs.resetWrite(tweak))
+  }
+
+  function writeTweak(tweak, write) {
+    if (!write) return
+    if (tweak.kind === "hypr-input") {
+      var patch = {}
+      patch[write.field] = write.value
+      Omarchy.writeHyprInput(patch)
+      return
+    }
+    Omarchy.setTweak(tweak.id, write.value)
   }
 
   Repeater {

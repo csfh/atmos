@@ -157,48 +157,105 @@ fn snapper_set(key: &str, value: &str, valid: impl Fn(&str) -> bool) -> Result<(
     atomic_write_text(conf, &next)
 }
 
-fn sudoers(user: &str) -> Result<(String, String)> {
-    if !re(r"^[a-z_][a-z0-9_-]*$").is_match(user) {
-        return Err(bad("root sudo: bad user name"));
+/// The three things one passwordless-sudo grant puts in place: the drop-in that grants, the
+/// transient timer that removes it, and the boot rule that removes it if the timer is lost.
+struct Grant {
+    file: String,
+    boot_rule: String,
+    timer: String,
+}
+
+impl Grant {
+    /// `etc` is `/etc`; a test gives a directory of its own.
+    fn under(etc: &str, user: &str) -> Result<Grant> {
+        if !re(r"^[a-z_][a-z0-9_-]*$").is_match(user) {
+            return Err(bad("root sudo: bad user name"));
+        }
+        Ok(Grant {
+            file: format!("{etc}/sudoers.d/99-omarchy-nopasswd-{user}"),
+            boot_rule: format!("{etc}/tmpfiles.d/atmos-nopasswd-{user}.conf"),
+            timer: format!("omarchy-nopasswd-expire-{user}"),
+        })
     }
-    Ok((
-        format!("/etc/sudoers.d/99-omarchy-nopasswd-{user}"),
-        format!("omarchy-nopasswd-expire-{user}"),
-    ))
+
+    /// Transient units do not survive a reboot, so the timer alone would leave the grant on
+    /// after one while the window reads the missing timer as off (ADR 0019). `r!` runs only
+    /// when `systemd-tmpfiles` is given `--boot`, which is early boot, so a later
+    /// `--remove` cannot cut a live grant short; the rule removes itself with the grant.
+    fn boot_rule_text(&self) -> String {
+        format!(
+            "# Atmos grants passwordless sudo for a while and arms a transient timer to take it\n\
+             # back. Transient units do not survive a reboot, so remove the grant in early boot.\n\
+             r! {}\nr! {}\n",
+            self.file, self.boot_rule
+        )
+    }
+
+    /// The boot rule first, so that a grant never exists without one. A failure leaves neither.
+    fn write(&self, user: &str) -> Result<()> {
+        let written = self.write_files(user);
+        if written.is_err() {
+            self.remove();
+        }
+        written
+    }
+
+    fn write_files(&self, user: &str) -> Result<()> {
+        use std::os::unix::fs::PermissionsExt;
+        let set_mode = |path: &str, mode| {
+            std::fs::set_permissions(path, std::fs::Permissions::from_mode(mode))
+                .map_err(|err| Error::io(err, Path::new(path)))
+        };
+        atomic_write_text(Path::new(&self.boot_rule), &self.boot_rule_text())?;
+        set_mode(&self.boot_rule, 0o644)?;
+        atomic_write_text(
+            Path::new(&self.file),
+            &format!("{user} ALL=(ALL) NOPASSWD: ALL\n"),
+        )?;
+        set_mode(&self.file, 0o440)
+    }
+
+    fn remove(&self) {
+        let _ = std::fs::remove_file(&self.file);
+        let _ = std::fs::remove_file(&self.boot_rule);
+    }
 }
 
 fn sudo_on(user: &str, minutes: &str) -> Result<()> {
-    let (file, timer) = sudoers(user)?;
+    let grant = Grant::under("/etc", user)?;
     if !(re(r"^[1-9][0-9]*$").is_match(minutes)
         && minutes.parse::<u32>().is_ok_and(|m| (1..=240).contains(&m)))
     {
         return Err(bad("root sudo: 1-240 minutes"));
     }
-    atomic_write_text(
-        Path::new(&file),
-        &format!("{user} ALL=(ALL) NOPASSWD: ALL\n"),
-    )?;
-    {
-        use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o440))?;
-    }
-    quiet("systemctl", &["stop", &format!("{timer}.timer")]);
-    must(
+    grant.write(user)?;
+    quiet("systemctl", &["stop", &format!("{}.timer", grant.timer)]);
+    // The timer takes the rule with the grant: the grant is over, and the rule has nothing left
+    // to do.
+    let armed = must(
         "systemd-run",
         &[
             &format!("--on-active={minutes}m"),
             "--timer-property=AccuracySec=1s",
-            &format!("--unit={timer}"),
+            &format!("--unit={}", grant.timer),
             "rm",
-            &file,
+            "-f",
+            "--",
+            &grant.file,
+            &grant.boot_rule,
         ],
-    )
+    );
+    if armed.is_err() {
+        // A grant with no way to end is not left on.
+        grant.remove();
+    }
+    armed
 }
 
 fn sudo_off(user: &str) -> Result<()> {
-    let (file, timer) = sudoers(user)?;
-    let _ = std::fs::remove_file(&file);
-    quiet("systemctl", &["stop", &format!("{timer}.timer")]);
+    let grant = Grant::under("/etc", user)?;
+    grant.remove();
+    quiet("systemctl", &["stop", &format!("{}.timer", grant.timer)]);
     Ok(())
 }
 
@@ -250,8 +307,86 @@ mod tests {
 
     #[test]
     fn sudoers_names_are_checked() {
-        assert!(sudoers("ann").is_ok());
-        assert!(sudoers("../x").is_err());
-        assert!(sudoers("Ann").is_err());
+        assert!(Grant::under("/etc", "ann").is_ok());
+        assert!(Grant::under("/etc", "../x").is_err());
+        assert!(Grant::under("/etc", "Ann").is_err());
+    }
+
+    fn scratch(name: &str) -> String {
+        let dir = std::env::temp_dir().join(format!("atmosd-root-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("sudoers.d")).unwrap();
+        std::fs::create_dir_all(dir.join("tmpfiles.d")).unwrap();
+        dir.to_str().unwrap().to_string()
+    }
+
+    #[test]
+    fn a_grant_comes_with_a_rule_that_removes_it_at_boot_and_itself() {
+        use std::os::unix::fs::PermissionsExt;
+        let etc = scratch("grant");
+        let grant = Grant::under(&etc, "ann").unwrap();
+        grant.write("ann").unwrap();
+        let rule = std::fs::read_to_string(&grant.boot_rule).unwrap();
+        let lines: Vec<&str> = rule.lines().filter(|l| !l.starts_with('#')).collect();
+        assert_eq!(
+            lines,
+            [
+                format!("r! {etc}/sudoers.d/99-omarchy-nopasswd-ann"),
+                format!("r! {etc}/tmpfiles.d/atmos-nopasswd-ann.conf"),
+            ]
+        );
+        let mode = |p: &str| std::fs::metadata(p).unwrap().permissions().mode() & 0o777;
+        assert_eq!(mode(&grant.file), 0o440);
+        assert_eq!(mode(&grant.boot_rule), 0o644);
+        assert_eq!(
+            std::fs::read_to_string(&grant.file).unwrap(),
+            "ann ALL=(ALL) NOPASSWD: ALL\n"
+        );
+        grant.remove();
+        assert!(!Path::new(&grant.file).exists() && !Path::new(&grant.boot_rule).exists());
+    }
+
+    /// The rule is read by the real `systemd-tmpfiles`, in a root of its own: a run without
+    /// `--boot` leaves the grant alone, and the boot run removes it and the rule.
+    #[test]
+    fn systemd_tmpfiles_removes_the_grant_at_boot_and_not_before() {
+        if !Run::new("systemd-tmpfiles")
+            .arg("--version")
+            .output()
+            .is_ok_and(|out| out.success())
+        {
+            eprintln!("skipped: no systemd-tmpfiles");
+            return;
+        }
+        let root = scratch("tmpfiles");
+        let grant = Grant::under("/etc", "ann").unwrap();
+        let in_root = |path: &str| format!("{root}{path}");
+        std::fs::create_dir_all(in_root("/etc/sudoers.d")).unwrap();
+        std::fs::create_dir_all(in_root("/etc/tmpfiles.d")).unwrap();
+        std::fs::write(in_root(&grant.file), "ann ALL=(ALL) NOPASSWD: ALL\n").unwrap();
+        std::fs::write(in_root(&grant.boot_rule), grant.boot_rule_text()).unwrap();
+        let tmpfiles = |boot: bool| {
+            let mut run =
+                Run::new("systemd-tmpfiles").args(["--create", "--remove", "--root", &root]);
+            if boot {
+                run = run.arg("--boot");
+            }
+            assert!(run.output().unwrap().success());
+        };
+        tmpfiles(false);
+        assert!(Path::new(&in_root(&grant.file)).exists());
+        tmpfiles(true);
+        assert!(!Path::new(&in_root(&grant.file)).exists());
+        assert!(!Path::new(&in_root(&grant.boot_rule)).exists());
+    }
+
+    #[test]
+    fn a_grant_that_cannot_be_written_leaves_nothing() {
+        let etc = scratch("nodir");
+        std::fs::remove_dir_all(format!("{etc}/sudoers.d")).unwrap();
+        std::fs::write(format!("{etc}/sudoers.d"), "in the way").unwrap();
+        let grant = Grant::under(&etc, "ann").unwrap();
+        assert!(grant.write("ann").is_err());
+        assert!(!Path::new(&grant.boot_rule).exists());
     }
 }

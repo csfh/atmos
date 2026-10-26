@@ -24,6 +24,7 @@ An ADR records one decision that shaped Atmos: what was decided, why, and what i
 | [0016](0016-what-a-write-names-is-made-current-and-a-reading-wins.md) | What a write names is made current, and a reading wins over a stored value | Accepted |
 | [0017](0017-v1-does-not-update-installs-older-than-v1.md) | v1 does not update installs older than v1 | Accepted |
 | [0018](0018-the-backend-is-atmosd.md) | The backend is `atmosd` | Accepted |
+| [0019](0019-a-passwordless-sudo-grant-ends-at-boot-too.md) | A passwordless sudo grant ends at boot too | Accepted |
 
 ## Format
 

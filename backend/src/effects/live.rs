@@ -29,19 +29,16 @@ pub fn after_write(root: Option<&Path>, key: &str, value: &Value) -> Result<()> 
         "crashCapture" => {
             // The tool only toggles, so it runs only when the flag differs.
             if crate::snapshot::crash_capture() != (value.as_bool() == Some(true)) {
-                spawn("omarchy", &["toggle", "crash", "capture"]);
+                run("omarchy", &["toggle", "crash", "capture"])?;
             }
             Ok(())
         }
-        "weatherLocation" => {
-            let name = value.as_str().unwrap_or("");
-            if name.is_empty() {
-                spawn("omarchy", &["weather", "location", "--clear"]);
-            } else {
-                spawn("omarchy", &["weather", "location", "--set", name]);
-            }
-            Ok(())
-        }
+        // A local write of one small file: it runs to its end, so the
+        // read-back that follows sees it and a failure reaches the reply.
+        "weatherLocation" => match value.as_str().unwrap_or("") {
+            "" => run("omarchy", &["weather", "location", "--clear"]),
+            name => run("omarchy", &["weather", "location", "--set", name]),
+        },
         "presentationMode" => {
             crate::tasks::user::presentation(crate::effect::on_off(value, false), None)
         }
@@ -135,6 +132,14 @@ fn run_argv(key: &str, value: &Value) {
     let mut owned: Vec<&str> = args.to_vec();
     owned.push(&rendered);
     spawn("omarchy", &owned);
+}
+
+fn run(program: &str, args: &[&str]) -> Result<()> {
+    Run::new(program)
+        .args(args)
+        .timeout(crate::runner::COMMAND_TIMEOUT)
+        .checked()
+        .map(|_| ())
 }
 
 pub(crate) fn spawn(program: &str, args: &[&str]) {

@@ -308,14 +308,19 @@ pub fn security(f: &mut Map<String, Value>, user: &str) {
     // `/etc/sudoers.d` is root-only, so the file cannot be seen from here. The
     // `sudo-on` task also starts a transient timer that removes it, and the
     // timer is visible to every user without a `sudo` probe in the journal.
+    // Only a timer still `waiting` counts: one that has fired reads `active`
+    // while its `rm` runs.
     let timed = present("systemctl")
         && out(
             "systemctl",
             &[
-                "is-active",
+                "show",
+                "-p",
+                "SubState",
+                "--value",
                 &format!("omarchy-nopasswd-expire-{user}.timer"),
             ],
-        ) == "active";
+        ) == "waiting";
     f.insert(
         "passwordlessSudo".into(),
         json!(timed || Path::new(&format!("/etc/sudoers.d/99-omarchy-nopasswd-{user}")).is_file()),

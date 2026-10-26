@@ -18,7 +18,6 @@ const SCAN = [
   "frontend/tests",
   "components",
   "pages",
-  "scripts",
   "services",
   "shell.qml",
 ];

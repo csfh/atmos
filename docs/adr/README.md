@@ -22,6 +22,7 @@ An ADR records one decision that shaped Atmos: what was decided, why, and what i
 | [0014](0014-the-window-is-an-oma-bundle-with-its-backend-in-it.md) | The window is an OMA Bundle with its backend in it | Accepted |
 | [0015](0015-a-cached-topic-is-sent-only-when-its-files-have-not-moved.md) | A cached settings topic is sent only when its files have not moved | Accepted |
 | [0016](0016-what-a-write-names-is-made-current-and-a-reading-wins.md) | What a write names is made current, and a reading wins over a stored value | Accepted |
+| [0017](0017-v1-does-not-update-installs-older-than-v1.md) | v1 does not update installs older than v1 | Accepted |
 
 ## Format
 

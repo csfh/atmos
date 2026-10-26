@@ -71,7 +71,7 @@ pub enum PlaceKind {
     },
     /// A file whose presence is the toggle. `true` writes the file; `false` removes it.
     Flag,
-    /// Hyprland block written by `hypr-sentinel.py` (`o.bind`, `o.window`, and the rest).
+    /// Hyprland block written by the sentinel writers (`ratmos sentinel`).
     Hypr {
         kind: &'static str,
     },

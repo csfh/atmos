@@ -73,7 +73,7 @@ fn host_paths_stay_inside_the_root() {
 }
 
 /// A bindings list too long for one argv still lands, because the payload
-/// travels on stdin to hypr-sentinel.py.
+/// travels on stdin to the sentinel writer.
 #[test]
 fn a_huge_hypr_payload_does_not_hit_the_argument_limit() {
     use common::request;

@@ -54,10 +54,9 @@ for (const [name, file] of fromFrontend) {
 }
 
 // Nothing runs a helper script any more, from the window or from ratmos.
-// scripts/ is only the update shim for older installs (tests/update-compat.test.js).
 assert(
-  fs.readdirSync(path.join(root, "scripts")).sort().join() === "README.md,hypr-sentinel.py",
-  "scripts/ holds only the update shim",
+  !fs.existsSync(path.join(root, "scripts")),
+  "there is no scripts/ directory (docs/adr/0017)",
 );
 for (const file of [...frontend, ...rustSources]) {
   const text = read(file);

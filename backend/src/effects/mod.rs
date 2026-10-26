@@ -1,8 +1,8 @@
-//! Platform documents and the scripts that already own them.
+//! Platform documents and the tools that already own them.
 //!
-//! List domains go through `hypr-sentinel.py`, so the sentinel body is the
-//! same Lua that script writes. Other domains write the file the existing
-//! shell script writes, and a live (no `--root`) set also runs that script.
+//! List domains go through the sentinel writers (`ratmos sentinel`). Other
+//! domains write the file Omarchy's own tool writes, and a live (no `--root`)
+//! set also runs that tool.
 //!
 //! One module per document family: `hypr` (sentinel blocks), `docs` (the
 //! dispatch over every other document), then `sunset`, `env`, `mime`, `audio`

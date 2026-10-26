@@ -461,12 +461,16 @@ pub(crate) fn write_domain(
         }
     }
     let place = domain::locate(backend, spec)?;
-    match store::write_place(root, &place, spec.key, spec.ty, value) {
-        Ok(()) => {}
-        Err(err) if backend.is_live(root) && err.is_denied() => {
-            delegate_root_script(key, value)?;
+    // A live privileged document is written by its effect, as root. Writing
+    // the place would only take a lock beside it, in /sys or /etc, and fail.
+    if !skips_place(backend, root, key) {
+        match store::write_place(root, &place, spec.key, spec.ty, value) {
+            Ok(()) => {}
+            Err(err) if backend.is_live(root) && err.is_denied() => {
+                delegate_root_script(key, value)?;
+            }
+            Err(err) => return Err(err),
         }
-        Err(err) => return Err(err),
     }
     if backend == Backend::Omarchy {
         effects::after_write(root, key, value)?;
@@ -491,6 +495,10 @@ pub(crate) fn write_domain(
         tasks::system::tweak_setting(key, value);
     }
     Ok(())
+}
+
+fn skips_place(backend: Backend, root: Option<&Path>, key: &str) -> bool {
+    backend.is_live(root) && effects::written_by_effect(key)
 }
 
 fn delegate_root_script(key: &str, value: &Value) -> Result<()> {
@@ -629,6 +637,25 @@ mod tests {
         static MADE: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
         let n = MADE.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         std::env::temp_dir().join(format!("ratmos-lib-{tag}-{n}-{}", std::process::id()))
+    }
+
+    #[test]
+    fn a_live_privileged_setting_leaves_its_place_to_the_effect() {
+        let root = scratch("fixture");
+        for key in ["chargeLimit", "passwordlessSudo", "snapperTimeline"] {
+            assert!(skips_place(Backend::Omarchy, None, key), "{key}");
+            assert!(!skips_place(Backend::Omarchy, Some(&root), key), "{key}");
+            assert!(!skips_place(Backend::Plain, None, key), "{key}");
+        }
+        // A report, or an effect that does not wait, still fails as before.
+        for key in [
+            "presentationMode",
+            "fingerprintConfigured",
+            "fstrimEnabled",
+            "sshdEnabled",
+        ] {
+            assert!(!skips_place(Backend::Omarchy, None, key), "{key}");
+        }
     }
 
     #[test]

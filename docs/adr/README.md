@@ -16,10 +16,11 @@ An ADR records one decision that shaped Atmos: what was decided, why, and what i
 | [0008](0008-every-read-and-write-goes-through-the-backend.md) | Every read and every write goes through the backend | Accepted |
 | [0009](0009-every-job-runs-in-the-daemon.md) | Every job and interactive tool runs in the daemon | Accepted |
 | [0010](0010-nothing-works-without-the-daemon.md) | Nothing works without the daemon | Accepted |
-| [0011](0011-the-settings-snapshot-is-held-as-topics.md) | The settings snapshot is held as topics | Accepted |
+| [0011](0011-the-settings-snapshot-is-held-as-topics.md) | The settings snapshot is held as topics | Accepted, amended by 0015 |
 | [0012](0012-serve-is-a-bridge.md) | `ratmos serve` is a bridge | Accepted |
 | [0013](0013-the-window-is-rust-on-odk.md) | The window is Rust, built on ODK's components alone | Accepted |
 | [0014](0014-the-window-is-an-oma-bundle-with-its-backend-in-it.md) | The window is an OMA Bundle with its backend in it | Accepted |
+| [0015](0015-a-cached-topic-is-sent-only-when-its-files-have-not-moved.md) | A cached settings topic is sent only when its files have not moved | Accepted |
 
 ## Format
 

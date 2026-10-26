@@ -44,6 +44,9 @@ pub struct Config {
     pub job_timeout: Duration,
     pub run_command: Box<RunCommand>,
     pub job_runner: super::jobs::Runner,
+    /// The files the settings topics are read from, and which topics each
+    /// belongs to (`snapshot::topics::watched`).
+    pub watched: Vec<(PathBuf, Vec<&'static str>)>,
 }
 
 impl Config {
@@ -55,6 +58,7 @@ impl Config {
             job_timeout: Duration::from_secs(120),
             run_command: Box::new(crate::command::run_child),
             job_runner: super::jobs::Runner::detect(),
+            watched: crate::snapshot::topics::watched(),
         }
     }
 }
@@ -98,6 +102,8 @@ impl Daemon {
         for topic in crate::snapshot::topics::NAMES {
             settings.stamp(topic);
         }
+        // The files as they are before any topic is collected (docs/adr/0015).
+        settings.watch(config.watched);
         Arc::new_cyclic(|me: &std::sync::Weak<Daemon>| {
             // A finished command or lease drops the display kinds it touched,
             // so the next read collects them again, and invalidates the

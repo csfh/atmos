@@ -31,6 +31,7 @@ pub fn test_config(dial: &Arc<Dial>) -> Config {
         job_timeout: Duration::from_secs(5),
         job_runner: crate::sampler::jobs::Runner::Direct,
         run_command: Box::new(|_, body, _| json!({"ok": true, "result": {"ran": body}})),
+        watched: Vec::new(),
     }
 }
 
@@ -400,4 +401,102 @@ fn a_restarted_daemon_knows_what_the_cache_already_holds() {
     let topic = again.topics.get("software");
     assert_eq!(topic.seq, 0);
     assert!(topic.sampled_at.is_some());
+}
+
+/// A daemon over a real socket in `dir` whose settings topics read `file` as `{"v": <its text>}`,
+/// and that watches it for `settings.look`, with its file watcher running as in production.
+fn serve_watching(dir: &Path, file: &Path) -> Arc<Daemon> {
+    let (listener, lock) = bind(dir).unwrap();
+    std::mem::forget(lock);
+    let mut config = test_config(&Arc::new(Dial(AtomicBool::new(false))));
+    let read = file.to_path_buf();
+    config.run_command = Box::new(move |_, body, _| {
+        assert_eq!(body["op"], "snapshot.topic");
+        let text = std::fs::read_to_string(&read).unwrap_or_default();
+        json!({"ok": true, "result": {"v": text}})
+    });
+    config.watched = vec![(file.to_path_buf(), vec!["settings.look"])];
+    let daemon = Daemon::new(
+        dir.to_path_buf(),
+        Box::new(|kind| Ok(json!({"kind": kind}))),
+        config,
+    );
+    let lane = daemon.clone();
+    std::thread::spawn(move || lane.accept(listener));
+    let files = daemon.clone();
+    std::thread::spawn(move || files.watch_settings(&AtomicBool::new(false)));
+    daemon
+}
+
+/// The first settings frame a session is sent, and that no frame after it within a moment shows
+/// `old`: a window never draws an old value and then a correction.
+fn first_and_only_new(window: &mut crate::sampler::session::tests::Client, old: &str) -> Value {
+    let first = window.next();
+    assert_eq!(first["topic"], "settings.look", "{first}");
+    while let Some(frame) = window.next_within(Duration::from_millis(400)) {
+        assert_ne!(frame["value"]["v"], old, "an old value followed: {frame}");
+    }
+    first
+}
+
+#[test]
+fn a_file_that_moved_while_nothing_held_its_topic_is_read_again_before_the_topic_is_sent() {
+    let dir = scratch("held-gap");
+    let file = dir.join("input.lua");
+    std::fs::write(&file, "one").unwrap();
+    let _daemon = serve_watching(&dir, &file);
+    let mut window = crate::sampler::session::tests::Client::open(&dir);
+    window.send(json!({"t": "sub", "topics": {"settings.look": {}}}));
+    assert_eq!(window.next()["value"]["v"], "one");
+    window.send(json!({"t": "unsub"}));
+    // Nothing holds the topic, so the watcher looks at nothing; the file changes meanwhile.
+    std::thread::sleep(Duration::from_millis(1300));
+    std::fs::write(&file, "three").unwrap();
+    std::thread::sleep(Duration::from_millis(1300));
+    window.send(json!({"t": "sub", "topics": {"settings.look": {}}}));
+    let first = first_and_only_new(&mut window, "one");
+    assert_eq!(
+        first["value"]["v"], "three",
+        "the cached sample was sent: {first}"
+    );
+}
+
+#[test]
+fn a_topic_an_earlier_daemon_cached_is_never_sent_to_a_window() {
+    let dir = scratch("held-restart");
+    let file = dir.join("input.lua");
+    // What the last daemon cached, and then the file moved while no daemon ran.
+    let old = Sample {
+        at_ms: cache::now_ms(),
+        took_ms: 1,
+        value: json!({"v": "one"}),
+    };
+    cache::write(&dir, "settings.look", &old).unwrap();
+    std::fs::write(&file, "three").unwrap();
+    std::thread::sleep(Duration::from_millis(3));
+    let _daemon = serve_watching(&dir, &file);
+    let mut window = crate::sampler::session::tests::Client::open(&dir);
+    window.send(json!({"t": "sub", "topics": {"settings.look": {}}}));
+    let first = first_and_only_new(&mut window, "one");
+    assert_eq!(
+        first["value"]["v"], "three",
+        "the old daemon's sample was sent: {first}"
+    );
+}
+
+#[test]
+fn a_file_that_moved_while_a_topic_is_held_is_pushed_within_a_second_or_so() {
+    let dir = scratch("held-watch");
+    let file = dir.join("input.lua");
+    std::fs::write(&file, "one").unwrap();
+    let _daemon = serve_watching(&dir, &file);
+    let mut window = crate::sampler::session::tests::Client::open(&dir);
+    window.send(json!({"t": "sub", "topics": {"settings.look": {}}}));
+    assert_eq!(window.next()["value"]["v"], "one");
+    std::thread::sleep(Duration::from_millis(1100));
+    std::fs::write(&file, "three").unwrap();
+    let pushed = window
+        .next_within(Duration::from_secs(4))
+        .expect("the change is pushed");
+    assert_eq!(pushed["value"]["v"], "three", "{pushed}");
 }

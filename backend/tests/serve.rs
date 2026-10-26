@@ -659,6 +659,110 @@ fn topic_event(server: &Server, topic: &str) -> Value {
     })
 }
 
+/// A daemon whose home is `home`, so the files it watches are the ones a window there reads.
+fn start_daemon_in(run: &std::path::Path, home: &std::path::Path) -> Daemon {
+    let daemon = Daemon(
+        Command::new(env!("CARGO_BIN_EXE_ratmos"))
+            .arg("daemon")
+            .env("XDG_RUNTIME_DIR", run)
+            .env("HOME", home)
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .expect("spawn ratmos daemon"),
+    );
+    let socket = run.join("atmos/ratmos.sock");
+    for _ in 0..100 {
+        if std::os::unix::net::UnixStream::connect(&socket).is_ok() {
+            return daemon;
+        }
+        thread::sleep(Duration::from_millis(50));
+    }
+    panic!("the daemon never listened");
+}
+
+/// The window's `omarchy theme current` answers with Omarchy's own state file, which the daemon
+/// watches for `settings.look`.
+fn theme_from_state(window: &Window, theme: &str) {
+    let state = window.dir.join(".local/state/omarchy/current");
+    fs::create_dir_all(&state).unwrap();
+    fs::write(state.join("theme.name"), theme).unwrap();
+    fake(
+        &window.dir,
+        "omarchy",
+        r#"if [ "$*" = "theme current" ]; then cat "$HOME/.local/state/omarchy/current/theme.name"; exit 0; fi
+case "$*" in *list|"theme extras") printf 'a\nb\n' ;; *) echo ok ;; esac"#,
+    );
+}
+
+fn set_theme(window: &Window, theme: &str) {
+    fs::write(
+        window.dir.join(".local/state/omarchy/current/theme.name"),
+        theme,
+    )
+    .unwrap();
+}
+
+/// The first settings.look sample a hold is sent, with the theme it shows. A cached sample from
+/// before the change would be the first, so the first is the one that counts (docs/adr/0015).
+fn hold_look(window: &mut Window, id: u64) -> Value {
+    window
+        .server
+        .send(&json!({"id": id, "op": "sub.set", "topics": {"settings.look": {}}}));
+    topic_event(&window.server, "settings.look")
+}
+
+fn release(window: &mut Window, id: u64) {
+    window
+        .server
+        .send(&json!({"id": id, "op": "sub.set", "topics": {}}));
+    window.server.until(|line| line["id"] == id);
+}
+
+#[test]
+fn a_file_changed_while_no_window_held_its_topic_is_never_sent_from_the_cache() {
+    let run = short_run_dir("gap");
+    // The home `window_with_tools` makes, so the daemon watches the files the window's tools read.
+    let home = std::path::PathBuf::from(format!("/tmp/rt-win-gap-{}", std::process::id()));
+    fs::create_dir_all(&home).unwrap();
+    let daemon = start_daemon_in(&run, &home);
+    let mut window = window_with_tools(&run, "gap");
+    assert_eq!(window.dir, home);
+    theme_from_state(&window, "tokyo-night");
+    assert_eq!(hold_look(&mut window, 1)["result"]["theme"], "tokyo-night");
+
+    // Nobody holds the topic while the theme changes, so the daemon's watcher is idle.
+    release(&mut window, 2);
+    thread::sleep(Duration::from_millis(1500));
+    set_theme(&window, "gruvbox-material");
+    thread::sleep(Duration::from_millis(1500));
+    let first = hold_look(&mut window, 3);
+    assert_eq!(
+        first["result"]["theme"], "gruvbox-material",
+        "the cached topic was sent: {first}"
+    );
+
+    // The daemon restarts with that sample on disk, and the theme changes while none runs.
+    release(&mut window, 4);
+    drop(daemon);
+    window
+        .server
+        .until(|line| line["event"] == "backend" && line["state"] == "down");
+    set_theme(&window, "kanagawa");
+    let _daemon = start_daemon_in(&run, &home);
+    window
+        .server
+        .until(|line| line["event"] == "backend" && line["state"] == "up");
+    let first = hold_look(&mut window, 5);
+    assert_eq!(
+        first["result"]["theme"], "kanagawa",
+        "the earlier daemon's sample was sent: {first}"
+    );
+    drop(window);
+    let _ = fs::remove_dir_all(&run);
+}
+
 #[test]
 fn a_window_that_holds_a_settings_topic_is_pushed_it_and_the_next_one_when_it_changes() {
     let run = short_run_dir("topic");

@@ -166,11 +166,20 @@ pub(super) fn open(daemon: &Arc<Daemon>, stream: UnixStream) {
                 let topics = topics_of(&frame);
                 let kinds: Vec<String> = topics.keys().cloned().collect();
                 subscriber.set(topics);
+                // A cached settings topic is only as good as its files: they
+                // are looked at before anything is sent, and a topic whose
+                // files moved, held or not, is dropped and read again
+                // (docs/adr/0015). The window is sent the new sample, never
+                // the old one first.
+                if kinds.iter().any(|kind| super::is_settings(kind)) {
+                    daemon.look_at_files();
+                }
                 // What the daemon already holds goes out at once; `live` is
                 // taken by the pump, which samples as soon as it is held.
                 for kind in kinds.iter().filter(|kind| !is_pumped(kind)) {
                     let held = daemon.held(kind);
-                    // A settings topic is as good as its last invalidation.
+                    // A settings topic is as good as its files, just looked at,
+                    // and its last invalidation.
                     let fresh = held.as_ref().is_some_and(|sample| {
                         super::is_settings(kind) || sample.age() <= super::policy::of(kind).max_age
                     });
@@ -310,7 +319,7 @@ pub(super) fn exit_when_stale(dir: PathBuf, jobs: Arc<super::jobs::Jobs>) {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use crate::sampler::cache;
     use crate::sampler::daemon::tests::serve;

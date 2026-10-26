@@ -6,12 +6,19 @@
 //! collection that began under an older one is thrown away and run again, so a
 //! sample taken before a write never lands after it.
 //!
+//! A cached topic is only as good as the files it is read from (docs/adr/0015).
+//! The daemon keeps their signatures from its last look, also while nothing
+//! holds a topic, looks again before it sends a cached topic to a window that
+//! holds it, and once a second while one is held; a topic whose files moved is
+//! invalidated, whoever moved them.
+//!
 //! A collection needs the session's environment (`hyprctl`, `omarchy`), which a
 //! daemon that outlived a login does not have: a window's session tells the
 //! daemon its own (`env` frame), and the topic is collected in a child process
 //! that carries the newest one, as a command is.
 
 use std::collections::HashMap;
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use serde_json::{json, Map, Value};
@@ -30,10 +37,16 @@ pub(super) struct Settings {
     /// When a topic last failed to collect, so a window that keeps sending
     /// `sub` frames does not start the same failing children again and again.
     failed: Mutex<HashMap<String, std::time::Instant>>,
-    /// Moves whenever the daemon itself made a topic current, so the file
-    /// watcher does not take the daemon's own write for someone else's.
-    touched: std::sync::atomic::AtomicU64,
     env: Mutex<Vec<(String, String)>>,
+    files: Mutex<Files>,
+}
+
+/// The files the topics are read from (`snapshot::topics::watched`), each with
+/// the topics it belongs to, and their signatures at the daemon's last look.
+#[derive(Default)]
+struct Files {
+    table: Vec<(PathBuf, Vec<&'static str>)>,
+    seen: Option<HashMap<PathBuf, String>>,
 }
 
 fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -71,13 +84,15 @@ impl Settings {
             .is_some_and(|at| at.elapsed() < std::time::Duration::from_secs(5))
     }
 
-    pub(super) fn touch(&self) {
-        self.touched
-            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-    }
-
-    fn touched(&self) -> u64 {
-        self.touched.load(std::sync::atomic::Ordering::SeqCst)
+    /// The files to look at, as they are now. Called once, when the daemon
+    /// starts, before any topic is collected: what a later look finds moved
+    /// moved after that.
+    pub(super) fn watch(&self, table: Vec<(PathBuf, Vec<&'static str>)>) {
+        let mut files = lock(&self.files);
+        files.table = table;
+        files.seen = None;
+        let Files { table, seen } = &mut *files;
+        moved(table, seen);
     }
 
     pub(super) fn bump(&self, topic: &str) {
@@ -124,32 +139,33 @@ pub(super) fn moved(
 }
 
 impl Daemon {
+    /// Looks at the files the topics are read from and invalidates the topics
+    /// whose files moved since the last look, whoever moved them: a write the
+    /// daemon ran is read again too, which costs a collection and never shows
+    /// an old value. The lock is held through the invalidation, so a hold that
+    /// looks next finds the moved topics already dropped from the cache.
+    pub(super) fn look_at_files(self: &Arc<Self>) -> Vec<&'static str> {
+        let mut files = lock(&self.settings.files);
+        let Files { table, seen } = &mut *files;
+        let changed = moved(table, seen);
+        if !changed.is_empty() {
+            self.invalidate(&changed);
+        }
+        changed
+    }
+
     /// Looks once a second, while a window holds a settings topic, at the
-    /// files the topics are read from, and invalidates the topics whose files
-    /// changed. The daemon knows the files, so no window has to say.
+    /// files the topics are read from. The daemon knows the files, so no
+    /// window has to say. While nothing is held it does nothing, and keeps
+    /// what it last saw: the next hold looks before anything is sent.
     pub fn watch_settings(self: &Arc<Self>, stop: &std::sync::atomic::AtomicBool) {
-        let table = crate::snapshot::topics::watched();
-        let mut last = None;
-        let mut touched = self.settings.touched();
         while !stop.load(std::sync::atomic::Ordering::SeqCst) {
             std::thread::sleep(std::time::Duration::from_secs(1));
             let held = crate::snapshot::topics::NAMES
                 .iter()
                 .any(|topic| self.bus.holds(topic));
-            if !held {
-                // Nobody is looking: what changes meanwhile is read when one does.
-                last = None;
-                continue;
-            }
-            let changed = moved(&table, &mut last);
-            // The daemon made a topic current itself since the last look (a
-            // write it ran, an invalidation): the file that moved is that
-            // write's, and the topic already shows it.
-            let mine = self.settings.touched() != touched;
-            touched = self.settings.touched();
-            if !changed.is_empty() && !mine {
-                self.invalidate(&changed);
-                touched = self.settings.touched();
+            if held {
+                self.look_at_files();
             }
         }
     }
@@ -182,7 +198,6 @@ impl Daemon {
         {
             if super::is_settings(topic) {
                 self.settings.bump(topic);
-                self.settings.touch();
             }
             cache::drop_kinds(&self.dir, &[topic]);
             // A sample of the topic is later than the mark just written.
@@ -247,7 +262,6 @@ impl Daemon {
             took_ms: 0,
             value,
         };
-        self.settings.touch();
         let _ = cache::write(&self.dir, topic, &sample);
         self.publish_sample(topic, &sample);
     }

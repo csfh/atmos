@@ -218,10 +218,6 @@ fn slot(key: &str) -> Slot {
             id: "omarchy.spacer",
             field: "size",
         },
-        "weatherLocation" => Slot::Widget {
-            id: "omarchy.weather",
-            field: "location",
-        },
         "weatherUnit" => Slot::Widget {
             id: "omarchy.weather",
             field: "unit",

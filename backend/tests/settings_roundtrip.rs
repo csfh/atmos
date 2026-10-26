@@ -343,6 +343,7 @@ fn doc_file_contains(key: &str, text: &str, value: &Value) -> bool {
         "audioInputVolume" => text.contains(&format!("input-volume {rendered}")),
         "audioTuningOn" => text.contains("tuning true"),
         "bluetooth" | "wifiRadio" | "suspendEnabled" | "crashCapture" => text.trim() == rendered,
+        "weatherLocation" => text.contains(&format!("{{\"name\":\"{rendered}\"}}")),
         "presentationMode" => text.contains("\"on\":true"),
         "chargeLimit" => text.trim() == rendered,
         "snapperNumberLimit" => text.contains(&format!("NUMBER_LIMIT=\"{rendered}\"")),

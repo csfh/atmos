@@ -12,6 +12,7 @@ mod system;
 pub(crate) mod topics;
 
 pub use merge::{settings, settings_snapshot};
+pub(crate) use system::crash_capture;
 
 use serde_json::{json, Map, Value};
 use sh::{lines, omarchy, out};

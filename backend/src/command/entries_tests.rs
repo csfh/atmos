@@ -453,3 +453,37 @@ fn every_name_an_entry_affects_is_a_topic_the_daemon_holds() {
         }
     }
 }
+
+/// A table command that changes what a settings topic holds says so. The ones
+/// below change nothing a topic or an inventory shows: a clipboard, a signal
+/// to a process (the live feed shows it), a toast, a window toggle, a file
+/// shared out, a webcam still, a hook the user wrote.
+#[test]
+fn every_table_command_names_what_it_changes_or_is_listed_as_changing_nothing() {
+    const CHANGES_NOTHING_HELD: &[&str] = &[
+        "theme.bg-cache",
+        "keyboard.backlight-restore",
+        "window.transparency-toggle",
+        "window.tiled-fullscreen-toggle",
+        "wifi.password-copy",
+        "clipboard.copy",
+        "process.signal",
+        "notification",
+        "notification.test",
+        "reminder.show",
+        "webcam.resize",
+        "share.clipboard",
+        "share.file",
+        "share.folder",
+        "hook.run",
+    ];
+    for entry in ENTRIES.iter().filter(|e| e.kind == Kind::Command) {
+        let named = !entry.affects.is_empty() || !entry.readback.is_empty();
+        let exempt = CHANGES_NOTHING_HELD.contains(&entry.name);
+        assert!(
+            named != exempt,
+            "{}: a command either names what it changes or is listed as changing nothing",
+            entry.name
+        );
+    }
+}

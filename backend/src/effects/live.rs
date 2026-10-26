@@ -27,7 +27,19 @@ pub fn after_write(root: Option<&Path>, key: &str, value: &Value) -> Result<()> 
             Ok(())
         }
         "crashCapture" => {
-            spawn("omarchy", &["toggle", "crash", "capture"]);
+            // The tool only toggles, so it runs only when the flag differs.
+            if crate::snapshot::crash_capture() != (value.as_bool() == Some(true)) {
+                spawn("omarchy", &["toggle", "crash", "capture"]);
+            }
+            Ok(())
+        }
+        "weatherLocation" => {
+            let name = value.as_str().unwrap_or("");
+            if name.is_empty() {
+                spawn("omarchy", &["weather", "location", "--clear"]);
+            } else {
+                spawn("omarchy", &["weather", "location", "--set", name]);
+            }
             Ok(())
         }
         "presentationMode" => {

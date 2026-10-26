@@ -979,8 +979,8 @@
       },
       {
         "domain": "weatherLocation",
-        "encoding": "shell",
-        "file": ".config/omarchy/shell.json",
+        "encoding": "doc",
+        "file": ".local/state/omarchy/settings/weather.json",
         "prefix": "",
         "type": "string"
       },

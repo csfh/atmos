@@ -6,7 +6,7 @@
 2415 services/Omarchy.qml
 1413 shell.qml
 1228 services/RichUi.js
-1032 backend/src/patch.rs
+1028 backend/src/patch.rs
 984 services/LiveStats.js
 919 services/Hardware.js
 854 backend/src/agents.rs

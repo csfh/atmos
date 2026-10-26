@@ -6,12 +6,12 @@ use super::table::Kind::{Command, Interactive, Job, Launch};
 use super::table::{Entry, In, A, T};
 use T::{Rest, Task, B, F, J, L, O, V, Z};
 
-use crate::snapshot::topics::{HOST, LOOK};
+use crate::snapshot::topics::{ACCOUNTS, HOST, LOOK, NETWORK};
 
 pub static ENTRIES: &[Entry] = &[
     // ---- short commands -------------------------------------------------
-    Entry::new("theme.refresh", Command, &[L("omarchy"), L("theme"), L("refresh")]).lane("theme"),
-    Entry::new("theme.bg-next", Command, &[L("omarchy"), L("theme"), L("bg"), L("next")]).lane("theme"),
+    Entry::new("theme.refresh", Command, &[L("omarchy"), L("theme"), L("refresh")]).lane("theme").affects(&[LOOK]),
+    Entry::new("theme.bg-next", Command, &[L("omarchy"), L("theme"), L("bg"), L("next")]).lane("theme").affects(&[LOOK]),
     Entry::new("theme.bg-cache", Command, &[L("omarchy"), L("theme"), L("bg"), L("cache")]).lane("theme"),
     Entry::new(
         "keyboard.backlight-restore",
@@ -25,6 +25,7 @@ pub static ENTRIES: &[Entry] = &[
         &[Task("manage-account"), L("set-member"), V("group", A::Ident), V("user", A::Ident), B("on", "on", "off")],
     )
     .lane("accounts")
+    .affects(&[ACCOUNTS])
     .root(),
     Entry::new(
         "window.transparency-toggle",
@@ -49,13 +50,15 @@ pub static ENTRIES: &[Entry] = &[
         Command,
         &[Task("set-wifi-connection"), L("metered"), V("uuid", A::Uuid), V("value", A::Is(&["yes", "no", "unknown"]))],
     )
-    .lane("network"),
+    .lane("network")
+    .affects(&[NETWORK]),
     Entry::new(
         "wifi.priority",
         Command,
         &[Task("set-wifi-connection"), L("priority"), V("uuid", A::Uuid), V("value", A::Uint(0, 999))],
     )
-    .lane("network"),
+    .lane("network")
+    .affects(&[NETWORK]),
     Entry::new(
         "wifi.mac",
         Command,
@@ -66,13 +69,15 @@ pub static ENTRIES: &[Entry] = &[
             V("value", A::Is(&["default", "random", "stable", "permanent", "preserve"])),
         ],
     )
-    .lane("network"),
+    .lane("network")
+    .affects(&[NETWORK]),
     Entry::new(
         "wifi.ipv4-auto",
         Command,
         &[Task("set-wifi-connection"), L("ipv4"), V("uuid", A::Uuid), L("auto")],
     )
-    .lane("network"),
+    .lane("network")
+    .affects(&[NETWORK]),
     Entry::new(
         "wifi.ipv4-manual",
         Command,
@@ -87,21 +92,25 @@ pub static ENTRIES: &[Entry] = &[
             O("dns", A::Text),
         ],
     )
-    .lane("network"),
+    .lane("network")
+    .affects(&[NETWORK]),
     Entry::new(
         "wifi.wireguard-import",
         Command,
         &[Task("set-wifi-connection"), L("wireguard-import"), V("path", A::Path)],
     )
-    .lane("network"),
+    .lane("network")
+    .affects(&[NETWORK]),
     Entry::new(
         "wifi.hotspot-on",
         Command,
         &[Task("set-wifi-connection"), L("hotspot"), L("on"), V("ssid", A::Text)],
     )
     .lane("network")
-    .stdin(In::Line("password")),
-    Entry::new("wifi.hotspot-off", Command, &[Task("set-wifi-connection"), L("hotspot"), L("off")]).lane("network"),
+    .stdin(In::Line("password"))
+    .affects(&[NETWORK]),
+    Entry::new("wifi.hotspot-off", Command, &[Task("set-wifi-connection"), L("hotspot"), L("off")]).lane("network")
+    .affects(&[NETWORK]),
     Entry::new("favorites.write", Command, &[Task("set-favorites"), L("write"), V("json", A::Json)])
         .lane("favorites")
         .readback(&["favorites"]),
@@ -141,16 +150,21 @@ pub static ENTRIES: &[Entry] = &[
         Command,
         &[Task("set-wifi-connection"), V("action", A::Is(&["down-ssid", "delete-ssid"])), V("ssid", A::Text)],
     )
-    .lane("network"),
-    Entry::new("restart", Command, &[L("omarchy"), L("restart"), V("what", A::Is(&["wifi", "bluetooth", "audio", "shell"]))]),
+    .lane("network")
+    .affects(&[NETWORK]),
+    Entry::new("restart", Command, &[L("omarchy"), L("restart"), V("what", A::Is(&["wifi", "bluetooth", "audio", "shell"]))])
+    .affects(&[NETWORK]),
     Entry::new(
         "bluetooth.pair",
         Command,
         &[L("omarchy"), L("bluetooth"), L("device"), L("pair"), V("address", A::Addr)],
     )
-    .lane("bluetooth"),
-    Entry::new("bluetooth.trust", Command, &[L("bluetoothctl"), L("trust"), V("address", A::Addr)]).lane("bluetooth"),
-    Entry::new("audio.output-switch", Command, &[L("omarchy"), L("audio"), L("output"), L("switch")]).lane("audio"),
+    .lane("bluetooth")
+    .affects(&[NETWORK]),
+    Entry::new("bluetooth.trust", Command, &[L("bluetoothctl"), L("trust"), V("address", A::Addr)]).lane("bluetooth")
+    .affects(&[NETWORK]),
+    Entry::new("audio.output-switch", Command, &[L("omarchy"), L("audio"), L("output"), L("switch")]).lane("audio")
+    .affects(&[NETWORK]),
     Entry::new("notification", Command, &[L("omarchy"), L("notification"), V("kind", A::Is(&["battery", "time", "weather"]))]),
     Entry::new(
         "notification.test",

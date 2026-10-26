@@ -305,9 +305,20 @@ pub fn security(f: &mut Map<String, Value>, user: &str) {
     }
     f.insert("sshdEnabled".into(), json!(enabled));
     f.insert("sshdActive".into(), json!(active));
+    // `/etc/sudoers.d` is root-only, so the file cannot be seen from here. The
+    // `sudo-on` task also starts a transient timer that removes it, and the
+    // timer is visible to every user without a `sudo` probe in the journal.
+    let timed = present("systemctl")
+        && out(
+            "systemctl",
+            &[
+                "is-active",
+                &format!("omarchy-nopasswd-expire-{user}.timer"),
+            ],
+        ) == "active";
     f.insert(
         "passwordlessSudo".into(),
-        json!(Path::new(&format!("/etc/sudoers.d/99-omarchy-nopasswd-{user}")).is_file()),
+        json!(timed || Path::new(&format!("/etc/sudoers.d/99-omarchy-nopasswd-{user}")).is_file()),
     );
     let groups = out("id", &["-nG"]);
     f.insert(

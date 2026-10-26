@@ -71,7 +71,8 @@ pub fn read_doc(root: Option<&Path>, path: &Path, key: &str) -> Result<Value> {
 }
 
 pub fn write_doc(root: Option<&Path>, path: &Path, key: &str, value: &Value) -> Result<()> {
-    if root.is_none() && privileged(key) {
+    // A live write of these runs the tool that owns the file (`after_write`).
+    if root.is_none() && (privileged(key) || key == "weatherLocation") {
         return Ok(());
     }
     match key {
@@ -104,6 +105,17 @@ pub fn write_doc(root: Option<&Path>, path: &Path, key: &str, value: &Value) -> 
                 .as_i64()
                 .ok_or_else(|| "chargeLimit expects an int".to_string())?;
             atomic_text(path, &format!("{number}\n"))
+        }
+        "weatherLocation" => {
+            let name = value.as_str().unwrap_or("");
+            if name.is_empty() {
+                match fs::remove_file(path) {
+                    Err(err) if err.kind() != std::io::ErrorKind::NotFound => Err(err.into()),
+                    _ => Ok(()),
+                }
+            } else {
+                atomic_text(path, &format!("{}\n", serde_json::json!({ "name": name })))
+            }
         }
         "snapperNumberLimit" | "snapperTimeline" => write_snapper(path, key, value),
         "passwordlessSudo" => {
@@ -258,6 +270,10 @@ pub(super) fn read_doc_text(key: &str, text: &str) -> Result<Value> {
             .parse::<i64>()
             .map(Value::from)
             .map_err(|err| Error::bad_request(err.to_string())),
+        "weatherLocation" => {
+            let parsed: Value = serde_json::from_str(text)?;
+            Ok(Value::from(parsed["name"].as_str().unwrap_or("")))
+        }
         "snapperNumberLimit" => Ok(Value::from(snapper_number(text))),
         "snapperTimeline" => Ok(Value::Bool(snapper_timeline(text))),
         other => Err(format!("cannot read {other}").into()),

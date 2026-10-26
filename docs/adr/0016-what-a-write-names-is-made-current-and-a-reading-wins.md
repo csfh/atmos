@@ -19,7 +19,7 @@ The user's rule is that the daemon always has data that is up to date.
 - a key it read back once the machine had settled is patched into the cached topic, with no second collection;
 - every other topic that holds a key it names is invalidated, so it is read again: the write failed, the key's tool failed, the machine had not settled, the key is missing from what came back, or nothing was cached to patch.
 
-Settling and patching work as before for a typed write. `settings.set` names its own topic as what it affects, as before, so it is read again after a settled patch too. The bare `settings` affect stays: it is the barrier that orders a read after a write, not a topic. A table command (`wifi.ssid`, the restarts, `bluetooth.trust`) names no keys and is not covered.
+Settling and patching work as before for a typed write. `settings.set` names its own topic as what it affects, as before, so it is read again after a settled patch too. The bare `settings` affect stays: it is the barrier that orders a read after a write, not a topic. A table command names what it changes with `affects` (`wifi.ssid`, the restarts, `bluetooth.trust` and the other network, audio and Bluetooth commands name `settings.network`), and `entries_tests.rs` fails on one that neither names it nor is listed as changing nothing a topic holds.
 
 **An interactive tool names the topics it can change,** in its registry entry, and they are read again when it ends: the theme and branding tools the look topic, the recorder the host topic, the rest none. A `Job` still reads every topic again.
 

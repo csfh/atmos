@@ -1,6 +1,6 @@
 //! Platform documents and the tools that already own them.
 //!
-//! List domains go through the sentinel writers (`ratmos sentinel`). Other
+//! List domains go through the sentinel writers (`atmosd sentinel`). Other
 //! domains write the file Omarchy's own tool writes, and a live (no `--root`)
 //! set also runs that tool.
 //!

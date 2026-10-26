@@ -145,6 +145,6 @@ fn run(program: &str, args: &[&str]) -> Result<()> {
 pub(crate) fn spawn(program: &str, args: &[&str]) {
     // Fire and forget, but not silently: a command that cannot start is logged.
     if let Err(err) = Run::new(program).args(args).detach() {
-        eprintln!("ratmos: {err}");
+        eprintln!("atmosd: {err}");
     }
 }

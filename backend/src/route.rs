@@ -63,7 +63,7 @@ pub(crate) fn set_domain(
     Ok(reply)
 }
 
-/// `ratmos task` run from a terminal holds a lane of its own while it runs, so
+/// `atmosd task` run from a terminal holds a lane of its own while it runs, so
 /// a read of what it changes waits for it instead of racing it. (The window's
 /// jobs run in the daemon and are not leased.) Its own lane: jobs never queue behind each other.
 /// Without a daemon the job just runs.

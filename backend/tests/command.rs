@@ -1,4 +1,4 @@
-//! The command bus end to end: real daemon, real `ratmos request` children,
+//! The command bus end to end: real daemon, real `atmosd request` children,
 //! fake `omarchy` and `hyprctl` on the caller's PATH.
 
 use std::fs;
@@ -52,7 +52,7 @@ esac"#,
     }
 
     fn daemon(&self) -> Daemon {
-        let child = Command::new(env!("CARGO_BIN_EXE_ratmos"))
+        let child = Command::new(env!("CARGO_BIN_EXE_atmosd"))
             .arg("daemon")
             .env("XDG_RUNTIME_DIR", &self.run)
             .env("PATH", "/usr/bin:/bin")
@@ -62,7 +62,7 @@ esac"#,
             .spawn()
             .unwrap();
         let guard = Daemon(child);
-        let socket = self.run.join("atmos/ratmos.sock");
+        let socket = self.run.join("atmos/atmosd.sock");
         for _ in 0..100 {
             if std::os::unix::net::UnixStream::connect(&socket).is_ok() {
                 return guard;
@@ -72,7 +72,7 @@ esac"#,
         panic!("the daemon never listened");
     }
 
-    /// `ratmos request` as a window's serve would run it, in the scene's environment.
+    /// `atmosd request` as a window's serve would run it, in the scene's environment.
     fn request(&self, body: &Value) -> Value {
         request_in(&self.run, &self.path(), body)
     }
@@ -102,7 +102,7 @@ impl Drop for Daemon {
 }
 
 fn request_in(run: &Path, path: &str, body: &Value) -> Value {
-    let mut child = Command::new(env!("CARGO_BIN_EXE_ratmos"))
+    let mut child = Command::new(env!("CARGO_BIN_EXE_atmosd"))
         .args(["--backend", "omarchy", "request"])
         .env_clear()
         .env("XDG_RUNTIME_DIR", run)
@@ -301,7 +301,7 @@ fn scale_runs_the_tool_and_returns_the_monitor_list() {
     assert_eq!(bad["error"]["code"], "bad_request");
 }
 
-/// A window's `ratmos serve`, in the scene's environment, talking to its daemon.
+/// A window's `atmosd serve`, in the scene's environment, talking to its daemon.
 struct Window {
     child: Child,
     lines: std::sync::mpsc::Receiver<Value>,
@@ -310,7 +310,7 @@ struct Window {
 impl Window {
     fn open(scene: &Scene) -> Window {
         use std::io::BufRead;
-        let mut child = Command::new(env!("CARGO_BIN_EXE_ratmos"))
+        let mut child = Command::new(env!("CARGO_BIN_EXE_atmosd"))
             .args(["--backend", "omarchy", "serve"])
             .env_clear()
             .env("XDG_RUNTIME_DIR", &scene.run)
@@ -364,7 +364,7 @@ impl Drop for Window {
 
 /// The daemon's `status`: its sessions and the `req` frames it has answered.
 fn status(run: &Path) -> Value {
-    let stream = std::os::unix::net::UnixStream::connect(run.join("atmos/ratmos.sock")).unwrap();
+    let stream = std::os::unix::net::UnixStream::connect(run.join("atmos/atmosd.sock")).unwrap();
     writeln!(&stream, r#"{{"op":"status"}}"#).unwrap();
     let mut line = String::new();
     std::io::BufRead::read_line(&mut std::io::BufReader::new(&stream), &mut line).unwrap();
@@ -472,7 +472,7 @@ fn applies_from_two_windows_go_one_at_a_time() {
             "echo start-{name} >> {log}; sleep 0.15; echo end-{name} >> {log}",
             log = log.display()
         );
-        Command::new(env!("CARGO_BIN_EXE_ratmos"))
+        Command::new(env!("CARGO_BIN_EXE_atmosd"))
             .args([
                 "--backend",
                 "omarchy",

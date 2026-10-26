@@ -1,4 +1,4 @@
-//! Making sure a daemon exists. `ratmos serve` calls `ensure` when it needs
+//! Making sure a daemon exists. `atmosd serve` calls `ensure` when it needs
 //! one and the socket is not there, so a window never runs without the
 //! authority just because nobody enabled a unit.
 //!
@@ -76,8 +76,8 @@ pub fn ensure(dir: &Path) -> bool {
             "--user",
             "start",
             "--no-block",
-            "ratmos.service",
-            "ratmos-sampler.service",
+            "atmosd.service",
+            "atmosd-sampler.service",
         ])
         .timeout(short)
         .output()
@@ -95,7 +95,7 @@ pub fn ensure(dir: &Path) -> bool {
             "--user",
             "--quiet",
             "--collect",
-            "--unit=ratmos-adhoc",
+            "--unit=atmosd-adhoc",
             "--property=Nice=15",
             "--property=CPUWeight=20",
         ])
@@ -106,11 +106,11 @@ pub fn ensure(dir: &Path) -> bool {
         .timeout(short)
         .output();
     if let Err(err) = &transient {
-        eprintln!("ratmos: systemd-run did not start a daemon: {err}");
+        eprintln!("atmosd: systemd-run did not start a daemon: {err}");
     } else if let Ok(out) = &transient {
         if !out.success() {
             eprintln!(
-                "ratmos: systemd-run did not start a daemon: {}",
+                "atmosd: systemd-run did not start a daemon: {}",
                 out.stderr_text().trim()
             );
         }

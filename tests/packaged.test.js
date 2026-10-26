@@ -3,7 +3,7 @@ const os = require("os");
 const path = require("path");
 const { spawnSync } = require("child_process");
 const { assert, assertEqual, load } = require("./harness");
-const { ratmosBinary } = require("./sandbox");
+const { atmosdBinary } = require("./sandbox");
 
 const root = path.join(__dirname, "..");
 const atmosUpdate = load("services/AtmosUpdate.js");
@@ -37,12 +37,12 @@ try {
     XDG_RUNTIME_DIR: path.join(fixture, "run"),
     SYSTEMCTL_LOG: systemctlLog,
   };
-  const unitFile = path.join(fixture, "config/systemd/user/ratmos.service");
-  const samplerFile = path.join(fixture, "config/systemd/user/ratmos-sampler.service");
-  const ratmos = ratmosBinary();
+  const unitFile = path.join(fixture, "config/systemd/user/atmosd.service");
+  const samplerFile = path.join(fixture, "config/systemd/user/atmosd-sampler.service");
+  const atmosd = atmosdBinary();
   const task = (name) => name.replace(/\.sh$/, "");
   const run = (script, args, env) =>
-    spawnSync(ratmos, ["task", task(script), ...args], {
+    spawnSync(atmosd, ["task", task(script), ...args], {
       encoding: "utf8",
       env: Object.assign(
         {},
@@ -85,12 +85,12 @@ try {
     "setup on writes the sampler unit",
   );
   assert(
-    fs.readFileSync(systemctlLog, "utf8").includes("--user enable ratmos.socket") &&
-      fs.existsSync(path.join(path.dirname(unitFile), "ratmos.socket")),
+    fs.readFileSync(systemctlLog, "utf8").includes("--user enable atmosd.socket") &&
+      fs.existsSync(path.join(path.dirname(unitFile), "atmosd.socket")),
     "setup on writes and enables the socket the daemon starts on",
   );
   assert(
-    fs.readFileSync(systemctlLog, "utf8").includes("--user enable ratmos.service"),
+    fs.readFileSync(systemctlLog, "utf8").includes("--user enable atmosd.service"),
     "setup on enables the daemon unit",
   );
   assert(
@@ -98,7 +98,7 @@ try {
     "setup on writes the sampler worker unit",
   );
   assert(
-    fs.readFileSync(systemctlLog, "utf8").includes("--user enable ratmos-sampler.service"),
+    fs.readFileSync(systemctlLog, "utf8").includes("--user enable atmosd-sampler.service"),
     "setup on enables the sampler worker unit",
   );
   const again = run("setup-atmos", ["on"]);
@@ -120,20 +120,20 @@ try {
   assert(!fs.existsSync(unitFile), "setup off removes the daemon unit");
   assert(!fs.existsSync(samplerFile), "setup off removes the sampler worker unit");
   assert(
-    fs.readFileSync(systemctlLog, "utf8").includes("--user stop ratmos-adhoc.service"),
+    fs.readFileSync(systemctlLog, "utf8").includes("--user stop atmosd-adhoc.service"),
     "setup off also stops a daemon a window started on its own",
   );
   assert(
-    fs.readFileSync(systemctlLog, "utf8").includes("--user disable --now ratmos-sampler.service"),
+    fs.readFileSync(systemctlLog, "utf8").includes("--user disable --now atmosd-sampler.service"),
     "setup off stops the sampler worker",
   );
   assert(
-    fs.readFileSync(systemctlLog, "utf8").includes("--user disable --now ratmos.service"),
+    fs.readFileSync(systemctlLog, "utf8").includes("--user disable --now atmosd.service"),
     "setup off stops and disables the sampler unit",
   );
   assert(
-    fs.readFileSync(systemctlLog, "utf8").includes("--user disable --now ratmos.socket") &&
-      !fs.existsSync(path.join(path.dirname(unitFile), "ratmos.socket")),
+    fs.readFileSync(systemctlLog, "utf8").includes("--user disable --now atmosd.socket") &&
+      !fs.existsSync(path.join(path.dirname(unitFile), "atmosd.socket")),
     "setup off removes the socket too, or a connection would start a daemon nobody installed",
   );
   assert(!fs.existsSync(path.join(hypr, "atmos.lua")), "setup off removes an untouched atmos.lua");
@@ -160,7 +160,7 @@ try {
   fs.rmSync(path.join(hypr, "atmos.lua"), { force: true });
   fs.writeFileSync(hyprland, bare);
   const pkgRun = (script, args) =>
-    spawnSync(ratmos, ["task", task(script), ...args], {
+    spawnSync(atmosd, ["task", task(script), ...args], {
       encoding: "utf8",
       env: Object.assign({}, process.env, hermetic, {
         HOME: fixture,
@@ -169,7 +169,7 @@ try {
         PATH: withStubs,
       }),
     });
-  spawnSync(ratmos, ["sentinel", "require", "apply", hyprland], {
+  spawnSync(atmosd, ["sentinel", "require", "apply", hyprland], {
     env: Object.assign({}, process.env, { HOME: fixture, ATMOS_ROOT: pkgApp }),
   });
   assertEqual(fs.readFileSync(hyprland, "utf8"), bare, "packaged require apply does not opt in");
@@ -203,7 +203,7 @@ try {
     env: Object.assign({}, process.env, hermetic, {
       HOME: fixture,
       ATMOS_HYPR_DIR: hypr,
-      ATMOS_BACKEND: ratmos,
+      ATMOS_BACKEND: atmosd,
       PATH: withStubs,
     }),
   });

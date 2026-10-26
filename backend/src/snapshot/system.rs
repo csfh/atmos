@@ -395,7 +395,7 @@ mod tests {
     use super::*;
 
     fn supply(name: &str, threshold: Option<&str>, types: Option<&str>) -> std::path::PathBuf {
-        let dir = std::env::temp_dir().join(format!("ratmos-charge-{name}-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("atmosd-charge-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let bat = dir.join("BAT0");
         std::fs::create_dir_all(&bat).unwrap();

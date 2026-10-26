@@ -1,4 +1,4 @@
-// A sandbox for tests that run real ratmos tasks or the real ratmos binary.
+// A sandbox for tests that run real atmosd tasks or the real atmosd binary.
 //
 // The machine running the tests is somebody's live desktop, so nothing above
 // unit level may reach it. A sandbox gives a test:
@@ -237,10 +237,10 @@ function createSandbox({ fakes = {}, traps = DEFAULT_TRAPS, env = {}, tools = PL
     resetCalls() {
       fs.rmSync(callsFile, { force: true });
     },
-    // Run a ratmos task with the sandbox environment.
+    // Run a atmosd task with the sandbox environment.
     task(name, args = [], { input = "", env: extra = {}, keepCalls = false } = {}) {
       if (!keepCalls) box.resetCalls();
-      const result = spawnSync(ratmosBinary(), ["task", name, ...args], {
+      const result = spawnSync(atmosdBinary(), ["task", name, ...args], {
         input,
         encoding: "utf8",
         timeout: 20000,
@@ -266,22 +266,22 @@ function createSandbox({ fakes = {}, traps = DEFAULT_TRAPS, env = {}, tools = PL
   return box;
 }
 
-// A stand-in for `ratmos` to put in ATMOS_BACKEND. It runs the real binary
+// A stand-in for `atmosd` to put in ATMOS_BACKEND. It runs the real binary
 // pinned to a fixture root: requests read and write under that root, and
 // settings.set and `apply` log their commands to <root>/commands.log instead of
-// running them. That covers ratmos only. The rest of the app (quickshell and
+// running them. That covers atmosd only. The rest of the app (quickshell and
 // any process it starts) is not restricted by it, so run that under box.env()
 // as well. The root goes first so it survives the `apply --`
 // terminator Backend.qml uses; a caller that passes its own --root is refused
 // instead of being allowed to move the pin.
-function backendWrapper(dir, { root, binary = ratmosBinary() } = {}) {
+function backendWrapper(dir, { root, binary = atmosdBinary() } = {}) {
   const fixture = root || path.join(dir, "root");
   fs.mkdirSync(fixture, { recursive: true });
-  const file = path.join(dir, "ratmos-fixture");
+  const file = path.join(dir, "atmosd-fixture");
   const script = [
     "#!/bin/sh",
     'for arg in "$@"; do',
-    '  if [ "$arg" = "--root" ]; then echo "ratmos-fixture: --root is pinned" >&2; exit 64; fi',
+    '  if [ "$arg" = "--root" ]; then echo "atmosd-fixture: --root is pinned" >&2; exit 64; fi',
     "done",
     `exec "${binary}" --root "${fixture}" "$@"`,
     "",
@@ -290,18 +290,18 @@ function backendWrapper(dir, { root, binary = ratmosBinary() } = {}) {
   return { file, root: fixture };
 }
 
-// The ratmos the repo's other tests use. Built every time, once per process:
+// The atmosd the repo's other tests use. Built every time, once per process:
 // recording or replaying against a stale binary would pin old behaviour, and
 // cargo returns at once when nothing changed.
 let built = null;
-function ratmosBinary() {
+function atmosdBinary() {
   if (built) return built;
   const manifest = path.join(repo, "backend", "Cargo.toml");
   const result = spawnSync("cargo", ["build", "--quiet", "--manifest-path", manifest], {
     encoding: "utf8",
   });
   if (result.status !== 0) throw new Error(`cargo build failed:\n${result.stderr}`);
-  built = path.join(repo, "backend", "target", "debug", "ratmos");
+  built = path.join(repo, "backend", "target", "debug", "atmosd");
   return built;
 }
 
@@ -309,7 +309,7 @@ module.exports = {
   createSandbox,
   assertHermetic,
   backendWrapper,
-  ratmosBinary,
+  atmosdBinary,
   hostWhich,
   repo,
   UNEXPECTED,

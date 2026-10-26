@@ -3,7 +3,7 @@ const os = require("os");
 const path = require("path");
 const { spawnSync } = require("child_process");
 const { assert, assertEqual } = require("./harness");
-const { ratmosBinary } = require("./sandbox");
+const { atmosdBinary } = require("./sandbox");
 
 const root = path.join(__dirname, "..");
 const launcher = path.join(root, "bin", "atmos");
@@ -21,7 +21,7 @@ function runLauncher(env) {
     encoding: "utf8",
     env: Object.assign({}, process.env, env, {
       PATH: stub + ":" + process.env.PATH,
-      ATMOS_BACKEND: ratmosBinary(),
+      ATMOS_BACKEND: atmosdBinary(),
     }),
   });
   fs.rmSync(stub, { recursive: true, force: true });
@@ -75,7 +75,7 @@ function runMcp() {
       '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26"}}\n',
     env: Object.assign({}, process.env, {
       PATH: stub + ":" + process.env.PATH,
-      ATMOS_BACKEND: ratmosBinary(),
+      ATMOS_BACKEND: atmosdBinary(),
     }),
   });
   fs.rmSync(stub, { recursive: true, force: true });

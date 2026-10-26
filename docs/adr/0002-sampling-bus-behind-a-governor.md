@@ -32,6 +32,6 @@ A read is answered from the topic when it is fresh enough. A cold or too-old top
 ## Enforced by
 
 - `backend/src/sampler/governor.rs`, `worker.rs`, `topics.rs`, `policy.rs`
-- `packaging/ratmos-sampler.service` (idle classes and quota), `backend/src/tasks/sampler_unit.rs` tests
+- `packaging/atmosd-sampler.service` (idle classes and quota), `backend/src/tasks/sampler_unit.rs` tests
 - `backend/src/sampler/daemon_tests.rs` (the governor, a dead sampler, last good kept on failure)
 - `backend/src/sampler/client.rs` tests (a reader never joins a background run)

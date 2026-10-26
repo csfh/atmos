@@ -1,5 +1,5 @@
 // The protocol contract, recorded. Every case in tests/golden/cases.js is
-// replayed against the real ratmos on a fixture root, over both transports the
+// replayed against the real atmosd on a fixture root, over both transports the
 // app uses (one-shot `request` and long-lived `serve`), and the reply must equal
 // the one stored in tests/golden/cases/<name>.json. The request is built with
 // the same Requests.js builder the app calls, so a builder that drifts from the
@@ -11,7 +11,7 @@ const fs = require("fs");
 const path = require("path");
 const { spawn, spawnSync } = require("child_process");
 const { load, assert, assertEqual } = require("./harness");
-const { createSandbox, ratmosBinary } = require("./sandbox");
+const { createSandbox, atmosdBinary } = require("./sandbox");
 const { cases } = require("./golden/cases");
 
 const record = process.env.ATMOS_GOLDEN_RECORD === "1";
@@ -19,7 +19,7 @@ const casesDir = path.join(__dirname, "golden", "cases");
 const proto = load("services/BackendProtocol.js");
 const requests = load("services/Requests.js");
 
-const bin = ratmosBinary();
+const bin = atmosdBinary();
 // The backend runs in the sandbox: a throwaway HOME and a PATH of fakes, so a
 // fixture-root request that reached for a real command would be recorded and
 // fail instead of touching this machine.

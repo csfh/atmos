@@ -1,4 +1,4 @@
-//! `ratmos launch [page]`: open an Atmos window. Every launch is its own
+//! `atmosd launch [page]`: open an Atmos window. Every launch is its own
 //! instance, with its own engine and queue. Instances converge through the
 //! files they share: writers serialize on a lock and rename into place, and
 //! file watchers re-read what another window wrote.

@@ -81,7 +81,7 @@ impl Atmos {
         cx.spawn(async move |this, cx| {
             if let Ok(version) = version.await {
                 let _ = this.update(cx, |atmos, cx| {
-                    atmos.version = version.as_str().map(|v| format!("ratmos {v}").into());
+                    atmos.version = version.as_str().map(|v| format!("atmosd {v}").into());
                     cx.notify();
                 });
             }

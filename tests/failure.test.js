@@ -30,15 +30,15 @@ assertEqual(f.commandText("a", "b"), "a\nb", "stderr and stdout both show");
 assertEqual(f.commandText("same", "same"), "same", "identical streams show once");
 
 // apply summary line
-const okLine = '@@ratmos-apply@@ {"ok":true,"code":0,"message":"","warnings":[]}';
+const okLine = '@@atmosd-apply@@ {"ok":true,"code":0,"message":"","warnings":[]}';
 const badLine =
-  '@@ratmos-apply@@ {"ok":false,"code":3,"message":"disk full","warnings":["warn: wayland.x"]}';
+  '@@atmosd-apply@@ {"ok":false,"code":3,"message":"disk full","warnings":["warn: wayland.x"]}';
 const noiseLine =
-  '@@ratmos-apply@@ {"ok":false,"code":1,"message":"","warnings":["warn: wayland.x"]}';
-const emptyLine = '@@ratmos-apply@@ {"ok":false,"code":1,"message":"","warnings":[]}';
+  '@@atmosd-apply@@ {"ok":false,"code":1,"message":"","warnings":["warn: wayland.x"]}';
+const emptyLine = '@@atmosd-apply@@ {"ok":false,"code":1,"message":"","warnings":[]}';
 assertEqual(f.applyLine(badLine).code, 3, "a summary line parses");
 assert(f.applyLine("plain output") === null, "any other line is not a summary");
-assert(f.applyLine("@@ratmos-apply@@ {broken") === null, "a broken summary is not a summary");
+assert(f.applyLine("@@atmosd-apply@@ {broken") === null, "a broken summary is not a summary");
 assert(f.applyLine(undefined) === null, "no line is not a summary");
 
 const split = f.splitApply("one\ntwo\n" + badLine + "\n");

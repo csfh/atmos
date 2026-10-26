@@ -48,11 +48,11 @@ const snapshotStore = fs.readFileSync(
 const backend = fs.readFileSync(path.join(__dirname, "..", "services", "Backend.qml"), "utf8");
 assert(
   theme.indexOf("Requests.hostChrome") !== -1 && theme.indexOf("Backend.chrome") !== -1,
-  "theme chrome comes from ratmos",
+  "theme chrome comes from atmosd",
 );
 assert(
   accounts.indexOf("Requests.hostAccounts") !== -1 && accounts.indexOf("Backend.accounts") !== -1,
-  "accounts come from ratmos",
+  "accounts come from atmosd",
 );
 assert(
   snapshotStore.indexOf("Backend.watch(") === -1 &&
@@ -62,8 +62,8 @@ assert(
   "the daemon watches the settings files; the window only batches its asks to read again",
 );
 assert(
-  backend.indexOf('command(["serve"])') !== -1 && backend.indexOf("/bin/ratmos") !== -1,
-  "the app talks to one ratmos serve process",
+  backend.indexOf('command(["serve"])') !== -1 && backend.indexOf("/bin/atmosd") !== -1,
+  "the app talks to one atmosd serve process",
 );
 for (const [name, src] of [
   ["Theme", theme],
@@ -79,21 +79,21 @@ assert(
 assert(!/\bTimer\b/.test(live), "live stats do not poll on a Timer; the daemon pushes samples");
 assert(
   disks.indexOf("Requests.speedtestDisk") !== -1 && disks.indexOf("Backend.request") !== -1,
-  "disk speed test uses ratmos",
+  "disk speed test uses atmosd",
 );
 assert(
   speed.indexOf("Requests.speedtestNet") !== -1 && speed.indexOf("Backend.request") !== -1,
-  "network speed test uses ratmos",
+  "network speed test uses atmosd",
 );
 assert(
   exp.indexOf("Requests.hostRead") !== -1 &&
     exp.indexOf("Requests.hostWrite") !== -1 &&
     exp.indexOf("Requests.hostOpen") !== -1,
-  "import and export file IO uses ratmos",
+  "import and export file IO uses atmosd",
 );
 assert(
   services.indexOf("Requests.unitOutput") !== -1 && services.indexOf("Backend.request") !== -1,
-  "unit status and logs use ratmos",
+  "unit status and logs use atmosd",
 );
 assert(
   omarchy.indexOf("jobProc.command = job.argv") === -1,
@@ -117,7 +117,7 @@ const systemd = omarchy.slice(
 );
 assert(systemd.indexOf("runCommand") !== -1, "systemctl start and stop go through runCommand");
 
-console.log("ok - quickshell host reads go through ratmos");
+console.log("ok - quickshell host reads go through atmosd");
 
 // A job outlives its window (docs/adr/0009): a window that opens while one
 // runs follows it again, and a window whose link dropped attaches again.
@@ -139,7 +139,7 @@ assert(
 assert(
   !/runOneShot|pollOnce|pollSubs|StdioCollector|fallbackTimer/.test(backendSrc) &&
     (backendSrc.match(/\bProcess\s*\{/g) || []).length === 1,
-  "Backend.qml keeps `ratmos serve` and nothing that runs a request on its own",
+  "Backend.qml keeps `atmosd serve` and nothing that runs a request on its own",
 );
 const shellSrc = fs.readFileSync(path.join(__dirname, "..", "shell.qml"), "utf8");
 assert(

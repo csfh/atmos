@@ -554,7 +554,7 @@ function entry(key, section, label, tier, opts) {
     choices: Array.isArray(o.choices) && o.choices.length > 0 ? o.choices.slice() : null,
     format: String(o.format || ""),
     hostBound: o.hostBound === true,
-    // Written by a ratmos task that raises privileges (sudo or pkexec), so
+    // Written by a atmosd task that raises privileges (sudo or pkexec), so
     // applying it goes through Atmos sudo mode.
     needsRoot: o.needsRoot === true,
     extraConfirm: o.extraConfirm === true,
@@ -1977,7 +1977,7 @@ function shownValue(value) {
   return displayValue(value);
 }
 
-// The plan as the executor reads it. `ratmos task settings-apply` takes this
+// The plan as the executor reads it. `atmosd task settings-apply` takes this
 // on stdin, so the review screen and the executor cannot disagree about what
 // is being applied. Each change carries `from` as well as `value`, which is
 // what lets the executor write an undo plan before it touches anything.
@@ -1996,8 +1996,8 @@ function planToJson(plan) {
 //
 // Catalog rows own the writer. QML setters and the settings-apply task both
 // call commandFor / planCommands so the write cannot drift between the live UI
-// and an import. A script writer's argv is `ratmos task settings-set KEY JSON`,
-// or `ratmos task hypr-apply look|input JSON` for a Hyprland group.
+// and an import. A script writer's argv is `atmosd task settings-set KEY JSON`,
+// or `atmosd task hypr-apply look|input JSON` for a Hyprland group.
 
 var WRITERS;
 
@@ -2254,7 +2254,7 @@ function writerSpec(key) {
   return writers()[key] || null;
 }
 
-// Marks the argv of a writer that ratmos performs; commandFor swaps in the task.
+// Marks the argv of a writer that atmosd performs; commandFor swaps in the task.
 var TASK_MARK = "task:writer";
 
 function bashScript(opts, name) {
@@ -2446,7 +2446,7 @@ function argvValue(value, spec) {
 function commandFor(key, value, snapshot, opts) {
   var cmd = buildCommand(key, value, snapshot, opts);
   if (cmd && cmd.argv && cmd.argv[0] === TASK_MARK) {
-    var bin = opts && opts.ratmos ? String(opts.ratmos) : "ratmos";
+    var bin = opts && opts.atmosd ? String(opts.atmosd) : "atmosd";
     var spec = writerSpec(key);
     if (spec && spec.kind === "hypr-group" && cmd.stdin) {
       // A Hyprland group write carries every field of its _patch, so several

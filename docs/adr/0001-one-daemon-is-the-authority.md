@@ -36,6 +36,6 @@ The daemon is a user unit, not a system unit: it serves one user's windows and r
 
 - `backend/src/sampler/daemon.rs` (single-instance lock, inherited socket)
 - `backend/src/sampler/launch.rs` (the autostart ladder)
-- `packaging/ratmos.socket`, `packaging/ratmos.service`
+- `packaging/atmosd.socket`, `packaging/atmosd.service`
 - `backend/tests/serve.rs` (a daemon leaves when its binary is replaced or its directory is gone)
 - `tests/install.test.js`, `tests/packaged.test.js` (the three units and their order)

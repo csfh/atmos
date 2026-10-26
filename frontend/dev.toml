@@ -5,4 +5,4 @@ build = [
   ["cargo", "build", "--release"],
 ]
 executable = "target/release/atmos-ui"
-include = ["../backend/target/release/ratmos=bin/ratmos"]
+include = ["../backend/target/release/atmosd=bin/atmosd"]

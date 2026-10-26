@@ -1,4 +1,4 @@
-// The line protocol spoken to `ratmos serve`: newline-delimited JSON. A
+// The line protocol spoken to `atmosd serve`: newline-delimited JSON. A
 // request is { id, op, ...fields }. A reply is the usual envelope with the
 // same id. An event is { event, result } pushed with no request; a "sample"
 // event also carries kind, sampledAt and tookMs, or kind, stale and error. Pure so Node

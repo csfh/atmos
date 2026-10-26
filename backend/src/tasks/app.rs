@@ -1,5 +1,5 @@
 //! The Atmos install itself: XDG paths, the update channel, the Hyprland
-//! opt-in, `ratmos install`, and `update check|apply`.
+//! opt-in, `atmosd install`, and `update check|apply`.
 
 use crate::error::{Error, Result};
 use crate::fsutil::atomic_write_text;
@@ -223,8 +223,8 @@ fn build_backend(src: &Path, dest: &Path) -> Result<()> {
         return Err(bad(out.stderr_text().trim().to_string()));
     }
     std::fs::create_dir_all(dest.join("bin"))?;
-    let built = src.join("backend/target/release/ratmos");
-    std::fs::copy(&built, dest.join("bin/ratmos"))?;
+    let built = src.join("backend/target/release/atmosd");
+    std::fs::copy(&built, dest.join("bin/atmosd"))?;
     Ok(())
 }
 
@@ -298,7 +298,7 @@ pub fn link_xdg(dest: &Path) -> Result<()> {
     let apps = xdg("XDG_DATA_HOME", ".local/share").join("applications");
     let _ = Run::new("update-desktop-database").arg(apps).output();
     setup_hypr()?;
-    super::sampler_unit::enable(&dest.join("bin/ratmos"))
+    super::sampler_unit::enable(&dest.join("bin/atmosd"))
 }
 
 fn git_head(dir: &Path) -> String {
@@ -311,7 +311,7 @@ fn git_head(dir: &Path) -> String {
         .unwrap_or_default()
 }
 
-/// `ratmos install --source DIR`: what install.sh runs once it has built ratmos.
+/// `atmosd install --source DIR`: what install.sh runs once it has built atmosd.
 pub fn install(source: &Path) -> Result<()> {
     let dest = data_home();
     stage(source, &dest)?;
@@ -409,7 +409,7 @@ pub fn update(action: &str) -> Result<i32> {
         local.clear();
     }
     let complete = dest.join("bin/atmos").is_file()
-        && dest.join("bin/ratmos").is_file()
+        && dest.join("bin/atmosd").is_file()
         && dest.join("shell.qml").is_file();
     if !local.is_empty() && local == remote && complete {
         say("status", "current");

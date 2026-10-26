@@ -1,4 +1,4 @@
-//! The Atmos window, built on ODK, and the connection it keeps to `ratmos serve`.
+//! The Atmos window, built on ODK, and the connection it keeps to `atmosd serve`.
 
 pub mod actions;
 pub mod app;

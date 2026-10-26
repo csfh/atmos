@@ -133,7 +133,7 @@ fn the_three_limits_are_integer_settings_in_the_shell_file() {
 /// `odk oma dev frontend` builds what `docs/oma.md` says it does: the include lands where the manifest
 /// declares the daemon, and both builds are the ones the packaging commands run.
 #[test]
-fn dev_toml_builds_the_window_and_puts_ratmos_where_the_manifest_runs_the_daemon() {
+fn dev_toml_builds_the_window_and_puts_atmosd_where_the_manifest_runs_the_daemon() {
     let dev = fs::read_to_string(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("dev.toml"))
         .expect("frontend/dev.toml");
     let manifest =
@@ -145,11 +145,11 @@ fn dev_toml_builds_the_window_and_puts_ratmos_where_the_manifest_runs_the_daemon
     );
     assert!(manifest.contains("executable = \"atmos-ui\""), "{manifest}");
     assert!(
-        dev.contains("include = [\"../backend/target/release/ratmos=bin/ratmos\"]"),
+        dev.contains("include = [\"../backend/target/release/atmosd=bin/atmosd\"]"),
         "{dev}"
     );
     assert!(
-        manifest.contains("executable = \"bin/ratmos\""),
+        manifest.contains("executable = \"bin/atmosd\""),
         "{manifest}"
     );
     for build in [

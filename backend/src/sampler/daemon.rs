@@ -1,4 +1,4 @@
-//! `ratmos daemon`: owns the topics, answers readers that want a kind now, and
+//! `atmosd daemon`: owns the topics, answers readers that want a kind now, and
 //! schedules background sampling.
 //!
 //! Foreground work (a reader's miss) runs in this process at normal priority,
@@ -196,7 +196,7 @@ impl Daemon {
                 };
             };
             if let Err(err) = cache::write(&self.dir, kind, &sample) {
-                eprintln!("ratmos daemon: cannot cache {kind}: {err}");
+                eprintln!("atmosd daemon: cannot cache {kind}: {err}");
             }
             if let Ok(mut last) = self.last.lock() {
                 last.insert(kind.to_string(), Instant::now());
@@ -355,7 +355,7 @@ impl Daemon {
     }
 
     /// [`Daemon::schedule`], and keeping a sampler of its own alive when there is a keeper
-    /// (`ratmos daemon --with-sampler`).
+    /// (`atmosd daemon --with-sampler`).
     pub(super) fn schedule_with(&self, stop: &AtomicBool, mut keeper: Option<OwnedSampler>) {
         let mut schedule = Schedule::new(Instant::now(), |kind| {
             cache::read(&self.dir, kind).map(|sample| sample.age())
@@ -394,14 +394,14 @@ impl Daemon {
             if let Verdict::Wait { wait, why } = verdict {
                 held_until = now + wait;
                 if why != told {
-                    eprintln!("ratmos daemon: background sampling waits: {why}");
+                    eprintln!("atmosd daemon: background sampling waits: {why}");
                     told = why;
                 }
                 continue;
             }
             told = "";
             if let Err(message) = self.sample(kind, false) {
-                eprintln!("ratmos daemon: {kind}: {message}");
+                eprintln!("atmosd daemon: {kind}: {message}");
             }
             schedule.finished(kind, Instant::now(), schedule::jitter());
         }
@@ -423,14 +423,14 @@ impl SamplerWatch {
     fn look(&mut self, connected: bool, now: Instant) {
         if connected {
             if self.told_off {
-                eprintln!("ratmos daemon: a sampler connected; background sampling is on");
+                eprintln!("atmosd daemon: a sampler connected; background sampling is on");
             }
             *self = SamplerWatch::default();
             return;
         }
         let since = *self.absent_since.get_or_insert(now);
         if !self.told_off && now.duration_since(since) >= Self::GRACE {
-            eprintln!("ratmos daemon: background sampling is off: no sampler is connected (run `ratmos sampler`, or enable ratmos-sampler.service)");
+            eprintln!("atmosd daemon: background sampling is off: no sampler is connected (run `atmosd sampler`, or enable atmosd-sampler.service)");
             self.told_off = true;
         }
     }
@@ -482,7 +482,7 @@ pub fn bind(dir: &Path) -> Result<(UnixListener, std::fs::File)> {
         .open(&lock_path)
         .map_err(|err| Error::io(err, &lock_path))?;
     lock.try_lock()
-        .map_err(|_| Error::from("ratmos daemon is already running"))?;
+        .map_err(|_| Error::from("atmosd daemon is already running"))?;
     if let Some(listener) = inherited_listener() {
         return Ok((listener, lock));
     }
@@ -494,10 +494,10 @@ pub fn bind(dir: &Path) -> Result<(UnixListener, std::fs::File)> {
     Ok((listener, lock))
 }
 
-/// `ratmos daemon [--with-sampler]`: with the flag the daemon starts a sampler of its own and
-/// keeps it alive (docs/adr/0014), where otherwise `ratmos-sampler.service` or a hand starts one.
+/// `atmosd daemon [--with-sampler]`: with the flag the daemon starts a sampler of its own and
+/// keeps it alive (docs/adr/0014), where otherwise `atmosd-sampler.service` or a hand starts one.
 pub fn run(with_sampler: bool) -> Result<i32> {
-    let dir = cache::dir_from_env().ok_or("ratmos daemon needs XDG_RUNTIME_DIR")?;
+    let dir = cache::dir_from_env().ok_or("atmosd daemon needs XDG_RUNTIME_DIR")?;
     let (listener, _lock) = bind(&dir)?;
     let watched = dir.clone();
     let daemon = Daemon::new(
@@ -508,7 +508,7 @@ pub fn run(with_sampler: bool) -> Result<i32> {
         }),
         Config::production(),
     );
-    eprintln!("ratmos daemon {} ready", crate::VERSION);
+    eprintln!("atmosd daemon {} ready", crate::VERSION);
     let lane = daemon.clone();
     std::thread::spawn(move || lane.accept(listener));
     let pump = daemon.clone();

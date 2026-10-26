@@ -223,7 +223,7 @@ pub fn monitors_with(levels: bool) -> Option<Vec<Value>> {
     let rows = match parsed {
         Ok(rows) => rows,
         Err(why) => {
-            eprintln!("ratmos: hyprctl monitors all -j gave no monitor list ({why}); keeping the last one");
+            eprintln!("atmosd: hyprctl monitors all -j gave no monitor list ({why}); keeping the last one");
             sh::fail(format!(
                 "hyprctl monitors all -j gave no monitor list ({why})"
             ));

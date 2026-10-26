@@ -1,5 +1,5 @@
 [package]
-name = "ratmos"
+name = "atmosd"
 version = "0.4.0"
 edition = "2021"
 description = "Rust backend for the Atmos Quickshell UI"

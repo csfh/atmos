@@ -69,15 +69,15 @@ assert(
   "atmos still launches Quickshell and points it at the backend",
 );
 assert(
-  install.indexOf("fn build_backend") !== -1 && install.indexOf("bin/ratmos") !== -1,
-  "the per-user install builds ratmos",
+  install.indexOf("fn build_backend") !== -1 && install.indexOf("bin/atmosd") !== -1,
+  "the per-user install builds atmosd",
 );
 
 function backendBin() {
   const candidates = [
-    path.join(root, "bin", "ratmos"),
-    path.join(root, "backend", "target", "release", "ratmos"),
-    path.join(root, "backend", "target", "debug", "ratmos"),
+    path.join(root, "bin", "atmosd"),
+    path.join(root, "backend", "target", "release", "atmosd"),
+    path.join(root, "backend", "target", "debug", "atmosd"),
   ];
   for (const candidate of candidates) {
     if (fs.existsSync(candidate)) return candidate;
@@ -86,12 +86,12 @@ function backendBin() {
 }
 
 const bin = backendBin();
-assert(bin.length > 0, "ratmos is built");
+assert(bin.length > 0, "atmosd is built");
 const version = spawnSync(bin, ["version"], { encoding: "utf8" });
-assertEqual(version.status, 0, "ratmos version exits 0");
-assertEqual(String(version.stdout).trim(), "0.4.0", "ratmos reports 0.4.0");
+assertEqual(version.status, 0, "atmosd version exits 0");
+assertEqual(String(version.stdout).trim(), "0.4.0", "atmosd reports 0.4.0");
 
-const fixture = fs.mkdtempSync(path.join(os.tmpdir(), "ratmos-list-"));
+const fixture = fs.mkdtempSync(path.join(os.tmpdir(), "atmosd-list-"));
 const listed = spawnSync(bin, ["--backend", "omarchy", "--root", fixture, "request"], {
   encoding: "utf8",
   input: JSON.stringify({ op: "settings.list" }),

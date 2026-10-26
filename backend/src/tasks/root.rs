@@ -1,4 +1,4 @@
-//! `ratmos root <task>`: the privileged half of a few settings. It runs only
+//! `atmosd root <task>`: the privileged half of a few settings. It runs only
 //! when polkit or sudo started this binary as root, and every task checks its
 //! own arguments again, because a caller cannot be trusted past that door.
 

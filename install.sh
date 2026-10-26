@@ -1,5 +1,5 @@
 #!/bin/bash
-# Install Atmos into XDG dirs for the current user. This builds ratmos; ratmos
+# Install Atmos into XDG dirs for the current user. This builds atmosd; atmosd
 # install stages the app, writes the desktop entry, and sets up Hyprland.
 
 set -euo pipefail
@@ -13,7 +13,7 @@ need() {
 
 need git
 need quickshell
-need cargo "install Rust to build the ratmos backend: sudo pacman -S rust"
+need cargo "install Rust to build the atmosd backend: sudo pacman -S rust"
 
 here=""
 src=${BASH_SOURCE[0]:-$0}
@@ -36,8 +36,8 @@ else
   fi
 fi
 
-# ratmos is compiled here for this machine, so aarch64 (Apple Silicon) needs no
+# atmosd is compiled here for this machine, so aarch64 (Apple Silicon) needs no
 # separate binary. Say so, because the build is the slow step.
-echo "Building ratmos for $(uname -m). The Rust build is the slow step."
+echo "Building atmosd for $(uname -m). The Rust build is the slow step."
 cargo build --release --manifest-path "$SOURCE/backend/Cargo.toml"
-exec "$SOURCE/backend/target/release/ratmos" install "$SOURCE"
+exec "$SOURCE/backend/target/release/atmosd" install "$SOURCE"

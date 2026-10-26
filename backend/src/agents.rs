@@ -698,7 +698,7 @@ fn points_at_atmos(command: &str) -> bool {
         .file_name()
         .and_then(|name| name.to_str())
         .unwrap_or(command);
-    name == "atmos" || name == "ratmos"
+    name == "atmos" || name == "atmosd"
 }
 
 fn tool_names(stdout: &str) -> Vec<String> {
@@ -754,8 +754,8 @@ mod tests {
     }
 
     #[test]
-    fn only_atmos_or_ratmos_by_file_name_point_at_atmos() {
-        for command in ["atmos", "ratmos", "/usr/bin/atmos", "/opt/x/ratmos"] {
+    fn only_atmos_or_atmosd_by_file_name_point_at_atmos() {
+        for command in ["atmos", "atmosd", "/usr/bin/atmos", "/opt/x/atmosd"] {
             assert!(points_at_atmos(command), "{command}");
         }
         for command in [

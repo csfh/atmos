@@ -1,4 +1,4 @@
-// User-process list for Home. Signals go through `ratmos task signal-process`.
+// User-process list for Home. Signals go through `atmosd task signal-process`.
 
 var ROW_CAP = 80;
 

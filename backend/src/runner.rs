@@ -1,4 +1,4 @@
-//! The one way ratmos starts a child process. Output is captured, stdin is
+//! The one way atmosd starts a child process. Output is captured, stdin is
 //! closed unless the caller supplies bytes, and a caller that can bound the
 //! wait does, so a hung `omarchy` or `systemctl` cannot hold a request open.
 
@@ -255,7 +255,7 @@ mod tests {
 
     #[test]
     fn a_missing_program_is_a_not_found_error() {
-        let err = Run::new("ratmos-no-such-program").output().err().unwrap();
+        let err = Run::new("atmosd-no-such-program").output().err().unwrap();
         assert_eq!(err.kind, Kind::NotFound);
     }
 }

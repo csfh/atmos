@@ -1,5 +1,5 @@
 //! The window on GPUI's test platform: nothing is opened on the desktop. A scripted server stands
-//! in for `ratmos serve`, so the test says what the backend said and sees what the window drew.
+//! in for `atmosd serve`, so the test says what the backend said and sees what the window drew.
 
 mod common;
 
@@ -156,7 +156,7 @@ fn a_stopped_server_is_the_same_notice() {
     let mut app = TestAppContext::single();
     let mut w = open(&mut app, "home");
     let Window { server, .. } = &mut w;
-    // The server's end closing is how a stopped `ratmos serve` looks.
+    // The server's end closing is how a stopped `atmosd serve` looks.
     drop(std::mem::replace(server, script(1).1.remove(0)));
     w.until("the unavailable notice", |w| {
         w.drawn("backend-unavailable/alert")

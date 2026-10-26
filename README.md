@@ -64,7 +64,7 @@ Needs an [Omarchy](https://omarchy.org) system (Hyprland) and `~/.local/bin` on 
 
 Then run `atmos`, or open it from the app launcher. Details, update, and uninstall are in [docs/install.md](docs/install.md).
 
-**Apple Silicon (aarch64, Asahi Linux):** both `atmos` and the `ratmos` backend are architecture-neutral. The install script compiles `ratmos` on your machine, so `cargo` (`sudo pacman -S rust`) is required and there is no prebuilt binary to match. The probes for the charge limit, GPU, and machine name know the Asahi names, but none of this has run on Apple hardware yet. See [Apple Silicon](docs/install.md#apple-silicon-m1-m2-and-later).
+**Apple Silicon (aarch64, Asahi Linux):** both `atmos` and the `atmosd` backend are architecture-neutral. The install script compiles `atmosd` on your machine, so `cargo` (`sudo pacman -S rust`) is required and there is no prebuilt binary to match. The probes for the charge limit, GPU, and machine name know the Asahi names, but none of this has run on Apple hardware yet. See [Apple Silicon](docs/install.md#apple-silicon-m1-m2-and-later).
 
 ## Usage
 
@@ -88,13 +88,13 @@ Every launch opens its own window. Pass a hub or child page to land there. From 
 
 ## Footprint
 
-ratmos 0.1.0, measured 10 October 2026 on one machine:
+atmosd 0.1.0, measured 10 October 2026 on one machine:
 
 | | |
 | --- | --- |
-| `ratmos` binary | 1.9 MB |
+| `atmosd` binary | 1.9 MB |
 | One-shot request | 566 µs |
-| `ratmos serve`, idle 10 s | 2.0 MB RSS, 0 CPU ticks |
+| `atmosd serve`, idle 10 s | 2.0 MB RSS, 0 CPU ticks |
 
 This is the backend, not the window, and it describes one machine and workload. Method and caveats: [docs/benchmarks.md](docs/benchmarks.md).
 
@@ -103,7 +103,7 @@ This is the backend, not the window, and it describes one machine and workload. 
 - [Install, update, uninstall](docs/install.md)
 - [Configuration](docs/configuration.md) — the files Atmos reads and writes
 - [Troubleshooting](docs/troubleshooting.md)
-- [Protocol](docs/protocol.md) — what the window and `ratmos` say to each other
+- [Protocol](docs/protocol.md) — what the window and `atmosd` say to each other
 - [Benchmarks](docs/benchmarks.md)
 - [Changelog](CHANGELOG.md)
 

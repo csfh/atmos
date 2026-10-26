@@ -1,4 +1,4 @@
-//! The sampling service. `ratmos daemon` collects every display kind slowly
+//! The sampling service. `atmosd daemon` collects every display kind slowly
 //! and on repeat into a cache under the runtime dir; `display::load` reads
 //! that cache and asks the daemon first when it holds nothing fresh.
 //!

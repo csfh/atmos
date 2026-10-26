@@ -47,7 +47,7 @@ fn display_collects_natively_without_atmos_root_or_scripts() {
         "software",
         "diagnostics",
     ] {
-        let output = Command::new(env!("CARGO_BIN_EXE_ratmos"))
+        let output = Command::new(env!("CARGO_BIN_EXE_atmosd"))
             .env_remove("ATMOS_ROOT")
             .env("PATH", "/nonexistent")
             .args(["--backend", "omarchy", "display", kind])
@@ -55,7 +55,7 @@ fn display_collects_natively_without_atmos_root_or_scripts() {
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .output()
-            .expect("spawn ratmos");
+            .expect("spawn atmosd");
         let err = String::from_utf8_lossy(&output.stderr);
         // These two cannot be collected without their tool, and say so rather
         // than answer with a machine that has no disks or services.

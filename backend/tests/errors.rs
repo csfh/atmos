@@ -124,7 +124,7 @@ fn apply_streams_the_command_and_ends_with_a_summary_line() {
     let mut lines = stdout.lines();
     assert_eq!(lines.next(), Some("out"), "stdout passes through unchanged");
     let last = lines.next().expect("a summary line");
-    let json = last.strip_prefix("@@ratmos-apply@@ ").expect("the marker");
+    let json = last.strip_prefix("@@atmosd-apply@@ ").expect("the marker");
     let summary: serde_json::Value = serde_json::from_str(json).unwrap();
     assert_eq!(summary["ok"], false);
     assert_eq!(summary["code"], 3);
@@ -140,11 +140,11 @@ fn apply_reports_success_and_a_command_that_cannot_start() {
     assert!(good.status.success());
     assert!(String::from_utf8_lossy(&good.stdout).contains("\"ok\":true"));
 
-    let missing = common::invoke(&["apply", "--", "ratmos-no-such-command"], "");
+    let missing = common::invoke(&["apply", "--", "atmosd-no-such-command"], "");
     assert_eq!(missing.status.code(), Some(1));
     let text = String::from_utf8_lossy(&missing.stdout);
     assert!(
-        text.contains("\"ok\":false") && text.contains("ratmos-no-such-command"),
+        text.contains("\"ok\":false") && text.contains("atmosd-no-such-command"),
         "{text}"
     );
 }

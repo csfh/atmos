@@ -18,7 +18,7 @@ struct Server {
 
 impl Server {
     fn start(root: &std::path::Path, backend: &str) -> Server {
-        let mut child = Command::new(env!("CARGO_BIN_EXE_ratmos"))
+        let mut child = Command::new(env!("CARGO_BIN_EXE_atmosd"))
             .args([
                 "--backend",
                 backend,
@@ -30,7 +30,7 @@ impl Server {
             .stdout(Stdio::piped())
             .stderr(Stdio::null())
             .spawn()
-            .expect("spawn ratmos serve");
+            .expect("spawn atmosd serve");
         let stdin = child.stdin.take();
         let stdout = child.stdout.take().unwrap();
         let (tx, lines) = mpsc::channel();
@@ -52,7 +52,7 @@ impl Server {
 
     /// A serve with no fixture root, talking to whatever daemon lives under `run`.
     fn start_live(run: &std::path::Path) -> Server {
-        let mut child = Command::new(env!("CARGO_BIN_EXE_ratmos"))
+        let mut child = Command::new(env!("CARGO_BIN_EXE_atmosd"))
             .args(["--backend", "omarchy", "serve"])
             .env("XDG_RUNTIME_DIR", run)
             .env("ATMOS_NO_AUTOSTART", "1")
@@ -60,7 +60,7 @@ impl Server {
             .stdout(Stdio::piped())
             .stderr(Stdio::null())
             .spawn()
-            .expect("spawn ratmos serve");
+            .expect("spawn atmosd serve");
         let stdin = child.stdin.take();
         let stdout = child.stdout.take().unwrap();
         let (tx, lines) = mpsc::channel();
@@ -310,16 +310,16 @@ impl Drop for Daemon {
 
 fn start_daemon(run: &std::path::Path) -> Daemon {
     let daemon = Daemon(
-        Command::new(env!("CARGO_BIN_EXE_ratmos"))
+        Command::new(env!("CARGO_BIN_EXE_atmosd"))
             .arg("daemon")
             .env("XDG_RUNTIME_DIR", run)
             .stdin(Stdio::null())
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .spawn()
-            .expect("spawn ratmos daemon"),
+            .expect("spawn atmosd daemon"),
     );
-    let socket = run.join("atmos/ratmos.sock");
+    let socket = run.join("atmos/atmosd.sock");
     for _ in 0..100 {
         if std::os::unix::net::UnixStream::connect(&socket).is_ok() {
             return daemon;
@@ -438,8 +438,8 @@ fn wait_exit(child: &mut Child, within: Duration) -> Option<std::process::ExitSt
 
 /// A daemon run from its own copy of the binary, so the test can replace it.
 fn start_copy(run: &std::path::Path) -> (Daemon, std::path::PathBuf) {
-    let exe = run.join("ratmos-copy");
-    fs::copy(env!("CARGO_BIN_EXE_ratmos"), &exe).unwrap();
+    let exe = run.join("atmosd-copy");
+    fs::copy(env!("CARGO_BIN_EXE_atmosd"), &exe).unwrap();
     // A binary just written can still be open for writing in a process another
     // test forked at that moment, and exec says "text file busy" until it is not.
     let mut tries = 0;
@@ -461,7 +461,7 @@ fn start_copy(run: &std::path::Path) -> (Daemon, std::path::PathBuf) {
         }
     };
     let daemon = Daemon(child);
-    let socket = run.join("atmos/ratmos.sock");
+    let socket = run.join("atmos/atmosd.sock");
     for _ in 0..100 {
         if std::os::unix::net::UnixStream::connect(&socket).is_ok() {
             return (daemon, exe);
@@ -477,8 +477,8 @@ fn a_daemon_leaves_when_its_binary_is_replaced() {
     let (mut daemon, exe) = start_copy(&run);
     assert!(wait_exit(&mut daemon.0, Duration::from_millis(1500)).is_none());
     // A rebuild writes a new file and renames it over the old one.
-    let next = run.join("ratmos-next");
-    fs::copy(env!("CARGO_BIN_EXE_ratmos"), &next).unwrap();
+    let next = run.join("atmosd-next");
+    fs::copy(env!("CARGO_BIN_EXE_atmosd"), &next).unwrap();
     fs::rename(&next, &exe).unwrap();
     let status = wait_exit(&mut daemon.0, Duration::from_secs(9));
     assert!(status.is_some_and(|s| s.success()), "{status:?}");
@@ -496,7 +496,7 @@ fn a_daemon_leaves_when_its_runtime_dir_is_gone() {
 }
 
 fn daemon_status(run: &std::path::Path) -> Value {
-    let stream = std::os::unix::net::UnixStream::connect(run.join("atmos/ratmos.sock")).unwrap();
+    let stream = std::os::unix::net::UnixStream::connect(run.join("atmos/atmosd.sock")).unwrap();
     writeln!(&stream, r#"{{"op":"status"}}"#).unwrap();
     let mut line = String::new();
     BufRead::read_line(&mut BufReader::new(&stream), &mut line).unwrap();
@@ -610,7 +610,7 @@ case "$*" in *list|"theme extras") printf 'a\nb\n' ;; *) echo ok ;; esac"#,
         ),
     );
     fs::write(dir.join("theme"), "tokyo-night").unwrap();
-    let mut child = Command::new(env!("CARGO_BIN_EXE_ratmos"))
+    let mut child = Command::new(env!("CARGO_BIN_EXE_atmosd"))
         .args(["--backend", "omarchy", "serve"])
         .env_clear()
         .env(
@@ -624,7 +624,7 @@ case "$*" in *list|"theme extras") printf 'a\nb\n' ;; *) echo ok ;; esac"#,
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
         .spawn()
-        .expect("spawn ratmos serve");
+        .expect("spawn atmosd serve");
     let stdin = child.stdin.take();
     let stdout = child.stdout.take().unwrap();
     let (tx, lines) = mpsc::channel();
@@ -662,7 +662,7 @@ fn topic_event(server: &Server, topic: &str) -> Value {
 /// A daemon whose home is `home`, so the files it watches are the ones a window there reads.
 fn start_daemon_in(run: &std::path::Path, home: &std::path::Path) -> Daemon {
     let daemon = Daemon(
-        Command::new(env!("CARGO_BIN_EXE_ratmos"))
+        Command::new(env!("CARGO_BIN_EXE_atmosd"))
             .arg("daemon")
             .env("XDG_RUNTIME_DIR", run)
             .env("HOME", home)
@@ -670,9 +670,9 @@ fn start_daemon_in(run: &std::path::Path, home: &std::path::Path) -> Daemon {
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .spawn()
-            .expect("spawn ratmos daemon"),
+            .expect("spawn atmosd daemon"),
     );
-    let socket = run.join("atmos/ratmos.sock");
+    let socket = run.join("atmos/atmosd.sock");
     for _ in 0..100 {
         if std::os::unix::net::UnixStream::connect(&socket).is_ok() {
             return daemon;
@@ -969,7 +969,7 @@ fn a_window_refuses_a_daemon_too_old_to_run_its_reads() {
     let run = short_run_dir("oldproto");
     fs::create_dir_all(run.join("atmos")).unwrap();
     // A daemon from before reads were its job: it says `ready` and nothing about a protocol.
-    let listener = UnixListener::bind(run.join("atmos/ratmos.sock")).unwrap();
+    let listener = UnixListener::bind(run.join("atmos/atmosd.sock")).unwrap();
     thread::spawn(move || {
         for stream in listener.incoming().flatten() {
             thread::spawn(move || {
@@ -1040,7 +1040,7 @@ fn start_daemon_with(
     flags: &[&str],
     path: Option<&std::path::Path>,
 ) -> Daemon {
-    let mut command = Command::new(env!("CARGO_BIN_EXE_ratmos"));
+    let mut command = Command::new(env!("CARGO_BIN_EXE_atmosd"));
     command
         .arg("daemon")
         .args(flags)
@@ -1054,9 +1054,9 @@ fn start_daemon_with(
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .spawn()
-            .expect("spawn ratmos daemon"),
+            .expect("spawn atmosd daemon"),
     );
-    let socket = run.join("atmos/ratmos.sock");
+    let socket = run.join("atmos/atmosd.sock");
     for _ in 0..100 {
         if std::os::unix::net::UnixStream::connect(&socket).is_ok() {
             return daemon;
@@ -1133,7 +1133,7 @@ fn a_daemon_without_the_flag_starts_no_sampler() {
 fn the_daemon_and_the_sampler_take_only_their_own_flags() {
     let run = short_run_dir("flags");
     for args in [["daemon", "--nope"], ["sampler", "--nope"]] {
-        let out = Command::new(env!("CARGO_BIN_EXE_ratmos"))
+        let out = Command::new(env!("CARGO_BIN_EXE_atmosd"))
             .args(args)
             .env("XDG_RUNTIME_DIR", &run)
             .output()

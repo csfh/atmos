@@ -67,7 +67,7 @@ assert(
   "overflow drops Force quit for another uid",
 );
 
-const { ratmosBinary } = require("./sandbox");
+const { atmosdBinary } = require("./sandbox");
 
 function write(file, text) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -93,7 +93,7 @@ function run(args, extraEnv) {
     XDG_RUNTIME_DIR: fixture,
   };
   if (extraEnv) Object.assign(env, extraEnv);
-  return spawnSync(ratmosBinary(), ["task", "signal-process"].concat(args), {
+  return spawnSync(atmosdBinary(), ["task", "signal-process"].concat(args), {
     encoding: "utf8",
     env: env,
   });

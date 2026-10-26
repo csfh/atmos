@@ -431,7 +431,7 @@ mod tests {
 
     #[test]
     fn swappiness_writes_and_removes_the_drop_in_without_elevating_when_it_can() {
-        let dir = std::env::temp_dir().join(format!("ratmos-sysctl-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("atmosd-sysctl-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let file = dir.join("99-atmos-swappiness.conf");
         swappiness_at(&file.to_string_lossy(), "on").unwrap();

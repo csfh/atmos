@@ -56,7 +56,7 @@ pub enum A {
 pub enum T {
     /// Always this.
     L(&'static str),
-    /// The ratmos binary and a task: `ratmos task NAME`.
+    /// The atmosd binary and a task: `atmosd task NAME`.
     Task(&'static str),
     /// The argument, required.
     V(&'static str, A),
@@ -95,7 +95,7 @@ pub struct Entry {
     pub lane: &'static str,
     pub argv: &'static [T],
     pub stdin: In,
-    /// Run through `ratmos task gum-job`, which shows a job's progress.
+    /// Run through `atmosd task gum-job`, which shows a job's progress.
     pub gum: bool,
     /// Needs root: the window asks for passwordless sudo first.
     pub root: bool,
@@ -243,7 +243,7 @@ pub fn argv(entry: &Entry, args: &Value) -> Result<Vec<String>> {
     let exe = || {
         std::env::current_exe()
             .map(|p| p.display().to_string())
-            .unwrap_or_else(|_| "ratmos".into())
+            .unwrap_or_else(|_| "atmosd".into())
     };
     let mut out: Vec<String> = Vec::new();
     for token in entry.argv {

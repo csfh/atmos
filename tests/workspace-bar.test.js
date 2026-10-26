@@ -3,7 +3,7 @@ const fs = require("fs");
 const os = require("os");
 const path = require("path");
 const { assert, assertEqual } = require("./harness");
-const { ratmosBinary } = require("./sandbox");
+const { atmosdBinary } = require("./sandbox");
 
 // The named workspace bar goes through the same write path as the window:
 // `settings.set` on a fixture root installs the clone, points the bar at it,
@@ -39,7 +39,7 @@ fs.writeFileSync(
 );
 
 function set(domain, value) {
-  const result = spawnSync(ratmosBinary(), ["--backend", "omarchy", "--root", root, "request"], {
+  const result = spawnSync(atmosdBinary(), ["--backend", "omarchy", "--root", root, "request"], {
     encoding: "utf8",
     input: JSON.stringify({ op: "settings.set", domain, value }),
     env: Object.assign({}, process.env, { USER: "tester", OMARCHY_PATH: omarchy }),

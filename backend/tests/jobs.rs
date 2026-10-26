@@ -1,4 +1,4 @@
-//! Jobs end to end: a real daemon, real `ratmos serve` windows, fake tools on
+//! Jobs end to end: a real daemon, real `atmosd serve` windows, fake tools on
 //! the window's PATH. The runner is the direct one: a test never reaches the
 //! real user manager.
 
@@ -51,7 +51,7 @@ impl Scene {
             .stderr(Stdio::null());
         self.env(&mut command);
         let mut child = command.spawn().unwrap();
-        let socket = self.run.join("atmos/ratmos.sock");
+        let socket = self.run.join("atmos/atmosd.sock");
         for _ in 0..100 {
             if std::os::unix::net::UnixStream::connect(&socket).is_ok() {
                 return child;
@@ -64,7 +64,7 @@ impl Scene {
     }
 
     fn window(&self) -> Window {
-        let mut command = Command::new(env!("CARGO_BIN_EXE_ratmos"));
+        let mut command = Command::new(env!("CARGO_BIN_EXE_atmosd"));
         command
             .args(["--backend", "omarchy", "serve"])
             .stdin(Stdio::piped())
@@ -142,7 +142,7 @@ impl Drop for Window {
 }
 
 fn status(run: &Path) -> Value {
-    let stream = std::os::unix::net::UnixStream::connect(run.join("atmos/ratmos.sock")).unwrap();
+    let stream = std::os::unix::net::UnixStream::connect(run.join("atmos/atmosd.sock")).unwrap();
     writeln!(&stream, r#"{{"op":"status"}}"#).unwrap();
     let mut line = String::new();
     BufReader::new(&stream).read_line(&mut line).unwrap();
@@ -161,7 +161,7 @@ fn lines_of(events: &[Value]) -> Vec<String> {
 fn a_window_starts_a_job_by_name_and_follows_it() {
     let scene = Scene::new("jobs-follow");
     scene.tool("omarchy", "echo \"args: $*\"; echo oops >&2; exit 3");
-    let mut daemon = scene.daemon(Path::new(env!("CARGO_BIN_EXE_ratmos")));
+    let mut daemon = scene.daemon(Path::new(env!("CARGO_BIN_EXE_atmosd")));
     let mut window = scene.window();
     window.send(
         json!({"id": 1, "op": "job.start", "cid": "j1", "label": "theme-install",
@@ -188,7 +188,7 @@ fn a_window_starts_a_job_by_name_and_follows_it() {
 fn an_unknown_job_and_a_bad_argument_end_at_once_without_running_anything() {
     let scene = Scene::new("jobs-refuse");
     scene.tool("omarchy", "echo ran >> /tmp/never-ran-jobs-refuse");
-    let mut daemon = scene.daemon(Path::new(env!("CARGO_BIN_EXE_ratmos")));
+    let mut daemon = scene.daemon(Path::new(env!("CARGO_BIN_EXE_atmosd")));
     let mut window = scene.window();
     window.send(json!({"id": 1, "op": "job.start", "cid": "a", "name": "no.such.job", "args": {}}));
     let first = window.until("a", "exit");
@@ -208,7 +208,7 @@ fn an_unknown_job_and_a_bad_argument_end_at_once_without_running_anything() {
 fn a_job_outlives_its_window_and_a_new_window_picks_it_up() {
     let scene = Scene::new("jobs-reopen");
     scene.tool("omarchy", "echo first; sleep 1.5; echo second");
-    let mut daemon = scene.daemon(Path::new(env!("CARGO_BIN_EXE_ratmos")));
+    let mut daemon = scene.daemon(Path::new(env!("CARGO_BIN_EXE_atmosd")));
     let job = {
         let mut window = scene.window();
         window.send(
@@ -258,7 +258,7 @@ fn a_job_outlives_its_window_and_a_new_window_picks_it_up() {
 fn a_running_job_is_cancelled_by_a_request() {
     let scene = Scene::new("jobs-cancel");
     scene.tool("omarchy", "echo waiting; sleep 30");
-    let mut daemon = scene.daemon(Path::new(env!("CARGO_BIN_EXE_ratmos")));
+    let mut daemon = scene.daemon(Path::new(env!("CARGO_BIN_EXE_atmosd")));
     let mut window = scene.window();
     window.send(
         json!({"id": 1, "op": "job.start", "cid": "w", "name": "tailscale.receive", "args": {}}),
@@ -282,7 +282,7 @@ fn a_running_job_is_cancelled_by_a_request() {
 #[test]
 fn with_no_daemon_a_job_cannot_start_and_the_window_is_told() {
     let scene = Scene::new("jobs-nodaemon");
-    let mut command = Command::new(env!("CARGO_BIN_EXE_ratmos"));
+    let mut command = Command::new(env!("CARGO_BIN_EXE_atmosd"));
     command
         .args(["--backend", "omarchy", "serve"])
         .stdin(Stdio::piped())
@@ -310,9 +310,9 @@ fn with_no_daemon_a_job_cannot_start_and_the_window_is_told() {
 }
 
 /// A daemon run from its own copy of the binary, so the test can replace it.
-fn copy_of_ratmos(scene: &Scene) -> PathBuf {
-    let exe = scene.run.join("ratmos-copy");
-    fs::copy(env!("CARGO_BIN_EXE_ratmos"), &exe).unwrap();
+fn copy_of_atmosd(scene: &Scene) -> PathBuf {
+    let exe = scene.run.join("atmosd-copy");
+    fs::copy(env!("CARGO_BIN_EXE_atmosd"), &exe).unwrap();
     exe
 }
 
@@ -320,7 +320,7 @@ fn copy_of_ratmos(scene: &Scene) -> PathBuf {
 fn a_daemon_does_not_replace_itself_while_a_job_runs() {
     let scene = Scene::new("jobs-defer");
     scene.tool("omarchy", "echo going; sleep 8; echo done");
-    let exe = copy_of_ratmos(&scene);
+    let exe = copy_of_atmosd(&scene);
     // A binary just written can still be open for writing elsewhere: exec says
     // "text file busy" until it is not.
     let mut daemon = None;
@@ -344,7 +344,7 @@ fn a_daemon_does_not_replace_itself_while_a_job_runs() {
         }
     }
     let mut daemon = daemon.expect("the copy started");
-    let socket = scene.run.join("atmos/ratmos.sock");
+    let socket = scene.run.join("atmos/atmosd.sock");
     for _ in 0..100 {
         if std::os::unix::net::UnixStream::connect(&socket).is_ok() {
             break;
@@ -356,8 +356,8 @@ fn a_daemon_does_not_replace_itself_while_a_job_runs() {
         .send(json!({"id": 1, "op": "job.start", "cid": "j", "name": "theme.update", "args": {}}));
     window.until("j", "started");
     // A rebuild: a new file renamed over the old one.
-    let next = scene.run.join("ratmos-next");
-    fs::copy(env!("CARGO_BIN_EXE_ratmos"), &next).unwrap();
+    let next = scene.run.join("atmosd-next");
+    fs::copy(env!("CARGO_BIN_EXE_atmosd"), &next).unwrap();
     fs::rename(&next, &exe).unwrap();
     thread::sleep(Duration::from_secs(6));
     assert!(

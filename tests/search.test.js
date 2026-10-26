@@ -1,11 +1,11 @@
-// Search runs in ratmos: the window sends the hub rows it holds in Hubs.js and
-// ratmos reads the page sources under the app root for the labelled rows. These
+// Search runs in atmosd: the window sends the hub rows it holds in Hubs.js and
+// atmosd reads the page sources under the app root for the labelled rows. These
 // cases ask the real binary about the real pages directory.
 const fs = require("fs");
 const path = require("path");
 const { spawnSync } = require("child_process");
 const { load, assert, assertEqual } = require("./harness");
-const { ratmosBinary } = require("./sandbox");
+const { atmosdBinary } = require("./sandbox");
 
 const root = path.join(__dirname, "..");
 const hubs = load("services/Hubs.js");
@@ -13,12 +13,12 @@ const requests = load("services/Requests.js");
 
 function query(text, context) {
   const body = requests.searchQuery(text, context || hubs.searchContext());
-  const run = spawnSync(ratmosBinary(), ["--backend", "plain", "request"], {
+  const run = spawnSync(atmosdBinary(), ["--backend", "plain", "request"], {
     encoding: "utf8",
     input: JSON.stringify(body),
     env: { ...process.env, ATMOS_ROOT: root },
   });
-  assertEqual(run.status, 0, "ratmos answers a search request");
+  assertEqual(run.status, 0, "atmosd answers a search request");
   const envelope = JSON.parse(run.stdout);
   assertEqual(envelope.ok, true, "a search request succeeds");
   return envelope.result;

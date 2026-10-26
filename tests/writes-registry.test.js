@@ -7,7 +7,7 @@ const os = require("os");
 const path = require("path");
 const { spawnSync } = require("child_process");
 const { assert, assertEqual } = require("./harness");
-const { ratmosBinary } = require("./sandbox");
+const { atmosdBinary } = require("./sandbox");
 const { load } = require("./harness");
 
 const repo = path.join(__dirname, "..");
@@ -22,7 +22,7 @@ const text = sources.map(read).join("\n");
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), "atmos-writes-"));
 const ask = (body) => {
-  const out = spawnSync(ratmosBinary(), ["--backend", "omarchy", "--root", root, "request"], {
+  const out = spawnSync(atmosdBinary(), ["--backend", "omarchy", "--root", root, "request"], {
     input: JSON.stringify(body),
     encoding: "utf8",
   });
@@ -99,7 +99,7 @@ for (const [, name, body] of literalArgs) {
 // The same for jobs and interactive tools: every `Requests.job("name", { ... })`
 // the window sends is a registry name, and its literal arguments are accepted.
 const jobCheck = (name, args) => {
-  const out = spawnSync(ratmosBinary(), ["job-check", name, JSON.stringify(args)], {
+  const out = spawnSync(atmosdBinary(), ["job-check", name, JSON.stringify(args)], {
     encoding: "utf8",
   });
   return JSON.parse(out.stdout);

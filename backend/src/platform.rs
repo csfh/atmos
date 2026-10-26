@@ -1,4 +1,4 @@
-//! Which system ratmos is serving. A closed set, so a typo is a compile error
+//! Which system atmosd is serving. A closed set, so a typo is a compile error
 //! and a `match` has to cover every platform.
 
 use serde_json::{json, Value};

@@ -63,7 +63,7 @@ function displayBadge(state) {
     row = monitors[i];
     if (!row || typeof row !== "object") continue;
     total += 1;
-    // Snapshot monitors use enabled (ratmos snapshot: enabled is `disabled != true`).
+    // Snapshot monitors use enabled (atmosd snapshot: enabled is `disabled != true`).
     // disabled lives on monitor rules, which this badge does not read.
     if (row.enabled === false) off += 1;
   }

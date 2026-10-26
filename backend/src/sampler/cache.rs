@@ -45,7 +45,7 @@ impl Sample {
         })
     }
 
-    /// A sample from another ratmos version is a miss, so an update never
+    /// A sample from another atmosd version is a miss, so an update never
     /// serves documents shaped by the old collectors.
     pub fn from_json(doc: &Value) -> Option<Sample> {
         if doc.get("version")?.as_str()? != crate::VERSION {
@@ -68,7 +68,7 @@ pub fn dir_from_env() -> Option<PathBuf> {
 }
 
 pub fn socket(dir: &Path) -> PathBuf {
-    dir.join("ratmos.sock")
+    dir.join("atmosd.sock")
 }
 
 pub fn ensure_dir(dir: &Path) -> Result<()> {
@@ -133,7 +133,7 @@ pub(crate) mod tests {
 
     pub fn scratch(name: &str) -> PathBuf {
         let dir =
-            std::env::temp_dir().join(format!("ratmos-sampler-{name}-{}", std::process::id()));
+            std::env::temp_dir().join(format!("atmosd-sampler-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         dir

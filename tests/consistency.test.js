@@ -37,7 +37,7 @@ const rustSources = walk(path.join("backend", "src"), [".rs"]);
 
 // --- tasks -------------------------------------------------------------------
 
-// What the window used to run as helper scripts is `ratmos task <name>`. Every
+// What the window used to run as helper scripts is `atmosd task <name>`. Every
 // task the front end starts has to exist in the backend's list.
 const taskList = read("backend/src/tasks/mod.rs");
 const taskNames = new Set(
@@ -53,7 +53,7 @@ for (const [name, file] of fromFrontend) {
   assert(taskNames.has(name), `task ${name} exists in the backend (${file})`);
 }
 
-// Nothing runs a helper script any more, from the window or from ratmos.
+// Nothing runs a helper script any more, from the window or from atmosd.
 assert(
   !fs.existsSync(path.join(root, "scripts")),
   "there is no scripts/ directory (docs/adr/0017)",
@@ -113,4 +113,27 @@ for (const [type, file] of registered) {
 }
 for (const file of qmlServices) {
   assert(registered.has(file.replace(/\.qml$/, "")), `services/${file} is registered in qmldir`);
+}
+
+// --- the old backend name ----------------------------------------------------
+
+// The backend is `atmosd` (docs/adr/0018). Past ADRs and the changelog keep the old name as history.
+{
+  const old = "rat" + "mos";
+  const files = require("child_process")
+    .execFileSync("git", ["ls-files", "-z"], { cwd: root, encoding: "utf8" })
+    .split("\0")
+    .filter(
+      (f) =>
+        f &&
+        !f.startsWith("docs/adr/") &&
+        f !== "CHANGELOG.md" &&
+        !f.endsWith("Cargo.lock") &&
+        fs.existsSync(path.join(root, f)),
+    );
+  for (const file of files) {
+    const text = fs.readFileSync(path.join(root, file));
+    if (text.includes(0)) continue;
+    assert(!text.toString("utf8").includes(old), `${file} does not use the old backend name`);
+  }
 }

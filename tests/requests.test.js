@@ -12,7 +12,7 @@ const jsOps = requests.OPS.slice().sort();
 assertEqual(
   JSON.stringify(jsOps),
   JSON.stringify(rustOps),
-  "Requests.js lists exactly the ops ratmos accepts",
+  "Requests.js lists exactly the ops atmosd accepts",
 );
 
 assertEqual(requests.settingsSnapshot("look").group, "look", "a snapshot names its group");

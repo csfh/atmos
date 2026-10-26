@@ -108,11 +108,11 @@ pub(super) fn s(parts: &[&str]) -> Vec<String> {
     parts.iter().map(|p| p.to_string()).collect()
 }
 
-/// A `ratmos task` command line, run by this same binary.
+/// A `atmosd task` command line, run by this same binary.
 pub(super) fn task(name: &str, rest: &[&str]) -> Vec<String> {
     let exe = std::env::current_exe()
         .map(|p| p.display().to_string())
-        .unwrap_or_else(|_| "ratmos".into());
+        .unwrap_or_else(|_| "atmosd".into());
     let mut argv = vec![exe, "task".into(), name.into()];
     argv.extend(rest.iter().map(|p| p.to_string()));
     argv

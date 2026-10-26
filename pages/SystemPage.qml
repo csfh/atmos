@@ -407,7 +407,7 @@ PrefsPage {
           ? "Checking…"
           : (Omarchy.atmosUpdateSummary
             || (Omarchy.atmosUpdateAvailable ? "A newer Atmos is on stable." : "Check the stable branch for a newer copy.")))
-      hint: "ratmos task update-atmos"
+      hint: "atmosd task update-atmos"
       query: root.query
       keywords: ["atmos", "update", "upgrade", "git", "pull", "stable"]
 
@@ -445,7 +445,7 @@ PrefsPage {
       description: Omarchy.jobKind === "reset-atmos" && Omarchy.jobBusy
         ? "Resetting Atmos…"
         : "Strip look, input, autostart, bindings, extra window rules, and the search cache. This window still floats."
-      hint: "ratmos task reset-atmos"
+      hint: "atmosd task reset-atmos"
       query: root.query
       keywords: ["reset", "clear", "sentinel", "overrides", "atmos", "search", "index", "sqlite", "cache"]
 

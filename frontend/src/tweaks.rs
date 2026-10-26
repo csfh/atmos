@@ -46,7 +46,7 @@ pub fn holds(topic: &str) -> bool {
 pub enum Kind {
     /// A field of Hyprland's input block, through the same writer as the Input page.
     HyprInput,
-    /// A file `ratmos task set-tweaks` writes.
+    /// A file `atmosd task set-tweaks` writes.
     Tweak,
 }
 

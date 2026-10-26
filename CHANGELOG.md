@@ -2,6 +2,13 @@
 
 Notable changes to Atmos. Each section is a git tag on `main` and `stable`. Install and in-app Update follow the `stable` branch.
 
+## Unreleased
+
+### Changed
+
+- The backend, `ratmos`, is `atmosd`: the binary, the crate, the units (`atmosd.service`, `atmosd-sampler.service`, `atmosd.socket`), the socket (`$XDG_RUNTIME_DIR/atmos/atmosd.sock`) and `ATMOSD_DIRECT` (`docs/adr/0018`). v1 keeps no shim; an earlier build's `ratmos` user units stay until the user removes them.
+- The Bundle tool is `odk oma` (ODK's ADR 0056), and ODK applications get the theme, text size and font from `odkd` (ODK's ADR 0062).
+
 ## [v0.4.0] - 2026-10-20
 
 ### Changed

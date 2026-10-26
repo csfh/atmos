@@ -1,4 +1,4 @@
-// Live CPU, memory, network, thermal, and process samples from ratmos.
+// Live CPU, memory, network, thermal, and process samples from atmosd.
 // Percents, rates, and temps stay unknown when missing instead of painting 0.
 
 var SAMPLE_CAP = 60;

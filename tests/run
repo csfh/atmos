@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$ROOT"
 
-# No test may read or start the daemon of the session it runs in: a ratmos that
+# No test may read or start the daemon of the session it runs in: a atmosd that
 # finds a daemon answers from its samples instead of from the test's fixture.
 SCRATCH=$(mktemp -d /tmp/atmos-tests-XXXXXX)
 trap 'rm -rf "$SCRATCH"' EXIT
@@ -48,7 +48,7 @@ fi
 echo "ok - remix line icons are present"
 
 if ! command -v cargo >/dev/null 2>&1; then
-  echo "not ok - cargo is required to build ratmos"
+  echo "not ok - cargo is required to build atmosd"
   exit 1
 fi
 for component in fmt clippy; do
@@ -58,11 +58,11 @@ for component in fmt clippy; do
   fi
 done
 cargo fmt --manifest-path backend/Cargo.toml --check
-echo "ok - ratmos cargo fmt --check"
+echo "ok - atmosd cargo fmt --check"
 cargo clippy --manifest-path backend/Cargo.toml --all-targets -- -D warnings
-echo "ok - ratmos clippy"
+echo "ok - atmosd clippy"
 cargo test --manifest-path backend/Cargo.toml
-echo "ok - ratmos tests"
+echo "ok - atmosd tests"
 
 if [[ ! -x tests/frontend ]]; then
   echo "not ok - tests/frontend is not executable"

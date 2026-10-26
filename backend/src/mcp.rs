@@ -1,4 +1,4 @@
-//! `ratmos mcp`: Atmos for agents, as newline-delimited JSON-RPC over stdio.
+//! `atmosd mcp`: Atmos for agents, as newline-delimited JSON-RPC over stdio.
 //! Each tool call is one or two backend requests, answered in-process.
 
 use crate::platform::Backend;

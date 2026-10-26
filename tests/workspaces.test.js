@@ -2,7 +2,7 @@ const { spawnSync } = require("child_process");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
-const { ratmosBinary } = require("./sandbox");
+const { atmosdBinary } = require("./sandbox");
 const { load, assert, assertEqual } = require("./harness");
 
 const ws = load("services/Workspaces.js");
@@ -243,7 +243,7 @@ assert(
     barRs.indexOf("reloadConfig") === -1 &&
     barRs.indexOf("rescanPlugins") === -1 &&
     barRs.indexOf("omarchy plugin clone") === -1,
-  "ratmos installs and swaps the named workspace widget without reloading the shell",
+  "atmosd installs and swaps the named workspace widget without reloading the shell",
 );
 const barQml = fs.readFileSync(
   path.join(__dirname, "..", "packaging", "workspace-bar", "Workspaces.qml"),
@@ -317,11 +317,11 @@ assertEqual(parsedFlags.wheelSwitch, false, "parseFile reads wheelSwitch false")
 const tmp = path.join(os.tmpdir(), "atmos-ws-" + process.pid + ".lua");
 fs.writeFileSync(tmp, "");
 const py = spawnSync(
-  ratmosBinary(),
+  atmosdBinary(),
   ["sentinel", "workspaces", "apply", tmp, JSON.stringify(state)],
   { encoding: "utf8" },
 );
-assertEqual(py.status, 0, "ratmos sentinel workspaces apply exits 0");
+assertEqual(py.status, 0, "atmosd sentinel workspaces apply exits 0");
 const pyText = fs.readFileSync(tmp, "utf8");
 assertEqual(
   pyText.replace(/\s+$/, ""),
@@ -337,5 +337,5 @@ const hyprlandSrc = fs.readFileSync(
 assert(
   hyprlandSrc.indexOf("hl.dsp.workspace.rename") !== -1 &&
     hyprlandSrc.indexOf("omarchy plugin clone") === -1,
-  "ratmos renames live numbered workspaces so the bar shows the name",
+  "atmosd renames live numbered workspaces so the bar shows the name",
 );

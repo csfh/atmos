@@ -246,11 +246,11 @@ mod tests {
     #[test]
     fn a_missing_tool_is_a_failure_only_if_the_machine_needs_it() {
         let (_, faults) = watching(|| {
-            out("ratmos-no-such-tool", &[]);
-            ok("ratmos-no-such-tool", &[]);
+            out("atmosd-no-such-tool", &[]);
+            ok("atmosd-no-such-tool", &[]);
         });
         assert!(faults.is_empty(), "{faults:?}");
-        let (_, faults) = watching(|| must("ratmos-no-such-tool", &[]));
+        let (_, faults) = watching(|| must("atmosd-no-such-tool", &[]));
         assert_eq!(faults.len(), 1, "{faults:?}");
         let (_, faults) = watching(|| out("omarchy-shell-not-here-hyprctl", &[]));
         assert!(faults.is_empty());

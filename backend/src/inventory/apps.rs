@@ -241,7 +241,7 @@ mod tests {
 
     #[test]
     fn a_directory_is_bucketed_sorted_and_deduplicated() {
-        let dir = std::env::temp_dir().join(format!("ratmos-apps-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("atmosd-apps-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
         let write = |name: &str, body: &str| fs::write(dir.join(name), body).unwrap();

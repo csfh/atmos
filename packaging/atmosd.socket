@@ -3,7 +3,7 @@ Description=Atmos daemon socket: the daemon starts when a window first connects
 Documentation=https://github.com/csfh/atmos
 
 [Socket]
-ListenStream=%t/atmos/ratmos.sock
+ListenStream=%t/atmos/atmosd.sock
 # The window and the daemon run as the same user, and nobody else may connect.
 SocketMode=0600
 DirectoryMode=0700

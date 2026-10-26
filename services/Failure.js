@@ -1,4 +1,4 @@
-// What a failed ratmos call means. The backend answers every request with a
+// What a failed atmosd call means. The backend answers every request with a
 // JSON envelope; on failure it is { ok: false, error: { code, message,
 // context } }. Older callers and scripts still print plain text to stderr, so
 // this module turns either into one string for the error banner. Pure so
@@ -43,11 +43,11 @@ function commandText(err, out) {
   return e || o;
 }
 
-// `ratmos apply` ends with one summary line on stdout:
-//   @@ratmos-apply@@ {"ok":false,"code":3,"message":"...","warnings":[...]}
+// `atmosd apply` ends with one summary line on stdout:
+//   @@atmosd-apply@@ {"ok":false,"code":3,"message":"...","warnings":[...]}
 // `message` is the stderr that is not known noise, so there is no guessing
 // here about which lines matter.
-var APPLY_MARKER = "@@ratmos-apply@@ ";
+var APPLY_MARKER = "@@atmosd-apply@@ ";
 
 // The summary a line carries, or null if it is any other line.
 function applyLine(line) {
@@ -77,7 +77,7 @@ function splitApply(stdout) {
 // What to put in the error banner for an apply that ended. "" means no banner:
 // it succeeded, or it exited non-zero having printed only known noise.
 // `fallback` is the plain stderr/stdout text, used when the backend sent no
-// summary (an older ratmos, or one that was killed).
+// summary (an older atmosd, or one that was killed).
 function applyBanner(result, exitCode, fallback) {
   if (result) {
     if (result.ok === true) return "";

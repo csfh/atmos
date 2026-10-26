@@ -10,16 +10,16 @@ fn main() -> ExitCode {
         .and_then(|a| std::path::Path::new(a).file_name())
         .is_some_and(|n| n == "gum")
     {
-        ratmos::tasks::user::gum_stub(&args[1..]);
+        atmosd::tasks::user::gum_stub(&args[1..]);
     }
     if wants(&args, "serve") {
-        return ExitCode::from(u8::try_from(ratmos::run_serve(&args)).unwrap_or(1));
+        return ExitCode::from(u8::try_from(atmosd::run_serve(&args)).unwrap_or(1));
     }
     let mut stdin = String::new();
     if wants(&args, "request") {
         let _ = io::stdin().read_to_string(&mut stdin);
     }
-    let code = ratmos::run(&args, &stdin, &mut io::stdout(), &mut io::stderr());
+    let code = atmosd::run(&args, &stdin, &mut io::stdout(), &mut io::stderr());
     ExitCode::from(u8::try_from(code).unwrap_or(1))
 }
 
@@ -45,9 +45,9 @@ mod tests {
 
     #[test]
     fn wants_finds_a_command_after_the_program_name() {
-        assert!(wants(&argv(&["ratmos", "request"]), "request"));
+        assert!(wants(&argv(&["atmosd", "request"]), "request"));
         assert!(wants(
-            &argv(&["ratmos", "--root", "/x", "request"]),
+            &argv(&["atmosd", "--root", "/x", "request"]),
             "request"
         ));
     }
@@ -55,14 +55,14 @@ mod tests {
     #[test]
     fn wants_ignores_the_program_name_and_other_commands() {
         assert!(!wants(&argv(&["request"]), "request"));
-        assert!(!wants(&argv(&["ratmos", "snapshot"]), "request"));
-        assert!(!wants(&argv(&["ratmos"]), "request"));
+        assert!(!wants(&argv(&["atmosd", "snapshot"]), "request"));
+        assert!(!wants(&argv(&["atmosd"]), "request"));
         assert!(!wants(&[], "request"));
     }
 
     #[test]
     fn wants_stops_at_the_double_dash() {
-        assert!(!wants(&argv(&["ratmos", "--", "request"]), "request"));
-        assert!(wants(&argv(&["ratmos", "request", "--", "x"]), "request"));
+        assert!(!wants(&argv(&["atmosd", "--", "request"]), "request"));
+        assert!(wants(&argv(&["atmosd", "request", "--", "x"]), "request"));
     }
 }

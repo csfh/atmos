@@ -9,7 +9,7 @@ assert(
 );
 assert(
   themeQml.indexOf("Requests.hostChrome") !== -1 && themeQml.indexOf("Backend.chrome") !== -1,
-  "Theme.qml gets chrome from ratmos, pushed when it changes",
+  "Theme.qml gets chrome from atmosd, pushed when it changes",
 );
 assert(themeQml.indexOf("interval: 800") === -1, "Theme.qml has no 800ms theme poll");
 assert(

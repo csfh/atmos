@@ -60,7 +60,7 @@ mod tests {
     use std::os::unix::fs::PermissionsExt;
 
     fn scratch(name: &str) -> std::path::PathBuf {
-        let dir = std::env::temp_dir().join(format!("ratmos-fsutil-{name}-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("atmosd-fsutil-{name}-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
         dir

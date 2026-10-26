@@ -1,12 +1,12 @@
-//! The daemon's own sampler (`ratmos daemon --with-sampler`, docs/adr/0014).
+//! The daemon's own sampler (`atmosd daemon --with-sampler`, docs/adr/0014).
 //!
 //! Sampling stays in a process of its own, at the lowest priorities, behind the governor
 //! (docs/adr/0002): the daemon answers windows that are waiting for a page and must not be slowed
 //! by it. With the flag the daemon starts that process itself and keeps one alive, which a Bundle
-//! needs, since `oma` starts one program and the units of an install that start `ratmos sampler`
+//! needs, since `oma` starts one program and the units of an install that start `atmosd sampler`
 //! are not there. Without the flag nothing here runs.
 //!
-//! The child is `ratmos sampler --owned`: it ends with this daemon (see `worker::run`), so a
+//! The child is `atmosd sampler --owned`: it ends with this daemon (see `worker::run`), so a
 //! daemon that leaves, or is replaced, takes it along and the next one starts its own.
 
 use std::io;
@@ -14,7 +14,7 @@ use std::process::{Child, Command, Stdio};
 use std::time::{Duration, Instant};
 
 /// How soon after starting one the daemon starts another. A sampler that cannot run at all
-/// (no `ratmos` to start, a runtime directory that is gone) is tried again this often.
+/// (no `atmosd` to start, a runtime directory that is gone) is tried again this often.
 const RESPAWN: Duration = Duration::from_secs(10);
 
 type Spawn = Box<dyn FnMut() -> io::Result<Child> + Send>;
@@ -26,7 +26,7 @@ pub(super) struct OwnedSampler {
 }
 
 impl OwnedSampler {
-    /// Starts `ratmos sampler --owned` with `nice` and, when there is one, `ionice` in front of
+    /// Starts `atmosd sampler --owned` with `nice` and, when there is one, `ionice` in front of
     /// it. Both exec, so the child is the sampler itself and its parent is this daemon.
     pub(super) fn production() -> Self {
         Self::with(Box::new(|| {
@@ -59,11 +59,11 @@ impl OwnedSampler {
         if let Some(child) = &mut self.child {
             match child.try_wait() {
                 Ok(Some(status)) => {
-                    eprintln!("ratmos daemon: its sampler ended ({status})");
+                    eprintln!("atmosd daemon: its sampler ended ({status})");
                     self.child = None;
                 }
                 Ok(None) => {}
-                Err(err) => eprintln!("ratmos daemon: cannot look at its sampler: {err}"),
+                Err(err) => eprintln!("atmosd daemon: cannot look at its sampler: {err}"),
             }
         }
         if connected || self.child.is_some() {
@@ -78,10 +78,10 @@ impl OwnedSampler {
         self.started = Some(now);
         match (self.spawn)() {
             Ok(child) => {
-                eprintln!("ratmos daemon: started its sampler (pid {})", child.id());
+                eprintln!("atmosd daemon: started its sampler (pid {})", child.id());
                 self.child = Some(child);
             }
-            Err(err) => eprintln!("ratmos daemon: cannot start a sampler: {err}"),
+            Err(err) => eprintln!("atmosd daemon: cannot start a sampler: {err}"),
         }
     }
 }
@@ -147,7 +147,7 @@ mod tests {
         let counted = starts.clone();
         let mut keeper = OwnedSampler::with(Box::new(move || {
             counted.fetch_add(1, Ordering::SeqCst);
-            Err(io::Error::new(io::ErrorKind::NotFound, "no ratmos"))
+            Err(io::Error::new(io::ErrorKind::NotFound, "no atmosd"))
         }));
         let t0 = Instant::now();
         for beat in 0..5 {

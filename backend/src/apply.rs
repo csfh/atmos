@@ -1,10 +1,10 @@
-//! `ratmos apply -- CMD ARGS...`: run a host command with its stdin and stdout
+//! `atmosd apply -- CMD ARGS...`: run a host command with its stdin and stdout
 //! left connected, so a job can stream lines and read a password.
 //!
 //! stderr is copied through as it arrives, and also read here. When the
 //! command ends, one more line goes to stdout:
 //!
-//! `@@ratmos-apply@@ {"ok":false,"code":3,"message":"...","warnings":[...]}`
+//! `@@atmosd-apply@@ {"ok":false,"code":3,"message":"...","warnings":[...]}`
 //!
 //! `ok` is the exit code being zero. `message` is the stderr that is not
 //! known noise, so the frontend shows a reason without guessing which lines
@@ -20,7 +20,7 @@ use serde_json::json;
 
 use crate::error::Result;
 
-pub const MARKER: &str = "@@ratmos-apply@@ ";
+pub const MARKER: &str = "@@atmosd-apply@@ ";
 
 /// Lines that programs print on a healthy run. They are not failures.
 const NOISE: &[&str] = &[
@@ -86,14 +86,14 @@ pub fn run(
     stderr: &mut dyn Write,
 ) -> i32 {
     let Some(program) = argv.first() else {
-        let _ = writeln!(stderr, "ratmos: apply needs a command");
+        let _ = writeln!(stderr, "atmosd: apply needs a command");
         return 2;
     };
     if let Some(dir) = root {
         let code = match log_command(dir, argv) {
             Ok(()) => 0,
             Err(err) => {
-                let _ = writeln!(stderr, "ratmos: {err}");
+                let _ = writeln!(stderr, "atmosd: {err}");
                 1
             }
         };
@@ -108,7 +108,7 @@ pub fn run(
         Ok(child) => child,
         Err(err) => {
             let line = format!("{program}: {err}");
-            let _ = writeln!(stderr, "ratmos: {line}");
+            let _ = writeln!(stderr, "atmosd: {line}");
             finish(stdout, 1, &[line]);
             return 1;
         }

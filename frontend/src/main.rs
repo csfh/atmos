@@ -1,4 +1,4 @@
-//! `atmos-ui`: the Atmos window on ODK. It keeps one `ratmos serve` for as long as it lives.
+//! `atmos-ui`: the Atmos window on ODK. It keeps one `atmosd serve` for as long as it lives.
 
 use atmos_ui::app::Atmos;
 use atmos_ui::client::{Client, ServeProcess};

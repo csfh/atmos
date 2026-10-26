@@ -1,7 +1,7 @@
-//! The systemd user units that run `ratmos daemon` and `ratmos sampler`, and
+//! The systemd user units that run `atmosd daemon` and `atmosd sampler`, and
 //! the socket that starts the daemon when a window first connects.
 //!
-//! `ratmos install` and `update` write them and restart them, so the daemon is
+//! `atmosd install` and `update` write them and restart them, so the daemon is
 //! never older than the app. A packaged install turns them on with
 //! `atmos --setup`, like the Hyprland drop-in. Everything here is best
 //! effort: without a systemd user session Atmos still works, it just collects
@@ -23,20 +23,20 @@ struct Unit {
 /// which is `PartOf` the daemon and connects to its socket.
 const UNITS: [Unit; 3] = [
     Unit {
-        name: "ratmos.socket",
-        template: include_str!("../../../packaging/ratmos.socket"),
+        name: "atmosd.socket",
+        template: include_str!("../../../packaging/atmosd.socket"),
         // No program: systemd listens, the daemon is started on a connection.
         exec: "",
     },
     Unit {
-        name: "ratmos.service",
-        template: include_str!("../../../packaging/ratmos.service"),
-        exec: "ExecStart=ratmos daemon\n",
+        name: "atmosd.service",
+        template: include_str!("../../../packaging/atmosd.service"),
+        exec: "ExecStart=atmosd daemon\n",
     },
     Unit {
-        name: "ratmos-sampler.service",
-        template: include_str!("../../../packaging/ratmos-sampler.service"),
-        exec: "ExecStart=ratmos sampler\n",
+        name: "atmosd-sampler.service",
+        template: include_str!("../../../packaging/atmosd-sampler.service"),
+        exec: "ExecStart=atmosd sampler\n",
     },
 ];
 
@@ -59,12 +59,12 @@ fn exec_word(path: &Path) -> String {
     format!("\"{escaped}\"")
 }
 
-/// The unit text with `ExecStart` pointing at the installed ratmos.
+/// The unit text with `ExecStart` pointing at the installed atmosd.
 fn render(unit: &Unit, exe: &Path) -> String {
     if unit.exec.is_empty() {
         return unit.template.to_string();
     }
-    let subcommand = unit.exec.trim_start_matches("ExecStart=ratmos ");
+    let subcommand = unit.exec.trim_start_matches("ExecStart=atmosd ");
     unit.template.replacen(
         unit.exec,
         &format!("ExecStart={} {subcommand}", exec_word(exe)),
@@ -74,7 +74,7 @@ fn render(unit: &Unit, exe: &Path) -> String {
 
 /// A daemon a window started on its own (`sampler::launch`). It holds the
 /// socket and the lock, so the unit's daemon could not start beside it.
-const ADHOC: &str = "ratmos-adhoc.service";
+const ADHOC: &str = "atmosd-adhoc.service";
 
 /// Run `systemctl --user` and say nothing when it fails: stopping a unit that
 /// is not loaded is the usual case.
@@ -153,15 +153,15 @@ mod tests {
 
     #[test]
     fn the_socket_is_the_one_the_daemon_serves_and_is_private() {
-        let text = unit("ratmos.socket").template;
-        assert!(text.contains("ListenStream=%t/atmos/ratmos.sock"));
+        let text = unit("atmosd.socket").template;
+        assert!(text.contains("ListenStream=%t/atmos/atmosd.sock"));
         assert!(text.contains("SocketMode=0600") && text.contains("DirectoryMode=0700"));
         assert!(text.contains("WantedBy=sockets.target"));
-        let service = unit("ratmos.service").template;
-        assert!(service.contains("Requires=ratmos.socket"));
-        assert!(service.contains("After=ratmos.socket"));
+        let service = unit("atmosd.service").template;
+        assert!(service.contains("Requires=atmosd.socket"));
+        assert!(service.contains("After=atmosd.socket"));
         assert_eq!(
-            render(unit("ratmos.socket"), Path::new("/x/ratmos")),
+            render(unit("atmosd.socket"), Path::new("/x/atmosd")),
             text,
             "a socket has no ExecStart to point at the binary"
         );
@@ -169,7 +169,7 @@ mod tests {
 
     #[test]
     fn the_daemon_unit_never_runs_idle_because_it_answers_windows() {
-        let text = unit("ratmos.service").template;
+        let text = unit("atmosd.service").template;
         for line in ["Nice=15", "CPUWeight=20", "IOSchedulingPriority=7"] {
             assert!(text.contains(line), "{line}");
         }
@@ -180,7 +180,7 @@ mod tests {
 
     #[test]
     fn the_sampler_unit_is_idle_weightless_and_capped() {
-        let text = unit("ratmos-sampler.service").template;
+        let text = unit("atmosd-sampler.service").template;
         for line in [
             "CPUSchedulingPolicy=idle",
             "IOSchedulingClass=idle",
@@ -194,25 +194,25 @@ mod tests {
 
     #[test]
     fn the_sampler_lives_and_dies_with_the_daemon() {
-        let text = unit("ratmos-sampler.service").template;
-        assert!(text.contains("After=ratmos.service"));
-        assert!(text.contains("PartOf=ratmos.service"));
-        assert!(text.contains("WantedBy=ratmos.service"));
+        let text = unit("atmosd-sampler.service").template;
+        assert!(text.contains("After=atmosd.service"));
+        assert!(text.contains("PartOf=atmosd.service"));
+        assert!(text.contains("WantedBy=atmosd.service"));
     }
 
     #[test]
     fn render_points_each_exec_start_at_the_installed_binary() {
-        let exe = Path::new("/home/me/.local/share/atmos/bin/ratmos");
-        let daemon = render(unit("ratmos.service"), exe);
-        assert!(daemon.contains("ExecStart=\"/home/me/.local/share/atmos/bin/ratmos\" daemon\n"));
-        let sampler = render(unit("ratmos-sampler.service"), exe);
-        assert!(sampler.contains("ExecStart=\"/home/me/.local/share/atmos/bin/ratmos\" sampler\n"));
-        assert!(!daemon.contains("ExecStart=ratmos") && !sampler.contains("ExecStart=ratmos"));
+        let exe = Path::new("/home/me/.local/share/atmos/bin/atmosd");
+        let daemon = render(unit("atmosd.service"), exe);
+        assert!(daemon.contains("ExecStart=\"/home/me/.local/share/atmos/bin/atmosd\" daemon\n"));
+        let sampler = render(unit("atmosd-sampler.service"), exe);
+        assert!(sampler.contains("ExecStart=\"/home/me/.local/share/atmos/bin/atmosd\" sampler\n"));
+        assert!(!daemon.contains("ExecStart=atmosd") && !sampler.contains("ExecStart=atmosd"));
     }
 
     #[test]
     fn render_survives_spaces_and_specifiers() {
-        let text = render(unit("ratmos.service"), Path::new("/home/a b/50%/ra$mos"));
+        let text = render(unit("atmosd.service"), Path::new("/home/a b/50%/ra$mos"));
         assert!(
             text.contains("ExecStart=\"/home/a b/50%%/ra$$mos\" daemon\n"),
             "{text}"

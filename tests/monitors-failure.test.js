@@ -2,7 +2,7 @@
 // leaves the monitors key out (and the three flags derived from it), so the
 // window keeps the list it has. A real empty list still comes through.
 const { assert, assertEqual } = require("./harness");
-const { createSandbox, ratmosBinary } = require("./sandbox");
+const { createSandbox, atmosdBinary } = require("./sandbox");
 
 const MONITOR = JSON.stringify([
   {
@@ -28,7 +28,7 @@ function lookSnapshot(monitorsReply) {
     },
   });
   try {
-    const run = box.spawn(ratmosBinary(), ["request"], {
+    const run = box.spawn(atmosdBinary(), ["request"], {
       input: JSON.stringify({ op: "settings.snapshot", group: "look" }),
     });
     assertEqual(run.status, 0, `snapshot exits 0: ${run.err}`);

@@ -1,4 +1,4 @@
-//! Background collection runs in its own process, `ratmos sampler`, under its
+//! Background collection runs in its own process, `atmosd sampler`, under its
 //! own systemd unit with idle scheduling and a CPU quota. The daemon decides
 //! what to collect and when; the worker only collects what it is told.
 //!
@@ -174,7 +174,7 @@ pub fn serve_jobs(stream: UnixStream, collect: &dyn Fn(&str) -> Reply) -> std::i
     Ok(())
 }
 
-/// `ratmos sampler [--owned]`: stay connected to the daemon and collect for it, going back to
+/// `atmosd sampler [--owned]`: stay connected to the daemon and collect for it, going back to
 /// waiting for one whenever the daemon goes.
 ///
 /// Owned, which is how a daemon with `--with-sampler` starts it (docs/adr/0014), it leaves with
@@ -182,13 +182,13 @@ pub fn serve_jobs(stream: UnixStream, collect: &dyn Fn(&str) -> Reply) -> std::i
 /// longer its parent. Left to itself it would wait for the next daemon for ever, and a daemon
 /// that was replaced would find the old sampler still there and start a second beside it.
 pub fn run(owned: bool) -> Result<i32> {
-    let dir = cache::dir_from_env().ok_or("ratmos sampler needs XDG_RUNTIME_DIR")?;
+    let dir = cache::dir_from_env().ok_or("atmosd sampler needs XDG_RUNTIME_DIR")?;
     let socket = cache::socket(&dir);
     let parent = std::os::unix::process::parent_id();
-    eprintln!("ratmos sampler {} waiting for the daemon", crate::VERSION);
+    eprintln!("atmosd sampler {} waiting for the daemon", crate::VERSION);
     loop {
         if owned && std::os::unix::process::parent_id() != parent {
-            eprintln!("ratmos sampler: its daemon is gone; leaving");
+            eprintln!("atmosd sampler: its daemon is gone; leaving");
             return Ok(0);
         }
         if let Ok(stream) = UnixStream::connect(&socket) {
@@ -197,10 +197,10 @@ pub fn run(owned: bool) -> Result<i32> {
                     .map_err(|err| err.to_string())
             });
             if let Err(err) = result {
-                eprintln!("ratmos sampler: lost the daemon: {err}");
+                eprintln!("atmosd sampler: lost the daemon: {err}");
             }
             if owned {
-                eprintln!("ratmos sampler: its daemon is gone; leaving");
+                eprintln!("atmosd sampler: its daemon is gone; leaving");
                 return Ok(0);
             }
         }

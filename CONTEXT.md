@@ -28,11 +28,11 @@
 
 **Sentinel** — `-- atmos:look|input|autostart|bindings|windows|workspaces|monitors begin/end` blocks in Hypr Lua. Not the Sentinel hub.
 
-**Sentinel hub** — The hub that flags processes over a CPU or memory limit and listening ports held by long-running processes. Unrelated to the Hypr Lua blocks above and to `ratmos sentinel`.
+**Sentinel hub** — The hub that flags processes over a CPU or memory limit and listening ports held by long-running processes. Unrelated to the Hypr Lua blocks above and to `atmosd sentinel`.
 
 **hypr.atmos** — `~/.config/hypr/atmos.lua`, required as `hypr.atmos` next to `hypr.omafetch`, before `default.hypr.toggles`.
 
-**ATMOS_SKIP_HYPR** — Shell env that skips Hypr writes. Read by `ratmos` (`tasks::user`, `settings-apply`), not by JS.
+**ATMOS_SKIP_HYPR** — Shell env that skips Hypr writes. Read by `atmosd` (`tasks::user`, `settings-apply`), not by JS.
 
 **Writer lock** — Concurrent Atmos windows serialize on disk. `backend/src/hyprland` takes a per-destination flock sidecar (`store::with_lock`), merges `_patch` onto the on-disk block, and publishes with atomic rename. The `shell.json` writers (idle, bar widgets) share `shell.json.atmos.lock`. The remaining writers (env, hyprsunset, nightlight, presentation, tweaks, avatar) lock and publish atomically. Watchers on `gtkSettingsFile` / `swappinessFile` and a second `envFile`→rest watch keep open windows in sync.
 
@@ -42,21 +42,21 @@
 
 **SnapshotGroups.KEYS** — The snapshot keys the window mirrors. Which topic holds a key is the backend's (`backend/src/snapshot/topics.rs`).
 
-**Backend (QML)** — `services/Backend.qml`, the one connection to `ratmos`. It owns a single `ratmos serve` process, `request(body, callback)`, and `watch(owner, spec)`. If the server cannot run it falls back to one process per request and a once-a-second poll. Builders for every request live in `services/Requests.js`; the line protocol is `services/BackendProtocol.js`.
+**Backend (QML)** — `services/Backend.qml`, the one connection to `atmosd`. It owns a single `atmosd serve` process, `request(body, callback)`, and `watch(owner, spec)`. If the server cannot run it falls back to one process per request and a once-a-second poll. Builders for every request live in `services/Requests.js`; the line protocol is `services/BackendProtocol.js`.
 
-**ratmos serve** — Long-lived NDJSON server: `{id, op, ...}` in, `{id, ok, result|error}` out. Each request runs on its own thread. `watch.set` subscribes to file stamps, theme chrome, and accounts; the server pushes `{event, result}` only when they change. One process per window, so concurrent windows stay independent.
+**atmosd serve** — Long-lived NDJSON server: `{id, op, ...}` in, `{id, ok, result|error}` out. Each request runs on its own thread. `watch.set` subscribes to file stamps, theme chrome, and accounts; the server pushes `{event, result}` only when they change. One process per window, so concurrent windows stay independent.
 
-**Envelope** — Every ratmos answer: `{ok, version, platform, result}` or `{ok:false, error:{code, message, context}}`. `code` is one of `bad_request`, `not_found`, `denied`, `io`, `command`, `timeout`, `failed`. `services/Failure.js` turns either shape into banner text.
+**Envelope** — Every atmosd answer: `{ok, version, platform, result}` or `{ok:false, error:{code, message, context}}`. `code` is one of `bad_request`, `not_found`, `denied`, `io`, `command`, `timeout`, `failed`. `services/Failure.js` turns either shape into banner text.
 
 **Confine** — `host.read|write|open` accept only paths under `$HOME` (or the fixture root), with no `..` and no symlink out.
 
-**IoQueue** — `services/IoQueue.qml`. The queue that serialises writes and reads, and the processes for jobs that are not plain backend requests (`ratmos apply` for argv writes and streaming jobs, plus blocking interactive tools). It starts a job and reports how it ended through signals; Omarchy does the domain work and calls `finished()`.
+**IoQueue** — `services/IoQueue.qml`. The queue that serialises writes and reads, and the processes for jobs that are not plain backend requests (`atmosd apply` for argv writes and streaming jobs, plus blocking interactive tools). It starts a job and reports how it ended through signals; Omarchy does the domain work and calls `finished()`.
 
 **SnapshotStore** — `services/SnapshotStore.qml`. Batches the window's asks to read topics again (`snapshot.invalidate`). **SnapshotFeed** (`SnapshotFeed.qml`) holds the five settings topics and applies what the daemon pushes; **DisplayFeed** does the same for the five inventories.
 
 **Paths** — `services/Paths.qml`. Every file, directory, and script path Atmos touches.
 
-**apply summary** — `ratmos apply` ends with one stdout line `@@ratmos-apply@@ {ok, code, message, warnings}`. `message` is stderr that is not known noise. `Failure.applyBanner` turns it into banner text.
+**apply summary** — `atmosd apply` ends with one stdout line `@@atmosd-apply@@ {ok, code, message, warnings}`. `message` is stderr that is not known noise. `Failure.applyBanner` turns it into banner text.
 
 **SettingTable** — `services/SettingTable.js`. Settings that need only "skip a no-op, then send it", written with `Omarchy.set(key, value)`. Settings with a rule of their own keep a named setter.
 

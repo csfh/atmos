@@ -1,4 +1,4 @@
-//! The wire format of `ratmos serve` (docs/protocol.md): the bodies the window sends, one JSON
+//! The wire format of `atmosd serve` (docs/protocol.md): the bodies the window sends, one JSON
 //! line each, and what comes back, a reply to a request or an event the server pushes.
 //!
 //! The window builds no command line. It names an op, and the backend checks the arguments.

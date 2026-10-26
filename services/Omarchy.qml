@@ -655,7 +655,7 @@ QtObject {
   function scriptOpts() {
     return {
       root: shellDir,
-      ratmos: Backend.bin
+      atmosd: Backend.bin
     }
   }
 

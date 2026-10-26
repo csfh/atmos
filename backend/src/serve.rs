@@ -1,4 +1,4 @@
-//! `ratmos serve`: one long-lived process per window instead of one fork per
+//! `atmosd serve`: one long-lived process per window instead of one fork per
 //! call.
 //!
 //! The wire format is newline-delimited JSON on stdin and stdout.

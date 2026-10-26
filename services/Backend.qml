@@ -4,7 +4,7 @@ import Quickshell
 import Quickshell.Io
 import "BackendProtocol.js" as Protocol
 
-// The one connection to ratmos. A single `ratmos serve` process answers
+// The one connection to atmosd. A single `atmosd serve` process answers
 // requests and pushes what it watches, so the app does not fork a process for
 // every poll. Nothing works without the daemon behind it (docs/adr/0010): when
 // the server or the daemon is not there, a request is refused as unavailable,
@@ -23,7 +23,7 @@ QtObject {
   readonly property string bin: {
     var fromEnv = String(Quickshell.env("ATMOS_BACKEND") || "")
     if (fromEnv.length > 0) return fromEnv
-    return String(Quickshell.shellDir || "") + "/bin/ratmos"
+    return String(Quickshell.shellDir || "") + "/bin/atmosd"
   }
   readonly property string platformId: {
     var fromEnv = String(Quickshell.env("ATMOS_BACKEND_ID") || "")
@@ -338,7 +338,7 @@ QtObject {
     }
     // Without a parser Quickshell drops the backend's stderr, and with it the reason for a failed read.
     stderr: SplitParser {
-      onRead: function(line) { console.warn("ratmos: " + line) }
+      onRead: function(line) { console.warn("atmosd: " + line) }
     }
     onStarted: root.onServeStarted()
     onExited: function(code) { root.onServeExited(code) }

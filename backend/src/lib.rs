@@ -1,4 +1,4 @@
-//! ratmos serves Atmos settings and display data.
+//! atmosd serves Atmos settings and display data.
 //!
 //! `main` calls [`run`]. Quickshell sends the same requests for every system
 //! backend. Omarchy writes the Hyprland drop-ins, shell config, and the other
@@ -49,7 +49,7 @@ pub fn run(args: &[String], stdin: &str, stdout: &mut dyn Write, stderr: &mut dy
     match dispatch(args, stdin, stdout, stderr) {
         Ok(code) => code,
         Err(err) => {
-            let _ = writeln!(stderr, "ratmos: {err}");
+            let _ = writeln!(stderr, "atmosd: {err}");
             1
         }
     }
@@ -229,25 +229,25 @@ fn dispatch(
             Ok(0)
         }
         "" => {
-            let _ = writeln!(stderr, "ratmos: missing command");
+            let _ = writeln!(stderr, "atmosd: missing command");
             usage(stderr);
             Ok(2)
         }
         other => {
-            let _ = writeln!(stderr, "ratmos: unknown command {other}");
+            let _ = writeln!(stderr, "atmosd: unknown command {other}");
             usage(stderr);
             Ok(2)
         }
     }
 }
 
-/// `ratmos serve`: read requests from stdin until it closes. Not part of `run`
+/// `atmosd serve`: read requests from stdin until it closes. Not part of `run`
 /// because it streams instead of reading one document.
 pub fn run_serve(args: &[String]) -> i32 {
     let parsed = match parse_args(args) {
         Ok(parsed) => parsed,
         Err(err) => {
-            eprintln!("ratmos: {err}");
+            eprintln!("atmosd: {err}");
             return 2;
         }
     };
@@ -622,7 +622,7 @@ fn write_json(stdout: &mut dyn Write, value: &Value) -> Result<()> {
 fn usage(stderr: &mut dyn Write) {
     let _ = writeln!(
         stderr,
-        "usage: ratmos [--backend omarchy|plain] [--root DIR] <snapshot|request|display KIND|display-snapshot|apply -- CMD|daemon|sampler|version>"
+        "usage: atmosd [--backend omarchy|plain] [--root DIR] <snapshot|request|display KIND|display-snapshot|apply -- CMD|daemon|sampler|version>"
     );
 }
 
@@ -638,12 +638,12 @@ mod tests {
     fn scratch(tag: &str) -> PathBuf {
         static MADE: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
         let n = MADE.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-        std::env::temp_dir().join(format!("ratmos-lib-{tag}-{n}-{}", std::process::id()))
+        std::env::temp_dir().join(format!("atmosd-lib-{tag}-{n}-{}", std::process::id()))
     }
 
     #[test]
     fn no_flags_means_omarchy_and_no_root() {
-        let parsed = parse_args(&argv(&["ratmos", "snapshot", "look"]))
+        let parsed = parse_args(&argv(&["atmosd", "snapshot", "look"]))
             .ok()
             .unwrap();
         assert_eq!(parsed.backend, Backend::Omarchy);
@@ -657,7 +657,7 @@ mod tests {
         let root = scratch("flags");
         let root_arg = root.display().to_string();
         let parsed = parse_args(&argv(&[
-            "ratmos",
+            "atmosd",
             "--backend",
             "plain",
             "request",
@@ -678,7 +678,7 @@ mod tests {
         let root = scratch("create").join("nested");
         let root_arg = root.display().to_string();
         assert!(!root.exists());
-        parse_args(&argv(&["ratmos", "--root", &root_arg, "version"]))
+        parse_args(&argv(&["atmosd", "--root", &root_arg, "version"]))
             .ok()
             .unwrap();
         assert!(root.is_dir());
@@ -688,19 +688,19 @@ mod tests {
     #[test]
     fn a_flag_without_its_value_is_an_error() {
         for flag in ["--backend", "--root"] {
-            assert!(parse_args(&argv(&["ratmos", flag])).is_err(), "{flag}");
+            assert!(parse_args(&argv(&["atmosd", flag])).is_err(), "{flag}");
         }
     }
 
     #[test]
     fn an_unknown_flag_or_backend_is_an_error() {
-        assert!(parse_args(&argv(&["ratmos", "--nope", "version"])).is_err());
-        assert!(parse_args(&argv(&["ratmos", "--backend", "windows", "version"])).is_err());
+        assert!(parse_args(&argv(&["atmosd", "--nope", "version"])).is_err());
+        assert!(parse_args(&argv(&["atmosd", "--backend", "windows", "version"])).is_err());
     }
 
     #[test]
     fn double_dash_turns_the_rest_into_positionals() {
-        let parsed = parse_args(&argv(&["ratmos", "run", "--", "--root", "x"]))
+        let parsed = parse_args(&argv(&["atmosd", "run", "--", "--root", "x"]))
             .ok()
             .unwrap();
         assert_eq!(parsed.command, "run");
@@ -710,7 +710,7 @@ mod tests {
 
     #[test]
     fn no_command_is_an_empty_command() {
-        let parsed = parse_args(&argv(&["ratmos"])).ok().unwrap();
+        let parsed = parse_args(&argv(&["atmosd"])).ok().unwrap();
         assert_eq!(parsed.command, "");
         assert!(parsed.rest.is_empty());
     }

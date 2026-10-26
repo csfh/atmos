@@ -1,4 +1,4 @@
-// Every request the frontend can send to ratmos, one builder each. Callers
+// Every request the frontend can send to atmosd, one builder each. Callers
 // build a body here and hand it to Backend.request, so an op name is spelled
 // in one place. tests/requests.test.js checks this list against the ops the
 // Rust backend accepts.

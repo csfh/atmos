@@ -2,7 +2,7 @@ const { spawnSync } = require("child_process");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
-const { ratmosBinary } = require("./sandbox");
+const { atmosdBinary } = require("./sandbox");
 const { load, assert, assertEqual, canon } = require("./harness");
 
 const rules = load("services/WindowRules.js");
@@ -99,19 +99,19 @@ assert(
       hyprland,
       'require("default.hypr.omarchy")\nrequire("hypr.atmos")\nrequire("default.hypr.toggles")\n',
     );
-    const result = spawnSync(ratmosBinary(), ["sentinel", "require", "apply", hyprland], {
+    const result = spawnSync(atmosdBinary(), ["sentinel", "require", "apply", hyprland], {
       encoding: "utf8",
     });
-    assertEqual(result.status, 0, "ratmos sentinel require apply exits 0");
+    assertEqual(result.status, 0, "atmosd sentinel require apply exits 0");
     const written = fs.readFileSync(hyprland, "utf8");
     assert(
       written.indexOf('require("hypr.atmos_layout")\nrequire("default.hypr.omarchy")') !== -1,
-      "ratmos sentinel require apply inserts atmos_layout before Omarchy defaults",
+      "atmosd sentinel require apply inserts atmos_layout before Omarchy defaults",
     );
     const layoutFile = fs.readFileSync(path.join(dir, "atmos_layout.lua"), "utf8");
     assert(
       layoutFile.indexOf("togglesplit") !== -1,
-      "ratmos sentinel require apply writes atmos_layout.lua",
+      "atmosd sentinel require apply writes atmos_layout.lua",
     );
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
@@ -143,44 +143,44 @@ assert(
       '-- Float and center the Atmos window.\no.window("dev.csfh.atmos", { float = true })\no.window("dev.csfh.atmos", { center = true })\no.window("dev.csfh.atmos", { size = { 960, 680 } })\n',
     );
     const result = spawnSync(
-      ratmosBinary(),
+      atmosdBinary(),
       ["sentinel", "windows", "apply", lua, '{"items":[]}'],
       { encoding: "utf8" },
     );
-    assertEqual(result.status, 0, "ratmos sentinel windows apply exits 0");
+    assertEqual(result.status, 0, "atmosd sentinel windows apply exits 0");
     const written = fs.readFileSync(lua, "utf8");
     assert(
       written.indexOf('o.window("dev.csfh.atmos", { tile = true })') !== -1 &&
         written.indexOf("float = true") === -1,
-      "ratmos sentinel windows apply migrates the float seed to tile",
+      "atmosd sentinel windows apply migrates the float seed to tile",
     );
     fs.writeFileSync(lua, '-- mine\no.window("dev.csfh.atmos", { float = true })\n');
     const custom = spawnSync(
-      ratmosBinary(),
+      atmosdBinary(),
       ["sentinel", "windows", "apply", lua, '{"items":[]}'],
       { encoding: "utf8" },
     );
-    assertEqual(custom.status, 0, "ratmos sentinel windows apply exits 0 on custom rules");
+    assertEqual(custom.status, 0, "atmosd sentinel windows apply exits 0 on custom rules");
     assert(
       fs.readFileSync(lua, "utf8").indexOf("float = true") !== -1,
-      "ratmos sentinel windows apply keeps a customized float rule",
+      "atmosd sentinel windows apply keeps a customized float rule",
     );
     fs.writeFileSync(
       lua,
       '-- Float and center the Atmos window.\n-- Install as ~/.config/hypr/atmos.lua and require("hypr.atmos")\n-- from hyprland.lua next to require("hypr.omafetch"), before toggles.\no.window("dev.csfh.atmos", { float = true })\no.window("dev.csfh.atmos", { center = true })\no.window("dev.csfh.atmos", { size = { 960, 680 } })\n',
     );
     const headed = spawnSync(
-      ratmosBinary(),
+      atmosdBinary(),
       ["sentinel", "windows", "apply", lua, '{"items":[]}'],
       { encoding: "utf8" },
     );
-    assertEqual(headed.status, 0, "ratmos sentinel windows apply exits 0 on a packaged header");
+    assertEqual(headed.status, 0, "atmosd sentinel windows apply exits 0 on a packaged header");
     const headedText = fs.readFileSync(lua, "utf8");
     assert(
       headedText.indexOf('o.window("dev.csfh.atmos", { tile = true })') !== -1 &&
         headedText.indexOf("float = true") === -1 &&
         headedText.indexOf('require("hypr.atmos")') !== -1,
-      "ratmos sentinel windows apply migrates under packaging comments",
+      "atmosd sentinel windows apply migrates under packaging comments",
     );
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
@@ -248,10 +248,10 @@ function pythonList(kind, text) {
   let parsed = [];
   try {
     fs.writeFileSync(file, text);
-    const result = spawnSync(ratmosBinary(), ["sentinel", kind, "list", file], {
+    const result = spawnSync(atmosdBinary(), ["sentinel", kind, "list", file], {
       encoding: "utf8",
     });
-    assertEqual(result.status, 0, "ratmos sentinel " + kind + " list exits 0");
+    assertEqual(result.status, 0, "atmosd sentinel " + kind + " list exits 0");
     parsed = JSON.parse(result.stdout);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
@@ -262,7 +262,7 @@ function pythonList(kind, text) {
 assertEqual(
   canon(pythonList("windows", commentedWindows)),
   canon(liveWindows),
-  "ratmos sentinel windows list matches parseFile on commented examples",
+  "atmosd sentinel windows list matches parseFile on commented examples",
 );
 
 const innerCommentWindows = `
@@ -285,7 +285,7 @@ assertEqual(
 assertEqual(
   canon(pythonList("windows", innerCommentWindows)),
   canon(innerWindows),
-  "ratmos sentinel windows list matches parseFile on comments inside calls",
+  "atmosd sentinel windows list matches parseFile on comments inside calls",
 );
 
 assertEqual(
@@ -313,7 +313,7 @@ assertEqual(
 assertEqual(
   canon(pythonList("windows", luaEscapesWindows)),
   canon(luaEscapesWindowParsed),
-  "ratmos sentinel windows list matches parseFile on Lua string escapes",
+  "atmosd sentinel windows list matches parseFile on Lua string escapes",
 );
 
 // The opaque-windows flag lives in the managed block next to the rules. A
@@ -323,7 +323,7 @@ assertEqual(
   const lua = path.join(dir, "atmos.lua");
   const windowsApply = (body) => {
     const run = spawnSync(
-      ratmosBinary(),
+      atmosdBinary(),
       ["sentinel", "windows", "apply", lua, JSON.stringify(body)],
       {
         encoding: "utf8",
@@ -352,12 +352,12 @@ assertEqual(
   assertEqual(
     canon(listed),
     canon(rules.parseFile(on)),
-    "parseFile skips the override line like ratmos sentinel does",
+    "parseFile skips the override line like atmosd sentinel does",
   );
 
   assertEqual(windowsApply({ windowOpaque: false }), base, "turning it off restores the block");
   windowsApply({ windowOpaque: true });
-  const reset = spawnSync(ratmosBinary(), ["sentinel", "windows", "reset", lua], {
+  const reset = spawnSync(atmosdBinary(), ["sentinel", "windows", "reset", lua], {
     encoding: "utf8",
   });
   assertEqual(reset.status, 0, "windows reset exits 0");

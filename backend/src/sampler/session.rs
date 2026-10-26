@@ -306,12 +306,12 @@ pub(super) fn exit_when_stale(dir: PathBuf, jobs: Arc<super::jobs::Jobs>) {
             continue;
         }
         if !dir.join("daemon.lock").exists() {
-            eprintln!("ratmos daemon: {} is gone; leaving", dir.display());
+            eprintln!("atmosd daemon: {} is gone; leaving", dir.display());
             std::process::exit(0);
         }
         if let (Some(exe), Some(started)) = (&exe, &started) {
             if super::launch::identity(exe).as_ref() != Some(started) {
-                eprintln!("ratmos daemon: {} was replaced; leaving", exe.display());
+                eprintln!("atmosd daemon: {} was replaced; leaving", exe.display());
                 std::process::exit(0);
             }
         }

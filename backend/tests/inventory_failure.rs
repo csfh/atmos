@@ -28,7 +28,7 @@ impl Fakes {
     }
 
     fn get(&self, kind: &str) -> Value {
-        let mut child = Command::new(env!("CARGO_BIN_EXE_ratmos"))
+        let mut child = Command::new(env!("CARGO_BIN_EXE_atmosd"))
             .args(["--backend", "omarchy", "request"])
             .env_clear()
             .env(

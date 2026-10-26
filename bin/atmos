@@ -1,12 +1,12 @@
 #!/bin/bash
-# Open Atmos. The launch itself is `ratmos launch`; this only finds the binary.
+# Open Atmos. The launch itself is `atmosd launch`; this only finds the binary.
 set -euo pipefail
 
 ROOT=$(cd -- "$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")/.." && pwd)
-for candidate in "${ATMOS_BACKEND:-}" "$ROOT/bin/ratmos" "$ROOT/backend/target/release/ratmos" "$ROOT/backend/target/debug/ratmos"; do
+for candidate in "${ATMOS_BACKEND:-}" "$ROOT/bin/atmosd" "$ROOT/backend/target/release/atmosd" "$ROOT/backend/target/debug/atmosd"; do
   if [[ -n $candidate && -x $candidate ]]; then
     ATMOS_ROOT=$ROOT exec "$candidate" launch "$@"
   fi
 done
-echo "atmos: missing ratmos. Build it with: cargo build --release --manifest-path \"$ROOT/backend/Cargo.toml\"" >&2
+echo "atmos: missing atmosd. Build it with: cargo build --release --manifest-path \"$ROOT/backend/Cargo.toml\"" >&2
 exit 1

@@ -19,11 +19,11 @@ if [[ -z ${WAYLAND_DISPLAY:-} ]]; then
   exit 0
 fi
 
-if [[ -x $root/bin/ratmos ]]; then
-  backend=$root/bin/ratmos
+if [[ -x $root/bin/atmosd ]]; then
+  backend=$root/bin/atmosd
 else
   (cd "$root/backend" && cargo build --quiet)
-  backend=$root/backend/target/debug/ratmos
+  backend=$root/backend/target/debug/atmosd
 fi
 
 log=$(mktemp)
@@ -57,24 +57,24 @@ fi
 
 # One serve per window, and no per-poll request processes. Count children of
 # this app only, so another running Atmos does not confuse the check.
-serves=$({ pgrep -P "$app" -f 'ratmos .*serve' || true; } | wc -l)
+serves=$({ pgrep -P "$app" -f 'atmosd .*serve' || true; } | wc -l)
 if [[ $serves -eq 1 ]]; then
-  echo "ok - one ratmos serve process"
+  echo "ok - one atmosd serve process"
 else
-  echo "not ok - expected one ratmos serve process, found $serves"
+  echo "not ok - expected one atmosd serve process, found $serves"
   fail=1
 fi
 
 requests=0
 for _ in 1 2 3 4 5; do
-  count=$({ pgrep -P "$app" -f 'ratmos .* request' || true; } | wc -l)
+  count=$({ pgrep -P "$app" -f 'atmosd .* request' || true; } | wc -l)
   requests=$((requests + count))
   sleep 1
 done
 if [[ $requests -eq 0 ]]; then
-  echo "ok - no one-shot ratmos requests while idle"
+  echo "ok - no one-shot atmosd requests while idle"
 else
-  echo "not ok - $requests one-shot ratmos requests while idle"
+  echo "not ok - $requests one-shot atmosd requests while idle"
   fail=1
 fi
 

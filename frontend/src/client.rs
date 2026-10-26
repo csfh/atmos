@@ -1,4 +1,4 @@
-//! The one connection to ratmos: a single `ratmos serve` per window, as `services/Backend.qml`
+//! The one connection to atmosd: a single `atmosd serve` per window, as `services/Backend.qml`
 //! keeps today (docs/adr/0008, 0010, 0012).
 //!
 //! A request returns a future that resolves exactly once, with the reply or with `unavailable`.
@@ -54,7 +54,7 @@ pub trait Transport: Send + 'static {
     fn open(&mut self) -> io::Result<Connection>;
 }
 
-/// `ratmos [--backend ID] [extra...] serve`, with its stderr passed on to ours.
+/// `atmosd [--backend ID] [extra...] serve`, with its stderr passed on to ours.
 pub struct ServeProcess {
     program: PathBuf,
     args: Vec<OsString>,
@@ -80,8 +80,8 @@ impl ServeProcess {
     }
 
     /// Where the QML window finds it (`bin/atmos`, `Backend.qml`): `ATMOS_BACKEND`, then the
-    /// `bin/ratmos` of the Bundle this program is in (see [`ServeProcess::choose`]), then the app
-    /// root's `bin/ratmos` and `backend/target/{release,debug}/ratmos`, then `ratmos` on PATH.
+    /// `bin/atmosd` of the Bundle this program is in (see [`ServeProcess::choose`]), then the app
+    /// root's `bin/atmosd` and `backend/target/{release,debug}/atmosd`, then `atmosd` on PATH.
     /// The backend id is `ATMOS_BACKEND_ID`, `omarchy` by default.
     pub fn from_env() -> Self {
         let var = |name: &str| std::env::var_os(name).filter(|v| !v.is_empty());
@@ -93,7 +93,7 @@ impl ServeProcess {
         )
     }
 
-    /// The `ratmos` to run. One named by `explicit` wins. Next is `bin/ratmos` beside this
+    /// The `atmosd` to run. One named by `explicit` wins. Next is `bin/atmosd` beside this
     /// program's own executable, which is where the Bundle holds it (docs/adr/0014): that copy
     /// runs in the sandbox, so it cannot start a daemon and has no session to tell the daemon of.
     /// It is told so, and the daemon, which `oma` started from the real session, uses its own
@@ -116,24 +116,24 @@ impl ServeProcess {
     }
 }
 
-/// The `bin/ratmos` of the Bundle `exe` is the program of, when there is one.
+/// The `bin/atmosd` of the Bundle `exe` is the program of, when there is one.
 fn bundled_beside(exe: &Path) -> Option<PathBuf> {
-    let candidate = exe.parent()?.join("bin/ratmos");
+    let candidate = exe.parent()?.join("bin/atmosd");
     is_executable(&candidate).then_some(candidate)
 }
 
-/// The first of the candidates that is an executable file, else plain `ratmos` for PATH.
+/// The first of the candidates that is an executable file, else plain `atmosd` for PATH.
 pub fn locate(explicit: Option<PathBuf>, root: Option<&Path>) -> PathBuf {
     let mut candidates: Vec<PathBuf> = explicit.into_iter().collect();
     if let Some(root) = root {
-        candidates.push(root.join("bin/ratmos"));
-        candidates.push(root.join("backend/target/release/ratmos"));
-        candidates.push(root.join("backend/target/debug/ratmos"));
+        candidates.push(root.join("bin/atmosd"));
+        candidates.push(root.join("backend/target/release/atmosd"));
+        candidates.push(root.join("backend/target/debug/atmosd"));
     }
     candidates
         .into_iter()
         .find(|path| is_executable(path))
-        .unwrap_or_else(|| "ratmos".into())
+        .unwrap_or_else(|| "atmosd".into())
 }
 
 fn is_executable(path: &Path) -> bool {
@@ -157,7 +157,7 @@ impl Transport for ServeProcess {
         // Without this the backend's stderr, and the reason for a failed read, is lost.
         thread::spawn(move || {
             for line in BufReader::new(stderr).lines().map_while(Result::ok) {
-                eprintln!("ratmos: {line}");
+                eprintln!("atmosd: {line}");
             }
         });
         Ok(Connection {
@@ -245,10 +245,10 @@ impl Inner {
                 }
             }
             Some(Incoming::Reply { id: None, reply }) => {
-                eprintln!("ratmos: a reply without an id: {reply:?}");
+                eprintln!("atmosd: a reply without an id: {reply:?}");
             }
             Some(Incoming::Event(event)) => self.notify(Notice::Event(event)),
-            None => eprintln!("ratmos: not a protocol line: {line}"),
+            None => eprintln!("atmosd: not a protocol line: {line}"),
         }
     }
 
@@ -366,7 +366,7 @@ fn try_open(
     let connection = match transport.open() {
         Ok(connection) => connection,
         Err(error) => {
-            eprintln!("ratmos: cannot start: {error}");
+            eprintln!("atmosd: cannot start: {error}");
             return None;
         }
     };
@@ -444,13 +444,13 @@ mod tests {
 
     #[test]
     fn locate_prefers_an_explicit_executable_and_falls_back_to_path() {
-        assert_eq!(locate(None, None), PathBuf::from("ratmos"));
+        assert_eq!(locate(None, None), PathBuf::from("atmosd"));
         assert_eq!(
             locate(
                 Some("/definitely/not/here".into()),
                 Some(Path::new("/nope"))
             ),
-            PathBuf::from("ratmos")
+            PathBuf::from("atmosd")
         );
         let sh = Path::new("/bin/sh");
         if is_executable(sh) {
@@ -459,13 +459,13 @@ mod tests {
     }
 
     #[test]
-    fn the_ratmos_in_the_bundle_runs_with_the_daemons_session_and_never_starts_a_daemon() {
+    fn the_atmosd_in_the_bundle_runs_with_the_daemons_session_and_never_starts_a_daemon() {
         use std::os::unix::fs::PermissionsExt;
         let dir = std::env::temp_dir().join(format!("atmos-ui-bundle-{}", std::process::id()));
         std::fs::create_dir_all(dir.join("bin")).unwrap();
-        let ratmos = dir.join("bin/ratmos");
-        std::fs::write(&ratmos, "").unwrap();
-        std::fs::set_permissions(&ratmos, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let atmosd = dir.join("bin/atmosd");
+        std::fs::write(&atmosd, "").unwrap();
+        std::fs::set_permissions(&atmosd, std::fs::Permissions::from_mode(0o755)).unwrap();
         let exe = dir.join("atmos-ui");
 
         let env = |p: &ServeProcess| -> Vec<(String, String)> {
@@ -475,7 +475,7 @@ mod tests {
                 .collect()
         };
         let bundled = ServeProcess::choose(None, None, Some(&exe), None);
-        assert_eq!(bundled.program, ratmos);
+        assert_eq!(bundled.program, atmosd);
         assert_eq!(
             env(&bundled),
             [
@@ -485,18 +485,18 @@ mod tests {
         );
 
         // `ATMOS_BACKEND` still wins, and then the window is an ordinary one.
-        let named = ServeProcess::choose(Some("/x/ratmos".into()), None, Some(&exe), None);
+        let named = ServeProcess::choose(Some("/x/atmosd".into()), None, Some(&exe), None);
         assert!(env(&named).is_empty());
-        // A program with no `bin/ratmos` beside it (a build in the source tree) is ordinary too.
+        // A program with no `bin/atmosd` beside it (a build in the source tree) is ordinary too.
         let loose = ServeProcess::choose(None, None, Some(&dir.join("elsewhere/atmos-ui")), None);
         assert!(env(&loose).is_empty());
-        assert_eq!(loose.program, PathBuf::from("ratmos"));
+        assert_eq!(loose.program, PathBuf::from("atmosd"));
         let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
     fn serve_runs_after_the_backend_and_root_flags() {
-        let p = ServeProcess::new("ratmos", "plain", &["--root", "/x"]);
+        let p = ServeProcess::new("atmosd", "plain", &["--root", "/x"]);
         let args: Vec<_> = p
             .args
             .iter()

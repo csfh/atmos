@@ -1,11 +1,11 @@
-// `ratmos mcp` end to end: JSON-RPC lines in, JSON-RPC lines out, on the plain
+// `atmosd mcp` end to end: JSON-RPC lines in, JSON-RPC lines out, on the plain
 // backend under a fixture root so nothing touches the machine running the test.
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
 const { spawnSync } = require("child_process");
 const { assert, assertEqual } = require("./harness");
-const { ratmosBinary } = require("./sandbox");
+const { atmosdBinary } = require("./sandbox");
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), "atmos-mcp-"));
 const lines = [
@@ -34,12 +34,12 @@ const lines = [
 ];
 
 try {
-  const run = spawnSync(ratmosBinary(), ["--backend", "plain", "--root", root, "mcp"], {
+  const run = spawnSync(atmosdBinary(), ["--backend", "plain", "--root", root, "mcp"], {
     encoding: "utf8",
     input: lines.map((l) => JSON.stringify(l)).join("\n") + "\n",
     timeout: 20000,
   });
-  assertEqual(run.status, 0, "ratmos mcp exits when its input closes");
+  assertEqual(run.status, 0, "atmosd mcp exits when its input closes");
   const replies = run.stdout
     .split("\n")
     .filter(Boolean)

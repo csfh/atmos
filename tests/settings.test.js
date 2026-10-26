@@ -2,7 +2,7 @@ const { spawnSync } = require("child_process");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
-const { ratmosBinary } = require("./sandbox");
+const { atmosdBinary } = require("./sandbox");
 const { load, assert, assertEqual } = require("./harness");
 
 const settings = load("services/Settings.js");
@@ -805,7 +805,7 @@ assert(
     wsCmd.argv.indexOf("workspaces") !== -1,
   "workspaces uses the sentinel writer",
 );
-// A writer that ratmos performs runs as `ratmos task settings-set KEY JSON`, so
+// A writer that atmosd performs runs as `atmosd task settings-set KEY JSON`, so
 // the value reaches the same domain writer settings.set uses.
 const taskArgv = (cmd, key) => {
   const at = cmd.argv.indexOf("settings-set");
@@ -813,11 +813,11 @@ const taskArgv = (cmd, key) => {
 };
 assertEqual(
   settings
-    .commandFor("workspaceBarNames", true, {}, { ratmos: "/x/ratmos" })
+    .commandFor("workspaceBarNames", true, {}, { atmosd: "/x/atmosd" })
     .argv.slice(0, 3)
     .join(" "),
-  "/x/ratmos task settings-set",
-  "a writer's argv starts with the ratmos binary the window passes",
+  "/x/atmosd task settings-set",
+  "a writer's argv starts with the atmosd binary the window passes",
 );
 assertEqual(
   taskArgv(settings.commandFor("workspaceBarNames", true, {}, {}), "workspaceBarNames"),
@@ -848,7 +848,7 @@ assertEqual(
 const shrinkFile = path.join(os.tmpdir(), "atmos-ws-shrink-" + process.pid + ".lua");
 fs.writeFileSync(shrinkFile, "");
 const shrinkRun = spawnSync(
-  ratmosBinary(),
+  atmosdBinary(),
   [
     "sentinel",
     "workspaces",
@@ -858,7 +858,7 @@ const shrinkRun = spawnSync(
   ],
   { encoding: "utf8" },
 );
-assertEqual(shrinkRun.status, 0, "ratmos sentinel apply of the workspaces payload exits 0");
+assertEqual(shrinkRun.status, 0, "atmosd sentinel apply of the workspaces payload exits 0");
 const shrinkLua = fs.readFileSync(shrinkFile, "utf8");
 fs.unlinkSync(shrinkFile);
 assert(shrinkLua.indexOf('workspace = "3"') !== -1, "shrink write keeps workspace 3");

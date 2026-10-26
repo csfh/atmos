@@ -65,7 +65,7 @@ pub fn find(id: &str) -> Option<&'static Hub> {
     HUBS.iter().find(|hub| hub.id == id)
 }
 
-/// The hub a launcher word opens: `ratmos launch`'s aliases (`alias` in `backend/src/launch.rs`),
+/// The hub a launcher word opens: `atmosd launch`'s aliases (`alias` in `backend/src/launch.rs`),
 /// then the hub of a path such as `monitor/cpu`. `None` for a word that names no hub.
 pub fn resolve(page: &str) -> Option<&'static Hub> {
     let page = match page {

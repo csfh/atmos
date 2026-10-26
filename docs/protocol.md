@@ -1,11 +1,11 @@
 # Protocol
 
-The window and `ratmos`, the Rust backend, talk in JSON. QML reaches `ratmos` only through `services/Backend.qml`, with request bodies built by `services/Requests.js`; `services/BackendProtocol.js` encodes and decodes the lines. This page is the wire format. The replies in `tests/golden/cases/` are recordings of it, replayed over both transports by `tests/golden.test.js`.
+The window and `atmosd`, the Rust backend, talk in JSON. QML reaches `atmosd` only through `services/Backend.qml`, with request bodies built by `services/Requests.js`; `services/BackendProtocol.js` encodes and decodes the lines. This page is the wire format. The replies in `tests/golden/cases/` are recordings of it, replayed over both transports by `tests/golden.test.js`.
 
-## Running ratmos
+## Running atmosd
 
 ```
-ratmos [--backend omarchy|plain] [--root DIR] <command>
+atmosd [--backend omarchy|plain] [--root DIR] <command>
 ```
 
 | Flag | Meaning |
@@ -20,7 +20,7 @@ ratmos [--backend omarchy|plain] [--root DIR] <command>
 | `apply -- CMD ARGS...` | Run a host command with its streams attached. A terminal tool: the window starts every job as `job.start`. |
 | `job-check NAME [JSON]` | Say whether the job registry accepts a job or interactive tool with these arguments, and the command it would run. Nothing runs; the window's tests use it. |
 | `snapshot`, `display KIND`, `display-snapshot`, `version` | Whole documents for tests, without a request body. |
-| `task NAME ARGS...` | One of the tasks the job registry runs (`job.start`), also usable from a terminal: accounts, avatars, Wi-Fi, hooks, updates, imports (`settings-apply`) and the rest. `ratmos task` with no name lists them. Failures print the reason on stderr and exit non-zero. |
+| `task NAME ARGS...` | One of the tasks the job registry runs (`job.start`), also usable from a terminal: accounts, avatars, Wi-Fi, hooks, updates, imports (`settings-apply`) and the rest. `atmosd task` with no name lists them. Failures print the reason on stderr and exit non-zero. |
 | `root TASK ARGS...` | The privileged half of a few settings. `task` starts it through polkit or sudo; it refuses to run unless it is root. |
 | `mcp` | Atmos for agents: newline-delimited JSON-RPC on stdio (`atmos mcp`). |
 | `install DIR` | Stage Atmos from a source tree into the XDG directories. `install.sh` runs it once the binary is built. |
@@ -53,14 +53,14 @@ A failure keeps the same shape, with `result` null and an `error` in place of th
 | `failed` | Anything that does not fit a more specific code, including a well-formed request the handler turns down: an unknown domain, display kind or speedtest phase, or a `settings.set` value of the wrong type for its domain. |
 | `unavailable` | The daemon is not there: a window's `serve` refuses a write, a job or a read it cannot do without one (docs/adr/0010). `BackendProtocol.js` makes the same envelope when the server itself cannot answer. |
 
-Unknown extra fields in a request are ignored, so a newer window can talk to an older `ratmos`.
+Unknown extra fields in a request are ignored, so a newer window can talk to an older `atmosd`.
 
 ## One-shot: `request`
 
-The body goes in on stdin, the envelope comes out on stdout. The exit code is 0 for `ok: true` and 1 for anything else, bad JSON included. Calling `ratmos` with no command, or an unknown one, exits 2 and prints usage on stderr.
+The body goes in on stdin, the envelope comes out on stdout. The exit code is 0 for `ok: true` and 1 for anything else, bad JSON included. Calling `atmosd` with no command, or an unknown one, exits 2 and prints usage on stderr.
 
 ```
-$ echo '{"op":"host.read","paths":["/note.txt","/missing.txt"]}' | ratmos --backend plain --root DIR request
+$ echo '{"op":"host.read","paths":["/note.txt","/missing.txt"]}' | atmosd --backend plain --root DIR request
 ```
 
 ```json
@@ -71,7 +71,7 @@ $ echo '{"op":"host.read","paths":["/note.txt","/missing.txt"]}' | ratmos --back
 
 ## Long-lived: `serve`
 
-`ratmos serve` reads one JSON request per line and writes one JSON line per reply. Add an `id` to a request and the reply carries the same `id`. Each request runs on its own thread, so a slow one never holds up a fast one, and replies can arrive in any order: match them by `id`. A line that is not JSON gets a `bad_request` reply with no `id`. The server stops when stdin closes, which is how a window going away looks.
+`atmosd serve` reads one JSON request per line and writes one JSON line per reply. Add an `id` to a request and the reply carries the same `id`. Each request runs on its own thread, so a slow one never holds up a fast one, and replies can arrive in any order: match them by `id`. A line that is not JSON gets a `bad_request` reply with no `id`. The server stops when stdin closes, which is how a window going away looks.
 
 `watch.set` and `sub.set` are the two ops `serve` answers itself. They are not accepted over `request`.
 
@@ -126,7 +126,7 @@ When sampling fails, or a held kind goes quiet for six intervals (never less tha
 
 The settings topics are collected with the window's environment (`hyprctl` and `omarchy` need the session's): the window's session sends it to the daemon as its first frame, `{"t": "env", "env": {...}}`, and the daemon uses the newest. A window in a sandbox has no session of its own to tell, and runs `serve` with `ATMOS_SESSION=daemon` (docs/adr/0014): it then sends no `env` frame and an empty `env` with each request, and the daemon uses its own environment for a command, a job or a topic that has none from a window. A child always has an environment, never none.
 
-The events come from the daemon over a session on `ratmos.sock` (`{"op": "session"}`, then `sub`, `unsub`, `req` frames one way and `event` and `res` frames the other; see `backend/src/sampler/session.rs`). With no daemon, or one that does not speak sessions, `serve` starts one when it can (`ratmos.service`, then a transient user unit, then a bare process; `ATMOS_NO_AUTOSTART=1` forbids it, and a `--root` fixture never does) and otherwise samples nothing: a window does nothing without the daemon (docs/adr/0010). It looks again after one, two, four and then five seconds, and says so with a `backend` event:
+The events come from the daemon over a session on `atmosd.sock` (`{"op": "session"}`, then `sub`, `unsub`, `req` frames one way and `event` and `res` frames the other; see `backend/src/sampler/session.rs`). With no daemon, or one that does not speak sessions, `serve` starts one when it can (`atmosd.service`, then a transient user unit, then a bare process; `ATMOS_NO_AUTOSTART=1` forbids it, and a `--root` fixture never does) and otherwise samples nothing: a window does nothing without the daemon (docs/adr/0010). It looks again after one, two, four and then five seconds, and says so with a `backend` event:
 
 ```json
 {"event": "backend", "state": "up"}
@@ -137,10 +137,10 @@ The events come from the daemon over a session on `ratmos.sock` (`{"op": "sessio
 
 ## Streaming jobs: `apply`
 
-`ratmos apply -- CMD ARGS...` runs the command with stdin and stdout connected, copies stderr through, and when the command ends prints one last stdout line:
+`atmosd apply -- CMD ARGS...` runs the command with stdin and stdout connected, copies stderr through, and when the command ends prints one last stdout line:
 
 ```
-@@ratmos-apply@@ {"ok":false,"code":3,"message":"...","warnings":[...]}
+@@atmosd-apply@@ {"ok":false,"code":3,"message":"...","warnings":[...]}
 ```
 
 `ok` means the exit code was zero, `message` is the stderr that is not known noise, and `warnings` is the noise that was filtered out. The exit code is the command's own. Long jobs that stream output use this; everything else uses a request.
@@ -153,7 +153,7 @@ Every body is `{"op": "<name>", ...fields}`. A new op needs its `Request` varian
 
 | Op | Fields | Result |
 | --- | --- | --- |
-| `version` | | The ratmos version, a string. |
+| `version` | | The atmosd version, a string. |
 | `platform` | | `{id, compositor, family}` for the backend. |
 
 ### Settings
@@ -185,19 +185,19 @@ A domain is one named setting, such as `theme` or `hyprLook.gapsIn`.
 
 #### Writes and reads in order
 
-`display.brightness` is a typed command: the daemon runs it on a lane (`monitor:<name>`), in order with other writes to that lane, and holds back reads of what it changes until it is done. A `settings.snapshot` of group `look`, `rest` or `all`, and any `display.get`, wait up to 3 seconds for the commands and leased jobs ahead of them, so a read after a write sees the write. `ratmos task` (a lane of its own) and `ratmos apply` (the shared `generic` lane, waiting at most 300 ms) lease a lane while they run, which holds back reads of `disks`, `services`, `software` and `diagnostics` the same way, and drops them when the job ends. The command runs in a child `ratmos request` that carries the caller's environment. The window's `serve` sends the command and the barrier over its session to the daemon as `req` frames. With no daemon, or an older one, a window's `serve` fails the write with `unavailable`; a terminal `ratmos request` or a `--root` fixture runs it in the caller's own process with no ordering across windows. A daemon that took a command and then did not answer is reported as a failure and the command is not run a second time.
+`display.brightness` is a typed command: the daemon runs it on a lane (`monitor:<name>`), in order with other writes to that lane, and holds back reads of what it changes until it is done. A `settings.snapshot` of group `look`, `rest` or `all`, and any `display.get`, wait up to 3 seconds for the commands and leased jobs ahead of them, so a read after a write sees the write. `atmosd task` (a lane of its own) and `atmosd apply` (the shared `generic` lane, waiting at most 300 ms) lease a lane while they run, which holds back reads of `disks`, `services`, `software` and `diagnostics` the same way, and drops them when the job ends. The command runs in a child `atmosd request` that carries the caller's environment. The window's `serve` sends the command and the barrier over its session to the daemon as `req` frames. With no daemon, or an older one, a window's `serve` fails the write with `unavailable`; a terminal `atmosd request` or a `--root` fixture runs it in the caller's own process with no ordering across windows. A daemon that took a command and then did not answer is reported as a failure and the command is not run a second time.
 
 #### Sample cache
 
-On a live system `display.get` and `display.snapshot` answer from the samples `ratmos daemon` keeps (collected in the background by `ratmos sampler`, never on the reader's behalf) in `$XDG_RUNTIME_DIR/atmos/<kind>.json`, and the reply is the same document either way. A sample is served while it is younger than its kind allows: `live` one second (counters become rates, so a reader must never see one sample twice), every other kind three sample intervals. Past that, or with nothing cached, the request goes to the daemon over `$XDG_RUNTIME_DIR/atmos/ratmos.sock` with interactive priority and waits for the fresh sample, up to 2 seconds for `live` and 20 for the rest; simultaneous requests for one kind share one collection. With no daemon, a missing runtime dir, a daemon that does not answer in time, or any daemon failure, a request from a window fails with `unavailable` (docs/adr/0010), and one from a terminal (`ratmos display`, `ratmos request`) collects the inventory itself.
+On a live system `display.get` and `display.snapshot` answer from the samples `atmosd daemon` keeps (collected in the background by `atmosd sampler`, never on the reader's behalf) in `$XDG_RUNTIME_DIR/atmos/<kind>.json`, and the reply is the same document either way. A sample is served while it is younger than its kind allows: `live` one second (counters become rates, so a reader must never see one sample twice), every other kind three sample intervals. Past that, or with nothing cached, the request goes to the daemon over `$XDG_RUNTIME_DIR/atmos/atmosd.sock` with interactive priority and waits for the fresh sample, up to 2 seconds for `live` and 20 for the rest; simultaneous requests for one kind share one collection. With no daemon, a missing runtime dir, a daemon that does not answer in time, or any daemon failure, a request from a window fails with `unavailable` (docs/adr/0010), and one from a terminal (`atmosd display`, `atmosd request`) collects the inventory itself.
 
-A `--root` fixture never reads the cache. `ratmos task`, `ratmos apply` and `settings.set` drop the kinds they can change (`disks`, `services`, `software`, `diagnostics`; `settings.set` only `services`), so the next read is fresh, and the daemon resamples them in the background after 5 seconds, but not within 30 seconds of the kind's last sample. Settings, `host.*`, `search.query` and the other ops are always read live.
+A `--root` fixture never reads the cache. `atmosd task`, `atmosd apply` and `settings.set` drop the kinds they can change (`disks`, `services`, `software`, `diagnostics`; `settings.set` only `services`), so the next read is fresh, and the daemon resamples them in the background after 5 seconds, but not within 30 seconds of the kind's last sample. Settings, `host.*`, `search.query` and the other ops are always read live.
 
 ### Search
 
 | Op | Fields | Result |
 | --- | --- | --- |
-| `search.query` | `query`; `hubs`: `[{id, title, description, keywords}]`; `files`: page file to hub id; `prefixes`: `[[folder, hub]]`; `titles`: hub or child id to title | `{query, hits}`. The catalog is the hub rows plus the labelled rows ratmos finds by reading the page sources under the app root; a hit is a row whose text contains the query, case-insensitive, ordered by hub then label. The window sends the hub fields it already holds from `Hubs.js`. |
+| `search.query` | `query`; `hubs`: `[{id, title, description, keywords}]`; `files`: page file to hub id; `prefixes`: `[[folder, hub]]`; `titles`: hub or child id to title | `{query, hits}`. The catalog is the hub rows plus the labelled rows atmosd finds by reading the page sources under the app root; a hit is a row whose text contains the query, case-insensitive, ordered by hub then label. The window sends the hub fields it already holds from `Hubs.js`. |
 
 ### Host
 
@@ -255,7 +255,7 @@ These read and edit the MCP entry in each coding agent's own config; Atmos keeps
 | `audio.input.default` | `id`, `name` | `omarchy audio input set default`; settled when that source is the default in `audioSources` |
 | `power.profile` | `name` | `omarchy powerprofiles set autodetect` |
 | `wifi.band` | `band`: `auto`, `2.4`, `5`, `6` | `omarchy network band` |
-| `wifi.connection` | `action`: `up`, `down`, `delete`; `uuid` | `ratmos task set-wifi-connection`; settled on that connection's `active` flag or its absence |
+| `wifi.connection` | `action`: `up`, `down`, `delete`; `uuid` | `atmosd task set-wifi-connection`; settled on that connection's `active` flag or its absence |
 | `bluetooth.device` | `action`: `connect`, `disconnect`, `forget`; `address` | `omarchy bluetooth device`; settled on that device's `connected` flag or its absence |
 | `plugin.set` | `id`, `on` | `omarchy plugin enable` or `disable` |
 | `bar.spacer` | `on` | `omarchy bar put omarchy.spacer` or `omarchy plugin disable omarchy.spacer` |
@@ -265,26 +265,26 @@ These read and edit the MCP entry in each coding agent's own config; Atmos keeps
 | `display.text-size-reset` | | `omarchy display text size reset` |
 | `theme.remove` | `name` | `omarchy theme remove` |
 | `branding.reset` | `which`: `screensaver`, `about` | `omarchy branding <which> reset` |
-| `hypr.reset` | `group`: `look`, `input` | `ratmos task reset-hypr` |
+| `hypr.reset` | `group`: `look`, `input` | `atmosd task reset-hypr` |
 | `hypr.workspace-layout-toggle` | | `omarchy hyprland workspace layout toggle`; settled when `hyprWorkspaceLayout` flipped |
-| `hypr.apply` | `group`: `look`, `input`; `payload` (JSON text) | `ratmos task hypr-apply` |
-| `atmos.channel` | `channel`: `stable` | `ratmos task set-atmos-channel` |
+| `hypr.apply` | `group`: `look`, `input`; `payload` (JSON text) | `atmosd task hypr-apply` |
+| `atmos.channel` | `channel`: `stable` | `atmosd task set-atmos-channel` |
 | `weather.coordinates` | `name`, `coords` | `omarchy weather location --set` |
 | `reminder.set` | `minutes`, `message` (optional) | `omarchy reminder` |
 | `reminder.clear` | | `omarchy reminder clear` |
 | `recording.stop` | | `omarchy capture screenrecording --stop-recording` |
 | `hook.install` | `type`, `path` | `omarchy hook install` |
-| `hook.create` | `type`, `name`, `command` | `ratmos task create-hook` |
+| `hook.create` | `type`, `name`, `command` | `atmosd task create-hook` |
 | `hook.remove` | `path`, inside `~/.config/omarchy/hooks/` | removes the file in-process; a `.sample` is refused |
-| `hook.sample` | `path`, `enabled` | `ratmos task set-hook-sample` |
+| `hook.sample` | `path`, `enabled` | `atmosd task set-hook-sample` |
 | `tui.remove` | `name` | `omarchy tui remove` |
 | `webapp.remove` | `name` | `omarchy webapp remove` |
 | `app.remove-desktop` | `id`, `name` | `omarchy remove launcher entry` |
-| `avatar.set` | `user`, `path` | `ratmos task set-avatar set` |
-| `avatar.clear` | `user` | `ratmos task set-avatar clear` |
-| `snapper.number-limit` | `n`, 1 to 50 | `ratmos task set-snapper-policy number-limit` |
-| `snapper.timeline` | `on` | `ratmos task set-snapper-policy timeline` |
-| `fstrim` | `on` | `ratmos task set-fstrim` |
+| `avatar.set` | `user`, `path` | `atmosd task set-avatar set` |
+| `avatar.clear` | `user` | `atmosd task set-avatar clear` |
+| `snapper.number-limit` | `n`, 1 to 50 | `atmosd task set-snapper-policy number-limit` |
+| `snapper.timeline` | `on` | `atmosd task set-snapper-policy timeline` |
+| `fstrim` | `on` | `atmosd task set-fstrim` |
 
 `settings.set` accepts `readback`, a list of snapshot keys to read once the value is written, for the keys a setting changes besides its own; they come back as `snapshot` in the reply.
 
@@ -312,24 +312,24 @@ Everything else the window starts is an entry in `backend/src/command/entries.rs
 | `theme.bg-next` |  | `omarchy theme bg next` |
 | `theme.bg-cache` |  | `omarchy theme bg cache` |
 | `keyboard.backlight-restore` |  | `omarchy brightness keyboard --no-osd restore` |
-| `account.member` | group, user, on | `ratmos task manage-account set-member <group> <user> on\|off` (needs root) |
+| `account.member` | group, user, on | `atmosd task manage-account set-member <group> <user> on\|off` (needs root) |
 | `window.transparency-toggle` |  | `omarchy hyprland window transparency toggle` |
 | `window.tiled-fullscreen-toggle` |  | `omarchy hyprland window tiled fullscreen toggle` |
 | `wifi.password-copy` | iface | `bash -c omarchy network password "$1" \| wl-copy -n wifi-password <iface>` |
 | `clipboard.copy` | text (stdin) | `wl-copy -n` |
-| `wifi.metered` | uuid, value | `ratmos task set-wifi-connection metered <uuid> <value>` |
-| `wifi.priority` | uuid, value | `ratmos task set-wifi-connection priority <uuid> <value>` |
-| `wifi.mac` | uuid, value | `ratmos task set-wifi-connection mac <uuid> <value>` |
-| `wifi.ipv4-auto` | uuid | `ratmos task set-wifi-connection ipv4 <uuid> auto` |
-| `wifi.ipv4-manual` | uuid, address, prefix, gateway?, dns? | `ratmos task set-wifi-connection ipv4 <uuid> manual <address> <prefix> [<gateway>] [<dns>]` |
-| `wifi.wireguard-import` | path | `ratmos task set-wifi-connection wireguard-import <path>` |
-| `wifi.hotspot-on` | ssid, password (stdin) | `ratmos task set-wifi-connection hotspot on <ssid>` |
-| `wifi.hotspot-off` |  | `ratmos task set-wifi-connection hotspot off` |
-| `favorites.write` | json | `ratmos task set-favorites write <json>` |
-| `process.signal` | pid, signal | `ratmos task signal-process <pid> <signal>` |
+| `wifi.metered` | uuid, value | `atmosd task set-wifi-connection metered <uuid> <value>` |
+| `wifi.priority` | uuid, value | `atmosd task set-wifi-connection priority <uuid> <value>` |
+| `wifi.mac` | uuid, value | `atmosd task set-wifi-connection mac <uuid> <value>` |
+| `wifi.ipv4-auto` | uuid | `atmosd task set-wifi-connection ipv4 <uuid> auto` |
+| `wifi.ipv4-manual` | uuid, address, prefix, gateway?, dns? | `atmosd task set-wifi-connection ipv4 <uuid> manual <address> <prefix> [<gateway>] [<dns>]` |
+| `wifi.wireguard-import` | path | `atmosd task set-wifi-connection wireguard-import <path>` |
+| `wifi.hotspot-on` | ssid, password (stdin) | `atmosd task set-wifi-connection hotspot on <ssid>` |
+| `wifi.hotspot-off` |  | `atmosd task set-wifi-connection hotspot off` |
+| `favorites.write` | json | `atmosd task set-favorites write <json>` |
+| `process.signal` | pid, signal | `atmosd task signal-process <pid> <signal>` |
 | `systemd.user` | action, unit | `systemctl --user <action> <unit>` |
 | `systemd.system` | action, unit | `sudo -n systemctl <action> <unit>` (needs root) |
-| `wifi.ssid` | action, ssid | `ratmos task set-wifi-connection <action> <ssid>` |
+| `wifi.ssid` | action, ssid | `atmosd task set-wifi-connection <action> <ssid>` |
 | `restart` | what | `omarchy restart <what>` |
 | `bluetooth.pair` | address | `omarchy bluetooth device pair <address>` |
 | `bluetooth.trust` | address | `bluetoothctl trust <address>` |
@@ -363,38 +363,38 @@ Everything else the window starts is an entry in `backend/src/command/entries.rs
 | --- | --- | --- |
 | `theme.install` | url | `omarchy theme install <url>` |
 | `theme.update` |  | `omarchy theme update` |
-| `app.desktop-install` | name, command, icon | `ratmos task add-desktop-launcher <name> <command> <icon>` |
+| `app.desktop-install` | name, command, icon | `atmosd task add-desktop-launcher <name> <command> <icon>` |
 | `app.tui-install` | name, command, style, icon | `omarchy tui install <name> <command> <style> <icon>` |
 | `app.webapp-install` | name, url, icon? | `omarchy webapp install <name> <url> [<icon>]` |
-| `dns.custom` | servers | `ratmos task set-dns-custom <servers>` |
-| `account.add-user` | name, full, wheel, password (stdin) | `ratmos task manage-account add-user <name> <full> true\|false` (needs root) |
-| `account.remove-user` | name | `ratmos task manage-account remove-user <name>` (needs root) |
-| `account.set-password` | name, password (stdin) | `ratmos task manage-account set-password <name>` (needs root) |
-| `account.add-group` | name | `ratmos task manage-account add-group <name>` (needs root) |
-| `account.remove-group` | name | `ratmos task manage-account remove-group <name>` (needs root) |
-| `sshd.disable` |  | `ratmos task set-sshd disable` (needs root) |
-| `sudo.enable` | minutes, password (stdin) | `ratmos task set-passwordless-sudo on <minutes> --sudo-ask` |
-| `sudo.disable` |  | `ratmos task set-passwordless-sudo off` (needs root) |
+| `dns.custom` | servers | `atmosd task set-dns-custom <servers>` |
+| `account.add-user` | name, full, wheel, password (stdin) | `atmosd task manage-account add-user <name> <full> true\|false` (needs root) |
+| `account.remove-user` | name | `atmosd task manage-account remove-user <name>` (needs root) |
+| `account.set-password` | name, password (stdin) | `atmosd task manage-account set-password <name>` (needs root) |
+| `account.add-group` | name | `atmosd task manage-account add-group <name>` (needs root) |
+| `account.remove-group` | name | `atmosd task manage-account remove-group <name>` (needs root) |
+| `sshd.disable` |  | `atmosd task set-sshd disable` (needs root) |
+| `sudo.enable` | minutes, password (stdin) | `atmosd task set-passwordless-sudo on <minutes> --sudo-ask` |
+| `sudo.disable` |  | `atmosd task set-passwordless-sudo off` (needs root) |
 | `update.omarchy-check` |  | `omarchy update available` |
-| `update.atmos-check` |  | `ratmos task update-atmos check` |
-| `update.atmos-apply` |  | `ratmos task update-atmos apply` |
+| `update.atmos-check` |  | `atmosd task update-atmos check` |
+| `update.atmos-apply` |  | `atmosd task update-atmos apply` |
 | `wifi.qr` | iface? | `omarchy network qr --meta [<iface>]` |
-| `diag.report` | action, dest?, header (stdin) | `ratmos task diag-report <action> [<dest>]` |
-| `wifi.enterprise` | ssid, identity, password (stdin) | `ratmos task enterprise-wifi-connect <ssid> <identity>` |
-| `wifi.join` | ssid, password? (stdin) | `ratmos task set-wifi-connection join <ssid>` |
-| `luks.change-key` | device (stdin), current (stdin), new (stdin) | `ratmos task luks-change-key` (needs root) |
+| `diag.report` | action, dest?, header (stdin) | `atmosd task diag-report <action> [<dest>]` |
+| `wifi.enterprise` | ssid, identity, password (stdin) | `atmosd task enterprise-wifi-connect <ssid> <identity>` |
+| `wifi.join` | ssid, password? (stdin) | `atmosd task set-wifi-connection join <ssid>` |
+| `luks.change-key` | device (stdin), current (stdin), new (stdin) | `atmosd task luks-change-key` (needs root) |
 | `snapshot.create` |  | `omarchy snapshot create` (needs root) |
-| `snapshot.rollback` | config, id | `ratmos task rollback-snapshot <config> <id>` (needs root) |
+| `snapshot.rollback` | config, id | `atmosd task rollback-snapshot <config> <id>` (needs root) |
 | `hibernation.setup` |  | `omarchy hibernation setup --force` (needs root) |
 | `hibernation.remove` |  | `omarchy hibernation remove` (with progress, needs root) |
-| `refresh.hyprland` |  | `ratmos task refresh-hyprland` |
+| `refresh.hyprland` |  | `atmosd task refresh-hyprland` |
 | `refresh.shell` |  | `omarchy refresh shell` |
-| `reset.atmos` |  | `ratmos task reset-atmos` |
+| `reset.atmos` |  | `atmosd task reset-atmos` |
 | `plymouth.reset` |  | `omarchy plymouth reset` (needs root) |
 | `plymouth.set` | path | `bash -c bg=$(omarchy theme color background); text=$(omarchy theme color foreground); omarchy plymouth set "$bg" "$text" "$1" plymouth-set <path>` (needs root) |
 | `plymouth.preview` | path | `bash -c bg=$(omarchy theme color background); text=$(omarchy theme color foreground); out=$(mktemp --suffix=.png); omarchy plymouth preview "$bg" "$text" "$1" "$out"; echo "$out" plymouth-preview <path>` |
-| `settings.apply` | plan (stdin) | `ratmos task settings-apply --progress` |
-| `settings.undo` | plan | `ratmos task settings-apply --no-backup --plan <plan>` |
+| `settings.apply` | plan (stdin) | `atmosd task settings-apply --progress` |
+| `settings.undo` | plan | `atmosd task settings-apply --no-backup --plan <plan>` |
 | `security.fingerprint-setup` |  | `omarchy setup security fingerprint` (with progress, needs root) |
 | `security.fingerprint-remove` |  | `omarchy remove security fingerprint` (with progress, needs root) |
 | `security.fido2-setup` |  | `omarchy setup security fido2` (with progress, needs root) |

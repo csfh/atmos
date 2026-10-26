@@ -2,7 +2,7 @@ const { spawnSync } = require("child_process");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
-const { ratmosBinary } = require("./sandbox");
+const { atmosdBinary } = require("./sandbox");
 const { load, assert, assertEqual } = require("./harness");
 
 const auto = load("services/Autostart.js");
@@ -115,10 +115,10 @@ function pythonList(kind, text) {
   let parsed = [];
   try {
     fs.writeFileSync(file, text);
-    const result = spawnSync(ratmosBinary(), ["sentinel", kind, "list", file], {
+    const result = spawnSync(atmosdBinary(), ["sentinel", kind, "list", file], {
       encoding: "utf8",
     });
-    assertEqual(result.status, 0, "ratmos sentinel " + kind + " list exits 0");
+    assertEqual(result.status, 0, "atmosd sentinel " + kind + " list exits 0");
     parsed = JSON.parse(result.stdout);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
@@ -129,7 +129,7 @@ function pythonList(kind, text) {
 assertEqual(
   JSON.stringify(pythonList("autostart", omarchyAutostart)),
   JSON.stringify(liveAuto),
-  "ratmos sentinel autostart list matches parseFile on commented examples",
+  "atmosd sentinel autostart list matches parseFile on commented examples",
 );
 
 const stringDashAuto = `hint = "echo --help"; o.launch_on_start("waybar")\n`;
@@ -139,7 +139,7 @@ assertEqual(stringDashParsed[0].command, "waybar", "parseFile reads the launch a
 assertEqual(
   JSON.stringify(pythonList("autostart", stringDashAuto)),
   JSON.stringify(stringDashParsed),
-  "ratmos sentinel autostart list matches parseFile on -- inside a string",
+  "atmosd sentinel autostart list matches parseFile on -- inside a string",
 );
 
 assertEqual(auto.unescapeLua("\\n"), "\n", "unescapeLua turns Lua \\n into a newline");
@@ -181,5 +181,5 @@ assertEqual(
 assertEqual(
   JSON.stringify(pythonList("autostart", luaEscapesAuto)),
   JSON.stringify(luaEscapesAutoParsed),
-  "ratmos sentinel autostart list matches parseFile on Lua string escapes",
+  "atmosd sentinel autostart list matches parseFile on Lua string escapes",
 );

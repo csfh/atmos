@@ -1,4 +1,4 @@
-// The JS side of the line protocol against the real `ratmos serve`: whatever
+// The JS side of the line protocol against the real `atmosd serve`: whatever
 // BackendProtocol.js encodes, the server must answer in a way decodeLine reads.
 const fs = require("fs");
 const os = require("os");
@@ -10,14 +10,14 @@ const proto = load("services/BackendProtocol.js");
 const requests = load("services/Requests.js");
 
 const repo = path.join(__dirname, "..");
-const bin = path.join(repo, "backend", "target", "debug", "ratmos");
+const bin = path.join(repo, "backend", "target", "debug", "atmosd");
 if (!fs.existsSync(bin)) {
   const built = spawnSync("cargo", [
     "build",
     "--manifest-path",
     path.join(repo, "backend", "Cargo.toml"),
   ]);
-  assertEqual(built.status, 0, "ratmos builds for the protocol test");
+  assertEqual(built.status, 0, "atmosd builds for the protocol test");
 }
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), "atmos-proto-"));
@@ -82,10 +82,10 @@ function ask(id, body) {
   child.stdin.end();
   await new Promise((resolve) => child.on("close", resolve));
   fs.rmSync(root, { recursive: true, force: true });
-  console.log("ok - the JS protocol and ratmos serve agree");
+  console.log("ok - the JS protocol and atmosd serve agree");
 })().catch((err) => {
   console.error(err);
-  console.error("not ok - the JS protocol and ratmos serve agree");
+  console.error("not ok - the JS protocol and atmosd serve agree");
   child.kill();
   process.exit(1);
 });

@@ -2,7 +2,7 @@
 //!
 //! `capture` reads the live machine. The request document fills in from the
 //! domain files `settings.set` writes only where the machine has no reading
-//! (docs/adr/0016). A fixture, the plain backend, and `ratmos snapshot` read
+//! (docs/adr/0016). A fixture, the plain backend, and `atmosd snapshot` read
 //! those files alone. Both callers come through here so
 //! the merge rules stay in one place.
 
@@ -32,7 +32,7 @@ pub fn settings(
     Ok(doc)
 }
 
-/// Every domain, flat, nulls included. `ratmos snapshot` embeds this.
+/// Every domain, flat, nulls included. `atmosd snapshot` embeds this.
 pub fn settings_snapshot(backend: Backend, root: Option<&Path>) -> Result<Map<String, Value>> {
     let mut snapshot = Map::new();
     for spec in crate::domain::specs() {
@@ -372,7 +372,7 @@ mod tests {
 
     #[test]
     fn a_fixture_snapshot_drops_nulls_nests_dots_and_filters_keys() {
-        let root = std::env::temp_dir().join(format!("ratmos-merge-{}", std::process::id()));
+        let root = std::env::temp_dir().join(format!("atmosd-merge-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);
         let plain = root.join(".config/plain");
         std::fs::create_dir_all(&plain).unwrap();

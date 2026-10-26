@@ -3,7 +3,7 @@ const os = require("os");
 const path = require("path");
 const { spawnSync } = require("child_process");
 const assert = require("node:assert/strict");
-const { ratmosBinary } = require("./sandbox");
+const { atmosdBinary } = require("./sandbox");
 
 const root = path.resolve(__dirname, "..");
 const fixture = fs.mkdtempSync(path.join(os.tmpdir(), "atmos-install-"));
@@ -11,7 +11,7 @@ const src = path.join(fixture, "src");
 const data = path.join(fixture, "data");
 const dest = path.join(data, "atmos");
 const stubs = path.join(fixture, "stubs");
-const ratmos = ratmosBinary();
+const atmosd = atmosdBinary();
 
 function write(file, text, mode = 0o644) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -32,14 +32,14 @@ function env(extra = {}) {
     XDG_RUNTIME_DIR: path.join(fixture, "run"),
     SYSTEMCTL_LOG: path.join(fixture, "systemctl.log"),
     FAIL_BUILD: "0",
-    REAL_RATMOS: ratmos,
+    REAL_ATMOSD: atmosd,
     BACKEND_OUTPUT: path.join(src, "backend/target/release"),
     ...extra,
   };
 }
 
 function install(fail) {
-  return spawnSync(ratmos, ["install", src], {
+  return spawnSync(atmosd, ["install", src], {
     encoding: "utf8",
     env: env({ FAIL_BUILD: fail ? "1" : "0" }),
   });
@@ -55,7 +55,7 @@ try {
   fs.copyFileSync(path.join(root, "bin/atmos"), path.join(src, "bin/atmos"));
   fs.chmodSync(path.join(src, "bin/atmos"), 0o755);
   write(path.join(src, "backend/Cargo.toml"), "fixture");
-  // The build stub puts the real ratmos where cargo would, so the staged app can launch.
+  // The build stub puts the real atmosd where cargo would, so the staged app can launch.
   write(
     path.join(stubs, "cargo"),
     `#!/bin/bash
@@ -64,7 +64,7 @@ if [[ $FAIL_BUILD == 1 ]]; then
   exit 1
 fi
 mkdir -p "$BACKEND_OUTPUT"
-cp "$REAL_RATMOS" "$BACKEND_OUTPUT/ratmos"
+cp "$REAL_ATMOSD" "$BACKEND_OUTPUT/atmosd"
 `,
     0o755,
   );
@@ -72,13 +72,13 @@ cp "$REAL_RATMOS" "$BACKEND_OUTPUT/ratmos"
   write(path.join(stubs, "systemctl"), '#!/bin/bash\necho "$*" >> "$SYSTEMCTL_LOG"\n', 0o755);
   write(path.join(stubs, "quickshell"), '#!/bin/bash\nprintf "launched\\n"\n', 0o755);
   write(path.join(dest, "bin/atmos"), "old launcher", 0o755);
-  write(path.join(dest, "bin/ratmos"), "old backend", 0o755);
+  write(path.join(dest, "bin/atmosd"), "old backend", 0o755);
   write(path.join(dest, "shell.qml"), "old shell");
 
   const failed = install(true);
   assert.notEqual(failed.status, 0, failed.stderr);
   assert.equal(
-    fs.readFileSync(path.join(dest, "bin/ratmos"), "utf8"),
+    fs.readFileSync(path.join(dest, "bin/atmosd"), "utf8"),
     "old backend",
     "failed build must preserve the installed backend",
   );
@@ -117,35 +117,35 @@ cp "$REAL_RATMOS" "$BACKEND_OUTPUT/ratmos"
   );
   console.log("ok - install links the launcher and writes the desktop entry");
 
-  const unit = fs.readFileSync(path.join(fixture, "config/systemd/user/ratmos.service"), "utf8");
+  const unit = fs.readFileSync(path.join(fixture, "config/systemd/user/atmosd.service"), "utf8");
   assert.ok(
-    unit.includes(`ExecStart="${path.join(dest, "bin/ratmos")}" daemon`),
-    "the daemon unit runs the installed ratmos",
+    unit.includes(`ExecStart="${path.join(dest, "bin/atmosd")}" daemon`),
+    "the daemon unit runs the installed atmosd",
   );
-  const socket = fs.readFileSync(path.join(fixture, "config/systemd/user/ratmos.socket"), "utf8");
-  assert.match(socket, /^ListenStream=%t\/atmos\/ratmos\.sock$/m, "the socket is the daemon's");
+  const socket = fs.readFileSync(path.join(fixture, "config/systemd/user/atmosd.socket"), "utf8");
+  assert.match(socket, /^ListenStream=%t\/atmos\/atmosd\.sock$/m, "the socket is the daemon's");
   assert.match(socket, /^SocketMode=0600$/m, "and is private");
-  assert.match(unit, /^Requires=ratmos\.socket$/m, "the daemon unit needs its socket");
+  assert.match(unit, /^Requires=atmosd\.socket$/m, "the daemon unit needs its socket");
   const sampler = fs.readFileSync(
-    path.join(fixture, "config/systemd/user/ratmos-sampler.service"),
+    path.join(fixture, "config/systemd/user/atmosd-sampler.service"),
     "utf8",
   );
   assert.ok(
-    sampler.includes(`ExecStart="${path.join(dest, "bin/ratmos")}" sampler`),
-    "the sampler unit runs the installed ratmos",
+    sampler.includes(`ExecStart="${path.join(dest, "bin/atmosd")}" sampler`),
+    "the sampler unit runs the installed atmosd",
   );
   assert.match(sampler, /^CPUSchedulingPolicy=idle$/m, "the sampler runs at idle priority");
   assert.deepEqual(
     fs.readFileSync(path.join(fixture, "systemctl.log"), "utf8").trim().split("\n"),
     [
       "--user daemon-reload",
-      "--user stop ratmos-adhoc.service",
-      "--user enable ratmos.socket",
-      "--user restart ratmos.socket",
-      "--user enable ratmos.service",
-      "--user restart ratmos.service",
-      "--user enable ratmos-sampler.service",
-      "--user restart ratmos-sampler.service",
+      "--user stop atmosd-adhoc.service",
+      "--user enable atmosd.socket",
+      "--user restart atmosd.socket",
+      "--user enable atmosd.service",
+      "--user restart atmosd.service",
+      "--user enable atmosd-sampler.service",
+      "--user restart atmosd-sampler.service",
     ],
     "install reloads, frees the socket from a window-started daemon, then enables and restarts the socket, the daemon and the sampler in that order",
   );
@@ -154,13 +154,13 @@ cp "$REAL_RATMOS" "$BACKEND_OUTPUT/ratmos"
   assert.deepEqual(
     fs.readFileSync(path.join(fixture, "systemctl.log"), "utf8").trim().split("\n"),
     [
-      "--user stop ratmos-adhoc.service",
-      "--user enable ratmos.socket",
-      "--user restart ratmos.socket",
-      "--user enable ratmos.service",
-      "--user restart ratmos.service",
-      "--user enable ratmos-sampler.service",
-      "--user restart ratmos-sampler.service",
+      "--user stop atmosd-adhoc.service",
+      "--user enable atmosd.socket",
+      "--user restart atmosd.socket",
+      "--user enable atmosd.service",
+      "--user restart atmosd.service",
+      "--user enable atmosd-sampler.service",
+      "--user restart atmosd-sampler.service",
     ],
     "unchanged units are not reloaded, but the socket, the daemon and the sampler still restart onto the new binary",
   );
@@ -179,12 +179,12 @@ fi
     0o755,
   );
   function check() {
-    return spawnSync(ratmos, ["task", "update-atmos", "check"], { encoding: "utf8", env: env() });
+    return spawnSync(atmosd, ["task", "update-atmos", "check"], { encoding: "utf8", env: env() });
   }
   const current = check();
   assert.equal(current.status, 0, current.stderr);
   assert.match(current.stdout, /^status current$/m);
-  fs.unlinkSync(path.join(dest, "bin/ratmos"));
+  fs.unlinkSync(path.join(dest, "bin/atmosd"));
   const incomplete = check();
   assert.equal(incomplete.status, 0, incomplete.stderr);
   assert.match(

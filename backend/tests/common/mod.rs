@@ -7,20 +7,20 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde_json::Value;
 
 pub fn invoke(args: &[&str], stdin: &str) -> Output {
-    let mut child = Command::new(env!("CARGO_BIN_EXE_ratmos"))
+    let mut child = Command::new(env!("CARGO_BIN_EXE_atmosd"))
         .args(args)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .expect("spawn ratmos");
+        .expect("spawn atmosd");
     child
         .stdin
         .take()
         .unwrap()
         .write_all(stdin.as_bytes())
         .unwrap();
-    child.wait_with_output().expect("wait ratmos")
+    child.wait_with_output().expect("wait atmosd")
 }
 
 /// A directory no other test in this process shares. The clock alone is not
@@ -33,7 +33,7 @@ pub fn temp_root() -> PathBuf {
         .unwrap()
         .as_nanos();
     let n = MADE.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-    let path = std::env::temp_dir().join(format!("ratmos-{nanos}-{}-{n}", std::process::id()));
+    let path = std::env::temp_dir().join(format!("atmosd-{nanos}-{}-{n}", std::process::id()));
     fs::create_dir_all(&path).unwrap();
     path
 }

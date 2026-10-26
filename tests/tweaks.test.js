@@ -157,10 +157,10 @@ const bootPage = fs.readFileSync(
 );
 assert(bootPage.indexOf("Direct EFI boot") === -1, "Boot screen no longer hosts Direct EFI boot");
 
-const { ratmosBinary } = require("./sandbox");
+const { atmosdBinary } = require("./sandbox");
 
 function runTweaks(action, mode, env) {
-  return spawnSync(ratmosBinary(), ["task", "set-tweaks", action, mode], {
+  return spawnSync(atmosdBinary(), ["task", "set-tweaks", action, mode], {
     encoding: "utf8",
     env: Object.assign({}, process.env, env),
   });
@@ -221,7 +221,7 @@ assertEqual(result.status, 0, "swappiness off exits 0");
 assertEqual(fs.existsSync(sysctlFile), false, "swappiness off removes the drop-in");
 
 const threeArg = spawnSync(
-  ratmosBinary(),
+  atmosdBinary(),
   ["task", "set-tweaks", "gtk-middle-paste", "unused", "off"],
   {
     encoding: "utf8",

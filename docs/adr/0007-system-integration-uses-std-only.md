@@ -32,4 +32,4 @@ The backend makes no foreign call and adds no crate for these. Each need is met 
 - `backend/Cargo.toml` (the dependency list)
 - `backend/src/sampler/daemon.rs` (`inherited_listener`, `listen_fds` and its test)
 - `backend/src/sampler/watch.rs`, `backend/src/sampler/governor.rs`
-- `packaging/ratmos-sampler.service`
+- `packaging/atmosd-sampler.service`

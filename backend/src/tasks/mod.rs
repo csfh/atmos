@@ -1,7 +1,7 @@
 //! Everything the Quickshell UI used to run as a helper script, as one Rust
-//! entry point: `ratmos task <name> [args...]`. Each task keeps the argument
+//! entry point: `atmosd task <name> [args...]`. Each task keeps the argument
 //! shape its script had, prints what the page shows, and exits non-zero with
-//! the reason on stderr when it fails. `ratmos root <task>` is the privileged
+//! the reason on stderr when it fails. `atmosd root <task>` is the privileged
 //! half that polkit or sudo starts, never a command anyone types.
 
 pub mod accounts;
@@ -173,7 +173,7 @@ pub fn run(args: &[String], stdout: &mut dyn Write, stderr: &mut dyn Write) -> i
             "signal-process" => done(user::signal_process(arg(0), arg(1))),
             "update-atmos" => app::update(arg(0)),
             _ => Err(format!(
-                "ratmos task: unknown task {name}. Tasks: {}",
+                "atmosd task: unknown task {name}. Tasks: {}",
                 NAMES.join(", ")
             )
             .into()),
@@ -182,7 +182,7 @@ pub fn run(args: &[String], stdout: &mut dyn Write, stderr: &mut dyn Write) -> i
     finish(result, stdout, stderr)
 }
 
-/// `ratmos root <task> [args...]`: run as root by `elevate`.
+/// `atmosd root <task> [args...]`: run as root by `elevate`.
 pub fn run_root(args: &[String], stderr: &mut dyn Write) -> i32 {
     let name = args.first().map_or("", String::as_str);
     let stdin = if matches!(name, "add-user") {

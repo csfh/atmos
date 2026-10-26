@@ -183,7 +183,7 @@ PrefsPage {
   }
 
   // One queued job. enqueueIo prompts for sudo when the plan needs root,
-  // then `ratmos settings-apply --progress` names each change on stdout.
+  // then `atmosd settings-apply --progress` names each change on stdout.
   function doApply() {
     if (!root.planHasChanges) return
     root.pendingApply = true

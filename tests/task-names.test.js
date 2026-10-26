@@ -3,9 +3,9 @@ const path = require("path");
 const { spawnSync } = require("child_process");
 const os = require("os");
 const { load, assert } = require("./harness");
-const { ratmosBinary } = require("./sandbox");
+const { atmosdBinary } = require("./sandbox");
 
-// Every `ratmos task <name>` the window can run has to be a task ratmos knows.
+// Every `atmosd task <name>` the window can run has to be a task atmosd knows.
 const root = path.join(__dirname, "..");
 const mod = fs.readFileSync(path.join(root, "backend", "src", "tasks", "mod.rs"), "utf8");
 const block = mod.slice(
@@ -16,12 +16,12 @@ const names = new Set(block.match(/"[a-z][a-z0-9-]*"/g).map((n) => n.slice(1, -1
 assert(names.size > 30, "read the task names from tasks/mod.rs");
 
 const fixture = fs.mkdtempSync(path.join(os.tmpdir(), "atmos-task-names-"));
-const listed = spawnSync(ratmosBinary(), ["--backend", "omarchy", "--root", fixture, "request"], {
+const listed = spawnSync(atmosdBinary(), ["--backend", "omarchy", "--root", fixture, "request"], {
   encoding: "utf8",
   input: JSON.stringify({ op: "settings.list" }),
 });
 const domains = new Set(JSON.parse(listed.stdout).result.map((row) => row.domain));
-assert(domains.size > 100, "ratmos lists its settings domains");
+assert(domains.size > 100, "atmosd lists its settings domains");
 
 const settings = load("services/Settings.js");
 const samples = [true, false, "x", 1, 50, [], {}, ""];
@@ -31,7 +31,7 @@ Object.keys(settings.catalogByKey()).forEach((key) => {
   samples.forEach((value) => {
     let cmd;
     try {
-      cmd = settings.commandFor(key, value, {}, { ratmos: "ratmos" });
+      cmd = settings.commandFor(key, value, {}, { atmosd: "atmosd" });
     } catch {
       return;
     }
@@ -44,7 +44,7 @@ Object.keys(settings.catalogByKey()).forEach((key) => {
   });
 });
 assert(seen > 100, "commandFor produced task argv for the catalog");
-assert(unknown.size === 0, "every catalog writer names a ratmos task: " + [...unknown].join(", "));
+assert(unknown.size === 0, "every catalog writer names a atmosd task: " + [...unknown].join(", "));
 
 const files = ["services", "pages", "components"].flatMap((dir) => {
   const full = path.join(root, dir);
@@ -62,5 +62,5 @@ files.forEach((file) => {
     if (!names.has(m[1])) missing.push(path.basename(file) + " -> " + m[1]);
   }
 });
-assert(missing.length === 0, "every QML task call names a ratmos task: " + missing.join(", "));
+assert(missing.length === 0, "every QML task call names a atmosd task: " + missing.join(", "));
 console.log("ok - " + seen + " catalog commands and the QML task calls name known tasks");

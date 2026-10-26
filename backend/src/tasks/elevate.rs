@@ -73,7 +73,7 @@ pub fn run_checked(program: &str, args: &[&str], stdin: &[u8]) -> Result<Output>
     }
 }
 
-/// Re-run this binary as root for a `ratmos root <task>` step.
+/// Re-run this binary as root for a `atmosd root <task>` step.
 pub fn root_task(task: &str, args: &[&str], stdin: &[u8]) -> Result<Output> {
     let exe = std::env::current_exe().map_err(Error::from)?;
     let exe = exe.to_string_lossy().into_owned();

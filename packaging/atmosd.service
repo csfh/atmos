@@ -3,13 +3,13 @@ Description=Atmos sampler: keeps the inventories Atmos shows fresh
 Documentation=https://github.com/csfh/atmos
 # The socket is what a window connects to; connecting starts this unit when it
 # is not running, and it is also started at login so sampling begins at once.
-Requires=ratmos.socket
-After=ratmos.socket graphical-session.target
+Requires=atmosd.socket
+After=atmosd.socket graphical-session.target
 PartOf=graphical-session.target
 
 [Service]
 Type=simple
-ExecStart=ratmos daemon
+ExecStart=atmosd daemon
 Restart=on-failure
 RestartSec=5
 # It samples in the background and must not be felt in the foreground. Not the

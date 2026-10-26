@@ -1,5 +1,5 @@
 //! The client against a scripted server (a socket pair, so what it does on a restart is exact) and
-//! against the real `ratmos serve`, in a private HOME and runtime directory with autostart off so
+//! against the real `atmosd serve`, in a private HOME and runtime directory with autostart off so
 //! it cannot reach the daemon of the session it runs in.
 
 mod common;
@@ -132,7 +132,7 @@ fn a_server_that_cannot_start_is_unavailable_and_tried_again() {
 #[test]
 fn a_program_that_is_not_there_is_the_same_unavailable() {
     let (client, notices) =
-        Client::start(ServeProcess::new("/definitely/not/ratmos", "plain", &[]));
+        Client::start(ServeProcess::new("/definitely/not/atmosd", "plain", &[]));
     assert_eq!(next(&notices), Notice::Link(Link::Starting));
     assert!(matches!(
         next(&notices),
@@ -146,10 +146,10 @@ fn a_program_that_is_not_there_is_the_same_unavailable() {
     );
 }
 
-fn ratmos() -> Option<PathBuf> {
+fn atmosd() -> Option<PathBuf> {
     // `tests/frontend` builds the debug binary and names it in `ATMOS_BACKEND`. Without that, the
-    // debug build is the only one tried: a release build or `bin/ratmos` can be a stale copy.
-    let debug = Path::new(env!("CARGO_MANIFEST_DIR")).join("../backend/target/debug/ratmos");
+    // debug build is the only one tried: a release build or `bin/atmosd` can be a stale copy.
+    let debug = Path::new(env!("CARGO_MANIFEST_DIR")).join("../backend/target/debug/atmosd");
     let explicit = std::env::var_os("ATMOS_BACKEND")
         .map(PathBuf::from)
         .unwrap_or(debug);
@@ -157,7 +157,7 @@ fn ratmos() -> Option<PathBuf> {
     if found.is_absolute() {
         Some(found)
     } else {
-        eprintln!("skipped: no built ratmos (cargo build --manifest-path backend/Cargo.toml)");
+        eprintln!("skipped: no built atmosd (cargo build --manifest-path backend/Cargo.toml)");
         None
     }
 }
@@ -196,7 +196,7 @@ impl Drop for Scratch {
 
 #[test]
 fn the_real_server_answers_version_and_refuses_an_unknown_op() {
-    let Some(bin) = ratmos() else { return };
+    let Some(bin) = atmosd() else { return };
     let scratch = Scratch::new("fixture");
     let root = scratch.0.join("root");
     std::fs::create_dir_all(&root).unwrap();
@@ -220,7 +220,7 @@ fn the_real_server_answers_version_and_refuses_an_unknown_op() {
 
 #[test]
 fn without_a_daemon_the_real_server_says_so_and_refuses_what_needs_one() {
-    let Some(bin) = ratmos() else { return };
+    let Some(bin) = atmosd() else { return };
     let scratch = Scratch::new("nodaemon");
     // The omarchy backend needs the daemon; the plain one samples for itself and never says so.
     let (client, notices) = Client::start(scratch.serve(&bin, "omarchy", &[]));

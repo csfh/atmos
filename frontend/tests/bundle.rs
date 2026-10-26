@@ -1,4 +1,4 @@
-//! `manifest.toml` makes a Bundle the real `oma` accepts, with the daemon declared and `ratmos`
+//! `manifest.toml` makes a Bundle the real `oma` accepts, with the daemon declared and `atmosd`
 //! beside the window (docs/adr/0014, ODK's ADR 0050). It runs `odk oma bundle` and `odk oma inspect` on a
 //! stand-in executable, in a private home: no window opens and nothing is installed.
 //!
@@ -19,7 +19,7 @@ fn oma() -> Option<PathBuf> {
     }
 }
 
-/// An x86_64 ELF to stand in for the window and for `ratmos`: the check is of the Bundle, not
+/// An x86_64 ELF to stand in for the window and for `atmosd`: the check is of the Bundle, not
 /// of what is in it.
 const ELF: &str = "/usr/bin/true";
 
@@ -58,12 +58,12 @@ impl Drop for Home {
 }
 
 #[test]
-fn the_manifest_makes_a_bundle_with_the_daemon_declared_and_ratmos_beside_the_window() {
+fn the_manifest_makes_a_bundle_with_the_daemon_declared_and_atmosd_beside_the_window() {
     let Some(oma) = oma() else { return };
     let home = Home::new();
     let manifest = Path::new(env!("CARGO_MANIFEST_DIR")).join("manifest.toml");
     let out = home.0.join("out");
-    let include = format!("{ELF}=bin/ratmos");
+    let include = format!("{ELF}=bin/atmosd");
     let made = home.oma(
         &oma,
         &[
@@ -84,8 +84,8 @@ fn the_manifest_makes_a_bundle_with_the_daemon_declared_and_ratmos_beside_the_wi
     );
     let bundle = out.join("Atmos.oma");
     assert!(
-        bundle.join("bin/ratmos").is_file(),
-        "ratmos is in the Bundle"
+        bundle.join("bin/atmosd").is_file(),
+        "atmosd is in the Bundle"
     );
     assert!(bundle.join("atmos-ui").is_file(), "so is the window");
 
@@ -94,7 +94,7 @@ fn the_manifest_makes_a_bundle_with_the_daemon_declared_and_ratmos_beside_the_wi
     let text = String::from_utf8_lossy(&inspected.stdout);
     assert!(text.contains("dev.csfh.atmos"), "{text}");
     assert!(
-        text.contains("Runs its own program (bin/ratmos) OUTSIDE the sandbox"),
+        text.contains("Runs its own program (bin/atmosd) OUTSIDE the sandbox"),
         "the consent line says what the daemon is: {text}"
     );
     assert!(text.contains("graphics card"), "{text}");
@@ -102,10 +102,10 @@ fn the_manifest_makes_a_bundle_with_the_daemon_declared_and_ratmos_beside_the_wi
     assert_eq!(text.matches("Can ").count(), 1, "{text}");
 }
 
-/// The Bundle needs `ratmos` in it: without, the daemon's program does not exist and `oma`
+/// The Bundle needs `atmosd` in it: without, the daemon's program does not exist and `oma`
 /// refuses the Bundle instead of making one that cannot start.
 #[test]
-fn a_bundle_without_ratmos_is_refused() {
+fn a_bundle_without_atmosd_is_refused() {
     let Some(oma) = oma() else { return };
     let home = Home::new();
     let manifest = Path::new(env!("CARGO_MANIFEST_DIR")).join("manifest.toml");

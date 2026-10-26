@@ -3,7 +3,7 @@ const fs = require("fs");
 const os = require("os");
 const path = require("path");
 const { assert, assertEqual } = require("./harness");
-const { ratmosBinary } = require("./sandbox");
+const { atmosdBinary } = require("./sandbox");
 
 const fixture = fs.mkdtempSync(path.join(os.tmpdir(), "atmos-charge-limit-"));
 const battery = path.join(fixture, "power_supply", "BAT0");
@@ -44,7 +44,7 @@ function elevationCount() {
 }
 
 function run(limit, extraEnv) {
-  return spawnSync(ratmosBinary(), ["task", "set-charge-limit", limit], {
+  return spawnSync(atmosdBinary(), ["task", "set-charge-limit", limit], {
     encoding: "utf8",
     env: Object.assign(
       {},

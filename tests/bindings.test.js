@@ -2,7 +2,7 @@ const { spawnSync } = require("child_process");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
-const { ratmosBinary } = require("./sandbox");
+const { atmosdBinary } = require("./sandbox");
 const { load, assert, assertEqual, canon } = require("./harness");
 
 const binds = load("services/Bindings.js");
@@ -206,10 +206,10 @@ function pythonList(kind, text) {
   let parsed = [];
   try {
     fs.writeFileSync(file, text);
-    const result = spawnSync(ratmosBinary(), ["sentinel", kind, "list", file], {
+    const result = spawnSync(atmosdBinary(), ["sentinel", kind, "list", file], {
       encoding: "utf8",
     });
-    assertEqual(result.status, 0, "ratmos sentinel " + kind + " list exits 0");
+    assertEqual(result.status, 0, "atmosd sentinel " + kind + " list exits 0");
     parsed = JSON.parse(result.stdout);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
@@ -220,7 +220,7 @@ function pythonList(kind, text) {
 assertEqual(
   canon(pythonList("bindings", omarchyBindings)),
   canon(liveBinds),
-  "ratmos sentinel bindings list matches parseFile on commented examples",
+  "atmosd sentinel bindings list matches parseFile on commented examples",
 );
 
 const tableBinds = `
@@ -258,7 +258,7 @@ assertEqual(
 assertEqual(
   canon(pythonList("bindings", tableBinds)),
   canon(tableParsed),
-  "ratmos sentinel bindings list matches parseFile on table-form binds",
+  "atmosd sentinel bindings list matches parseFile on table-form binds",
 );
 
 const innerCommentBinds = `
@@ -285,7 +285,7 @@ assertEqual(innerParsed[2].keys, "SUPER + H", "parseFile keeps a bind after -- i
 assertEqual(
   canon(pythonList("bindings", innerCommentBinds)),
   canon(innerParsed),
-  "ratmos sentinel bindings list matches parseFile on comments inside calls",
+  "atmosd sentinel bindings list matches parseFile on comments inside calls",
 );
 
 assertEqual(
@@ -334,5 +334,5 @@ assertEqual(
 assertEqual(
   canon(pythonList("bindings", luaEscapesBinds)),
   canon(luaEscapesBindParsed),
-  "ratmos sentinel bindings list matches parseFile on Lua string escapes",
+  "atmosd sentinel bindings list matches parseFile on Lua string escapes",
 );

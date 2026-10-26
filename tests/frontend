@@ -16,11 +16,11 @@ if ! command -v cargo >/dev/null 2>&1; then
   exit 1
 fi
 
-# Its tests start the real ratmos, in a private home and runtime directory, and a ratmos that is
+# Its tests start the real atmosd, in a private home and runtime directory, and a atmosd that is
 # not built is skipped by them. Build the debug one and name it, so they never run a stale copy
-# (a release build or bin/ratmos can be days old).
+# (a release build or bin/atmosd can be days old).
 cargo build --manifest-path "$ROOT/backend/Cargo.toml" --quiet
-export ATMOS_BACKEND="$ROOT/backend/target/debug/ratmos"
+export ATMOS_BACKEND="$ROOT/backend/target/debug/atmosd"
 
 # The Bundle's manifest is checked by the real `odk-oma` (the program behind `odk oma`) (docs/oma.md), built from ODK beside this repository.
 cargo build --manifest-path "$ROOT/../odk/Cargo.toml" -p oma --quiet

@@ -7,8 +7,8 @@ use std::process::{Command, Stdio};
 
 use serde_json::Value;
 
-use ratmos::domain;
-use ratmos::effect::{self, Effect};
+use atmosd::domain;
+use atmosd::effect::{self, Effect};
 
 use common::{cleanup, request, temp_root};
 
@@ -389,7 +389,7 @@ fn request_without_root_writes_user_files_under_home() {
         "value": "HH:mm"
     }))
     .unwrap();
-    let mut child = Command::new(env!("CARGO_BIN_EXE_ratmos"))
+    let mut child = Command::new(env!("CARGO_BIN_EXE_atmosd"))
         .env("HOME", &home)
         .env_remove("ATMOS_ROOT")
         .args(["--backend", "omarchy", "request"])
@@ -418,7 +418,7 @@ fn request_without_root_writes_user_files_under_home() {
     let text = serde_json::to_string(&shell).unwrap();
     assert!(text.contains("HH:mm"), "{shell}");
 
-    let mut plain = Command::new(env!("CARGO_BIN_EXE_ratmos"))
+    let mut plain = Command::new(env!("CARGO_BIN_EXE_atmosd"))
         .env("HOME", &home)
         .env_remove("ATMOS_ROOT")
         .args(["--backend", "plain", "request"])
@@ -1277,7 +1277,7 @@ fn request_at_home(
     path: &str,
     body: &Value,
 ) -> Value {
-    let mut child = Command::new(env!("CARGO_BIN_EXE_ratmos"))
+    let mut child = Command::new(env!("CARGO_BIN_EXE_atmosd"))
         .env("HOME", home)
         .env("PATH", path)
         .env("ATMOS_ROOT", repo)

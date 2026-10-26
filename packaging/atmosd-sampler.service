@@ -1,12 +1,12 @@
 [Unit]
 Description=Atmos sampler worker: collects the inventories in the background
 Documentation=https://github.com/csfh/atmos
-After=ratmos.service
-PartOf=ratmos.service
+After=atmosd.service
+PartOf=atmosd.service
 
 [Service]
 Type=simple
-ExecStart=ratmos sampler
+ExecStart=atmosd sampler
 Restart=on-failure
 RestartSec=5
 # Background work must never be felt. Idle CPU and IO classes, the lowest
@@ -18,4 +18,4 @@ CPUWeight=1
 CPUQuota=10%
 
 [Install]
-WantedBy=ratmos.service
+WantedBy=atmosd.service

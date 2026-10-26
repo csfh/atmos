@@ -1764,7 +1764,7 @@ assert(
   exportPage.indexOf("Requests.hostWrite") !== -1 &&
     exportPage.indexOf("Backend.request") !== -1 &&
     exportPage.indexOf("ioProc") === -1,
-  "export writes through ratmos on the shared connection, one request at a time",
+  "export writes through atmosd on the shared connection, one request at a time",
 );
 assert(
   exportPage.indexOf("workspaceGestureUnmanaged: Omarchy.hyprWorkspaceGestureUnmanaged") !== -1,

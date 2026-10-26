@@ -312,7 +312,7 @@ mod tests {
     fn stat_cpu_counts_user_system_and_children_and_survives_odd_names() {
         // utime=100 stime=50 cutime=30 cstime=20 -> 200 ticks.
         let stat =
-            "42 (ratmos sampler) (x) S 1 42 42 0 -1 4194560 100 0 0 0 100 50 30 20 20 0 1 0 5 0 0";
+            "42 (atmosd sampler) (x) S 1 42 42 0 -1 4194560 100 0 0 0 100 50 30 20 20 0 1 0 5 0 0";
         assert_eq!(parse_stat_cpu(stat, 100.0), Some(2.0));
         assert_eq!(parse_stat_cpu("garbage", 100.0), None);
     }

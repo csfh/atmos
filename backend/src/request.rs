@@ -1,4 +1,4 @@
-//! The requests ratmos understands. One enum is the whole protocol: a
+//! The requests atmosd understands. One enum is the whole protocol: a
 //! request names an `op` and carries the fields that op needs, and serde
 //! rejects an unknown op or a missing or mistyped field before any handler
 //! runs.

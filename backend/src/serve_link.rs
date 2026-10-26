@@ -321,7 +321,7 @@ pub fn run(config: &Config, out: &Out, subs: &Subs) {
         let retry = backoff(failures);
         send(out, &backend_event(Some((&why, failures, retry))));
         if told != why {
-            eprintln!("ratmos serve: {why}; looking again in {}s", retry.as_secs());
+            eprintln!("atmosd serve: {why}; looking again in {}s", retry.as_secs());
             told = why;
         }
         subs.sleep(retry);
@@ -358,13 +358,13 @@ fn connect(dir: &Path) -> Result<UnixStream, String> {
         && reply.get("proto").and_then(Value::as_u64) < Some(crate::sampler::PROTOCOL)
     {
         return Err(
-            "the running daemon is older than this window and cannot run its reads (restart ratmos.service)"
+            "the running daemon is older than this window and cannot run its reads (restart atmosd.service)"
                 .into(),
         );
     }
     if reply.get("t").and_then(Value::as_str) != Some("ready") {
         return Err(
-            "the running daemon is older than this build and has no sessions (restart ratmos.service)"
+            "the running daemon is older than this build and has no sessions (restart atmosd.service)"
                 .into(),
         );
     }

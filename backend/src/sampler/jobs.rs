@@ -51,7 +51,7 @@ fn now_ms() -> u64 {
 /// --wait`), so it has the priority and the cgroup of an ordinary program of
 /// the user's, not the daemon's: a recording or a picker the user is waiting
 /// on must not run at the daemon's `Nice=15`, and `systemctl restart
-/// ratmos.service` must not kill a job or an app it started. `Direct` is a
+/// atmosd.service` must not kill a job or an app it started. `Direct` is a
 /// child of the daemon, for machines with no user manager and for tests,
 /// which must never reach the real one.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]

@@ -4,7 +4,7 @@
 //! affects in one place (`plan`). The daemon runs commands in order on a lane
 //! and holds back reads of the affected topics until they finish (`reads` says
 //! which reads those are). The window asks, the daemon orders, and the work
-//! itself happens in a `ratmos request` child that carries the caller's
+//! itself happens in a `atmosd request` child that carries the caller's
 //! environment, so a long-lived daemon never runs a tool with a stale
 //! `HYPRLAND_INSTANCE_SIGNATURE`.
 
@@ -26,7 +26,7 @@ use crate::snapshot::{hypr, sh};
 
 /// Set in the child the daemon starts for a command, so it runs the work
 /// itself instead of asking the daemon again.
-pub const DIRECT: &str = "RATMOS_DIRECT";
+pub const DIRECT: &str = "ATMOSD_DIRECT";
 
 /// How long a read waits for the writes ahead of it before it answers anyway.
 pub const BARRIER_WAIT: Duration = Duration::from_secs(3);
@@ -295,7 +295,7 @@ fn settle(monitor: &str, want: u64) -> Option<u64> {
 pub fn run_child(backend_id: &str, body: &Value, env: &[(String, String)]) -> Value {
     let failed = |message: String| json!({"ok": false, "error": {"code": "command", "message": message, "context": null}, "result": null});
     let Ok(exe) = std::env::current_exe() else {
-        return failed("cannot find the ratmos binary".into());
+        return failed("cannot find the atmosd binary".into());
     };
     let mut run = Run::new(exe)
         .args(["--backend", backend_id, "request"])

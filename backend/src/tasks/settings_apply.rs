@@ -1,4 +1,4 @@
-//! `ratmos settings-apply`: apply a settings plan from `planImport()`.
+//! `atmosd settings-apply`: apply a settings plan from `planImport()`.
 //!
 //! The plan arrives on stdin (or `--plan F`) as
 //!   { "schema": 1, "changes": [ { "key": ..., "value": ..., "from": ... } ] }

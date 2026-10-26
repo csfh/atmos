@@ -28,7 +28,7 @@ impl Fakes {
     }
 
     fn keys(&self, keys: &[&str]) -> Value {
-        let mut child = Command::new(env!("CARGO_BIN_EXE_ratmos"))
+        let mut child = Command::new(env!("CARGO_BIN_EXE_atmosd"))
             .args(["--backend", "omarchy", "request"])
             .env_clear()
             .env(
@@ -119,7 +119,7 @@ fn a_tool_that_fails_leaves_its_keys_out_and_says_why() {
 #[test]
 fn a_machine_without_omarchy_fails_its_keys_instead_of_showing_empty_ones() {
     let fakes = Fakes::new("absent");
-    let mut child = Command::new(env!("CARGO_BIN_EXE_ratmos"))
+    let mut child = Command::new(env!("CARGO_BIN_EXE_atmosd"))
         .args(["--backend", "omarchy", "request"])
         .env_clear()
         .env("PATH", fakes.dir.join("bin"))

@@ -315,7 +315,7 @@ fn print_the_protocol_rows() {
             for token in entry.argv {
                 match token {
                     T::L(l) => line.push((*l).to_string()),
-                    T::Task(n) => line.push(format!("ratmos task {n}")),
+                    T::Task(n) => line.push(format!("atmosd task {n}")),
                     T::V(f, _) => {
                         fields.push((*f).to_string());
                         line.push(format!("<{f}>"));

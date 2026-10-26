@@ -345,7 +345,7 @@ mod tests {
 
     #[test]
     fn page_sources_become_searchable_rows() {
-        let dir = std::env::temp_dir().join(format!("ratmos-search-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("atmosd-search-{}", std::process::id()));
         let pages = dir.join("pages");
         std::fs::create_dir_all(pages.join("windows")).unwrap();
         std::fs::write(

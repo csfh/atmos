@@ -101,5 +101,5 @@ assert(broken.status !== 0, "an unreadable baseline line fails");
 
 const withBinary = tree();
 fs.mkdirSync(path.join(withBinary, "bin"));
-fs.writeFileSync(path.join(withBinary, "bin", "ratmos"), Buffer.from("\0\n".repeat(900)));
+fs.writeFileSync(path.join(withBinary, "bin", "atmosd"), Buffer.from("\0\n".repeat(900)));
 assertEqual(check(withBinary).status, 0, "a binary under bin/ is not counted as source");

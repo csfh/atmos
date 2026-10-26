@@ -29,7 +29,7 @@ const update = args.includes("--update");
 const rootAt = args.indexOf("--root");
 const root = path.resolve(rootAt >= 0 ? args[rootAt + 1] : path.join(__dirname, ".."));
 
-// A binary has no lines to count: bin/ratmos can be a local copy of the backend.
+// A binary has no lines to count: bin/atmosd can be a local copy of the backend.
 function isBinary(file) {
   return fs.readFileSync(file).includes(0);
 }

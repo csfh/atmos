@@ -1299,7 +1299,7 @@ checksum = "ac6b926516df9c60bfa16e107b21086399f8285a44ca9711344b9e553c5146e2"
 
 [[package]]
 name = "deps"
-version = "0.0.0"
+version = "0.1.0-rc.3"
 dependencies = [
  "concurrent-queue",
  "crossbeam-utils",
@@ -3764,7 +3764,7 @@ dependencies = [
 
 [[package]]
 name = "odk"
-version = "0.0.0"
+version = "0.1.0-rc.3"
 dependencies = [
  "deps",
  "odk-a11y",
@@ -3774,14 +3774,14 @@ dependencies = [
 
 [[package]]
 name = "odk-a11y"
-version = "0.0.0"
+version = "0.1.0-rc.3"
 dependencies = [
  "deps",
 ]
 
 [[package]]
 name = "odk-theme"
-version = "0.0.0"
+version = "0.1.0-rc.3"
 dependencies = [
  "deps",
  "log",
@@ -3793,7 +3793,7 @@ dependencies = [
 
 [[package]]
 name = "odk-ui"
-version = "0.0.0"
+version = "0.1.0-rc.3"
 dependencies = [
  "async-channel 2.5.0",
  "deps",

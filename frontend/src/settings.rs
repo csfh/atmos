@@ -8,6 +8,7 @@
 //! reason, never a default (docs/adr/0006).
 
 use std::collections::{HashMap, HashSet};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use odk::prelude::*;
 use serde_json::Value;
@@ -64,6 +65,17 @@ pub struct Settings {
     last: HashMap<String, u64>,
     /// The newest write of each snapshot key: only its reply is taken in.
     sent: HashMap<&'static str, u64>,
+    /// When each key was last written, on the daemon's clock: a sample that began before it is
+    /// not taken for that key (`Ops.dropStale`).
+    wrote: HashMap<String, u64>,
+}
+
+/// Now, in milliseconds since the epoch: the clock `sampledAt` is on, since the daemon runs on
+/// the same machine.
+pub fn now_ms() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |d| d.as_millis() as u64)
 }
 
 impl Settings {
@@ -79,7 +91,12 @@ impl Settings {
         let Some(doc) = doc.as_object() else {
             return true;
         };
-        for (key, value) in doc.iter().filter(|(key, _)| *key != "_failed") {
+        let wrote = &self.wrote;
+        let fresh = |key: &String| wrote.get(key).is_none_or(|at| *at <= sampled_at);
+        for (key, value) in doc
+            .iter()
+            .filter(|(key, _)| *key != "_failed" && fresh(key))
+        {
             seen.insert(key.clone());
             self.values.insert(key.clone(), value.clone());
             self.failed.remove(key);
@@ -105,13 +122,28 @@ impl Settings {
     }
 
     /// A write's reply: the keys it read back, as the machine reports them, and the ones it could
-    /// not read.
-    pub fn adopt_reply(&mut self, result: &Value) {
-        if let Some(read) = result.get("snapshot").and_then(Value::as_object) {
-            for (key, value) in read {
-                self.values.insert(key.clone(), value.clone());
-                self.failed.remove(key);
-            }
+    /// not read. A setting of a whole key that read nothing back shows the value the backend says
+    /// it set (`mutationAnswered`). `sent_at` is when the write was sent: a sample that began
+    /// before it is not taken for these keys.
+    pub fn adopt_reply(&mut self, result: &Value, sent_at: u64) {
+        let mut read = result
+            .get("snapshot")
+            .and_then(Value::as_object)
+            .cloned()
+            .unwrap_or_default();
+        if let (Some(domain), Some(value)) = (
+            result.get("domain").and_then(Value::as_str),
+            result.get("value"),
+        ) && !domain.contains('.')
+            && !read.contains_key(domain)
+            && (value.is_string() || value.is_number() || value.is_boolean())
+        {
+            read.insert(domain.to_owned(), value.clone());
+        }
+        for (key, value) in read {
+            self.wrote.insert(key.clone(), sent_at);
+            self.failed.remove(&key);
+            self.values.insert(key, value);
         }
         if let Some(failed) = result.get("failed").and_then(Value::as_object) {
             for (key, why) in failed {
@@ -134,13 +166,14 @@ impl Settings {
         let seq = self.sent.get(key).copied().unwrap_or(0) + 1;
         self.sent.insert(key, seq);
         let refused = refused.into();
+        let sent_at = now_ms();
         let reply = client.request(body);
         cx.spawn_in(window, async move |this, cx| {
             let outcome = reply.await;
             let _ = this.update_in(cx, |settings, window, cx| match outcome {
                 // A newer write of the key is on its way; its reply is the one to show.
                 Ok(result) if settings.sent.get(key) == Some(&seq) => {
-                    settings.adopt_reply(&result);
+                    settings.adopt_reply(&result, sent_at);
                     cx.notify();
                 }
                 Ok(_) => {}
@@ -238,6 +271,11 @@ mod tests {
         topic: "settings.system",
         unread: "",
     };
+    const BROWSER: Held = Held {
+        key: "browser",
+        topic: "settings.system",
+        unread: "",
+    };
 
     #[test]
     fn a_sample_is_taken_once_and_a_failed_key_keeps_its_value_and_says_why() {
@@ -269,8 +307,59 @@ mod tests {
             "it keeps what it had"
         );
         assert_eq!(s.failures(&[INPUT, TWEAKS]).len(), 1);
-        s.adopt_reply(&json!({"snapshot": {"tweaks": {"a": false}}}));
+        s.adopt_reply(&json!({"snapshot": {"tweaks": {"a": false}}}), 7);
         assert!(s.failures(&[TWEAKS]).is_empty(), "read again");
+    }
+
+    #[test]
+    fn a_sample_that_began_before_a_write_is_not_taken_for_the_keys_it_wrote() {
+        let mut s = Settings::default();
+        s.adopt_reply(&json!({"snapshot": {"tweaks": {"a": true}}}), 100);
+        assert!(s.adopt(
+            "settings.system",
+            90,
+            &json!({"tweaks": {"a": false}, "browser": "zen"})
+        ));
+        assert_eq!(
+            s.known(&TWEAKS),
+            Known::Value(&json!({"a": true})),
+            "older than the write"
+        );
+        assert_eq!(
+            s.value(&BROWSER),
+            Some(&json!("zen")),
+            "a key it did not write is taken"
+        );
+        assert!(s.adopt("settings.system", 100, &json!({"tweaks": {"a": false}})));
+        assert_eq!(
+            s.known(&TWEAKS),
+            Known::Value(&json!({"a": false})),
+            "began with the write"
+        );
+    }
+
+    #[test]
+    fn a_setting_that_read_nothing_back_shows_what_the_backend_set() {
+        let mut s = Settings::default();
+        s.adopt_reply(
+            &json!({"domain": "browser", "value": "zen", "snapshot": {}}),
+            1,
+        );
+        assert_eq!(s.value(&BROWSER), Some(&json!("zen")));
+        s.adopt_reply(
+            &json!({"domain": "tweaks.a", "value": true, "snapshot": {}}),
+            2,
+        );
+        assert_eq!(s.value(&TWEAKS), None, "a field is not the key");
+        s.adopt_reply(
+            &json!({"domain": "browser", "value": "x", "snapshot": {"browser": "y"}}),
+            3,
+        );
+        assert_eq!(
+            s.value(&BROWSER),
+            Some(&json!("y")),
+            "what it read back wins"
+        );
     }
 
     #[test]
@@ -278,7 +367,7 @@ mod tests {
         let mut s = Settings::default();
         s.topic_failed("settings.look", "timeout");
         assert_eq!(s.known(&INPUT), Known::Unknown("timeout"), "never read");
-        s.adopt_reply(&json!({"snapshot": {"hyprInput": {"x": 1}}}));
+        s.adopt_reply(&json!({"snapshot": {"hyprInput": {"x": 1}}}), 1);
         assert_eq!(s.known(&INPUT), Known::Value(&json!({"x": 1})));
         assert!(s.failures(&[INPUT]).is_empty());
 
@@ -296,7 +385,10 @@ mod tests {
     #[test]
     fn a_reply_says_what_it_could_not_read() {
         let mut s = Settings::default();
-        s.adopt_reply(&json!({"snapshot": {}, "failed": {"tweaks": {"message": "denied"}}}));
+        s.adopt_reply(
+            &json!({"snapshot": {}, "failed": {"tweaks": {"message": "denied"}}}),
+            1,
+        );
         assert_eq!(s.known(&TWEAKS), Known::Unknown("denied"));
     }
 

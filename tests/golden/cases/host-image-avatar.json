@@ -1,0 +1,27 @@
+{
+  "backend": "omarchy",
+  "files": {
+    ".face": "GIF89a-tiny"
+  },
+  "request": {
+    "op": "host.image",
+    "which": "avatar"
+  },
+  "response": {
+    "ok": true,
+    "platform": {
+      "compositor": "hyprland",
+      "family": "arch",
+      "id": "omarchy"
+    },
+    "result": {
+      "image": {
+        "base64": "R0lGODlhLXRpbnk=",
+        "bytes": 11,
+        "type": "image/gif"
+      },
+      "which": "avatar"
+    },
+    "version": "0.4.0"
+  }
+}

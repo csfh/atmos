@@ -234,6 +234,35 @@ const cases = [
     request: R.unitOutput("status", "", "sshd.service"),
   },
 
+  // Images and radios.
+  {
+    name: "host-image-avatar",
+    backend: "omarchy",
+    files: { ".face": "GIF89a-tiny" },
+    request: R.hostImage("avatar"),
+  },
+  { name: "host-image-background-none", backend: "omarchy", request: R.hostImage("background") },
+  {
+    name: "wifi-scan-omarchy",
+    backend: "omarchy",
+    files: {
+      ".local/state/omarchy/radios/wifi.json":
+        '{"networks":[{"ssid":"Home","signal":72,"security":"WPA2","inUse":true,"known":true}]}\n',
+    },
+    request: R.wifiScan(),
+  },
+  { name: "wifi-scan-plain", backend: "plain", request: R.wifiScan() },
+  {
+    name: "bluetooth-scan-omarchy",
+    backend: "omarchy",
+    files: {
+      ".local/state/omarchy/radios/bluetooth.json":
+        '{"adapter":{"address":"00:1A:7D:DA:71:13","name":"Laptop","powered":true,"discoverable":false,"pairable":true,"discovering":false},"devices":[{"address":"AA:BB:CC:DD:EE:01","name":"Headphones","paired":true,"connected":true,"battery":85}]}\n',
+    },
+    request: R.bluetoothScan(4),
+  },
+  { name: "bluetooth-scan-plain", backend: "plain", request: R.bluetoothScan() },
+
   // Agents.
   { name: "agents-mcp-list", backend: "omarchy", request: R.agentsMcpList() },
   { name: "agents-mcp-check", backend: "omarchy", request: R.agentsMcpCheck() },
@@ -281,6 +310,7 @@ const cases = [
   },
   { name: "error-open-missing", backend: "plain", request: R.hostOpen("/missing.txt") },
   { name: "error-speedtest-bad-phase", backend: "omarchy", request: R.speedtestNet("sideways") },
+  { name: "error-host-image-path", backend: "omarchy", request: R.hostImage("/etc/passwd") },
   { name: "error-display-unknown-kind", backend: "plain", request: R.displayGet("nope") },
 ];
 

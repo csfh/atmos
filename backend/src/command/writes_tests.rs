@@ -27,6 +27,7 @@ fn every_name_builds_with_valid_arguments() {
             "bluetooth.device",
             json!({"action": "connect", "address": "AA:BB:CC:DD:EE:FF"}),
         ),
+        ("bluetooth.discoverable", json!({"on": true})),
         ("plugin.set", json!({"id": "omarchy.x", "on": true})),
         ("bar.spacer", json!({"on": true})),
         ("monitor.internal", json!({"on": false})),

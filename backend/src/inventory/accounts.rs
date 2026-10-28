@@ -50,6 +50,15 @@ fn current_login(passwd: &str) -> String {
         .unwrap_or_default()
 }
 
+/// The session user's avatar file, the one the accounts inventory names; empty when there is
+/// none.
+pub(crate) fn current_avatar() -> String {
+    let passwd = std::fs::read_to_string("/etc/passwd").unwrap_or_default();
+    let current = current_login(&passwd);
+    let home = std::env::var("HOME").unwrap_or_default();
+    avatar_path(&home, &current)
+}
+
 fn avatar_path(home: &str, username: &str) -> String {
     let mut candidates = Vec::new();
     if !username.is_empty() {

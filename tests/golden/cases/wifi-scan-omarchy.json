@@ -1,0 +1,29 @@
+{
+  "backend": "omarchy",
+  "files": {
+    ".local/state/omarchy/radios/wifi.json": "{\"networks\":[{\"ssid\":\"Home\",\"signal\":72,\"security\":\"WPA2\",\"inUse\":true,\"known\":true}]}\n"
+  },
+  "request": {
+    "op": "wifi.scan"
+  },
+  "response": {
+    "ok": true,
+    "platform": {
+      "compositor": "hyprland",
+      "family": "arch",
+      "id": "omarchy"
+    },
+    "result": {
+      "networks": [
+        {
+          "inUse": true,
+          "known": true,
+          "security": "WPA2",
+          "signal": 72,
+          "ssid": "Home"
+        }
+      ]
+    },
+    "version": "0.4.0"
+  }
+}

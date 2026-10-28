@@ -1,0 +1,38 @@
+{
+  "backend": "omarchy",
+  "files": {
+    ".local/state/omarchy/radios/bluetooth.json": "{\"adapter\":{\"address\":\"00:1A:7D:DA:71:13\",\"name\":\"Laptop\",\"powered\":true,\"discoverable\":false,\"pairable\":true,\"discovering\":false},\"devices\":[{\"address\":\"AA:BB:CC:DD:EE:01\",\"name\":\"Headphones\",\"paired\":true,\"connected\":true,\"battery\":85}]}\n"
+  },
+  "request": {
+    "op": "bluetooth.scan",
+    "seconds": 4
+  },
+  "response": {
+    "ok": true,
+    "platform": {
+      "compositor": "hyprland",
+      "family": "arch",
+      "id": "omarchy"
+    },
+    "result": {
+      "adapter": {
+        "address": "00:1A:7D:DA:71:13",
+        "discoverable": false,
+        "discovering": false,
+        "name": "Laptop",
+        "pairable": true,
+        "powered": true
+      },
+      "devices": [
+        {
+          "address": "AA:BB:CC:DD:EE:01",
+          "battery": 85,
+          "connected": true,
+          "name": "Headphones",
+          "paired": true
+        }
+      ]
+    },
+    "version": "0.4.0"
+  }
+}

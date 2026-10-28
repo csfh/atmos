@@ -29,6 +29,9 @@ var OPS = [
   "speedtest.disk",
   "speedtest.net",
   "unit.output",
+  "host.image",
+  "wifi.scan",
+  "bluetooth.scan",
   "agents.mcp.list",
   "agents.mcp.set",
   "agents.mcp.check",
@@ -192,6 +195,20 @@ function unitOutput(kind, scope, unit) {
     scope: String(scope || "system"),
     unit: String(unit),
   };
+}
+
+function hostImage(which) {
+  return { op: "host.image", which: String(which) };
+}
+
+function wifiScan() {
+  return { op: "wifi.scan" };
+}
+
+function bluetoothScan(seconds) {
+  var body = { op: "bluetooth.scan" };
+  if (seconds) body.seconds = Number(seconds);
+  return body;
 }
 
 function agentsMcpList() {

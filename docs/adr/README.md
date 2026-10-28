@@ -25,6 +25,7 @@ An ADR records one decision that shaped Atmos: what was decided, why, and what i
 | [0017](0017-v1-does-not-update-installs-older-than-v1.md) | v1 does not update installs older than v1 | Accepted |
 | [0018](0018-the-backend-is-atmosd.md) | The backend is `atmosd` | Accepted |
 | [0019](0019-a-passwordless-sudo-grant-ends-at-boot-too.md) | A passwordless sudo grant ends at boot too | Accepted |
+| [0020](0020-the-window-searches-the-rows-its-pages-declare.md) | The window searches the rows its pages declare | Accepted |
 
 ## Format
 

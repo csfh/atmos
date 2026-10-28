@@ -5,6 +5,7 @@
 
 use serde_json::Value;
 
+use crate::search::Row;
 use crate::settings::{self, Held, Known, Settings};
 
 const SYSTEM: &str = "settings.system";
@@ -128,6 +129,8 @@ pub struct Picker {
     pub label: &'static str,
     pub description: &'static str,
     pub hint: &'static str,
+    /// What search finds it by besides its label, description and hint.
+    pub keywords: &'static [&'static str],
     /// The settings domain it writes, which is also the snapshot key it shows.
     pub domain: &'static str,
     pub source: Source,
@@ -140,6 +143,7 @@ pub const PICKERS: &[Picker] = &[
         label: "Browser",
         description: "The browser that opens links and web apps. Only installed browsers show up.",
         hint: "omarchy default browser",
+        keywords: &["web", "chrome", "firefox"],
         domain: "browser",
         source: Source::Installed {
             all: BROWSERS,
@@ -152,6 +156,7 @@ pub const PICKERS: &[Picker] = &[
         label: "Terminal",
         description: "The terminal other apps launch when they need a console. Only installed terminals show up.",
         hint: "omarchy default terminal",
+        keywords: &["shell", "console"],
         domain: "terminal",
         source: Source::Installed {
             all: TERMINALS,
@@ -164,6 +169,7 @@ pub const PICKERS: &[Picker] = &[
         label: "Editor",
         description: "The editor Omarchy opens when you ask to edit a file. Only installed editors show up.",
         hint: "omarchy default editor",
+        keywords: &["nvim", "code", "zed"],
         domain: "editor",
         source: Source::Installed {
             all: EDITORS,
@@ -176,6 +182,7 @@ pub const PICKERS: &[Picker] = &[
         label: "PDF",
         description: "The program that opens PDF files.",
         hint: "xdg-mime default application/pdf",
+        keywords: &["pdf", "mime", "document", "evince", "zathura"],
         domain: "mimePdf",
         source: Source::Handlers {
             key: "mimePdfOptions",
@@ -187,6 +194,7 @@ pub const PICKERS: &[Picker] = &[
         label: "Images",
         description: "The program that opens pictures.",
         hint: "xdg-mime default image/png",
+        keywords: &["image", "png", "jpeg", "mime", "imv"],
         domain: "mimeImage",
         source: Source::Handlers {
             key: "mimeImageOptions",
@@ -198,12 +206,27 @@ pub const PICKERS: &[Picker] = &[
         label: "Video",
         description: "The program that opens videos.",
         hint: "xdg-mime default video/mp4",
+        keywords: &["video", "mp4", "mime", "mpv", "vlc"],
         domain: "mimeVideo",
         source: Source::Handlers {
             key: "mimeVideoOptions",
         },
     },
 ];
+
+/// The page's rows as search finds them: each group's heading, then its pickers.
+pub fn rows() -> Vec<Row> {
+    groups()
+        .into_iter()
+        .flat_map(|(group, pickers)| {
+            std::iter::once(Row::group("defaults", group.title(), group.detail())).chain(
+                pickers
+                    .into_iter()
+                    .map(|p| Row::setting("defaults", p.label, p.description, p.hint, p.keywords)),
+            )
+        })
+        .collect()
+}
 
 pub fn by_id(id: &str) -> Option<&'static Picker> {
     PICKERS.iter().find(|p| p.id == id)

@@ -9,6 +9,8 @@ pub struct Hub {
     /// The group's id; `GROUPS` has its label.
     pub group: &'static str,
     pub description: &'static str,
+    /// What search finds it by besides its title and description.
+    pub keywords: &'static [&'static str],
     /// Its pages besides its own, by `<hub>/<page>` id.
     pub children: &'static [Child],
 }
@@ -34,12 +36,15 @@ const fn child(id: &'static str, title: &'static str) -> Child {
     Child { id, title }
 }
 
+// Data, one hub to a block and its keywords on one line; `tests/pins.rs` holds it to `Hubs.js`.
+#[rustfmt::skip]
 pub const HUBS: &[Hub] = &[
     Hub {
         id: "home",
         title: "Home",
         group: "home",
         description: "Live load, memory, temperatures, network, and this user's processes.",
+        keywords: &["dashboard", "home", "cpu", "memory", "ram", "network", "bandwidth", "process", "pid", "kill", "sparkline", "chart", "graph", "load", "activity", "thermal", "temperature", "gpu", "heat"],
         children: &[],
     },
     Hub {
@@ -47,20 +52,15 @@ pub const HUBS: &[Hub] = &[
         title: "Monitor",
         group: "home",
         description: "Live cores, memory, disk I/O, traffic, sensors, and a full process table.",
-        children: &[
-            child("monitor/processes", "Processes"),
-            child("monitor/cpu", "CPU"),
-            child("monitor/memory", "Memory"),
-            child("monitor/disk", "Disk I/O"),
-            child("monitor/traffic", "Traffic"),
-            child("monitor/sensors", "Sensors"),
-        ],
+        keywords: &["monitor", "htop", "btop", "top", "activity", "process", "pid", "kill", "cpu", "core", "load", "memory", "ram", "swap", "disk", "io", "traffic", "bandwidth", "sensor", "thermal", "temperature", "gpu", "psi", "stall", "sparkline", "histogram"],
+        children: &[child("monitor/processes", "Processes"), child("monitor/cpu", "CPU"), child("monitor/memory", "Memory"), child("monitor/disk", "Disk I/O"), child("monitor/traffic", "Traffic"), child("monitor/sensors", "Sensors")],
     },
     Hub {
         id: "sentinel",
         title: "Sentinel",
         group: "home",
         description: "Processes hogging CPU or memory, and ports held open by long-running ones.",
+        keywords: &["rogue", "runaway", "hog", "hogging", "stuck", "leak", "leaking", "high", "cpu", "memory", "ram", "listening", "listener", "port", "tcp", "socket", "bind", "open", "exposed", "long", "running", "suspicious", "kill", "pid", "threshold"],
         children: &[],
     },
     Hub {
@@ -68,6 +68,7 @@ pub const HUBS: &[Hub] = &[
         title: "Favorites",
         group: "look",
         description: "Settings you starred, in one place.",
+        keywords: &["favorite", "favourite", "star", "pin", "bookmark", "saved"],
         children: &[],
     },
     Hub {
@@ -75,16 +76,15 @@ pub const HUBS: &[Hub] = &[
         title: "Appearance",
         group: "look",
         description: "Theme, wallpaper, fonts, and how the desktop looks.",
-        children: &[
-            child("appearance/background", "Background"),
-            child("appearance/boot", "Boot screen"),
-        ],
+        keywords: &["theme", "background", "wallpaper", "font", "text", "size", "reset", "default", "scale", "aether", "palette", "night", "light", "nightlight", "warmth", "temperature", "kelvin", "schedule", "hyprsunset", "plymouth", "boot", "screen", "unlock", "sddm", "login", "refresh", "reapply", "templates", "switcher", "preview", "thumbnail", "picker", "install", "git", "extra", "clone", "update", "pull", "remove", "uninstall", "delete", "custom", "folder", "file", "image", "path", "directory", "cache", "logo", "png", "render"],
+        children: &[child("appearance/background", "Background"), child("appearance/boot", "Boot screen")],
     },
     Hub {
         id: "display",
         title: "Displays",
         group: "look",
         description: "Monitors, scale, and brightness.",
+        keywords: &["monitor", "scale", "hidpi", "brightness", "backlight", "ddc", "keyboard", "laptop", "lid", "internal", "mirror", "clone", "edp", "hdmi", "dp", "resolution", "refresh", "touchpad", "trackpad", "pointer", "mouse", "input", "touch", "touchscreen", "tablet", "digitizer"],
         children: &[],
     },
     Hub {
@@ -92,6 +92,7 @@ pub const HUBS: &[Hub] = &[
         title: "Windows",
         group: "look",
         description: "Gaps, borders, bindings, and window rules.",
+        keywords: &["gaps", "border", "rounding", "blur", "shadow", "tiling", "dwindle", "scrolling", "niri", "column", "opacity", "transparency", "fullscreen", "tight", "square", "aspect", "dim", "animations", "cursor", "tearing", "looknfeel", "preserve", "split", "focus", "activate", "swallow", "window", "rule", "float", "tile", "class"],
         children: &[child("windows/rules", "Window rules")],
     },
     Hub {
@@ -99,6 +100,7 @@ pub const HUBS: &[Hub] = &[
         title: "Workspaces",
         group: "look",
         description: "Count, names, monitors, and how you switch.",
+        keywords: &["workspace", "named", "persistent", "monitor", "scratch", "special", "wrap", "wheel", "switch", "default", "login", "bar", "plugin", "clone"],
         children: &[],
     },
     Hub {
@@ -106,6 +108,7 @@ pub const HUBS: &[Hub] = &[
         title: "Bar",
         group: "look",
         description: "Position, clock, and widgets.",
+        keywords: &["position", "transparent", "menu", "bar", "top", "bottom", "left", "right", "show", "hide", "visible", "clock", "format", "time", "alternate", "date", "week", "start", "calendar", "sunday", "monday", "birth", "year", "age", "life", "expectancy", "indicators", "always", "status", "icons", "dictation", "recording", "reminder", "night", "light", "dnd", "stay", "awake", "agents", "usage", "refresh", "sync", "snapshot", "file", "hostname", "device", "id", "spacer", "gap", "padding", "tray", "hidden", "unhide", "pin", "unpin", "plugin", "widget"],
         children: &[],
     },
     Hub {
@@ -113,6 +116,7 @@ pub const HUBS: &[Hub] = &[
         title: "Notifications",
         group: "look",
         description: "Do not disturb and reminders.",
+        keywords: &["do", "not", "disturb", "dnd", "silent", "mute", "quiet", "toast", "reminder", "timer", "notify", "later", "test", "time", "battery", "weather"],
         children: &[],
     },
     Hub {
@@ -120,6 +124,7 @@ pub const HUBS: &[Hub] = &[
         title: "Profiles",
         group: "look",
         description: "Apply a bundle of settings at once.",
+        keywords: &["profile", "coding", "gaming", "battery", "bundle", "apply", "import", "stay", "awake", "performance"],
         children: &[],
     },
     Hub {
@@ -127,6 +132,7 @@ pub const HUBS: &[Hub] = &[
         title: "Input",
         group: "input",
         description: "Pointer, keyboard, and gestures.",
+        keywords: &["mouse", "pointer", "sensitivity", "acceleration", "natural", "scroll", "inertia", "wheel", "high-res", "discrete", "smooth", "touchpad", "clickfinger", "repeat", "delay", "numlock", "follow", "dpms", "gesture", "swipe", "layout", "xkb", "keyboard"],
         children: &[],
     },
     Hub {
@@ -134,6 +140,7 @@ pub const HUBS: &[Hub] = &[
         title: "Keybindings",
         group: "input",
         description: "Search, add, and override Hyprland chords.",
+        keywords: &["keybinding", "hotkey", "shortcut", "bind", "unbind", "chord", "record", "conflict", "reset", "window", "workspace", "launcher", "media", "system"],
         children: &[],
     },
     Hub {
@@ -141,6 +148,7 @@ pub const HUBS: &[Hub] = &[
         title: "Accessibility",
         group: "input",
         description: "Motion, text size, and assistive tools.",
+        keywords: &["a11y", "motion", "animations", "reduce", "text", "size", "font", "cursor", "pointer", "hide", "typing", "touchscreen", "herdr", "screen", "reader"],
         children: &[],
     },
     Hub {
@@ -148,6 +156,7 @@ pub const HUBS: &[Hub] = &[
         title: "Sound",
         group: "input",
         description: "Volume, sinks, and sources.",
+        keywords: &["audio", "volume", "mute", "speaker", "headphone", "sink", "source", "microphone", "mic", "input", "output", "pipewire", "pactl", "wpctl", "tuning", "dsp", "restart", "voxtype", "dictation", "speech"],
         children: &[],
     },
     Hub {
@@ -155,6 +164,7 @@ pub const HUBS: &[Hub] = &[
         title: "Capture",
         group: "input",
         description: "Screenshots, recordings, and OCR.",
+        keywords: &["screenshot", "record", "recording", "screen", "video", "ocr", "qr", "webcam", "grim", "slurp", "pictures", "videos"],
         children: &[],
     },
     Hub {
@@ -162,6 +172,7 @@ pub const HUBS: &[Hub] = &[
         title: "Hardware",
         group: "device",
         description: "CPU, memory, firmware identity, and the rest of the machine.",
+        keywords: &["cpu", "processor", "intel", "amd", "memory", "ram", "dimm", "ddr", "chipset", "motherboard", "bios", "uefi", "firmware", "tpm", "npu", "xdna", "neural", "tpu", "ai", "accelerator", "dmi", "chassis", "laptop", "desktop", "framework", "usb", "nic", "thermal", "battery"],
         children: &[],
     },
     Hub {
@@ -169,6 +180,7 @@ pub const HUBS: &[Hub] = &[
         title: "Drivers",
         group: "device",
         description: "GPU stack, hybrid switching, and firmware updates.",
+        keywords: &["gpu", "graphics", "nvidia", "vulkan", "hybrid", "supergfx", "igpu", "cuda", "radeon", "drm", "amdgpu", "i915", "xe", "driver", "firmware", "fwupd", "bios", "gsp"],
         children: &[],
     },
     Hub {
@@ -176,6 +188,7 @@ pub const HUBS: &[Hub] = &[
         title: "Disks",
         group: "device",
         description: "Drives, snapshots, and swap.",
+        keywords: &["drive", "nvme", "ssd", "lsblk", "luks", "encryption", "snapper", "snapshot", "btrfs", "hibernation", "zram", "swap", "speedtest", "df", "usage", "trim", "fstrim", "timeline", "retention"],
         children: &[],
     },
     Hub {
@@ -183,16 +196,15 @@ pub const HUBS: &[Hub] = &[
         title: "Network",
         group: "device",
         description: "Wi-Fi, DNS, VPN, and speed test.",
-        children: &[
-            child("network/wifi", "Wi-Fi"),
-            child("network/speedtest", "Speed test"),
-        ],
+        keywords: &["dns", "cloudflare", "google", "dhcp", "custom", "nameserver", "resolver", "radio", "wifi", "band", "ghz", "wlan", "qr", "share", "ssid", "password", "psk", "copy", "ethernet", "status", "ip", "speedtest", "join", "scan", "forget", "restart", "rfkill", "connectivity", "tailscale", "vpn", "tailnet", "localsend", "taildrop", "clipboard", "file", "folder"],
+        children: &[child("network/wifi", "Wi-Fi"), child("network/speedtest", "Speed test")],
     },
     Hub {
         id: "bluetooth",
         title: "Bluetooth",
         group: "device",
         description: "Adapter, pairing, and trusted devices.",
+        keywords: &["bluetooth", "radio", "pair", "connect", "disconnect", "forget", "trust", "battery", "discoverable", "headset", "mouse"],
         children: &[],
     },
     Hub {
@@ -200,6 +212,7 @@ pub const HUBS: &[Hub] = &[
         title: "Power",
         group: "device",
         description: "Profiles and battery.",
+        keywords: &["power", "profile", "performance", "balanced", "battery", "saver", "percentage", "charge", "laptop", "ac", "plugged", "adapter", "charger", "unplugged", "discharging", "status", "notify", "draw"],
         children: &[],
     },
     Hub {
@@ -207,6 +220,7 @@ pub const HUBS: &[Hub] = &[
         title: "Idle",
         group: "device",
         description: "Screensaver, lock, and lid.",
+        keywords: &["screensaver", "lock", "timeout", "idle", "security", "stay", "awake", "caffeine", "allow", "disable", "suspend", "sleep", "branding", "logo", "ascii", "lid", "clamshell"],
         children: &[],
     },
     Hub {
@@ -214,6 +228,7 @@ pub const HUBS: &[Hub] = &[
         title: "Defaults",
         group: "apps",
         description: "Browser, terminal, editor, and MIME.",
+        keywords: &["browser", "terminal", "editor", "chrome", "firefox", "nvim", "pdf", "mime", "image", "video"],
         children: &[],
     },
     Hub {
@@ -221,6 +236,7 @@ pub const HUBS: &[Hub] = &[
         title: "Agentic",
         group: "apps",
         description: "Installed coding agents, the default Omarchy opens, and MCP.",
+        keywords: &["agent", "agentic", "coding", "mcp", "claude", "codex", "grok", "cursor", "pi", "omp", "opencode", "gemini", "hermes", "openclaw", "muse", "copilot", "crush", "install", "default", "tools"],
         children: &[child("agentic/mcp", "MCP")],
     },
     Hub {
@@ -228,6 +244,7 @@ pub const HUBS: &[Hub] = &[
         title: "Applications",
         group: "apps",
         description: "Desktop, TUI, and web launchers.",
+        keywords: &["desktop", "app", "tui", "webapp", "web", "add", "install", "create", "remove", "uninstall", "launcher", "shortcut", "delete", "autostart", "startup", "launch"],
         children: &[child("applications/startup", "Startup")],
     },
     Hub {
@@ -235,6 +252,7 @@ pub const HUBS: &[Hub] = &[
         title: "Software",
         group: "apps",
         description: "Packages and extras.",
+        keywords: &["install", "remove", "browser", "terminal", "editor", "service", "gaming", "steam", "heroic", "lutris", "docker", "chatgpt", "1password", "dropbox", "tailscale", "nordvpn", "signal", "spotify", "sunshine", "package"],
         children: &[],
     },
     Hub {
@@ -242,6 +260,7 @@ pub const HUBS: &[Hub] = &[
         title: "Hooks",
         group: "apps",
         description: "Theme-set and other scripts.",
+        keywords: &["hook", "script", "theme-set", "font-set", "post-boot", "post-update", "pacman", "battery-low"],
         children: &[],
     },
     Hub {
@@ -249,18 +268,15 @@ pub const HUBS: &[Hub] = &[
         title: "System",
         group: "general",
         description: "Host, locale, updates, and about.",
-        children: &[
-            child("system/environment", "Environment"),
-            child("system/kernel", "Kernel"),
-            child("system/history", "History"),
-            child("system/diagnostics", "Diagnostics"),
-        ],
+        keywords: &["crash", "capture", "diagnostics", "coredump", "weather", "location", "city", "forecast", "coordinates", "latitude", "longitude", "gps", "units", "celsius", "fahrenheit", "metric", "imperial", "refresh", "interval", "about", "logo", "branding", "fastfetch", "timezone", "tz", "utc", "region", "date", "time", "zoneinfo", "timedatectl", "hostname", "computer", "machine", "device", "name", "hostnamectl", "keyboard", "layout", "keymap", "xkb", "qwerty", "language", "input", "localectl", "ntp", "timesync", "synchronize", "automatic", "clock", "network", "locale", "lang", "utf-8", "i18n", "translation", "pacman", "parallel", "downloads", "packages", "mirrors", "aur", "update", "channel", "orphan", "prune", "version", "printer", "cups", "print", "restore", "hyprland", "shell", "restart", "atmos", "git", "pull", "reset", "sentinel", "overrides", "report", "journal", "systemd", "portal", "pipewire", "kernel", "environment", "path", "editor", "history", "preview", "audit", "undo", "changes", "uki"],
+        children: &[child("system/environment", "Environment"), child("system/kernel", "Kernel"), child("system/history", "History"), child("system/diagnostics", "Diagnostics")],
     },
     Hub {
         id: "tweaks",
         title: "Tweaks",
         group: "general",
         description: "Overflow settings with a one-click reset.",
+        keywords: &["tweak", "acceleration", "natural", "scroll", "paste", "electron", "wayland", "cursor", "sysctl", "swappiness", "nvidia", "amd", "laptop"],
         children: &[],
     },
     Hub {
@@ -268,6 +284,7 @@ pub const HUBS: &[Hub] = &[
         title: "Omafile",
         group: "general",
         description: "Share this Omarchy system as a Markdown file, or apply one.",
+        keywords: &["omafile", "import", "export", "backup", "restore", "settings", "file", "markdown", "md", "share", "declare", "machine", "profile", "transfer", "move", "migrate", "copy", "clone", "another", "laptop", "dotfiles", "plan", "dry", "run", "review", "undo", "revert", "apply", "keybindings", "bindings", "rules", "autostart", "omarchy"],
         children: &[],
     },
     Hub {
@@ -275,6 +292,7 @@ pub const HUBS: &[Hub] = &[
         title: "Accounts",
         group: "admin",
         description: "Face, password, users, and groups.",
+        keywords: &["account", "avatar", "face", "icon", "picture", "sddm", "user", "group", "password", "passwd", "login", "wheel", "admin", "docker", "useradd", "userdel", "groupadd", "usermod", "chfn", "gecos", "full", "name", "real", "display", "chpasswd"],
         children: &[],
     },
     Hub {
@@ -282,6 +300,7 @@ pub const HUBS: &[Hub] = &[
         title: "Security",
         group: "admin",
         description: "Fingerprint, SSH, and sudo.",
+        keywords: &["fingerprint", "fido2", "yubikey", "ssh", "sshd", "sudo", "passwordless", "docker", "pam", "u2f"],
         children: &[],
     },
     Hub {
@@ -289,6 +308,7 @@ pub const HUBS: &[Hub] = &[
         title: "Services",
         group: "admin",
         description: "Search, filter, and control user and system units.",
+        keywords: &["systemd", "unit", "service", "enable", "disable", "start", "stop", "restart", "failed", "logs", "pipewire", "portal", "bluetooth", "search", "filter"],
         children: &[],
     },
 ];

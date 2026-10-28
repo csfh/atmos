@@ -12,6 +12,7 @@ pub mod jobs;
 pub mod live;
 pub mod pages;
 pub mod protocol;
+pub mod search;
 pub mod sentinel;
 pub mod settings;
 pub mod status;

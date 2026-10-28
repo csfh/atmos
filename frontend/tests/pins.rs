@@ -51,7 +51,7 @@ fn titles_groups_descriptions_and_pages_are_those_of_hubs_js() {
 const H = require(process.env.REPO_DIR + "/services/Hubs.js");
 const ids = ["home", "monitor/cpu", "system/kernel", "monitor/nothing", "nothing", "", "a/b/c"];
 process.stdout.write(JSON.stringify({
-  hubs: H.hubs().map((h) => [h.id, h.title, h.navGroup, h.description,
+  hubs: H.hubs().map((h) => [h.id, h.title, h.navGroup, h.description, h.keywords,
     (h.children || []).map((c) => [c.id, c.title])]),
   titles: ids.map((id) => [id, H.hubTitle(id), !!H.hubById(id)]),
 }));
@@ -70,7 +70,7 @@ process.stdout.write(JSON.stringify({
         .iter()
         .map(|h| {
             let kids: Vec<_> = h.children.iter().map(|c| [c.id, c.title]).collect();
-            serde_json::json!([h.id, h.title, h.group, h.description, kids])
+            serde_json::json!([h.id, h.title, h.group, h.description, h.keywords, kids])
         })
         .collect();
     assert_eq!(serde_json::Value::Array(ours), js["hubs"]);

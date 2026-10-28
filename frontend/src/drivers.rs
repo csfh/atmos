@@ -6,6 +6,7 @@
 use serde_json::{Value, json};
 
 use crate::jobs::Job;
+use crate::search::Row;
 use crate::settings::{Held, Settings};
 
 const HOST: &str = "settings.host";
@@ -34,6 +35,56 @@ pub const HELD: &[Held] = &[
         "Whether this machine can switch GPUs could not be read",
     ),
     held("hybridGpuMode", "The GPU mode could not be read"),
+];
+
+const HUB: &str = "drivers";
+
+pub const GRAPHICS_DETAIL: &str = "PCI display devices, plus the DRM driver when the kernel bound one. Active is NVIDIA when that GPU is present, otherwise Vulkan. Hybrid switching reboots.";
+pub const FIRMWARE_DETAIL: &str =
+    "Identity is on Hardware. Update asks fwupd to install vendor firmware.";
+pub const REFRESH_TEXT: &str = "Read the units again after a firmware or GPU change.";
+
+/// The page's rows as search finds them: those whose label is the page's own words. A GPU's row
+/// is named by the GPU and is not searched; a row whose text depends on the machine is found by
+/// its label and keywords.
+pub const ROWS: &[Row] = &[
+    Row::group(HUB, "Graphics", GRAPHICS_DETAIL),
+    Row::setting(
+        HUB,
+        "Graphics",
+        "No GPUs reported.",
+        "lspci",
+        &["gpu", "graphics", "vga", "drm"],
+    ),
+    Row::setting(
+        HUB,
+        "Active stack",
+        "",
+        "",
+        &["vulkan", "nvidia", "gsp", "turing", "cuda", "api"],
+    ),
+    Row::setting(
+        HUB,
+        "Hybrid GPU",
+        "",
+        "omarchy toggle hybrid gpu",
+        &["hybrid", "supergfx", "igpu"],
+    ),
+    Row::group(HUB, "Firmware", FIRMWARE_DETAIL),
+    Row::setting(
+        HUB,
+        "Firmware",
+        "",
+        "omarchy update firmware",
+        &["firmware", "fwupd", "bios", "update"],
+    ),
+    Row::setting(
+        HUB,
+        "Refresh",
+        REFRESH_TEXT,
+        "snapshot",
+        &["reload", "rescan"],
+    ),
 ];
 
 /// A text field as `cleanText` keeps it: one line, trimmed, nothing for the placeholders

@@ -225,7 +225,7 @@ impl Render for DriversPage {
             .into_any_element(),
             row::setting(
                 "Refresh",
-                "Read the units again after a firmware or GPU change.",
+                drivers::REFRESH_TEXT,
                 "snapshot",
                 Button::new("drivers-refresh")
                     .label("Refresh")
@@ -256,20 +256,14 @@ impl Render for DriversPage {
         content_column()
             .child(Heading::new("Drivers").level(1))
             .child(
-                Text::new("Bound GPU drivers, hybrid switching, and firmware updates through fwupd.")
-                    .muted(),
+                Text::new(
+                    "Bound GPU drivers, hybrid switching, and firmware updates through fwupd.",
+                )
+                .muted(),
             )
             .children(alerts)
-            .child(row::group(
-                "Graphics",
-                "PCI display devices, plus the DRM driver when the kernel bound one. Active is NVIDIA when that GPU is present, otherwise Vulkan. Hybrid switching reboots.",
-                graphics,
-            ))
-            .child(row::group(
-                "Firmware",
-                "Identity is on Hardware. Update asks fwupd to install vendor firmware.",
-                firmware,
-            ))
+            .child(row::group("Graphics", drivers::GRAPHICS_DETAIL, graphics))
+            .child(row::group("Firmware", drivers::FIRMWARE_DETAIL, firmware))
             .child(self.confirmation(&g, &this))
     }
 }

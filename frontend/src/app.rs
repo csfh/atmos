@@ -27,6 +27,9 @@ use crate::protocol::{self, Daemon, Event};
 use crate::settings::{self, Settings};
 use crate::{defaults, drivers, favorites, status, tweaks};
 
+/// The hubs that have a page in this window; every other hub says it has not been ported.
+pub const PORTED: &[&str] = &["sentinel", "tweaks", "defaults", "favorites", "drivers"];
+
 /// How often the daemon samples `live` for a page that reads it, in milliseconds: the QML window's.
 const LIVE_MS: u64 = 2000;
 

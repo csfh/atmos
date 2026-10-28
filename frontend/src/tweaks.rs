@@ -10,6 +10,7 @@
 
 use serde_json::{Value, json};
 
+use crate::search::Row;
 use crate::settings::{self, Held, Known, Settings};
 
 pub const HELD: &[Held] = &[
@@ -155,6 +156,23 @@ pub fn groups() -> Vec<(&'static str, Vec<&'static Tweak>)> {
         }
     }
     out
+}
+
+/// The page's rows as search finds them: each tweak, by what its row says. The groups' headings
+/// are the catalog's, not the page's words, and are not searched.
+pub fn rows() -> Vec<Row> {
+    CATALOG
+        .iter()
+        .map(|t| {
+            Row::setting(
+                "tweaks",
+                t.label,
+                t.description,
+                t.modifies,
+                &["tweak", "reset"],
+            )
+        })
+        .collect()
 }
 
 pub fn by_id(id: &str) -> Option<&'static Tweak> {

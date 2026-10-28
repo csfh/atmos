@@ -1,5 +1,5 @@
 # `odk oma dev frontend`: build both halves, make the Bundle, install it over the installed copy and
-# run it (docs/oma.md; ODK's ADR 0051). Not part of the Bundle. Paths are from this directory.
+# run it (docs/oma.md; ODK's ADR 0051, and ADR 0073, which names this file). Not part of the Bundle. Paths are from this directory.
 build = [
   ["cargo", "build", "--release", "--manifest-path", "../backend/Cargo.toml"],
   ["cargo", "build", "--release"],

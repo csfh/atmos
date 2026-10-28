@@ -173,7 +173,24 @@ pub fn bluetooth_fields() -> Map<String, Value> {
     let mut f = Map::new();
     f.insert("bluetooth".into(), json!(bluetooth()));
     f.insert("bluetoothDevices".into(), bluetooth_devices());
+    f.insert(
+        "bluetoothDiscoverable".into(),
+        json!(bluetooth_discoverable()),
+    );
     f
+}
+
+/// Whether the adapter can be found by others now, from `bluetoothctl show`. No adapter, or one
+/// that does not say, is not discoverable.
+fn bluetooth_discoverable() -> bool {
+    if !present("bluetoothctl") {
+        return false;
+    }
+    discoverable_in(&out_within("bluetoothctl", &["show"], 2))
+}
+
+fn discoverable_in(show: &str) -> bool {
+    show.lines().any(|l| l.trim() == "Discoverable: yes")
 }
 
 pub fn tailscale_fields() -> Map<String, Value> {
@@ -369,4 +386,19 @@ pub fn audio() -> Map<String, Value> {
     let on = after("Tuning sink:", "present") || after("Installed:", "yes");
     f.insert("audioTuningOn".into(), json!(on));
     f
+}
+
+#[cfg(test)]
+mod tests {
+    use super::discoverable_in;
+
+    #[test]
+    fn discoverable_is_read_from_show() {
+        let show = "Controller 00:1A:7D:DA:71:13 (public)\n\tPowered: yes\n\tDiscoverable: yes\n";
+        assert!(discoverable_in(show));
+        assert!(!discoverable_in(
+            &show.replace("Discoverable: yes", "Discoverable: no")
+        ));
+        assert!(!discoverable_in("No default controller available\n"));
+    }
 }

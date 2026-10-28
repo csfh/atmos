@@ -16,11 +16,13 @@ pub mod error;
 mod fsutil;
 mod host;
 mod hyprland;
+mod images;
 mod inventory;
 mod launch;
 mod mcp;
 mod patch;
 mod platform;
+mod radios;
 mod request;
 mod route;
 mod runner;
@@ -415,6 +417,9 @@ pub(crate) fn handle(backend: Backend, root: Option<&Path>, body: &Value) -> Res
         Request::SpeedtestDisk(args) => host::speed_disk(backend, root, &args)?,
         Request::SpeedtestNet(args) => host::speed_net(backend, root, &args)?,
         Request::UnitOutput(args) => host::unit_output(backend, root, &args)?,
+        Request::HostImage { which } => images::host_image(root, &which)?,
+        Request::WifiScan => radios::wifi_scan(backend, root)?,
+        Request::BluetoothScan(args) => radios::bluetooth_scan(backend, root, args.seconds)?,
         Request::AgentsMcpList => agents::list(root)?,
         Request::AgentsMcpSet { agent, on, replace } => {
             route_command(backend, root, direct, body, || {

@@ -11,6 +11,7 @@
 mod args;
 pub mod entries;
 pub mod jobs;
+mod radio;
 pub mod table;
 pub mod writes;
 

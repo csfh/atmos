@@ -212,6 +212,7 @@ A `--root` fixture never reads the cache. `atmosd task`, `atmosd apply` and `set
 | `host.read` | `paths` | `{files: [{path, exists, text}]}`. A missing file is `exists: false`, not an error. |
 | `host.write` | `path`, `text` | `{bytes, path}`. The write replaces the file atomically. |
 | `host.open` | `path` | `{opened}`. Opens a file or an `http(s)` URL with `xdg-open`. A missing file is `not_found`. Under a fixture root it only answers. |
+| `host.image` | `which`: `avatar` or `background` | `{which, image}`: `image` is `{type, bytes, base64}`, the file's bytes in base64 with its type (`image/png`, `image/jpeg`, `image/webp`, `image/gif`, `image/bmp`, or null), or null when there is no such file. The avatar is the one `host.accounts` and the accounts inventory name, the background `~/.local/state/omarchy/current/background`; atmosd finds the file, so a window names no path, and a sandboxed window that cannot read the file still shows it. Larger than 16 MiB is `failed`. Under a fixture root: `<root>/.face` and `<root>/.local/state/omarchy/current/background`. |
 
 ### Speed and units
 
@@ -220,6 +221,15 @@ A `--root` fixture never reads the cache. `atmosd task`, `atmosd apply` and `set
 | `speedtest.disk` | `dir` (optional) | `{exit, stdout, stderr}` from the disk test. |
 | `speedtest.net` | `phase`: `down` (default) or `up` | `{exit, stdout, stderr}` from the network test. Any other phase is a `failed` reply. |
 | `unit.output` | `kind`: `status` or `logs`, `scope`: `system` (default) or `user`, `unit` | `{exit, text}` for a systemd unit. |
+
+### Radios
+
+What the Wi-Fi and Bluetooth radios find now, for the pages that read Quickshell's Networking and Bluetooth modules in the QML window. Each is asked for by the window while its page is shown and is never sampled on a clock: a rescan and a discovery cost power and air time. They hold a read for seconds and take no quick-read slot. Under a fixture root each answers `<root>/.local/state/omarchy/radios/wifi.json` or `bluetooth.json`, or an empty answer.
+
+| Op | Fields | Result |
+| --- | --- | --- |
+| `wifi.scan` | | `{networks: [{ssid, signal, security, inUse, known}]}` after `nmcli device wifi list --rescan auto` (NetworkManager scans again unless its last scan is a few seconds old, so a second press of Scan is not refused): one row per network name (its strongest access point's signal, 0 to 100, and security), the one in use first, then by signal. `known` is whether a saved Wi-Fi profile has that name. A hidden network is left out. `nmcli` failing is `command`. |
+| `bluetooth.scan` | `seconds`: 1 to 30, 8 by default | `{adapter, devices}` after a discovery of that long (`bluetoothctl --timeout <seconds> scan on`), which stops when it ends. `adapter` is `{address, name, powered, discoverable, pairable, discovering}` from `bluetoothctl show`, or null with no adapter (then no devices). `devices` is every device `bluetoothctl devices` lists, paired or only found: `[{address, name, paired, connected, battery}]`, connected first, then paired, then by name; `battery` is a connected device's `Battery Percentage`, else null. The adapter's discoverable switch is the write `bluetooth.discoverable`, read back as `bluetoothDiscoverable`; BlueZ turns it off again after its `DiscoverableTimeout` (180 s by default). |
 
 ### Agents
 
@@ -257,6 +267,7 @@ These read and edit the MCP entry in each coding agent's own config; Atmos keeps
 | `wifi.band` | `band`: `auto`, `2.4`, `5`, `6` | `omarchy network band` |
 | `wifi.connection` | `action`: `up`, `down`, `delete`; `uuid` | `atmosd task set-wifi-connection`; settled on that connection's `active` flag or its absence |
 | `bluetooth.device` | `action`: `connect`, `disconnect`, `forget`; `address` | `omarchy bluetooth device`; settled on that device's `connected` flag or its absence |
+| `bluetooth.discoverable` | `on` | `bluetoothctl discoverable on` or `off`; settled when `bluetoothDiscoverable` is `on` |
 | `plugin.set` | `id`, `on` | `omarchy plugin enable` or `disable` |
 | `bar.spacer` | `on` | `omarchy bar put omarchy.spacer` or `omarchy plugin disable omarchy.spacer` |
 | `monitor.internal` | `on` | `omarchy hyprland monitor internal on` or `off` |

@@ -89,6 +89,12 @@ pub enum Request {
     SpeedtestNet(SpeedNet),
     #[serde(rename = "unit.output")]
     UnitOutput(UnitOutput),
+    #[serde(rename = "host.image")]
+    HostImage { which: String },
+    #[serde(rename = "wifi.scan")]
+    WifiScan,
+    #[serde(rename = "bluetooth.scan")]
+    BluetoothScan(BluetoothScan),
     #[serde(rename = "search.query")]
     SearchQuery {
         #[serde(default)]
@@ -161,6 +167,17 @@ pub struct SpeedDisk {
 pub struct SpeedNet {
     #[serde(default = "down")]
     pub phase: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct BluetoothScan {
+    /// How long the discovery runs, 1 to 30 seconds.
+    #[serde(default = "discovery_seconds")]
+    pub seconds: u64,
+}
+
+fn discovery_seconds() -> u64 {
+    crate::radios::DISCOVERY_SECONDS
 }
 
 #[derive(Debug, Deserialize)]
@@ -268,6 +285,9 @@ mod tests {
             Request::SpeedtestDisk(_) => "speedtest.disk",
             Request::SpeedtestNet(_) => "speedtest.net",
             Request::UnitOutput(_) => "unit.output",
+            Request::HostImage { .. } => "host.image",
+            Request::WifiScan => "wifi.scan",
+            Request::BluetoothScan(_) => "bluetooth.scan",
             Request::AgentsMcpList => "agents.mcp.list",
             Request::AgentsMcpSet { .. } => "agents.mcp.set",
             Request::AgentsMcpCheck => "agents.mcp.check",
@@ -302,6 +322,9 @@ mod tests {
             json!({"op": "speedtest.disk"}),
             json!({"op": "speedtest.net"}),
             json!({"op": "unit.output", "kind": "status", "unit": "sshd.service"}),
+            json!({"op": "host.image", "which": "avatar"}),
+            json!({"op": "wifi.scan"}),
+            json!({"op": "bluetooth.scan"}),
             json!({"op": "agents.mcp.list"}),
             json!({"op": "agents.mcp.set", "agent": "claude", "on": true}),
             json!({"op": "agents.mcp.check"}),
@@ -345,6 +368,7 @@ mod tests {
             ("host.write", "path"),
             ("host.open", "path"),
             ("unit.output", "kind"),
+            ("host.image", "which"),
             ("agents.mcp.set", "agent"),
         ];
         for (op, field) in needs {

@@ -182,9 +182,9 @@ fn the_three_limits_are_integer_settings_in_the_shell_file() {
 /// `odk oma dev frontend` builds what `docs/oma.md` says it does: the include lands where the manifest
 /// declares the daemon, and both builds are the ones the packaging commands run.
 #[test]
-fn dev_toml_builds_the_window_and_puts_atmosd_where_the_manifest_runs_the_daemon() {
-    let dev = fs::read_to_string(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("dev.toml"))
-        .expect("frontend/dev.toml");
+fn oma_toml_builds_the_window_and_puts_atmosd_where_the_manifest_runs_the_daemon() {
+    let dev = fs::read_to_string(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("oma.toml"))
+        .expect("frontend/oma.toml");
     let manifest =
         fs::read_to_string(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("manifest.toml"))
             .expect("frontend/manifest.toml");
@@ -205,7 +205,7 @@ fn dev_toml_builds_the_window_and_puts_atmosd_where_the_manifest_runs_the_daemon
         "[\"cargo\", \"build\", \"--release\", \"--manifest-path\", \"../backend/Cargo.toml\"]",
         "[\"cargo\", \"build\", \"--release\"]",
     ] {
-        assert!(dev.contains(build), "{build} is not built by dev.toml");
+        assert!(dev.contains(build), "{build} is not built by oma.toml");
     }
 }
 

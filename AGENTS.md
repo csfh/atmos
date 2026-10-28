@@ -7,7 +7,7 @@ The design (one daemon authority, a sampling bus behind a CPU governor, a comman
 ## Run
 
 - `./bin/atmos` — launch (each launch is its own window)
-- `odk oma dev frontend` — the Rust window as its Bundle: `frontend/dev.toml` builds both halves, then ODK makes the Bundle, installs it over the installed copy and runs it on the desktop.
+- `odk oma dev frontend` — the Rust window as its Bundle: `frontend/oma.toml` builds both halves, then ODK makes the Bundle, installs it over the installed copy and runs it on the desktop.
 - `npm install` — oxlint and oxfmt; also sets `core.hooksPath` to `.githooks`
 - `npm run lint` / `npm run fmt` — lint and format `services` and `tests`
 - `./tests/frontend` — the Rust window: `cargo fmt --check`, clippy and tests in `frontend/`, which open no window. It builds on whatever ODK has checked out at `../odk` (bring it to ODK's `main` with `git -C ../odk merge --ff-only origin/main`) and says "skip" without it, and it sets `ODKD_SOCKET=none`, so the tests hear no `odkd`. When ODK's workspace version moves, `frontend/Cargo.lock` follows it in a commit of its own. Never `cargo run` it, and open it on the desktop from a test or an agent only when the owner asks for that run (`odk oma dev frontend` below): tests drive the view on GPUI's test platform (`frontend/tests/shell.rs`), and ODK's `tools/headless-shot` is how to look at it.

@@ -46,7 +46,7 @@ pub struct Built {
 impl Built {
     /// Writes on a lane run in order and are never collapsed: two toggles are
     /// two toggles. (`key` names the control, for the log.)
-    fn new(lane: &str, _key: &str, argv: Vec<String>, readback: &[&str]) -> Built {
+    pub(super) fn new(lane: &str, _key: &str, argv: Vec<String>, readback: &[&str]) -> Built {
         Built {
             argv,
             lane: lane.into(),
@@ -66,7 +66,7 @@ impl Built {
         self
     }
 
-    fn settle(mut self, check: Check) -> Built {
+    pub(super) fn settle(mut self, check: Check) -> Built {
         self.settle = Some(check);
         self
     }
@@ -81,7 +81,7 @@ impl Built {
 
     /// A change that takes seconds to show: a radio associating, a device
     /// connecting, the bar reloading.
-    fn slow(mut self) -> Built {
+    pub(super) fn slow(mut self) -> Built {
         self.settle_for = SETTLE_SLOW;
         self
     }
@@ -89,7 +89,7 @@ impl Built {
 
 // ---- what a settled read-back looks like --------------------------------
 
-fn equals(key: &'static str, want: Value) -> Check {
+pub(super) fn equals(key: &'static str, want: Value) -> Check {
     Box::new(move |_, now| now.get(key) == Some(&want))
 }
 
@@ -101,7 +101,7 @@ fn row<'a>(now: &'a Snap, key: &str, field: &str, id: &str) -> Option<&'a Value>
         .find(|row| row.get(field).and_then(Value::as_str) == Some(id))
 }
 
-fn row_has(
+pub(super) fn row_has(
     key: &'static str,
     field: &'static str,
     id: String,
@@ -111,7 +111,7 @@ fn row_has(
     Box::new(move |_, now| row(now, key, field, &id).is_some_and(|r| r.get(prop) == Some(&want)))
 }
 
-fn row_gone(key: &'static str, field: &'static str, id: String) -> Check {
+pub(super) fn row_gone(key: &'static str, field: &'static str, id: String) -> Check {
     Box::new(move |_, now| now.contains_key(key) && row(now, key, field, &id).is_none())
 }
 
@@ -140,6 +140,7 @@ pub const NAMES: &[&str] = &[
     "wifi.band",
     "wifi.connection",
     "bluetooth.device",
+    "bluetooth.discoverable",
     "plugin.set",
     "bar.spacer",
     "monitor.internal",
@@ -219,76 +220,8 @@ pub fn build(name: &str, args: &Value) -> Result<Built> {
             )
             .settle(equals("powerProfile", json!(profile)))
         }
-        "wifi.band" => {
-            let band = one_of(args, "band", &["auto", "2.4", "5", "6"])?;
-            Built::new(
-                "network",
-                "wifiBandSelected",
-                s(&["omarchy", "network", "band", band]),
-                &["wifiBandSelected"],
-            )
-            .settle(equals("wifiBandSelected", json!(band)))
-            .slow()
-        }
-        "wifi.connection" => {
-            let action = one_of(args, "action", &["up", "down", "delete"])?;
-            let id = uuid(args)?;
-            let built = Built::new(
-                "network",
-                &format!("wifi:{id}"),
-                task("set-wifi-connection", &[action, id])
-                    .into_iter()
-                    .collect(),
-                &["wifiConnections", "wifiConnected", "netKind", "netSsid"],
-            );
-            let id = id.to_string();
-            let built = built.slow();
-            match action {
-                "up" => built.settle(row_has(
-                    "wifiConnections",
-                    "uuid",
-                    id,
-                    "active",
-                    json!(true),
-                )),
-                "down" => built.settle(row_has(
-                    "wifiConnections",
-                    "uuid",
-                    id,
-                    "active",
-                    json!(false),
-                )),
-                _ => built.settle(row_gone("wifiConnections", "uuid", id)),
-            }
-        }
-        "bluetooth.device" => {
-            let action = one_of(args, "action", &["connect", "disconnect", "forget"])?;
-            let addr = address(args)?;
-            let built = Built::new(
-                "bluetooth",
-                &format!("bluetooth:{addr}"),
-                s(&["omarchy", "bluetooth", "device", action, addr]),
-                &["bluetoothDevices"],
-            );
-            let id = addr.to_string();
-            let built = built.slow();
-            match action {
-                "connect" => built.settle(row_has(
-                    "bluetoothDevices",
-                    "address",
-                    id,
-                    "connected",
-                    json!(true),
-                )),
-                "disconnect" => built.settle(row_has(
-                    "bluetoothDevices",
-                    "address",
-                    id,
-                    "connected",
-                    json!(false),
-                )),
-                _ => built.settle(row_gone("bluetoothDevices", "address", id)),
-            }
+        "wifi.band" | "wifi.connection" | "bluetooth.device" | "bluetooth.discoverable" => {
+            super::radio::build(name, args)?
         }
         "plugin.set" => {
             let id = word(args, "id")?;

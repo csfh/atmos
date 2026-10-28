@@ -81,10 +81,16 @@ impl Daemon {
         // has a lane of its own so reads never wait for each other.
         let command = command::plan(&parsed);
         let is_command = command.is_some();
-        // A speed test holds its child for seconds on purpose; it must not
-        // take a slot from the quick reads.
-        let slotted =
-            !is_command && !matches!(parsed, Request::SpeedtestDisk(_) | Request::SpeedtestNet(_));
+        // A speed test, a Wi-Fi rescan and a Bluetooth discovery hold their child for seconds on
+        // purpose; they must not take a slot from the quick reads.
+        let slotted = !is_command
+            && !matches!(
+                parsed,
+                Request::SpeedtestDisk(_)
+                    | Request::SpeedtestNet(_)
+                    | Request::WifiScan
+                    | Request::BluetoothScan(_)
+            );
         let plan = command.unwrap_or_else(command::read_plan);
         self.commands_run
             .fetch_add(1, std::sync::atomic::Ordering::SeqCst);

@@ -1,0 +1,20 @@
+{
+  "backend": "omarchy",
+  "request": {
+    "op": "host.image",
+    "which": "background"
+  },
+  "response": {
+    "ok": true,
+    "platform": {
+      "compositor": "hyprland",
+      "family": "arch",
+      "id": "omarchy"
+    },
+    "result": {
+      "image": null,
+      "which": "background"
+    },
+    "version": "0.4.0"
+  }
+}

@@ -228,7 +228,10 @@ const OWNERS: &[(Producer, &[&str])] = &[
             "wifiIface",
         ],
     ),
-    (Producer::Bluetooth, &["bluetooth", "bluetoothDevices"]),
+    (
+        Producer::Bluetooth,
+        &["bluetooth", "bluetoothDevices", "bluetoothDiscoverable"],
+    ),
     (
         Producer::Tailscale,
         &["tailscaleInstalled", "tailscalePeers", "tailscaleRunning"],

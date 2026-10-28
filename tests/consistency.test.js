@@ -117,7 +117,8 @@ for (const file of qmlServices) {
 
 // --- the old backend name ----------------------------------------------------
 
-// The backend is `atmosd` (docs/adr/0018). Past ADRs and the changelog keep the old name as history.
+// The backend is `atmosd` (docs/adr/0018). Past ADRs and the changelog keep the old name as history,
+// and the agent notes name it once so those can be read.
 {
   const old = "rat" + "mos";
   const files = require("child_process")
@@ -128,6 +129,7 @@ for (const file of qmlServices) {
         f &&
         !f.startsWith("docs/adr/") &&
         f !== "CHANGELOG.md" &&
+        f !== "AGENTS.md" &&
         !f.endsWith("Cargo.lock") &&
         fs.existsSync(path.join(root, f)),
     );

@@ -1,6 +1,7 @@
 //! The window: a sidebar of hubs, a page, and the screen shown in its place when the backend is
 //! not there. A hub that has not been ported shows its name and says so; Sentinel
-//! (`pages/sentinel.rs`) and Tweaks (`pages/tweaks.rs`) have been.
+//! (`pages/sentinel.rs`), Tweaks (`pages/tweaks.rs`) and Defaults (`pages/defaults.rs`) have been.
+//! The settings topics go to one [`Settings`] that every page reads.
 //!
 //! The view holds what the backend has said and draws it. The client's notices arrive on a
 //! channel that one task awaits, so the view is drawn when something happened and not on a clock.
@@ -10,10 +11,12 @@ use odk::prelude::*;
 
 use crate::client::{Client, Link, Notice};
 use crate::hubs;
+use crate::pages::defaults::DefaultsPage;
 use crate::pages::sentinel::SentinelPage;
 use crate::pages::tweaks::TweaksPage;
 use crate::protocol::{self, Daemon, Event};
-use crate::{status, tweaks};
+use crate::settings::{self, Settings};
+use crate::{defaults, status, tweaks};
 
 /// How often the daemon samples `live` for a page that reads it, in milliseconds: the QML window's.
 const LIVE_MS: u64 = 2000;
@@ -25,7 +28,8 @@ const LIVE_MS: u64 = 2000;
 fn wanted(page: &str) -> Vec<(&'static str, u64)> {
     match page {
         "sentinel" => vec![("live", LIVE_MS)],
-        "tweaks" => tweaks::HELD.iter().map(|held| (held.topic, 0)).collect(),
+        "tweaks" => settings::topics(tweaks::HELD),
+        "defaults" => settings::topics(defaults::HELD),
         _ => Vec::new(),
     }
 }
@@ -39,8 +43,11 @@ pub struct Atmos {
     daemon: Option<Daemon>,
     /// The backend's version, once it has answered.
     version: Option<SharedString>,
+    /// What the settings topics and the writes' read-backs said, for every page.
+    settings: Entity<Settings>,
     sentinel: Entity<SentinelPage>,
     tweaks: Entity<TweaksPage>,
+    defaults: Entity<DefaultsPage>,
 }
 
 impl Atmos {
@@ -58,9 +65,14 @@ impl Atmos {
             let client = client.clone();
             cx.new(|cx| SentinelPage::new(client, cx))
         };
+        let settings = cx.new(|_| Settings::default());
         let tweaks = {
-            let client = client.clone();
-            cx.new(|cx| TweaksPage::new(client, cx))
+            let (client, settings) = (client.clone(), settings.clone());
+            cx.new(|cx| TweaksPage::new(client, settings, cx))
+        };
+        let defaults = {
+            let (client, settings) = (client.clone(), settings.clone());
+            cx.new(|cx| DefaultsPage::new(client, settings, cx))
         };
         // The topics of the page it opens on. The server holds them again after a restart.
         drop(client.hold(&wanted(page)));
@@ -93,8 +105,10 @@ impl Atmos {
             link: Link::Starting,
             daemon: None,
             version: None,
+            settings,
             sentinel,
             tweaks,
+            defaults,
         }
     }
 
@@ -114,6 +128,11 @@ impl Atmos {
     /// The Tweaks page, for what a test asks of it.
     pub fn tweaks(&self) -> &Entity<TweaksPage> {
         &self.tweaks
+    }
+
+    /// The Defaults page, for what a test asks of it.
+    pub fn defaults(&self) -> &Entity<DefaultsPage> {
+        &self.defaults
     }
 
     pub fn show(&mut self, page: &str, cx: &mut Context<Self>) {
@@ -157,17 +176,23 @@ impl Atmos {
                 stale,
                 result,
                 error,
-            }) if tweaks::holds(&kind) => {
-                self.tweaks
-                    .update(cx, |page, cx| match (stale, sampled_at, result) {
-                        (false, Some(at), Some(result)) => page.adopt(&kind, at, &result, cx),
-                        (true, _, _) => page.topic_failed(
-                            &kind,
-                            error
-                                .as_deref()
-                                .unwrap_or("The daemon could not collect it."),
-                            cx,
-                        ),
+            }) if settings::is_topic(&kind) => {
+                self.settings
+                    .update(cx, |settings, cx| match (stale, sampled_at, result) {
+                        (false, Some(at), Some(result)) => {
+                            if settings.adopt(&kind, at, &result) {
+                                cx.notify();
+                            }
+                        }
+                        (true, _, _) => {
+                            settings.topic_failed(
+                                &kind,
+                                error
+                                    .as_deref()
+                                    .unwrap_or("The daemon could not collect it."),
+                            );
+                            cx.notify();
+                        }
                         _ => {}
                     });
             }
@@ -216,6 +241,7 @@ impl Atmos {
         match self.page() {
             "sentinel" => return self.sentinel.clone().into_any_element(),
             "tweaks" => return self.tweaks.clone().into_any_element(),
+            "defaults" => return self.defaults.clone().into_any_element(),
             _ => {}
         }
         let title = hubs::find(&self.page).map_or("Atmos", |hub| hub.title);

@@ -3,10 +3,12 @@
 pub mod actions;
 pub mod app;
 pub mod client;
+pub mod defaults;
 pub mod hubs;
 pub mod live;
 pub mod pages;
 pub mod protocol;
 pub mod sentinel;
+pub mod settings;
 pub mod status;
 pub mod tweaks;

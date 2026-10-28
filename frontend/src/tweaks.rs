@@ -5,24 +5,12 @@
 //! side fails until the other follows.
 //!
 //! The page reads two snapshot keys, `hyprInput` and `tweaks`, which the daemon holds in two
-//! settings topics (docs/adr/0011). [`Snapshot`] keeps what the topics and the writes' read-backs
-//! said of them, and a key a producer could not read is a reason, never a default
-//! (docs/adr/0006).
-
-use std::collections::HashMap;
+//! settings topics (docs/adr/0011), from the window's [`Settings`]; a key a producer could not
+//! read is a reason, never a default (docs/adr/0006).
 
 use serde_json::{Value, json};
 
-use crate::protocol;
-
-/// A snapshot key the page reads, the settings topic that holds it (`backend/src/snapshot/keys.rs`;
-/// `tests/pins.rs` holds the pair to it), and what the page says when it cannot be read.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Held {
-    pub key: &'static str,
-    pub topic: &'static str,
-    pub unread: &'static str,
-}
+use crate::settings::{self, Held, Known, Settings};
 
 pub const HELD: &[Held] = &[
     Held {
@@ -36,11 +24,6 @@ pub const HELD: &[Held] = &[
         unread: "The tweak files could not be read",
     },
 ];
-
-/// Whether `topic` holds a key the page reads.
-pub fn holds(topic: &str) -> bool {
-    HELD.iter().any(|h| h.topic == topic)
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Kind {
@@ -56,15 +39,6 @@ impl Kind {
         match self {
             Kind::HyprInput => "hypr-input",
             Kind::Tweak => "tweak",
-        }
-    }
-
-    /// The snapshot keys a write reads back: what `Settings.js` `commandFor` names for the
-    /// domain, so the reply carries them as the machine reports them (docs/adr/0005).
-    pub fn readback(self) -> &'static [&'static str] {
-        match self {
-            Kind::HyprInput => &["hyprInput", "hyprInputManaged"],
-            Kind::Tweak => &["tweaks"],
         }
     }
 }
@@ -225,12 +199,12 @@ impl Tweak {
 
     /// The `settings.set` a toggle to `on` sends, with the keys it reads back.
     pub fn write(&self, on: bool) -> Value {
-        protocol::settings_set(self.key, &self.value(on), self.kind.readback())
+        settings::write(self.key, &self.value(on))
     }
 
     /// The `settings.set` Reset sends: one write of the default, with the keys it reads back.
     pub fn reset(&self) -> Value {
-        protocol::settings_set(self.key, &self.reset_value(), self.kind.readback())
+        settings::write(self.key, &self.reset_value())
     }
 }
 
@@ -244,102 +218,22 @@ pub enum Reading {
     Unknown(String),
 }
 
-/// The two snapshot keys as the topics and the read-backs last said them.
-#[derive(Debug, Clone, Default)]
-pub struct Snapshot {
-    values: HashMap<&'static str, Value>,
-    /// Why a key could not be read, until a sample or a read-back carries it again. A key keeps
-    /// the value it had.
-    failed: HashMap<&'static str, String>,
-    /// The last sample taken in, by topic: one that is not after it is not taken.
-    last: HashMap<String, u64>,
-}
-
-impl Snapshot {
-    /// A sample of a settings topic. False when it is not after the last of that topic, or the
-    /// topic holds nothing the page reads.
-    pub fn adopt(&mut self, topic: &str, sampled_at: u64, doc: &Value) -> bool {
-        if !holds(topic) || self.last.get(topic).is_some_and(|last| sampled_at <= *last) {
-            return false;
-        }
-        self.last.insert(topic.to_owned(), sampled_at);
-        let failed = doc.get("_failed").and_then(Value::as_object);
-        for held in HELD.iter().filter(|h| h.topic == topic) {
-            if let Some(value) = doc.get(held.key) {
-                self.values.insert(held.key, value.clone());
-                self.failed.remove(held.key);
-            } else if let Some(why) = failed.and_then(|f| f.get(held.key)) {
-                self.failed.insert(held.key, reason(why));
-            }
-        }
-        true
-    }
-
-    /// The topic could not be collected: its keys keep what they had, and say why.
-    pub fn topic_failed(&mut self, topic: &str, why: &str) {
-        for held in HELD.iter().filter(|h| h.topic == topic) {
-            self.failed.insert(held.key, why.to_owned());
-        }
-    }
-
-    /// A write's reply: the keys it read back, as the machine reports them, and the ones it could
-    /// not read.
-    pub fn adopt_reply(&mut self, result: &Value) {
-        let read = result.get("snapshot").and_then(Value::as_object);
-        let failed = result.get("failed").and_then(Value::as_object);
-        for held in HELD {
-            if let Some(value) = read.and_then(|r| r.get(held.key)) {
-                self.values.insert(held.key, value.clone());
-                self.failed.remove(held.key);
-            } else if let Some(why) = failed.and_then(|f| f.get(held.key)) {
-                self.failed.insert(held.key, reason(why));
-            }
-        }
-    }
-
-    pub fn reading(&self, tweak: &Tweak) -> Reading {
-        let key = tweak.snapshot_key();
-        match (self.values.get(key), self.failed.get(key)) {
-            (Some(value), _) => Reading::On(tweak.is_on(value)),
-            (None, Some(why)) => Reading::Unknown(why.clone()),
-            (None, None) => Reading::Waiting,
-        }
-    }
-
-    /// The keys that could not be read, and why, in the order of [`HELD`].
-    pub fn failures(&self) -> Vec<(&'static Held, &str)> {
-        HELD.iter()
-            .filter_map(|h| self.failed.get(h.key).map(|why| (h, why.as_str())))
-            .collect()
-    }
-}
-
-/// A producer's reason as text: it is a string, and anything else is shown as it came.
-fn reason(why: &Value) -> String {
-    match why {
-        Value::String(s) => s.clone(),
-        Value::Object(o) => o
-            .get("message")
-            .and_then(Value::as_str)
-            .map_or_else(|| why.to_string(), str::to_owned),
-        other => other.to_string(),
+/// What the page shows for a tweak, from what the window knows of its snapshot key.
+pub fn reading(settings: &Settings, tweak: &Tweak) -> Reading {
+    let held = HELD
+        .iter()
+        .find(|h| h.key == tweak.snapshot_key())
+        .expect("every tweak reads a held key");
+    match settings.known(held) {
+        Known::Value(value) => Reading::On(tweak.is_on(value)),
+        Known::Unknown(why) => Reading::Unknown(why.to_owned()),
+        Known::Waiting => Reading::Waiting,
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json::Map;
-
-    /// A topic document with these keys and none failed.
-    fn doc(keys: &[(&str, Value)]) -> Value {
-        let mut map: Map<String, Value> = keys
-            .iter()
-            .map(|(k, v)| ((*k).to_owned(), v.clone()))
-            .collect();
-        map.insert("_failed".into(), json!({}));
-        Value::Object(map)
-    }
 
     fn tweak(id: &str) -> &'static Tweak {
         by_id(id).unwrap()
@@ -391,39 +285,5 @@ mod tests {
             "back to what Omarchy sets"
         );
         assert_eq!(tweak("accelFlat").reset()["value"], "");
-    }
-
-    #[test]
-    fn a_sample_is_taken_once_and_a_failed_key_keeps_its_value_and_says_why() {
-        let mut s = Snapshot::default();
-        let paste = tweak("middlePaste");
-        assert_eq!(s.reading(paste), Reading::Waiting);
-        assert!(
-            !s.adopt("settings.network", 5, &doc(&[])),
-            "not a topic it reads"
-        );
-        assert!(s.adopt(
-            "settings.system",
-            5,
-            &doc(&[("tweaks", json!({"middlePaste": true}))])
-        ));
-        assert!(
-            !s.adopt("settings.system", 5, &doc(&[("tweaks", json!({}))])),
-            "the same one"
-        );
-        assert_eq!(s.reading(paste), Reading::On(true));
-
-        let failed = json!({"_failed": {"tweaks": "no gtk file"}});
-        assert!(s.adopt("settings.system", 6, &failed));
-        assert_eq!(s.reading(paste), Reading::On(true), "it keeps what it had");
-        assert_eq!(s.failures().len(), 1);
-
-        let accel = tweak("accelFlat");
-        s.topic_failed("settings.look", "timeout");
-        assert_eq!(s.reading(accel), Reading::Unknown("timeout".into()));
-        s.adopt_reply(&json!({"snapshot": {"hyprInput": {"accelProfile": "flat"}}}));
-        assert_eq!(s.reading(accel), Reading::On(true));
-        s.adopt_reply(&json!({"snapshot": {"tweaks": {"middlePaste": false}}}));
-        assert!(s.failures().is_empty(), "both read again");
     }
 }

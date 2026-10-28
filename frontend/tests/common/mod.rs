@@ -3,6 +3,8 @@
 
 #![allow(dead_code)]
 
+pub mod window;
+
 use std::collections::VecDeque;
 use std::future::Future;
 use std::io::{self, BufRead, BufReader, Write};

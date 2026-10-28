@@ -1,6 +1,7 @@
 import QtQuick
 import "../components"
 import "../services"
+import "../services/Defaults.js" as DefaultsJs
 
 PrefsPage {
   id: root
@@ -8,44 +9,11 @@ PrefsPage {
   title: "Defaults"
   description: "The programs Omarchy opens when something asks for a default."
 
-  readonly property var browserOptions: [
-    { value: "chromium", label: "Chromium" },
-    { value: "chrome", label: "Chrome" },
-    { value: "brave", label: "Brave" },
-    { value: "brave-origin", label: "Brave Origin" },
-    { value: "edge", label: "Edge" },
-    { value: "firefox", label: "Firefox" },
-    { value: "zen", label: "Zen" }
-  ]
-  readonly property var terminalOptions: [
-    { value: "alacritty", label: "Alacritty" },
-    { value: "foot", label: "Foot" },
-    { value: "ghostty", label: "Ghostty" },
-    { value: "kitty", label: "Kitty" }
-  ]
-  readonly property var editorOptions: [
-    { value: "nvim", label: "Neovim" },
-    { value: "code", label: "VS Code" },
-    { value: "cursor", label: "Cursor" },
-    { value: "zed", label: "Zed" },
-    { value: "sublime_text", label: "Sublime Text" },
-    { value: "helix", label: "Helix" },
-    { value: "vim", label: "Vim" },
-    { value: "emacs", label: "Emacs" }
-  ]
-  function mimeOptions(current, list) {
-    var out = []
-    if (list instanceof Array) {
-      for (var i = 0; i < list.length; i++) out.push(list[i])
-    }
-    var id = String(current || "")
-    if (!id) return out
-    for (var j = 0; j < out.length; j++) {
-      if (out[j] && out[j].value === id) return out
-    }
-    out.push({ value: id, label: id })
-    return out
-  }
+  // The logic is in Defaults.js, which the Rust window's Defaults page is held
+  // to (frontend/tests/defaults_parity.rs).
+  readonly property var browserOptions: DefaultsJs.browserOptions()
+  readonly property var terminalOptions: DefaultsJs.terminalOptions()
+  readonly property var editorOptions: DefaultsJs.editorOptions()
 
   PrefsGroup {
     title: "Applications"
@@ -88,20 +56,10 @@ PrefsPage {
       keywords: ["nvim", "code", "zed"]
 
       PrefsSelect {
-        value: Omarchy.editor === "zeditor" ? "zed" : Omarchy.editor
-        options: Omarchy.installedOptions(root.editorOptions, {
-          nvim: Omarchy.editors.nvim,
-          code: Omarchy.editors.code,
-          cursor: Omarchy.editors.cursor,
-          zed: Omarchy.editors.zeditor,
-          sublime_text: Omarchy.editors.sublime_text,
-          helix: Omarchy.editors.helix,
-          vim: Omarchy.editors.vim,
-          emacs: Omarchy.editors.emacs
-        })
+        value: DefaultsJs.editorValue(Omarchy.editor)
+        options: Omarchy.installedOptions(root.editorOptions, DefaultsJs.editorsInstalled(Omarchy.editors))
         onChanged: function(value) {
-          var current = Omarchy.editor === "zeditor" ? "zed" : Omarchy.editor
-          if (value !== current) Omarchy.set("editor", value)
+          if (value !== DefaultsJs.editorValue(Omarchy.editor)) Omarchy.set("editor", value)
         }
       }
     }
@@ -122,8 +80,8 @@ PrefsPage {
 
       PrefsSelect {
         value: Omarchy.mimePdf
-        options: root.mimeOptions(Omarchy.mimePdf, Omarchy.mimePdfOptions)
-        enabled: root.mimeOptions(Omarchy.mimePdf, Omarchy.mimePdfOptions).length > 0
+        options: DefaultsJs.mimeOptions(Omarchy.mimePdf, Omarchy.mimePdfOptions)
+        enabled: DefaultsJs.mimeOptions(Omarchy.mimePdf, Omarchy.mimePdfOptions).length > 0
         onChanged: function(value) {
           if (value !== Omarchy.mimePdf) Omarchy.setMimeDefault("pdf", value)
         }
@@ -139,8 +97,8 @@ PrefsPage {
 
       PrefsSelect {
         value: Omarchy.mimeImage
-        options: root.mimeOptions(Omarchy.mimeImage, Omarchy.mimeImageOptions)
-        enabled: root.mimeOptions(Omarchy.mimeImage, Omarchy.mimeImageOptions).length > 0
+        options: DefaultsJs.mimeOptions(Omarchy.mimeImage, Omarchy.mimeImageOptions)
+        enabled: DefaultsJs.mimeOptions(Omarchy.mimeImage, Omarchy.mimeImageOptions).length > 0
         onChanged: function(value) {
           if (value !== Omarchy.mimeImage) Omarchy.setMimeDefault("image", value)
         }
@@ -156,8 +114,8 @@ PrefsPage {
 
       PrefsSelect {
         value: Omarchy.mimeVideo
-        options: root.mimeOptions(Omarchy.mimeVideo, Omarchy.mimeVideoOptions)
-        enabled: root.mimeOptions(Omarchy.mimeVideo, Omarchy.mimeVideoOptions).length > 0
+        options: DefaultsJs.mimeOptions(Omarchy.mimeVideo, Omarchy.mimeVideoOptions)
+        enabled: DefaultsJs.mimeOptions(Omarchy.mimeVideo, Omarchy.mimeVideoOptions).length > 0
         onChanged: function(value) {
           if (value !== Omarchy.mimeVideo) Omarchy.setMimeDefault("video", value)
         }

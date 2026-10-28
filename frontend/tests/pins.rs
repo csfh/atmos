@@ -200,13 +200,14 @@ fn topic_of_producer(keys: &str, topics: &str, producer: &str) -> Option<String>
     None
 }
 
-/// The Tweaks page holds the topics its keys are in, and reads back keys a producer owns: a key
-/// that moved topic would leave the page waiting for ever, and no page test would see it.
+/// Each settings page holds the topics its keys are in, and reads back keys a producer owns: a
+/// key that moved topic would leave the page waiting for ever, and no page test would see it.
 #[test]
-fn the_tweaks_page_holds_the_topics_that_own_its_keys() {
+fn every_settings_page_holds_the_topics_that_own_its_keys() {
+    use atmos_ui::{defaults, settings, tweaks};
     let keys = repo("backend/src/snapshot/keys.rs");
     let topics = repo("backend/src/snapshot/topics.rs");
-    for held in atmos_ui::tweaks::HELD {
+    for held in tweaks::HELD.iter().chain(defaults::HELD) {
         let producer = producer_of(&keys, held.key)
             .unwrap_or_else(|| panic!("no producer owns `{}`", held.key));
         assert_eq!(
@@ -216,15 +217,16 @@ fn the_tweaks_page_holds_the_topics_that_own_its_keys() {
             held.key
         );
     }
-    for tweak in atmos_ui::tweaks::CATALOG {
+    let written = tweaks::CATALOG
+        .iter()
+        .map(|t| (t.key, tweaks::HELD))
+        .chain(defaults::PICKERS.iter().map(|p| (p.domain, defaults::HELD)));
+    for (domain, held) in written {
         assert!(
-            atmos_ui::tweaks::HELD
-                .iter()
-                .any(|h| h.key == tweak.snapshot_key()),
-            "{} reads a key the page does not hold",
-            tweak.id
+            held.iter().any(|h| h.key == settings::head(domain)),
+            "{domain} is a key its page does not hold"
         );
-        for key in tweak.kind.readback() {
+        for key in settings::readback(domain) {
             assert!(
                 producer_of(&keys, key).is_some(),
                 "no producer owns `{key}`"

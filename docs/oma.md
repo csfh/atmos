@@ -8,7 +8,7 @@ The Rust window (`frontend/`, `docs/adr/0013`) is an `.oma` Bundle with `atmosd`
 odk oma dev frontend
 ```
 
-`frontend/dev.toml` says how: it builds `atmosd` and the window with cargo, makes the Bundle with `atmosd` in it, installs it over the installed copy (the one place `oma` replaces an installed application, ODK's ADR 0051) and runs it. It shows the consent dialog only when the Bundle asks for more than the record holds, and stops the daemon of the copy it replaces before it installs, so the window never talks to a `atmosd` from an earlier build. It says so if something else, such as the user unit of an installed `atmosd`, is still serving `$XDG_RUNTIME_DIR/atmos/atmosd.sock`. It replaces `~/Applications/Atmos.oma`, and runs the build commands in `dev.toml` as you.
+`frontend/oma.toml` (ODK's ADR 0073; it was `dev.toml`) says how: it builds `atmosd` and the window with cargo, makes the Bundle with `atmosd` in it, installs it over the installed copy (the one place `oma` replaces an installed application, ODK's ADR 0051) and runs it. It shows the consent dialog only when the Bundle asks for more than the record holds, and stops the daemon of the copy it replaces before it installs, so the window never talks to a `atmosd` from an earlier build. It says so if something else, such as the user unit of an installed `atmosd`, is still serving `$XDG_RUNTIME_DIR/atmos/atmosd.sock`. It replaces `~/Applications/Atmos.oma`, and runs the build commands in `oma.toml` as you.
 
 ## Make it by hand
 

@@ -906,6 +906,9 @@ fn every_op_a_window_sends_is_answered_by_the_daemon() {
         json!({"op": "host.write", "path": window.dir.join("out.txt").display().to_string(), "text": "t"}),
         json!({"op": "host.open", "path": path}),
         json!({"op": "unit.output", "kind": "status", "scope": "user", "unit": "x.service"}),
+        json!({"op": "host.image", "which": "avatar"}),
+        json!({"op": "wifi.scan"}),
+        json!({"op": "bluetooth.scan", "seconds": 1}),
         json!({"op": "speedtest.disk"}),
         json!({"op": "speedtest.net", "phase": "down"}),
         json!({"op": "agents.mcp.list"}),
@@ -913,6 +916,13 @@ fn every_op_a_window_sends_is_answered_by_the_daemon() {
         json!({"op": "agents.mcp.set", "agent": "nobody", "on": false}),
     ];
     fake(&window.dir, "xdg-open", "true");
+    // The radios are never the machine's: a rescan or a discovery would reach real hardware.
+    fake(&window.dir, "nmcli", "echo '*:Home:72:WPA2'");
+    fake(
+        &window.dir,
+        "bluetoothctl",
+        r#"case "$1" in show) printf 'Controller 00:11:22:33:44:55 (public)\n\tPowered: yes\n' ;; esac"#,
+    );
     // Nothing is left out: every op `request.rs` accepts is in one list or the other.
     let native = ["display.get", "display.snapshot", "snapshot.invalidate"];
     let accepted: Vec<&str> = include_str!("../src/request.rs")

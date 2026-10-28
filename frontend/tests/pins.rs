@@ -38,35 +38,51 @@ fn the_hubs_are_the_launchers_in_the_same_order() {
     assert_eq!(ours, launcher);
 }
 
-/// The value of `key: "..."` on a line, if it has that key.
-fn field<'a>(line: &'a str, key: &str) -> Option<&'a str> {
-    line.trim()
-        .strip_prefix(key)?
-        .strip_prefix(": \"")?
-        .split('"')
-        .next()
-}
-
+/// Every hub's title, group, description and pages, as `Hubs.js` gives them under Node; the
+/// window's titles for a page path, as `hubTitle` gives them. Without `node` it says so and stops.
 #[test]
-fn titles_and_groups_are_those_of_hubs_js() {
-    let source = repo("services/Hubs.js");
-    // A hub's own fields sit at six spaces; its children's are deeper.
-    let own = |line: &&str| line.starts_with("      ") && !line.starts_with("       ");
-    let mut found: Vec<(String, String, String)> = Vec::new();
-    for line in source.lines().filter(own) {
-        if let Some(id) = field(line, "id") {
-            found.push((id.into(), String::new(), String::new()));
-        } else if let (Some(title), Some(last)) = (field(line, "title"), found.last_mut()) {
-            last.1 = title.into();
-        } else if let (Some(group), Some(last)) = (field(line, "navGroup"), found.last_mut()) {
-            last.2 = group.into();
-        }
-    }
-    let ours: Vec<_> = hubs::HUBS
+fn titles_groups_descriptions_and_pages_are_those_of_hubs_js() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
+    const NODE: &str = r#"
+const H = require(process.env.REPO_DIR + "/services/Hubs.js");
+const ids = ["home", "monitor/cpu", "system/kernel", "monitor/nothing", "nothing", "", "a/b/c"];
+process.stdout.write(JSON.stringify({
+  hubs: H.hubs().map((h) => [h.id, h.title, h.navGroup, h.description,
+    (h.children || []).map((c) => [c.id, c.title])]),
+  titles: ids.map((id) => [id, H.hubTitle(id), !!H.hubById(id)]),
+}));
+"#;
+    let Ok(out) = std::process::Command::new("node")
+        .args(["-e", NODE])
+        .env("REPO_DIR", &root)
+        .output()
+    else {
+        eprintln!("skip: node is not installed");
+        return;
+    };
+    assert!(out.status.success(), "Hubs.js failed under node");
+    let js: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let ours: Vec<serde_json::Value> = hubs::HUBS
         .iter()
-        .map(|h| (h.id.to_string(), h.title.to_string(), h.group.to_string()))
+        .map(|h| {
+            let kids: Vec<_> = h.children.iter().map(|c| [c.id, c.title]).collect();
+            serde_json::json!([h.id, h.title, h.group, h.description, kids])
+        })
         .collect();
-    assert_eq!(ours, found);
+    assert_eq!(serde_json::Value::Array(ours), js["hubs"]);
+    for row in js["titles"].as_array().unwrap() {
+        let id = row[0].as_str().unwrap();
+        assert_eq!(
+            hubs::title(id),
+            row[1].as_str().unwrap(),
+            "the title of {id:?}"
+        );
+        assert_eq!(
+            hubs::known(id),
+            row[2].as_bool().unwrap(),
+            "whether {id:?} is a hub"
+        );
+    }
 }
 
 #[test]
@@ -120,6 +136,14 @@ fn the_clipboard_write_takes_its_text_on_stdin_under_the_name_the_page_sends() {
     assert!(e.contains("In::Field(\"text\")"), "{e}");
 }
 
+/// A star writes the whole list as JSON, and the write reads the list back.
+#[test]
+fn the_favorites_write_takes_the_list_as_json_and_reads_it_back() {
+    let e = entry("favorites.write");
+    assert!(e.contains("V(\"json\", A::Json)"), "{e}");
+    assert!(e.contains(".readback(&[\"favorites\"])"), "{e}");
+}
+
 /// The limits are stored as integers: a number from a field that is sent as `80.0` is refused.
 #[test]
 fn the_three_limits_are_integer_settings_in_the_shell_file() {
@@ -164,7 +188,11 @@ fn dev_toml_builds_the_window_and_puts_atmosd_where_the_manifest_runs_the_daemon
 fn producer_of<'a>(keys: &'a str, key: &str) -> Option<&'a str> {
     let owners = &keys[keys.find("const OWNERS")?..];
     let owners = &owners[..owners.find("\n];")?];
-    let at = owners.find(&format!("\"{key}\","))?;
+    let quoted = format!("\"{key}\"");
+    let at = owners
+        .match_indices(&quoted)
+        .map(|(at, _)| at)
+        .find(|at| matches!(owners[at + quoted.len()..].chars().next(), Some(',' | ']')))?;
     let before = &owners[..at];
     let name = &before[before.rfind("Producer::")? + "Producer::".len()..];
     name.split(|c: char| !c.is_alphanumeric()).next()
@@ -204,10 +232,14 @@ fn topic_of_producer(keys: &str, topics: &str, producer: &str) -> Option<String>
 /// key that moved topic would leave the page waiting for ever, and no page test would see it.
 #[test]
 fn every_settings_page_holds_the_topics_that_own_its_keys() {
-    use atmos_ui::{defaults, settings, tweaks};
+    use atmos_ui::{defaults, favorites, settings, tweaks};
     let keys = repo("backend/src/snapshot/keys.rs");
     let topics = repo("backend/src/snapshot/topics.rs");
-    for held in tweaks::HELD.iter().chain(defaults::HELD) {
+    for held in tweaks::HELD
+        .iter()
+        .chain(defaults::HELD)
+        .chain([&favorites::HELD])
+    {
         let producer = producer_of(&keys, held.key)
             .unwrap_or_else(|| panic!("no producer owns `{}`", held.key));
         assert_eq!(

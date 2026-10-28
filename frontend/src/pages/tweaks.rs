@@ -11,12 +11,14 @@ use odk::prelude::*;
 use serde_json::Value;
 
 use crate::client::Client;
+use crate::pages::row::Stars;
 use crate::settings::Settings;
 use crate::tweaks::{self, HELD, Reading, Tweak};
 
 pub struct TweaksPage {
     client: Client,
     settings: Entity<Settings>,
+    stars: Stars,
 }
 
 impl TweaksPage {
@@ -24,7 +26,15 @@ impl TweaksPage {
     /// whenever the window's settings change.
     pub fn new(client: Client, settings: Entity<Settings>, cx: &mut Context<Self>) -> Self {
         cx.observe(&settings, |_, _, cx| cx.notify()).detach();
-        Self { client, settings }
+        let stars = Stars {
+            client: client.clone(),
+            settings: settings.clone(),
+        };
+        Self {
+            client,
+            settings,
+            stars,
+        }
     }
 
     /// What the page shows for a tweak now.
@@ -97,7 +107,7 @@ impl Render for TweaksPage {
                 .children(
                     items
                         .into_iter()
-                        .map(|t| row(tweaks::reading(settings, t), t, &this)),
+                        .map(|t| row(tweaks::reading(settings, t), t, &self.stars, &this, cx)),
                 )
         });
         content_column()
@@ -109,7 +119,13 @@ impl Render for TweaksPage {
 }
 
 /// One tweak: its toggle and label, what it does, the file it writes, and Reset.
-fn row(reading: Reading, t: &'static Tweak, this: &Entity<TweaksPage>) -> impl IntoElement {
+fn row(
+    reading: Reading,
+    t: &'static Tweak,
+    stars: &Stars,
+    this: &Entity<TweaksPage>,
+    cx: &App,
+) -> impl IntoElement {
     let control = match reading {
         Reading::On(on) => {
             let this = this.clone();
@@ -153,4 +169,5 @@ fn row(reading: Reading, t: &'static Tweak, this: &Entity<TweaksPage>) -> impl I
                 .child(Text::new(t.modifies).mono().muted()),
         )
         .child(reset)
+        .child(stars.star("tweaks", t.label, t.description, cx))
 }

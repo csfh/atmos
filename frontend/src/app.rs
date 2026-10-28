@@ -1,10 +1,13 @@
 //! The window: a sidebar of hubs, a page, and the screen shown in its place when the backend is
 //! not there. A hub that has not been ported shows its name and says so; Sentinel
-//! (`pages/sentinel.rs`), Tweaks (`pages/tweaks.rs`) and Defaults (`pages/defaults.rs`) have been.
+//! (`pages/sentinel.rs`), Tweaks (`pages/tweaks.rs`), Defaults (`pages/defaults.rs`) and
+//! Favorites (`pages/favorites.rs`) have been.
 //! The settings topics go to one [`Settings`] that every page reads.
 //!
 //! The view holds what the backend has said and draws it. The client's notices arrive on a
 //! channel that one task awaits, so the view is drawn when something happened and not on a clock.
+
+use std::rc::Rc;
 
 use async_channel::Receiver;
 use odk::prelude::*;
@@ -12,11 +15,12 @@ use odk::prelude::*;
 use crate::client::{Client, Link, Notice};
 use crate::hubs;
 use crate::pages::defaults::DefaultsPage;
+use crate::pages::favorites::FavoritesPage;
 use crate::pages::sentinel::SentinelPage;
 use crate::pages::tweaks::TweaksPage;
 use crate::protocol::{self, Daemon, Event};
 use crate::settings::{self, Settings};
-use crate::{defaults, status, tweaks};
+use crate::{defaults, favorites, status, tweaks};
 
 /// How often the daemon samples `live` for a page that reads it, in milliseconds: the QML window's.
 const LIVE_MS: u64 = 2000;
@@ -28,10 +32,18 @@ const LIVE_MS: u64 = 2000;
 fn wanted(page: &str) -> Vec<(&'static str, u64)> {
     match page {
         "sentinel" => vec![("live", LIVE_MS)],
-        "tweaks" => settings::topics(tweaks::HELD),
-        "defaults" => settings::topics(defaults::HELD),
+        "tweaks" => starred(tweaks::HELD),
+        "defaults" => starred(defaults::HELD),
+        "favorites" => starred(&[]),
         _ => Vec::new(),
     }
+}
+
+/// The topics of a settings page's keys and of the favorites list its stars read.
+fn starred(held: &[settings::Held]) -> Vec<(&'static str, u64)> {
+    let mut held = held.to_vec();
+    held.push(favorites::HELD);
+    settings::topics(&held)
 }
 
 pub struct Atmos {
@@ -48,6 +60,7 @@ pub struct Atmos {
     sentinel: Entity<SentinelPage>,
     tweaks: Entity<TweaksPage>,
     defaults: Entity<DefaultsPage>,
+    favorites: Entity<FavoritesPage>,
 }
 
 impl Atmos {
@@ -73,6 +86,14 @@ impl Atmos {
         let defaults = {
             let (client, settings) = (client.clone(), settings.clone());
             cx.new(|cx| DefaultsPage::new(client, settings, cx))
+        };
+        let favorites = {
+            let (client, settings) = (client.clone(), settings.clone());
+            let atmos = cx.weak_entity();
+            let open = Rc::new(move |hub: &str, cx: &mut App| {
+                let _ = atmos.update(cx, |atmos, cx| atmos.show(hub, cx));
+            });
+            cx.new(|cx| FavoritesPage::new(client, settings, open, cx))
         };
         // The topics of the page it opens on. The server holds them again after a restart.
         drop(client.hold(&wanted(page)));
@@ -109,6 +130,7 @@ impl Atmos {
             sentinel,
             tweaks,
             defaults,
+            favorites,
         }
     }
 
@@ -135,8 +157,15 @@ impl Atmos {
         &self.defaults
     }
 
+    /// The Favorites page, for what a test asks of it.
+    pub fn favorites(&self) -> &Entity<FavoritesPage> {
+        &self.favorites
+    }
+
+    /// Shows the hub `page` names, or the hub a page of it is under: the window has no hub pages
+    /// of its own yet.
     pub fn show(&mut self, page: &str, cx: &mut Context<Self>) {
-        if let Some(hub) = hubs::find(page) {
+        if let Some(hub) = hubs::resolve(page) {
             let before = wanted(&self.page);
             self.page = hub.id.into();
             // The daemon samples for the page in view and for no other: `hold` replaces what was
@@ -242,6 +271,7 @@ impl Atmos {
             "sentinel" => return self.sentinel.clone().into_any_element(),
             "tweaks" => return self.tweaks.clone().into_any_element(),
             "defaults" => return self.defaults.clone().into_any_element(),
+            "favorites" => return self.favorites.clone().into_any_element(),
             _ => {}
         }
         let title = hubs::find(&self.page).map_or("Atmos", |hub| hub.title);

@@ -11,12 +11,13 @@ use odk::prelude::*;
 
 use crate::client::Client;
 use crate::defaults::{self, HELD, Picker};
-use crate::pages::row;
+use crate::pages::row::{self, Stars};
 use crate::settings::{Known, Settings};
 
 pub struct DefaultsPage {
     client: Client,
     settings: Entity<Settings>,
+    stars: Stars,
 }
 
 impl DefaultsPage {
@@ -24,7 +25,15 @@ impl DefaultsPage {
     /// window's settings change.
     pub fn new(client: Client, settings: Entity<Settings>, cx: &mut Context<Self>) -> Self {
         cx.observe(&settings, |_, _, cx| cx.notify()).detach();
-        Self { client, settings }
+        let stars = Stars {
+            client: client.clone(),
+            settings: settings.clone(),
+        };
+        Self {
+            client,
+            settings,
+            stars,
+        }
     }
 
     /// What a picker shows as chosen now, once its key has been read.
@@ -86,7 +95,9 @@ impl Render for DefaultsPage {
             row::group(
                 group.title(),
                 group.detail(),
-                pickers.into_iter().map(|p| picker(p, settings, &this)),
+                pickers
+                    .into_iter()
+                    .map(|p| picker(p, settings, &self.stars, &this, cx)),
             )
         });
         content_column()
@@ -101,7 +112,9 @@ impl Render for DefaultsPage {
 fn picker(
     p: &'static Picker,
     settings: &Settings,
+    stars: &Stars,
     this: &Entity<DefaultsPage>,
+    cx: &App,
 ) -> impl IntoElement {
     let control = match p.known(settings) {
         Known::Waiting => row::reading(p.label).into_any_element(),
@@ -123,5 +136,6 @@ fn picker(
                 .into_any_element()
         }
     };
-    row::setting(p.label, p.description, p.hint, control)
+    let star = stars.star("defaults", p.label, p.description, cx);
+    row::setting(p.label, p.description, p.hint, control, star)
 }

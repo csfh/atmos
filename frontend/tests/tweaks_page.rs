@@ -52,7 +52,7 @@ impl Win<'_> {
 }
 
 #[test]
-fn the_page_holds_its_two_settings_topics_only_while_it_is_shown() {
+fn the_page_holds_its_settings_topics_and_the_favorites_one_only_while_it_is_shown() {
     let mut app = TestAppContext::single();
     let mut w = open(&mut app, "home", ordinary);
     let tweaks = hubs::HUBS.iter().position(|h| h.id == "tweaks").unwrap();
@@ -64,7 +64,7 @@ fn the_page_holds_its_two_settings_topics_only_while_it_is_shown() {
         w.daemon.of("sub.set").last().is_some_and(|r| {
             r["topics"]
                 == json!({"settings.look": {"intervalMs": 0},
-                    "settings.system": {"intervalMs": 0}})
+                    "settings.system": {"intervalMs": 0}, "settings.host": {"intervalMs": 0}})
         })
     });
     w.click("nav/item-0");

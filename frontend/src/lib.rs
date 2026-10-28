@@ -4,6 +4,7 @@ pub mod actions;
 pub mod app;
 pub mod client;
 pub mod defaults;
+pub mod favorites;
 pub mod hubs;
 pub mod live;
 pub mod pages;

@@ -226,10 +226,19 @@ impl Atmos {
                 if link == Link::Up {
                     self.daemon = None;
                     self.sentinel.update(cx, |page, cx| page.backend_up(cx));
+                    self.jobs.update(cx, |jobs, cx| jobs.reattach(window, cx));
                 }
                 self.link = link;
             }
-            Notice::Event(Event::Backend(daemon)) => self.daemon = Some(daemon),
+            Notice::Event(Event::Backend(daemon)) => {
+                // A daemon that comes back has lost this window's session: its job is attached
+                // again.
+                let back = matches!(self.daemon, Some(Daemon::Down { .. })) && daemon == Daemon::Up;
+                self.daemon = Some(daemon);
+                if back {
+                    self.jobs.update(cx, |jobs, cx| jobs.reattach(window, cx));
+                }
+            }
             Notice::Event(Event::Sample {
                 kind,
                 sampled_at: Some(at),

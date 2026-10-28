@@ -17,7 +17,11 @@ fn every_op_is_one_the_backend_answers() {
     for op in protocol::OPS {
         let variant = format!("#[serde(rename = \"{op}\")]");
         // `serve` answers some ops itself: as a comparison or as an arm of its `match`.
-        let served = [format!("Some(\"{op}\")"), format!("\"{op}\" =>")];
+        let served = [
+            format!("Some(\"{op}\")"),
+            format!("\"{op}\" =>"),
+            format!("op == \"{op}\""),
+        ];
         assert!(
             request.contains(&variant) || served.iter().any(|s| serve.contains(s)),
             "`{op}` is neither a Request variant nor an op serve answers"

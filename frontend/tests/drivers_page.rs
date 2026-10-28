@@ -257,3 +257,115 @@ fn refresh_reads_every_topic_and_inventory_again() {
         ])
     );
 }
+
+/// A daemon that takes every job and lists one job, `listed`, as the window's.
+fn lists(listed: Option<u64>) -> impl Fn(&Value) -> Reply + Send + Sync + 'static {
+    let started = Arc::new(Mutex::new(None::<Value>));
+    move |request: &Value| match request["op"].as_str() {
+        Some("job.start") => {
+            *started.lock().unwrap() = Some(request["cid"].clone());
+            Reply::Ok(json!({"sent": true}))
+        }
+        Some("job.list") => {
+            let cid = started.lock().unwrap().clone().unwrap_or(Value::Null);
+            let rows: Vec<Value> = listed
+                .map(|job| json!({"job": job, "cid": cid, "name": "x", "state": "running"}))
+                .into_iter()
+                .collect();
+            Reply::Ok(json!({"jobs": rows}))
+        }
+        _ => ordinary(request),
+    }
+}
+
+fn start_switch(w: &mut Win) -> Value {
+    w.click("drivers-switch/button");
+    w.click("drivers-confirm-go/button");
+    w.until("the job", |w| !starts(w).is_empty());
+    starts(w)[0].clone()
+}
+
+#[test]
+fn a_job_is_attached_again_after_the_server_restarts_and_its_end_is_heard() {
+    let mut app = TestAppContext::single();
+    let mut w = common::window::open_with(&mut app, "drivers", 2, lists(None));
+    usual(&mut w, true);
+    let start = start_switch(&mut w);
+    let cid = start["cid"].clone();
+    assert!(
+        cid.as_str().unwrap().starts_with('w'),
+        "a cid of this window's own: {cid}"
+    );
+    w.daemon
+        .say(json!({"event": "job", "kind": "started", "cid": cid, "job": 41}));
+    w.daemon.say(
+        json!({"event": "job", "kind": "stream", "cid": cid, "job": 41,
+        "seq": 0, "fd": "out", "line": "one"}),
+    );
+    w.settle();
+    w.daemon.close();
+    w.until("the job attached again", |w| {
+        !w.later[0].of("job.attach").is_empty()
+    });
+    assert_eq!(w.later[0].of("job.attach")[0]["job"], 41);
+    assert_eq!(
+        w.later[0].of("job.attach")[0]["from"],
+        1,
+        "from the line after the last seen"
+    );
+    assert!(busy(&mut w), "still running");
+    w.later[0].say(
+        json!({"event": "job", "kind": "exit", "cid": cid, "job": 41, "code": 0,
+        "summary": {"ok": true, "code": 0, "message": "", "warnings": []}}),
+    );
+    w.until("the job over", |w| !busy(w));
+}
+
+#[test]
+fn a_job_with_no_number_yet_is_found_in_the_list() {
+    let mut app = TestAppContext::single();
+    let mut w = common::window::open_with(&mut app, "drivers", 2, lists(Some(7)));
+    usual(&mut w, true);
+    let start = start_switch(&mut w);
+    w.daemon.close();
+    w.until("the job found", |w| !w.later[0].of("job.attach").is_empty());
+    assert_eq!(w.later[0].of("job.attach")[0]["job"], 7);
+    assert_eq!(w.later[0].of("job.attach")[0]["from"], 0);
+    w.later[0].say(
+        json!({"event": "job", "kind": "exit", "cid": start["cid"], "job": 7,
+        "code": 0, "summary": {"ok": true, "code": 0, "message": "", "warnings": []}}),
+    );
+    w.until("the job over", |w| !busy(w));
+}
+
+#[test]
+fn a_job_with_no_number_that_the_list_lacks_did_not_start() {
+    let mut app = TestAppContext::single();
+    let mut w = common::window::open_with(&mut app, "drivers", 2, lists(None));
+    usual(&mut w, true);
+    start_switch(&mut w);
+    w.daemon.close();
+    w.until("the job given up", |w| !busy(w));
+    w.until("the failure told", |w| w.a_toast_is_shown());
+}
+
+#[test]
+fn a_job_the_daemon_forgot_failed() {
+    let mut app = TestAppContext::single();
+    let mut w = common::window::open_with(&mut app, "drivers", 2, lists(None));
+    usual(&mut w, true);
+    let start = start_switch(&mut w);
+    w.daemon
+        .say(json!({"event": "job", "kind": "started", "cid": start["cid"], "job": 41}));
+    w.settle();
+    w.daemon.close();
+    w.until("the job attached again", |w| {
+        !w.later[0].of("job.attach").is_empty()
+    });
+    w.later[0].say(json!({"event": "job", "kind": "gone", "job": 40}));
+    w.settle();
+    assert!(busy(&mut w), "another job's");
+    w.later[0].say(json!({"event": "job", "kind": "gone", "job": 41}));
+    w.until("the job over", |w| !busy(w));
+    w.until("the failure told", |w| w.a_toast_is_shown());
+}

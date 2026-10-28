@@ -18,6 +18,8 @@ pub const OPS: &[&str] = &[
     "settings.get",
     "settings.set",
     "snapshot.keys",
+    "job.attach",
+    "job.list",
 ];
 
 /// The server restarts after this long at the first failure, doubling to the ceiling. A server that
@@ -141,6 +143,16 @@ pub fn sub_set(topics: &[(&str, u64)]) -> Value {
 /// name and arguments, never a command line.
 pub fn job_start(cid: &str, name: &str, args: &Value, label: &str) -> Value {
     json!({ "op": "job.start", "cid": cid, "name": name, "args": args, "label": label })
+}
+
+/// Points a running job at this window, and replays its output from line `from` and its end.
+pub fn job_attach(job: u64, from: u64) -> Value {
+    json!({ "op": "job.attach", "job": job, "from": from })
+}
+
+/// The daemon's jobs, each with the `cid` and label the window that started it gave it.
+pub fn job_list() -> Value {
+    json!({ "op": "job.list" })
 }
 
 /// A typed write: a registry entry by `name`, with `args` the entry checks

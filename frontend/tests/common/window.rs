@@ -2,7 +2,7 @@
 //! daemon answers what the window asks and pushes what the test says, so a test says what the
 //! backend said and sees what the window drew and what it sent back.
 
-use std::sync::{Mutex, MutexGuard};
+use std::sync::{Arc, Mutex, MutexGuard};
 use std::thread;
 use std::time::Duration;
 
@@ -23,6 +23,10 @@ pub struct Win<'a> {
     _serial: MutexGuard<'static, ()>,
     pub atmos: Entity<Atmos>,
     pub daemon: Auto,
+    /// The servers the window starts after the first goes away, in order.
+    pub later: Vec<Auto>,
+    /// When the window opened, on the clock `sampledAt` and a write's stamp are on.
+    epoch: u64,
     pub cx: &'a mut VisualTestContext,
 }
 
@@ -42,11 +46,29 @@ pub fn ordinary(request: &Value) -> Reply {
 pub fn open<'a>(
     app: &'a mut TestAppContext,
     page: &str,
-    answer: impl Fn(&Value) -> Reply + Send + 'static,
+    answer: impl Fn(&Value) -> Reply + Send + Sync + 'static,
+) -> Win<'a> {
+    open_with(app, page, 1, answer)
+}
+
+/// A window on `page` that can start `servers` servers, each answering by `answer`.
+pub fn open_with<'a>(
+    app: &'a mut TestAppContext,
+    page: &str,
+    servers: usize,
+    answer: impl Fn(&Value) -> Reply + Send + Sync + 'static,
 ) -> Win<'a> {
     let serial = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
-    let (transport, mut servers) = script(1);
-    let daemon = servers.remove(0).auto(answer);
+    let (transport, scripted) = script(servers);
+    let answer = Arc::new(answer);
+    let mut daemons: Vec<Auto> = scripted
+        .into_iter()
+        .map(|server| {
+            let answer = answer.clone();
+            server.auto(move |request| answer(request))
+        })
+        .collect();
+    let daemon = daemons.remove(0);
     let (client, notices) = Client::start(transport);
     let page = page.to_owned();
     let (atmos, cx) = open_view(app, move |window, cx| {
@@ -58,6 +80,8 @@ pub fn open<'a>(
         _serial: serial,
         atmos,
         daemon,
+        later: daemons,
+        epoch: atmos_ui::settings::now_ms(),
         cx,
     }
 }
@@ -99,8 +123,22 @@ impl Win<'_> {
         self.cx.run_until_parked();
     }
 
-    /// The daemon pushes a sample of a settings topic, with nothing failed unless it says.
+    /// The daemon pushes a sample of a settings topic taken `at` milliseconds after the window
+    /// opened, with nothing failed unless it says. A write is stamped when it is sent, so a
+    /// sample from here began before any write the test has made, and the window does not take
+    /// it for the keys a write named (`Settings::adopt`); `sample_now` is one that began after.
     pub fn sample(&mut self, topic: &str, at: u64, keys: Value) {
+        let at = self.epoch + at;
+        self.sample_at(topic, at, keys);
+    }
+
+    /// A sample that began now, after every write the window has sent so far.
+    pub fn sample_now(&mut self, topic: &str, keys: Value) {
+        let at = atmos_ui::settings::now_ms() + 1;
+        self.sample_at(topic, at, keys);
+    }
+
+    fn sample_at(&mut self, topic: &str, at: u64, keys: Value) {
         let mut result = keys;
         if result.get("_failed").is_none() {
             result["_failed"] = json!({});

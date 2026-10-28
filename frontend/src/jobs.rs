@@ -104,6 +104,10 @@ pub fn failure_text(summary: Option<&Value>, code: i64, err: &str, out: &str) ->
 struct Running {
     cid: String,
     job: Job,
+    /// The daemon's number for it, once it has said (`started`).
+    id: Option<u64>,
+    /// The next output line to take: one already seen is not taken again after an attach.
+    next: u64,
     out: String,
     err: String,
 }
@@ -126,6 +130,9 @@ pub struct Jobs {
     running: Option<Running>,
     prompt: Option<Prompt>,
     pub minutes: u32,
+    /// This window's prefix for its `cid`s, so that no other window's job is taken for one of
+    /// its own (`jobPrefix`).
+    prefix: String,
     next: u64,
 }
 
@@ -138,6 +145,7 @@ impl Jobs {
             running: None,
             prompt: None,
             minutes: SUDO_MINUTES,
+            prefix: format!("w{:x}{:x}", std::process::id(), now_ms() % 0x10_0000),
             next: 0,
         }
     }
@@ -182,13 +190,15 @@ impl Jobs {
             return;
         };
         self.next += 1;
-        let cid = format!("j{}", self.next);
+        let cid = format!("{}-{}", self.prefix, self.next);
         let reply = self
             .client
             .request(&protocol::job_start(&cid, job.name, &job.args, job.kind));
         self.running = Some(Running {
             cid: cid.clone(),
             job,
+            id: None,
+            next: 0,
             out: String::new(),
             err: String::new(),
         });
@@ -211,11 +221,31 @@ impl Jobs {
         let Some(running) = self.running.as_mut() else {
             return;
         };
+        let kind = event.get("kind").and_then(Value::as_str);
+        let id = event.get("job").and_then(Value::as_u64);
+        // The daemon forgot the job (it restarted and the job did not survive): it failed.
+        if kind == Some("gone") {
+            if running.id.is_some() && running.id == id {
+                let gone = json!({"ok": false, "code": 1, "message": "The job is no longer running",
+                    "warnings": []});
+                self.finish(1, Some(gone), None, window, cx);
+            }
+            return;
+        }
         if event.get("cid").and_then(Value::as_str) != Some(running.cid.as_str()) {
             return;
         }
-        match event.get("kind").and_then(Value::as_str) {
+        match kind {
+            Some("started") => running.id = id.or(running.id),
             Some("stream") => {
+                let seq = event
+                    .get("seq")
+                    .and_then(Value::as_u64)
+                    .unwrap_or(running.next);
+                if seq < running.next {
+                    return;
+                }
+                running.next = seq + 1;
                 let line = event
                     .get("line")
                     .and_then(Value::as_str)
@@ -237,6 +267,52 @@ impl Jobs {
         }
     }
 
+    /// The server is back after being gone, or the daemon is: the job that runs is pointed at
+    /// this window again, from the line after the last one seen, so its end is heard
+    /// (`attachJobs`). One whose start was sent just before the link dropped has no number yet:
+    /// the daemon's list says whether it took it.
+    pub fn reattach(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(running) = self.running.as_ref() else {
+            return;
+        };
+        if let Some(id) = running.id {
+            drop(self.client.request(&protocol::job_attach(id, running.next)));
+            return;
+        }
+        let cid = running.cid.clone();
+        let list = self.client.request(&protocol::job_list());
+        cx.spawn_in(window, async move |this, cx| {
+            let rows = list.await.ok();
+            let _ = this.update_in(cx, |jobs, window, cx| {
+                let Some(running) = jobs.running.as_mut().filter(|r| r.cid == cid && r.id.is_none())
+                else {
+                    return;
+                };
+                let found = rows
+                    .as_ref()
+                    .and_then(|r| r.get("jobs"))
+                    .and_then(Value::as_array)
+                    .and_then(|rows| {
+                        rows.iter()
+                            .find(|row| row.get("cid").and_then(Value::as_str) == Some(cid.as_str()))
+                    })
+                    .and_then(|row| row.get("job").and_then(Value::as_u64));
+                match found {
+                    Some(id) => {
+                        running.id = Some(id);
+                        drop(jobs.client.request(&protocol::job_attach(id, 0)));
+                    }
+                    None => {
+                        let lost = json!({"ok": false, "code": 1, "message": "The job did not start",
+                            "warnings": []});
+                        jobs.finish(1, Some(lost), None, window, cx);
+                    }
+                }
+            });
+        })
+        .detach();
+    }
+
     fn finish(
         &mut self,
         code: i64,
@@ -250,7 +326,13 @@ impl Jobs {
         };
         cx.notify();
         if done.job.name == "sudo.enable" {
-            self.sudo_enabled(code == 0 && refused.is_none(), window, cx);
+            // A refusal to run it at all is not a wrong password, and says what it is.
+            let why = match (code, refused) {
+                (0, None) => None,
+                (_, Some(refused)) => Some(refused),
+                _ => Some("Wrong password.".to_owned()),
+            };
+            self.sudo_enabled(why, window, cx);
         } else {
             let text = refused
                 .unwrap_or_else(|| failure_text(summary.as_ref(), code, &done.err, &done.out));
@@ -322,13 +404,18 @@ impl Jobs {
 
     /// `sudo.enable` ended. Sudo mode is on when the machine says so, not when the job exits:
     /// `passwordlessSudo` is read back, and then the job that waited runs.
-    fn sudo_enabled(&mut self, ok: bool, window: &mut Window, cx: &mut Context<Self>) {
+    fn sudo_enabled(
+        &mut self,
+        failed: Option<String>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let Some(prompt) = self.prompt.as_mut() else {
             return;
         };
         prompt.enabling = false;
-        if !ok {
-            prompt.error = "Wrong password.".into();
+        if let Some(why) = failed {
+            prompt.error = why;
             return;
         }
         let pending = self.prompt.take().and_then(|p| p.pending);

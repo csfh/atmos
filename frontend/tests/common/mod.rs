@@ -160,6 +160,12 @@ impl Auto {
         writeln!(out, "{value}").unwrap();
     }
 
+    /// The server goes away, as a `serve` that exits does: the client sees its end and starts
+    /// the next.
+    pub fn close(&self) {
+        let _ = self.out.lock().unwrap().shutdown(std::net::Shutdown::Both);
+    }
+
     /// The requests the client has made so far.
     pub fn requests(&self) -> Vec<Value> {
         self.seen.lock().unwrap().clone()

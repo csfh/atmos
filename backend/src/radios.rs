@@ -39,7 +39,8 @@ fn run(program: &str, args: &[&str], secs: u64) -> Result<String> {
 
 // ---- Wi-Fi ---------------------------------------------------------------
 
-/// The networks in range after a rescan, one row per name, strongest first, the one in use at
+/// The networks in range after a rescan (`--rescan auto`: NetworkManager scans again unless its
+/// last scan is a few seconds old, so pressing Scan twice is not refused), one row per name, strongest first, the one in use at
 /// the top: its name, signal (0 to 100), security, whether it is in use and whether a saved
 /// profile has its name.
 pub fn wifi_scan(backend: Backend, root: Option<&Path>) -> Result<Value> {
@@ -59,7 +60,7 @@ pub fn wifi_scan(backend: Backend, root: Option<&Path>) -> Result<Value> {
             "wifi",
             "list",
             "--rescan",
-            "yes",
+            "auto",
         ],
         30,
     )?;
@@ -118,7 +119,12 @@ fn networks(list: &str, known: &[String]) -> Vec<Value> {
         });
         if signal >= seen.signal {
             seen.signal = signal;
-            seen.security = f[3].clone();
+            // nmcli writes an empty field as `--` in some modes: an open network.
+            seen.security = if f[3] == "--" {
+                String::new()
+            } else {
+                f[3].clone()
+            };
         }
         seen.in_use |= in_use;
     }
@@ -284,14 +290,16 @@ mod tests {
  :Cafe\\: Free:85:
  ::90:WPA2
  :Office:40:WPA2 802.1X
+ :Library:30:--
 ";
         let rows = networks(list, &["Office".into()]);
         let names: Vec<&str> = rows.iter().map(|r| r["ssid"].as_str().unwrap()).collect();
         assert_eq!(
             names,
-            ["Home", "Cafe: Free", "Office"],
+            ["Home", "Cafe: Free", "Office", "Library"],
             "hidden one left out"
         );
+        assert_eq!(rows[3]["security"], "", "`--` is an open network");
         assert_eq!(rows[0]["signal"], 72, "the strongest of its access points");
         assert_eq!(rows[0]["inUse"], true);
         assert_eq!(rows[1]["security"], "", "an open network");

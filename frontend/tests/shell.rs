@@ -34,8 +34,8 @@ fn open<'a>(app: &'a mut TestAppContext, page: &str) -> Window<'a> {
     let server = servers.remove(0);
     let (client, notices) = Client::start(transport);
     let page = page.to_owned();
-    let (atmos, cx) = open_view(app, move |_, cx| {
-        cx.new(|cx| Atmos::new(client, notices, &page, cx))
+    let (atmos, cx) = open_view(app, move |window, cx| {
+        cx.new(|cx| Atmos::new(client, notices, &page, window, cx))
     });
     Window {
         _serial: serial,

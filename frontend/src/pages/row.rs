@@ -5,6 +5,7 @@
 use odk::prelude::*;
 use serde_json::Value;
 
+use crate::actions;
 use crate::client::Client;
 use crate::favorites::{self, Item};
 use crate::settings::Settings;
@@ -46,7 +47,13 @@ impl Stars {
     /// The star of the row `label` on `hub` (`toggleStar`). It is lit when the list says the row
     /// is in it, and it waits, unpressable, until the list has been read: a star pressed before
     /// would write a list of one over the file.
-    pub fn star(&self, hub: &str, label: &str, description: &str, cx: &App) -> impl IntoElement {
+    pub fn star(
+        &self,
+        hub: &str,
+        label: &str,
+        description: &str,
+        cx: &App,
+    ) -> impl IntoElement + use<> {
         let list = self.settings.read(cx).value(&favorites::HELD).cloned();
         let on = list
             .as_ref()
@@ -87,6 +94,30 @@ impl Stars {
                 });
             })
     }
+}
+
+/// Copies `text` to the clipboard through the daemon (`clipboard.copy`), and says so when it could
+/// not. Text that cannot be copied (`actions::copy_write`) sends nothing.
+pub fn copy(client: &Client, text: &str, window: &mut Window, cx: &mut App) {
+    let Some(body) = actions::copy_write(text) else {
+        return;
+    };
+    let reply = client.request(&body);
+    window
+        .spawn(cx, async move |cx| {
+            if let Err(failure) = reply.await {
+                let _ = cx.update(|window, cx| {
+                    toast(
+                        window,
+                        cx,
+                        Toast::new("Nothing was copied")
+                            .description(failure.message)
+                            .variant(Tone::Danger),
+                    );
+                });
+            }
+        })
+        .detach();
 }
 
 /// The favorites list as the window holds it, empty until read.

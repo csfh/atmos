@@ -144,6 +144,27 @@ fn the_favorites_write_takes_the_list_as_json_and_reads_it_back() {
     assert!(e.contains(".readback(&[\"favorites\"])"), "{e}");
 }
 
+/// A job the window runs is a registry entry, it waits for sudo mode exactly when the entry runs
+/// as root, and the password goes to `sudo.enable` as the line it reads.
+#[test]
+fn the_jobs_are_registry_entries_that_need_root_when_the_window_asks_for_sudo() {
+    use atmos_ui::drivers;
+    for job in [drivers::switch_job(), drivers::firmware_job()] {
+        let e = entry(job.name);
+        assert_eq!(e.contains(".root()"), job.sudo, "{e}");
+        let first = e.split("Entry::new(").next().unwrap_or(&e);
+        assert!(
+            first.contains(" Job,") || first.contains("Job,"),
+            "{} is a job: {e}",
+            job.name
+        );
+    }
+    let sudo = entry("sudo.enable");
+    assert!(sudo.contains("V(\"minutes\", A::Uint(1, 240))"), "{sudo}");
+    assert!(sudo.contains(".stdin(In::Line(\"password\"))"), "{sudo}");
+    const { assert!(atmos_ui::jobs::SUDO_MINUTES <= 240) };
+}
+
 /// The limits are stored as integers: a number from a field that is sent as `80.0` is refused.
 #[test]
 fn the_three_limits_are_integer_settings_in_the_shell_file() {
@@ -232,13 +253,14 @@ fn topic_of_producer(keys: &str, topics: &str, producer: &str) -> Option<String>
 /// key that moved topic would leave the page waiting for ever, and no page test would see it.
 #[test]
 fn every_settings_page_holds_the_topics_that_own_its_keys() {
-    use atmos_ui::{defaults, favorites, settings, tweaks};
+    use atmos_ui::{defaults, drivers, favorites, jobs, settings, tweaks};
     let keys = repo("backend/src/snapshot/keys.rs");
     let topics = repo("backend/src/snapshot/topics.rs");
     for held in tweaks::HELD
         .iter()
         .chain(defaults::HELD)
-        .chain([&favorites::HELD])
+        .chain(drivers::HELD)
+        .chain([&favorites::HELD, &jobs::SUDO])
     {
         let producer = producer_of(&keys, held.key)
             .unwrap_or_else(|| panic!("no producer owns `{}`", held.key));

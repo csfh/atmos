@@ -15,6 +15,7 @@ use serde_json::{Value, json};
 use crate::actions::{self, Signal};
 use crate::client::Client;
 use crate::live::Feed;
+use crate::pages::row;
 use crate::protocol;
 use crate::sentinel::{self, Counts, Filter, Finding, Limit, Thresholds, Tracked, clamp_threshold};
 
@@ -255,24 +256,7 @@ impl SentinelPage {
     }
 
     fn copy(&mut self, text: &str, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(body) = actions::copy_write(text) else {
-            return;
-        };
-        let reply = self.client.request(&body);
-        cx.spawn_in(window, async move |this, cx| {
-            if let Err(failure) = reply.await {
-                let _ = this.update_in(cx, |_, window, cx| {
-                    toast(
-                        window,
-                        cx,
-                        Toast::new("Nothing was copied")
-                            .description(failure.message)
-                            .variant(Tone::Danger),
-                    );
-                });
-            }
-        })
-        .detach();
+        row::copy(&self.client, text, window, cx);
     }
 }
 

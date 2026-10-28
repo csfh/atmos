@@ -17,6 +17,7 @@ pub const OPS: &[&str] = &[
     "write",
     "settings.get",
     "settings.set",
+    "snapshot.keys",
 ];
 
 /// The server restarts after this long at the first failure, doubling to the ceiling. A server that
@@ -163,6 +164,11 @@ pub fn settings_set(domain: &str, value: &Value, readback: &[&str]) -> Value {
         body["readback"] = json!(readback);
     }
     body
+}
+
+/// Read these snapshot keys now, and say whether they show `expect` (`Requests.snapshotKeys`).
+pub fn snapshot_keys(keys: &[&str], expect: &Value) -> Value {
+    json!({ "op": "snapshot.keys", "keys": keys, "expect": expect })
 }
 
 /// Read these topics again. None named means the five settings topics. What a Refresh sends.

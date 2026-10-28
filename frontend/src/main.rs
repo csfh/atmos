@@ -13,8 +13,8 @@ fn main() {
             app_id: Some("dev.csfh.atmos".into()),
             ..Default::default()
         };
-        odk::ui::open_window(cx, options, move |_, cx| {
-            cx.new(|cx| Atmos::new(client, notices, &page, cx))
+        odk::ui::open_window(cx, options, move |window, cx| {
+            cx.new(|cx| Atmos::new(client, notices, &page, window, cx))
         })
         .unwrap();
     });

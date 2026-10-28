@@ -55,8 +55,8 @@ fn open<'a>(
     let daemon = servers.remove(0).auto(answer);
     let (client, notices) = Client::start(transport);
     let page = page.to_owned();
-    let (atmos, cx) = open_view(app, move |_, cx| {
-        cx.new(|cx| Atmos::new(client, notices, &page, cx))
+    let (atmos, cx) = open_view(app, move |window, cx| {
+        cx.new(|cx| Atmos::new(client, notices, &page, window, cx))
     });
     cx.simulate_resize(size(px(1400.0), px(1400.0)));
     cx.run_until_parked();

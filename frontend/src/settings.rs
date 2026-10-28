@@ -36,6 +36,21 @@ pub fn topics(held: &[Held]) -> Vec<(&'static str, u64)> {
     out
 }
 
+/// What a Refresh button reads again: the five settings topics and the five inventories
+/// (`SnapshotGroups.topicsForGroups("all")`).
+pub const ALL_TOPICS: &[&str] = &[
+    "settings.look",
+    "settings.network",
+    "settings.accounts",
+    "settings.system",
+    "settings.host",
+    "hardware",
+    "disks",
+    "services",
+    "software",
+    "diagnostics",
+];
+
 /// Whether `topic` is one of the daemon's settings topics.
 pub fn is_topic(topic: &str) -> bool {
     topic.starts_with("settings.")

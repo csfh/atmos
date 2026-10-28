@@ -1,8 +1,9 @@
 //! The window: a sidebar of hubs, a page, and the screen shown in its place when the backend is
 //! not there. A hub that has not been ported shows its name and says so; Sentinel
-//! (`pages/sentinel.rs`), Tweaks (`pages/tweaks.rs`), Defaults (`pages/defaults.rs`) and
-//! Favorites (`pages/favorites.rs`) have been.
-//! The settings topics go to one [`Settings`] that every page reads.
+//! (`pages/sentinel.rs`), Tweaks (`pages/tweaks.rs`), Defaults (`pages/defaults.rs`),
+//! Favorites (`pages/favorites.rs`) and Drivers (`pages/drivers.rs`) have been. Every page reads
+//! the settings topics from one [`Settings`], the inventories from one [`Inventories`], and runs
+//! its jobs through one [`Jobs`], whose sudo prompt the shell draws.
 //!
 //! The view holds what the backend has said and draws it. The client's notices arrive on a
 //! channel that one task awaits, so the view is drawn when something happened and not on a clock.
@@ -14,13 +15,17 @@ use odk::prelude::*;
 
 use crate::client::{Client, Link, Notice};
 use crate::hubs;
+use crate::inventory::{self, Inventories};
+use crate::jobs::Jobs;
 use crate::pages::defaults::DefaultsPage;
+use crate::pages::drivers::DriversPage;
 use crate::pages::favorites::FavoritesPage;
 use crate::pages::sentinel::SentinelPage;
+use crate::pages::sudo;
 use crate::pages::tweaks::TweaksPage;
 use crate::protocol::{self, Daemon, Event};
 use crate::settings::{self, Settings};
-use crate::{defaults, favorites, status, tweaks};
+use crate::{defaults, drivers, favorites, status, tweaks};
 
 /// How often the daemon samples `live` for a page that reads it, in milliseconds: the QML window's.
 const LIVE_MS: u64 = 2000;
@@ -35,6 +40,11 @@ fn wanted(page: &str) -> Vec<(&'static str, u64)> {
         "tweaks" => starred(tweaks::HELD),
         "defaults" => starred(defaults::HELD),
         "favorites" => starred(&[]),
+        "drivers" => {
+            let mut held = starred(drivers::HELD);
+            held.push(("hardware", 0));
+            held
+        }
         _ => Vec::new(),
     }
 }
@@ -57,10 +67,15 @@ pub struct Atmos {
     version: Option<SharedString>,
     /// What the settings topics and the writes' read-backs said, for every page.
     settings: Entity<Settings>,
+    /// The jobs the pages start, one at a time, and the sudo prompt.
+    jobs: Entity<Jobs>,
+    /// The five inventories, for every page that reads one.
+    inventories: Entity<Inventories>,
     sentinel: Entity<SentinelPage>,
     tweaks: Entity<TweaksPage>,
     defaults: Entity<DefaultsPage>,
     favorites: Entity<FavoritesPage>,
+    drivers: Entity<DriversPage>,
 }
 
 impl Atmos {
@@ -70,6 +85,7 @@ impl Atmos {
         client: Client,
         notices: Receiver<Notice>,
         page: &str,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
         let page = hubs::resolve(page).map_or(hubs::HUBS[0].id, |hub| hub.id);
@@ -79,6 +95,18 @@ impl Atmos {
             cx.new(|cx| SentinelPage::new(client, cx))
         };
         let settings = cx.new(|_| Settings::default());
+        let jobs = {
+            let (client, settings) = (client.clone(), settings.clone());
+            cx.new(|_| Jobs::new(client, settings))
+        };
+        // The shell draws the sudo prompt, so it is drawn again whenever the jobs change.
+        cx.observe(&jobs, |_, _, cx| cx.notify()).detach();
+        let inventories = cx.new(|_| Inventories::default());
+        let drivers = {
+            let (client, settings) = (client.clone(), settings.clone());
+            let (inventories, jobs) = (inventories.clone(), jobs.clone());
+            cx.new(|cx| DriversPage::new(client, settings, inventories, jobs, cx))
+        };
         let tweaks = {
             let (client, settings) = (client.clone(), settings.clone());
             cx.new(|cx| TweaksPage::new(client, settings, cx))
@@ -97,11 +125,11 @@ impl Atmos {
         };
         // The topics of the page it opens on. The server holds them again after a restart.
         drop(client.hold(&wanted(page)));
-        cx.spawn(async move |this, cx| {
+        cx.spawn_in(window, async move |this, cx| {
             while let Ok(notice) = notices.recv().await {
                 if this
-                    .update(cx, |atmos, cx| {
-                        atmos.apply(notice, cx);
+                    .update_in(cx, |atmos, window, cx| {
+                        atmos.apply(notice, window, cx);
                         cx.notify();
                     })
                     .is_err()
@@ -127,10 +155,13 @@ impl Atmos {
             daemon: None,
             version: None,
             settings,
+            jobs,
+            inventories,
             sentinel,
             tweaks,
             defaults,
             favorites,
+            drivers,
         }
     }
 
@@ -147,6 +178,11 @@ impl Atmos {
         &self.sentinel
     }
 
+    /// The jobs, for what a test asks of them.
+    pub fn jobs(&self) -> &Entity<Jobs> {
+        &self.jobs
+    }
+
     /// The Tweaks page, for what a test asks of it.
     pub fn tweaks(&self) -> &Entity<TweaksPage> {
         &self.tweaks
@@ -155,6 +191,11 @@ impl Atmos {
     /// The Defaults page, for what a test asks of it.
     pub fn defaults(&self) -> &Entity<DefaultsPage> {
         &self.defaults
+    }
+
+    /// The Drivers page, for what a test asks of it.
+    pub fn drivers(&self) -> &Entity<DriversPage> {
+        &self.drivers
     }
 
     /// The Favorites page, for what a test asks of it.
@@ -178,7 +219,7 @@ impl Atmos {
         }
     }
 
-    fn apply(&mut self, notice: Notice, cx: &mut Context<Self>) {
+    fn apply(&mut self, notice: Notice, window: &mut Window, cx: &mut Context<Self>) {
         match notice {
             Notice::Link(link) => {
                 // A server that comes back knows nothing of the daemon until it says.
@@ -224,6 +265,36 @@ impl Atmos {
                         }
                         _ => {}
                     });
+            }
+            Notice::Event(Event::Sample {
+                kind,
+                sampled_at,
+                stale,
+                result,
+                error,
+            }) if inventory::is_kind(&kind) => {
+                self.inventories
+                    .update(cx, |inv, cx| match (stale, sampled_at, result) {
+                        (false, Some(at), Some(result)) => {
+                            if inv.adopt(&kind, at, &result) {
+                                cx.notify();
+                            }
+                        }
+                        (true, _, _) => {
+                            inv.failed(
+                                &kind,
+                                error
+                                    .as_deref()
+                                    .unwrap_or("The daemon could not collect it."),
+                            );
+                            cx.notify();
+                        }
+                        _ => {}
+                    });
+            }
+            Notice::Event(Event::Job(event)) => {
+                self.jobs
+                    .update(cx, |jobs, cx| jobs.event(&event, window, cx));
             }
             Notice::Event(_) => {}
         }
@@ -272,6 +343,7 @@ impl Atmos {
             "tweaks" => return self.tweaks.clone().into_any_element(),
             "defaults" => return self.defaults.clone().into_any_element(),
             "favorites" => return self.favorites.clone().into_any_element(),
+            "drivers" => return self.drivers.clone().into_any_element(),
             _ => {}
         }
         let title = hubs::find(&self.page).map_or("Atmos", |hub| hub.title);
@@ -284,9 +356,11 @@ impl Atmos {
 
 impl Render for Atmos {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        root().child(sidebar_frame(
-            self.sidebar(cx),
-            scroll_y("page").child(self.content()),
-        ))
+        root()
+            .child(sidebar_frame(
+                self.sidebar(cx),
+                scroll_y("page").child(self.content()),
+            ))
+            .child(sudo::prompt(&self.jobs, cx))
     }
 }

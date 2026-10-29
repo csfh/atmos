@@ -57,7 +57,10 @@ fn the_page_holds_its_settings_topics_and_the_favorites_one_only_while_it_is_sho
     let mut w = open(&mut app, "home", ordinary);
     let tweaks = hubs::HUBS.iter().position(|h| h.id == "tweaks").unwrap();
     w.until("the first hold", |w| !w.daemon.of("sub.set").is_empty());
-    assert_eq!(w.daemon.of("sub.set")[0]["topics"], json!({}));
+    // Home holds the favorites' topic, the hardware its GPUs are named from, and the live feed.
+    let home = json!({"settings.host": {"intervalMs": 0}, "hardware": {"intervalMs": 0},
+        "live": {"intervalMs": 2000}});
+    assert_eq!(w.daemon.of("sub.set")[0]["topics"], home);
 
     w.click(&format!("nav/item-{tweaks}"));
     w.until("the topics asked for", |w| {
@@ -72,7 +75,7 @@ fn the_page_holds_its_settings_topics_and_the_favorites_one_only_while_it_is_sho
         w.daemon
             .of("sub.set")
             .last()
-            .is_some_and(|r| r["topics"] == json!({}))
+            .is_some_and(|r| r["topics"] == home)
     });
     assert_eq!(w.daemon.of("sub.set").len(), 3);
 }

@@ -1,9 +1,49 @@
-//! The pages of the window, one for each hub that has been ported (docs/adr/0013).
+//! The pages of the window: one for each hub that has been ported (docs/adr/0013), and the page
+//! that draws every other hub and hub page from the catalog (docs/adr/0021).
 
+pub mod accounts;
+pub mod agents;
+pub mod appearance;
+pub mod bar;
+pub mod bindings;
+pub mod bluetooth;
+pub mod capture;
+pub mod catalog;
+pub mod charts;
+pub mod controls;
+pub mod cpu_plots;
+pub mod custom;
 pub mod defaults;
+pub mod diagnostics;
+pub mod disks;
+pub mod display;
 pub mod drivers;
+pub mod environment;
+pub mod export;
 pub mod favorites;
+pub mod files;
+pub mod guard;
+pub mod hardware;
+pub mod history;
+pub mod hooks;
+pub mod keyboard;
+pub mod launchers;
+pub mod lists;
+pub mod live;
+pub mod memory_plots;
+pub mod meters;
+pub mod network;
+pub mod plots;
+pub mod radios;
 pub mod row;
+pub mod rules;
 pub mod sentinel;
+pub mod software;
+pub mod speedtest;
+pub mod startup;
 pub mod sudo;
+pub mod system;
 pub mod tweaks;
+pub mod units;
+pub mod wifi;
+pub mod workspaces;

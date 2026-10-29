@@ -162,13 +162,13 @@ fn spin(w: &mut Win, pid: u64, mine: bool, frames: u64) {
 #[test]
 fn the_page_holds_the_live_feed_only_while_it_is_shown() {
     let mut app = TestAppContext::single();
-    let mut w = open(&mut app, "home", ordinary);
-    let sentinel = hubs::HUBS.iter().position(|h| h.id == "sentinel").unwrap();
+    let mut w = open(&mut app, "appearance", ordinary);
+    let at = |id: &str| hubs::HUBS.iter().position(|h| h.id == id).unwrap();
+    let (sentinel, appearance) = (at("sentinel"), at("appearance"));
     w.until("the first hold", |w| !w.daemon.of("sub.set").is_empty());
-    assert_eq!(
-        w.daemon.of("sub.set")[0]["topics"],
-        json!({}),
-        "home reads nothing live"
+    assert!(
+        w.daemon.of("sub.set")[0]["topics"].get("live").is_none(),
+        "appearance reads nothing live"
     );
 
     w.click(&format!("nav/item-{sentinel}"));
@@ -178,12 +178,12 @@ fn the_page_holds_the_live_feed_only_while_it_is_shown() {
             .iter()
             .any(|r| r["topics"]["live"]["intervalMs"] == 2000)
     });
-    w.click("nav/item-0");
+    w.click(&format!("nav/item-{appearance}"));
     w.until("the feed let go", |w| {
         w.daemon
             .of("sub.set")
             .last()
-            .is_some_and(|r| r["topics"] == json!({}))
+            .is_some_and(|r| r["topics"].get("live").is_none())
     });
     assert_eq!(w.daemon.of("sub.set").len(), 3);
 }

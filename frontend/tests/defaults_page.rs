@@ -67,12 +67,14 @@ fn the_page_holds_its_two_settings_topics_only_while_it_is_shown() {
                     "settings.host": {"intervalMs": 0}})
         })
     });
+    // Home holds the favorites' topic, the hardware its GPUs are named from, and the live feed.
     w.click("nav/item-0");
     w.until("the topics let go", |w| {
-        w.daemon
-            .of("sub.set")
-            .last()
-            .is_some_and(|r| r["topics"] == json!({}))
+        w.daemon.of("sub.set").last().is_some_and(|r| {
+            r["topics"]
+                == json!({"settings.host": {"intervalMs": 0}, "hardware": {"intervalMs": 0},
+                    "live": {"intervalMs": 2000}})
+        })
     });
 }
 

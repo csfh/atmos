@@ -19,7 +19,25 @@ pub fn setting(
     control: impl IntoElement,
     star: impl IntoElement,
 ) -> impl IntoElement {
-    let hint = hint.into();
+    h_flex()
+        .gap(Space::Md)
+        .py(Space::Sm)
+        .child(words(label, description, hint))
+        // A control that takes its parent's width (a select) would leave the words none.
+        .child(h_flex().flex_none().child(control))
+        .child(star)
+}
+
+/// One setting with a muted caption under its words (`SettingRow.caption`): a count or a status.
+pub fn captioned(
+    label: impl Into<SharedString>,
+    description: impl Into<SharedString>,
+    caption: impl Into<SharedString>,
+    hint: impl Into<SharedString>,
+    control: impl IntoElement,
+    star: impl IntoElement,
+) -> impl IntoElement {
+    let caption = caption.into();
     h_flex()
         .gap(Space::Md)
         .py(Space::Sm)
@@ -28,12 +46,49 @@ pub fn setting(
                 .flex_1()
                 .min_w_0()
                 .gap(Space::Xs)
-                .child(Text::new(label))
-                .child(Text::new(description).muted())
-                .children((!hint.is_empty()).then(|| Text::new(hint).mono().muted())),
+                .child(words(label, description, hint))
+                .children((!caption.is_empty()).then(|| Text::new(caption).muted())),
+        )
+        .child(h_flex().flex_none().child(control))
+        .child(star)
+}
+
+/// A setting whose control takes the row's width, under its words, as a QML slider row does
+/// (`stretchControl`): a number or a line of text.
+pub fn stacked(
+    label: impl Into<SharedString>,
+    description: impl Into<SharedString>,
+    hint: impl Into<SharedString>,
+    control: impl IntoElement,
+    star: impl IntoElement,
+) -> impl IntoElement {
+    v_flex()
+        .gap(Space::Sm)
+        .py(Space::Sm)
+        .child(
+            h_flex()
+                .gap(Space::Md)
+                .child(words(label, description, hint))
+                .child(star),
         )
         .child(control)
-        .child(star)
+}
+
+/// A row's label, what it does and the command it runs: a description or a hint that is empty
+/// (one the QML builds at run time) takes no line.
+fn words(
+    label: impl Into<SharedString>,
+    description: impl Into<SharedString>,
+    hint: impl Into<SharedString>,
+) -> impl IntoElement {
+    let (description, hint) = (description.into(), hint.into());
+    v_flex()
+        .flex_1()
+        .min_w_0()
+        .gap(Space::Xs)
+        .child(Text::new(label))
+        .children((!description.is_empty()).then(|| Text::new(description).muted()))
+        .children((!hint.is_empty()).then(|| Text::new(hint).mono().muted()))
 }
 
 /// What a row's star needs: the window's settings, which hold the list, and the way to write it.

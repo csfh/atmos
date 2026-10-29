@@ -58,11 +58,12 @@ impl Row {
     }
 }
 
-/// The rows of the ported pages.
+/// The rows of the ported pages, and of the pages drawn from the catalog (docs/adr/0021).
 pub fn page_rows() -> Vec<Row> {
     let mut out = crate::defaults::rows();
     out.extend(crate::tweaks::rows());
     out.extend(crate::drivers::ROWS);
+    out.extend(crate::catalog::rows());
     out
 }
 

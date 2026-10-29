@@ -349,6 +349,28 @@ pub fn resolve(page: &str) -> Option<&'static Hub> {
     find(page.split('/').next().unwrap_or_default())
 }
 
+/// The page a launcher word opens: a hub, or one of a hub's pages when the word names it after
+/// `atmosd launch`'s aliases (`agentic/mcp` for `defaults/agents`), else the hub `resolve` finds.
+pub fn open(page: &str) -> Option<&'static str> {
+    let word = match page {
+        "defaults/agents" => "agentic/mcp",
+        other => other,
+    };
+    let child = HUBS
+        .iter()
+        .flat_map(|hub| hub.children)
+        .find(|c| c.id == word);
+    child
+        .map(|c| c.id)
+        .or_else(|| resolve(page).map(|hub| hub.id))
+}
+
+/// The hub a page is on: the hub itself, or the hub whose page it is.
+pub fn hub_of(page: &str) -> Option<&'static Hub> {
+    HUBS.iter()
+        .find(|hub| hub.id == page || hub.children.iter().any(|c| c.id == page))
+}
+
 /// The sidebar's groups in order, each with its heading and hubs. Consecutive hubs of one group
 /// stay together, as `clusterByGroup` does.
 pub fn clusters() -> Vec<(&'static str, Vec<&'static Hub>)> {
@@ -386,6 +408,18 @@ mod tests {
         assert_eq!(hub("defaults/agents"), Some("agentic"));
         assert_eq!(hub("nothing"), None);
         assert_eq!(hub(""), None);
+    }
+
+    #[test]
+    fn a_launcher_word_opens_a_hub_page_it_names() {
+        assert_eq!(open("monitor/cpu"), Some("monitor/cpu"));
+        assert_eq!(open("defaults/agents"), Some("agentic/mcp"));
+        assert_eq!(open("dashboard/cpu"), Some("monitor"), "launch.rs's alias");
+        assert_eq!(open("appearance/theme"), Some("appearance"));
+        assert_eq!(open("keybindings"), Some("keybindings"));
+        assert_eq!(open("nothing"), None);
+        assert_eq!(hub_of("monitor/cpu").map(|h| h.id), Some("monitor"));
+        assert_eq!(hub_of("monitor/nothing").map(|h| h.id), None);
     }
 
     #[test]

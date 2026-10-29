@@ -163,6 +163,30 @@ fn the_jobs_are_registry_entries_that_need_root_when_the_window_asks_for_sudo() 
             job.name
         );
     }
+    // And so does every job a catalog row starts.
+    use atmos_ui::catalog::{self, Control, setter::Sends};
+    for line in catalog::pages().flat_map(|p| p.lines()) {
+        let setters = match line.control {
+            Control::Press(_, s) | Control::Calls(_, _, s) => vec![s],
+            Control::Buttons(all) => all.iter().map(|b| b.setter).collect(),
+            Control::Custom(c) => c.setters(),
+            _ => continue,
+        };
+        for s in setters {
+            let Sends::Job(t) = s.sends else {
+                continue;
+            };
+            let e = entry(t.name);
+            assert_eq!(e.contains(".root()"), t.sudo, "{e}");
+            let first = e.split("Entry::new(").next().unwrap_or(&e);
+            assert!(
+                first.contains("Job,") || first.contains("Interactive,"),
+                "{} is a job: {e}",
+                t.name
+            );
+            assert_eq!(first.contains("Interactive,"), t.interactive, "{e}");
+        }
+    }
     let sudo = entry("sudo.enable");
     assert!(sudo.contains("V(\"minutes\", A::Uint(1, 240))"), "{sudo}");
     assert!(sudo.contains(".stdin(In::Line(\"password\"))"), "{sudo}");
@@ -253,18 +277,60 @@ fn topic_of_producer(keys: &str, topics: &str, producer: &str) -> Option<String>
     None
 }
 
+/// An import waits for sudo mode exactly when a change it applies needs root, as the QML page's
+/// `doApply` asks (`passwordCount(plan) > 0`): `settings.apply` is no root entry, as its task
+/// raises the privileged steps itself; and the undo asks as the import did.
+#[test]
+fn an_import_asks_for_sudo_mode_when_a_change_needs_root() {
+    use atmos_ui::export::State;
+    use atmos_ui::omafile::CATALOG;
+    for name in ["settings.apply", "settings.undo"] {
+        let e = entry(name);
+        assert!(!e.contains(".root()"), "{e}");
+        assert!(e.contains("Job,"), "{e}");
+    }
+    let root = CATALOG
+        .iter()
+        .find(|i| i.needs_root)
+        .expect("a setting needs root");
+    let plain = CATALOG
+        .iter()
+        .find(|i| !i.needs_root && i.importable)
+        .unwrap();
+    for (item, sudo) in [(root, true), (plain, false)] {
+        let mut s = State {
+            plan: Some(serde_json::json!({"changes": [{"key": item.key, "to": 1, "from": 0}]})),
+            ..State::default()
+        };
+        let job = s.apply((0, 0)).unwrap();
+        assert_eq!(
+            (job.name, job.kind, job.sudo),
+            ("settings.apply", "settings-import", sudo)
+        );
+        s.last_backup_dir = "/b".into();
+        let undo = s.undo((0, 0)).unwrap();
+        assert_eq!(
+            (undo.name, undo.sudo, undo.args["plan"].as_str()),
+            ("settings.undo", sudo, Some("/b/undo.json"))
+        );
+    }
+}
+
 /// Each settings page holds the topics its keys are in, and reads back keys a producer owns: a
 /// key that moved topic would leave the page waiting for ever, and no page test would see it.
 #[test]
 fn every_settings_page_holds_the_topics_that_own_its_keys() {
-    use atmos_ui::{defaults, drivers, favorites, jobs, settings, tweaks};
+    use atmos_ui::catalog::control::KEYS;
+    use atmos_ui::{catalog, defaults, drivers, favorites, jobs, settings, tweaks};
     let keys = repo("backend/src/snapshot/keys.rs");
     let topics = repo("backend/src/snapshot/topics.rs");
     for held in tweaks::HELD
         .iter()
         .chain(defaults::HELD)
         .chain(drivers::HELD)
+        .chain(KEYS.iter().map(|(held, _)| held))
         .chain([&favorites::HELD, &jobs::SUDO])
+        .chain(atmos_ui::export::held().iter())
     {
         let producer = producer_of(&keys, held.key)
             .unwrap_or_else(|| panic!("no producer owns `{}`", held.key));
@@ -277,8 +343,17 @@ fn every_settings_page_holds_the_topics_that_own_its_keys() {
     }
     let written = tweaks::CATALOG
         .iter()
-        .map(|t| (t.key, tweaks::HELD))
-        .chain(defaults::PICKERS.iter().map(|p| (p.domain, defaults::HELD)));
+        .map(|t| (t.key, tweaks::HELD.to_vec()))
+        .chain(
+            defaults::PICKERS
+                .iter()
+                .map(|p| (p.domain, defaults::HELD.to_vec())),
+        )
+        .chain(catalog::pages().flat_map(|p| {
+            p.lines()
+                .filter_map(|l| l.control.field())
+                .map(move |f| (f.key(), p.held()))
+        }));
     for (domain, held) in written {
         assert!(
             held.iter().any(|h| h.key == settings::head(domain)),

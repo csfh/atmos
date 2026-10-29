@@ -3,6 +3,7 @@
 
 #![allow(dead_code)]
 
+pub mod qml;
 pub mod window;
 
 use std::collections::VecDeque;

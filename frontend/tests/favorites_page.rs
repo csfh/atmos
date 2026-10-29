@@ -77,7 +77,7 @@ fn a_star_waits_for_the_list_then_writes_it_with_the_row_and_lights_on_the_read_
 }
 
 #[test]
-fn the_favorites_page_groups_by_hub_and_open_shows_the_hub() {
+fn the_favorites_page_groups_by_hub_and_open_shows_the_page_of_the_row() {
     let mut app = TestAppContext::single();
     let mut w = open(&mut app, "favorites", ordinary);
     w.sample(
@@ -102,8 +102,8 @@ fn the_favorites_page_groups_by_hub_and_open_shows_the_hub() {
         ]
     );
     w.click("open-system/kernel/direct-boot/button");
-    w.until("the hub", |w| {
-        w.atmos.read_with(w.cx, |a, _| a.page() == "system")
+    w.until("the page", |w| {
+        w.atmos.read_with(w.cx, |a, _| a.page() == "system/kernel")
     });
 }
 

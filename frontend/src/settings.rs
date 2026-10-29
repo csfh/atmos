@@ -83,6 +83,10 @@ pub struct Settings {
     /// When each key was last written, on the daemon's clock: a sample that began before it is
     /// not taken for that key (`Ops.dropStale`).
     wrote: HashMap<String, u64>,
+    /// What this window changed, and what Preview holds (`system/history`).
+    pub log: crate::history::Log,
+    /// The window's keep-or-revert bar (`Guard.js`).
+    pub guard: crate::guard::Guard,
 }
 
 /// Now, in milliseconds since the epoch: the clock `sampledAt` is on, since the daemon runs on
@@ -168,7 +172,8 @@ impl Settings {
     }
 
     /// Sends a write that reads back `key`, and takes in what the newest write of the key read
-    /// back. A refusal keeps what is shown and says `refused` with the backend's reason.
+    /// back. A refusal keeps what is shown and says `refused` with the backend's reason. While
+    /// Preview is on the write is held instead (`previewHeld`).
     pub fn send(
         &mut self,
         client: &Client,
@@ -178,6 +183,121 @@ impl Settings {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if self.log.preview {
+            self.log.hold(key, body, refused.into().to_string(), false);
+            cx.notify();
+            return;
+        }
+        self.send_now(client, key, body, refused, false, window, cx);
+    }
+
+    /// Sends a write that can blank a display or strand the keyboard, and opens the guard's bar
+    /// with `revert`, which puts it back (`rememberGuard`). Preview holds it without its guard,
+    /// as the QML window's `holdChange` strips it.
+    #[allow(clippy::too_many_arguments)]
+    pub fn send_guarded(
+        &mut self,
+        client: &Client,
+        key: &'static str,
+        body: &Value,
+        refused: impl Into<SharedString>,
+        (id, revert): (&str, Value),
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if self.log.preview {
+            self.log.hold(key, body, refused.into().to_string(), false);
+            cx.notify();
+            return;
+        }
+        self.send_now(client, key, body, refused, false, window, cx);
+        let was = self.guard.open;
+        if self.guard.open(id, revert, now_ms()) && !was {
+            self.watch_guard(client.clone(), window, cx);
+        }
+        cx.notify();
+    }
+
+    /// While the bar is open: counts down, and writes back once the deadline passes.
+    fn watch_guard(&mut self, client: Client, window: &mut Window, cx: &mut Context<Self>) {
+        cx.spawn_in(window, async move |this, cx| {
+            loop {
+                cx.background_executor()
+                    .timer(std::time::Duration::from_millis(200))
+                    .await;
+                let open = this
+                    .update_in(cx, |s, window, cx| {
+                        let fire = s.guard.tick(now_ms());
+                        s.apply_reverts(&client, fire, window, cx);
+                        cx.notify();
+                        s.guard.open
+                    })
+                    .unwrap_or(false);
+                if !open {
+                    break;
+                }
+            }
+        })
+        .detach();
+    }
+
+    /// Keep: the bar closes and nothing is written back.
+    pub fn keep_guard(&mut self, cx: &mut Context<Self>) {
+        self.guard.keep();
+        cx.notify();
+    }
+
+    /// Revert: the values from when the bar opened are written back.
+    pub fn revert_guard(&mut self, client: &Client, window: &mut Window, cx: &mut Context<Self>) {
+        let fire = self.guard.revert();
+        self.apply_reverts(client, fire, window, cx);
+        cx.notify();
+    }
+
+    /// `applyReverts`: each written back, unguarded and past Preview.
+    fn apply_reverts(
+        &mut self,
+        client: &Client,
+        fire: Vec<Value>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        // What a revert is built from: the rules and the input block shown now.
+        let held: HashMap<&str, Value> =
+            ["monitorRules", "hyprInput", "hyprWorkspaceGestureUnmanaged"]
+                .into_iter()
+                .filter_map(|k| Some((k, self.values.get(k)?.clone())))
+                .collect();
+        let shown = move |k: &str| held.get(k).cloned();
+        for desc in fire {
+            if let Some((key, body)) = crate::guard::revert_write(&desc, &shown) {
+                self.send_now(
+                    client,
+                    key,
+                    &body,
+                    "The setting was not put back",
+                    false,
+                    window,
+                    cx,
+                );
+            }
+        }
+    }
+
+    /// Sends a write whatever Preview says, and records it (`recordChange`); `sudo` when it runs
+    /// as root.
+    #[allow(clippy::too_many_arguments)]
+    pub fn send_now(
+        &mut self,
+        client: &Client,
+        key: &'static str,
+        body: &Value,
+        refused: impl Into<SharedString>,
+        sudo: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.log.record(key, body, sudo);
         let seq = self.sent.get(key).copied().unwrap_or(0) + 1;
         self.sent.insert(key, seq);
         let refused = refused.into();
@@ -202,6 +322,17 @@ impl Settings {
             });
         })
         .detach();
+    }
+
+    /// Each key a producer could not read, and why, by key (`Omarchy.snapshotFailed`).
+    pub fn failed_keys(&self) -> Vec<(String, String)> {
+        let mut out: Vec<(String, String)> = self
+            .failed
+            .iter()
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect();
+        out.sort();
+        out
     }
 
     pub fn known(&self, held: &Held) -> Known<'_> {
@@ -244,12 +375,39 @@ pub fn head(domain: &str) -> &str {
 }
 
 /// The snapshot keys a write of `domain` reads back, as `Settings.commandFor` names them, so the
-/// reply carries them as the machine reports them (docs/adr/0005). `tests/settings_parity.rs`
-/// holds every domain a page writes to it.
+/// reply carries them as the machine reports them (docs/adr/0005). `tests/catalog_controls.rs`,
+/// `tweaks_parity.rs` and `defaults_parity.rs` hold every domain a page writes to it.
 pub fn readback(domain: &str) -> Vec<&str> {
     match head(domain) {
         "hyprInput" => vec!["hyprInput", "hyprInputManaged"],
         "hyprLook" => vec!["hyprLook", "hyprLookManaged"],
+        // A script's setting reads back its key, and what the script changes with it.
+        "ntp" => vec!["ntp", "ntpSynchronized"],
+        "audioOutputVolume" => vec!["audioOutputVolume", "audioOutputMuted"],
+        "audioInputVolume" => vec!["audioInputVolume", "audioInputMuted"],
+        "nightlightTemperature" => vec!["nightlightTemperature", "nightlight"],
+        "envVars" | "envPathPrepend" => vec!["envVars", "envPathPrepend"],
+        // A list Atmos manages part of reads back which part.
+        "autostart" => vec!["autostart", "autostartManaged"],
+        "windowRules" => vec!["windowRules", "windowRulesManaged"],
+        "monitorRules" => vec!["monitorRules", "monitorRulesManaged"],
+        "bindings" => vec!["bindings", "bindingsManaged"],
+        // The workspaces and their switches are one block, written together.
+        "workspaces" => vec![
+            "workspaces",
+            "workspacesManaged",
+            "workspaceWrapSwitch",
+            "workspaceWheelSwitch",
+        ],
+        "weatherLocation" => vec!["weatherLocation", "weatherAuto", "weatherCoords"],
+        "nightlightDay" | "nightlightNight" | "nightlightNightOn" => {
+            vec!["nightlightDay", "nightlightNight", "nightlightNightOn"]
+        }
+        "workspaceWrapSwitch" | "workspaceWheelSwitch" => {
+            vec!["workspaceWrapSwitch", "workspaceWheelSwitch", "workspaces"]
+        }
+        // The idle timeouts are written together.
+        "idleScreensaver" | "idleLock" => vec!["idleScreensaver", "idleLock"],
         other => vec![other],
     }
 }

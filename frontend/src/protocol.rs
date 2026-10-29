@@ -20,6 +20,9 @@ pub const OPS: &[&str] = &[
     "snapshot.keys",
     "job.attach",
     "job.list",
+    "agents.mcp.list",
+    "agents.mcp.set",
+    "agents.mcp.check",
 ];
 
 /// The server restarts after this long at the first failure, doubling to the ceiling. A server that
@@ -157,8 +160,58 @@ pub fn job_list() -> Value {
 
 /// A typed write: a registry entry by `name`, with `args` the entry checks
 /// (`backend/src/command/entries.rs`). The window never sends a command line.
+/// The coding agents and their MCP entries (`Requests.agentsMcpList`).
+pub fn agents_mcp_list() -> Value {
+    json!({ "op": "agents.mcp.list" })
+}
+
+/// Turns an agent's MCP entry on or off, replacing one that is not Atmos's when `replace`
+/// (`Requests.agentsMcpSet`).
+pub fn agents_mcp_set(agent: &str, on: bool, replace: bool) -> Value {
+    let mut body = json!({ "op": "agents.mcp.set", "agent": agent, "on": on });
+    if replace {
+        body["replace"] = json!(true);
+    }
+    body
+}
+
+/// Asks the MCP server which tools it has (`Requests.agentsMcpCheck`).
+pub fn agents_mcp_check() -> Value {
+    json!({ "op": "agents.mcp.check" })
+}
+
 pub fn write(name: &str, args: &Value) -> Value {
     json!({ "op": "write", "name": name, "args": args })
+}
+
+/// The user's face or wallpaper, as its bytes (`Requests.hostImage`).
+pub fn host_image(which: &str) -> Value {
+    json!({ "op": "host.image", "which": which })
+}
+
+/// The Wi-Fi networks nearby, after a rescan (`Requests.wifiScan`).
+pub fn wifi_scan() -> Value {
+    json!({ "op": "wifi.scan" })
+}
+
+/// The Bluetooth adapter and the devices a discovery of `seconds` finds (`Requests.bluetoothScan`).
+pub fn bluetooth_scan(seconds: u32) -> Value {
+    json!({ "op": "bluetooth.scan", "seconds": seconds })
+}
+
+/// Reads the files the user chose (`Requests.hostRead`).
+pub fn host_read(paths: &[&str]) -> Value {
+    json!({ "op": "host.read", "paths": paths })
+}
+
+/// Writes `text` to a file the user chose (`Requests.hostWrite`).
+pub fn host_write(path: &str, text: &str) -> Value {
+    json!({ "op": "host.write", "path": path, "text": text })
+}
+
+/// Opens a file the user chose in what opens it (`Requests.hostOpen`).
+pub fn host_open(path: &str) -> Value {
+    json!({ "op": "host.open", "path": path })
 }
 
 /// One setting's stored value, `null` when it is unset.
@@ -184,6 +237,11 @@ pub fn snapshot_keys(keys: &[&str], expect: &Value) -> Value {
 }
 
 /// Read these topics again. None named means the five settings topics. What a Refresh sends.
+/// A unit's status or logs (`Requests.unitOutput`).
+pub fn unit_output(kind: &str, scope: &str, unit: &str) -> Value {
+    json!({ "op": "unit.output", "kind": kind, "scope": scope, "unit": unit })
+}
+
 pub fn snapshot_invalidate(topics: &[&str]) -> Value {
     json!({ "op": "snapshot.invalidate", "topics": topics })
 }

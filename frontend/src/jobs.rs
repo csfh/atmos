@@ -39,6 +39,8 @@ pub struct Job {
     pub what: &'static str,
     /// It runs a privileged step, so it waits for sudo mode.
     pub sudo: bool,
+    /// An interactive tool (`runInteractive`): while it runs, the window is not busy.
+    pub interactive: bool,
 }
 
 impl Job {
@@ -49,12 +51,19 @@ impl Job {
             kind,
             what,
             sudo: false,
+            interactive: false,
         }
     }
 
     /// The same job, run once sudo mode is on.
     pub fn sudo(mut self) -> Job {
         self.sudo = true;
+        self
+    }
+
+    /// The same job, as an interactive tool.
+    pub fn interactive(mut self) -> Job {
+        self.interactive = true;
         self
     }
 }
@@ -112,10 +121,26 @@ struct Running {
     err: String,
 }
 
+/// A write that runs as root (`runCommand` with `sudo`): it waits for sudo mode as a job does,
+/// then goes to `Settings` like any other write.
+#[derive(Debug, Clone, PartialEq)]
+pub struct RootWrite {
+    pub key: &'static str,
+    pub body: Value,
+    pub refused: String,
+}
+
+/// What waits behind the sudo prompt.
+#[derive(Debug, Clone, PartialEq)]
+enum Waiting {
+    Job(Job),
+    Write(RootWrite),
+}
+
 /// The password prompt, while a job waits for sudo mode.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Prompt {
-    pending: Option<Job>,
+    pending: Option<Waiting>,
     pub password: String,
     /// Why the last try failed.
     pub error: String,
@@ -130,6 +155,16 @@ pub struct Jobs {
     running: Option<Running>,
     prompt: Option<Prompt>,
     pub minutes: u32,
+    /// The last job that ended, by kind, and whether it failed (`lastError` after `jobBusy`).
+    pub last: Option<(&'static str, bool)>,
+    /// What the last job that ended wrote to its output, and to its errors.
+    pub last_out: String,
+    pub last_err: String,
+    /// How many jobs have ended, so a page takes each end once.
+    pub ended: u64,
+    /// How many jobs that waited for sudo mode were not run, the prompt cancelled, and the kind
+    /// of the last.
+    pub cancelled: (u64, Option<&'static str>),
     /// This window's prefix for its `cid`s, so that no other window's job is taken for one of
     /// its own (`jobPrefix`).
     prefix: String,
@@ -145,6 +180,11 @@ impl Jobs {
             running: None,
             prompt: None,
             minutes: SUDO_MINUTES,
+            last: None,
+            last_out: String::new(),
+            last_err: String::new(),
+            ended: 0,
+            cancelled: (0, None),
             prefix: format!("w{:x}{:x}", std::process::id(), now_ms() % 0x10_0000),
             next: 0,
         }
@@ -153,6 +193,12 @@ impl Jobs {
     /// Whether a job is running.
     pub fn busy(&self) -> bool {
         self.running.is_some()
+    }
+
+    /// Whether a job other than an interactive tool runs (`Omarchy.jobBusy`): what a button
+    /// that waits for the window's job waits for.
+    pub fn job_busy(&self) -> bool {
+        self.running.as_ref().is_some_and(|r| !r.job.interactive)
     }
 
     /// The kind of the job that is running.
@@ -164,6 +210,11 @@ impl Jobs {
         self.prompt.as_ref()
     }
 
+    /// What the running job has written to its output so far.
+    pub fn output(&self) -> &str {
+        self.running.as_ref().map_or("", |r| r.out.as_str())
+    }
+
     fn sudo_on(&self, cx: &App) -> bool {
         self.settings.read(cx).value(&SUDO) == Some(&Value::Bool(true))
     }
@@ -172,13 +223,54 @@ impl Jobs {
     pub fn run(&mut self, job: Job, window: &mut Window, cx: &mut Context<Self>) {
         if job.sudo && !self.sudo_on(cx) {
             self.prompt = Some(Prompt {
-                pending: Some(job),
+                pending: Some(Waiting::Job(job)),
                 ..Prompt::default()
             });
             cx.notify();
             return;
         }
         self.queue.push_back(job);
+        self.kick(window, cx);
+    }
+
+    /// Sends `write` once sudo mode is on, asking for it first when it is not. While Preview is
+    /// on it is held instead, as every write is (`previewHeld` comes before the prompt).
+    pub fn write_as_root(&mut self, write: RootWrite, window: &mut Window, cx: &mut Context<Self>) {
+        if self.settings.read(cx).log.preview {
+            self.settings.update(cx, |s, cx| {
+                s.log.hold(write.key, &write.body, write.refused, true);
+                cx.notify();
+            });
+            return;
+        }
+        self.run_as_root(write, window, cx);
+    }
+
+    /// Sends `write` as root whatever Preview says: what Apply does with a held one.
+    pub fn run_as_root(&mut self, write: RootWrite, window: &mut Window, cx: &mut Context<Self>) {
+        if !self.sudo_on(cx) {
+            self.prompt = Some(Prompt {
+                pending: Some(Waiting::Write(write)),
+                ..Prompt::default()
+            });
+            cx.notify();
+            return;
+        }
+        self.release(Some(Waiting::Write(write)), window, cx);
+    }
+
+    /// What waited for sudo mode goes on: a job to the queue, a write to `Settings`.
+    fn release(&mut self, pending: Option<Waiting>, window: &mut Window, cx: &mut Context<Self>) {
+        match pending {
+            Some(Waiting::Job(job)) => self.queue.push_back(Job { sudo: false, ..job }),
+            Some(Waiting::Write(w)) => {
+                let client = self.client.clone();
+                self.settings.update(cx, |s, cx| {
+                    s.send_now(&client, w.key, &w.body, w.refused, true, window, cx)
+                });
+            }
+            None => {}
+        }
         self.kick(window, cx);
     }
 
@@ -257,6 +349,8 @@ impl Jobs {
                 };
                 buf.push_str(line);
                 buf.push('\n');
+                // A page that shows a job's progress reads it as it comes.
+                cx.notify();
             }
             Some("exit") => {
                 let code = event.get("code").and_then(Value::as_i64).unwrap_or(1);
@@ -336,6 +430,10 @@ impl Jobs {
         } else {
             let text = refused
                 .unwrap_or_else(|| failure_text(summary.as_ref(), code, &done.err, &done.out));
+            self.last = Some((done.job.kind, !text.is_empty()));
+            self.last_out = done.out.clone();
+            self.last_err = done.err.clone();
+            self.ended += 1;
             if !text.is_empty() {
                 toast(
                     window,
@@ -375,10 +473,7 @@ impl Jobs {
         prompt.error.clear();
         if on {
             let pending = self.prompt.take().and_then(|p| p.pending);
-            if let Some(job) = pending {
-                self.queue.push_back(Job { sudo: false, ..job });
-            }
-            self.kick(window, cx);
+            self.release(pending, window, cx);
             return;
         }
         prompt.enabling = true;
@@ -397,7 +492,17 @@ impl Jobs {
     /// Cancel: the job that waited is not run.
     pub fn cancel(&mut self, cx: &mut Context<Self>) {
         if self.prompt.as_ref().is_some_and(|p| !p.enabling) {
-            self.prompt = None;
+            if let Some(Waiting::Job(job)) = self.prompt.take().and_then(|p| p.pending) {
+                self.cancelled = (self.cancelled.0 + 1, Some(job.kind));
+            }
+            cx.notify();
+        }
+    }
+
+    /// Opens the sudo prompt with no job waiting behind it (`Omarchy.requestSudoMode`).
+    pub fn ask_sudo(&mut self, cx: &mut Context<Self>) {
+        if self.prompt.is_none() {
+            self.prompt = Some(Prompt::default());
             cx.notify();
         }
     }
@@ -434,9 +539,8 @@ impl Jobs {
                         cx.notify();
                     });
                 }
-                if let Some(job) = pending {
-                    jobs.queue.push_back(Job { sudo: false, ..job });
-                    jobs.kick(window, cx);
+                if pending.is_some() {
+                    jobs.release(pending, window, cx);
                 }
             });
         })

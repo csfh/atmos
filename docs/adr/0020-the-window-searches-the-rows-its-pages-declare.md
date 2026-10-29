@@ -2,6 +2,8 @@
 
 Status: Accepted. Date: 2026-10-27.
 
+Amended by 0021: the pages not yet ported declare their rows too, from the catalog, so the Rust window finds every row the QML search finds.
+
 ## Context
 
 Search is `search.query`: the QML window sends the hub list (`Hubs.searchContext`), and `backend/src/search.rs` builds its catalog by reading the QML page sources from disk, taking the label, description, hint, detail and keywords of every `SettingRow`, `CollectionRow`, `PrefsRow`, `PrefsLink` and `PrefsGroup` it finds, and matches a query as a case-insensitive substring of a row's text, ordered by hub and then label. Nothing else reads that catalog: the MCP server does not use it.

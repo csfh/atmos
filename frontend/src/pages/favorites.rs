@@ -1,5 +1,5 @@
 //! Favorites: the rows starred on any hub, grouped by hub (`pages/FavoritesPage.qml`). The list is
-//! the snapshot's `favorites` key (`favorites.rs`); Open… shows the row's hub, and the star takes
+//! the snapshot's `favorites` key (`favorites.rs`); Open… shows the row's page, and the star takes
 //! a row out. A list that has not been read draws no rows and says so (docs/adr/0006).
 
 use std::rc::Rc;
@@ -11,7 +11,7 @@ use crate::favorites;
 use crate::pages::row::{self, Stars};
 use crate::settings::{Known, Settings};
 
-/// What Open… does with a hub id: the shell shows it.
+/// What Open… does with a hub or hub page id: the shell shows it.
 pub type Open = Rc<dyn Fn(&str, &mut App)>;
 
 pub struct FavoritesPage {

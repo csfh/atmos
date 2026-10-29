@@ -1,9 +1,10 @@
 //! The window: a sidebar of hubs, a page, and the screen shown in its place when the backend is
-//! not there. A hub that has not been ported shows its name and says so; Sentinel
-//! (`pages/sentinel.rs`), Tweaks (`pages/tweaks.rs`), Defaults (`pages/defaults.rs`),
-//! Favorites (`pages/favorites.rs`) and Drivers (`pages/drivers.rs`) have been. Every page reads
-//! the settings topics from one [`Settings`], the inventories from one [`Inventories`], and runs
-//! its jobs through one [`Jobs`], whose sudo prompt the shell draws.
+//! not there. Sentinel (`pages/sentinel.rs`), Tweaks (`pages/tweaks.rs`), Defaults
+//! (`pages/defaults.rs`), Favorites (`pages/favorites.rs`) and Drivers (`pages/drivers.rs`) have
+//! been ported; every other hub and hub page is drawn from the catalog (`pages/catalog.rs`,
+//! docs/adr/0021), with the hub's pages as tabs. Every page reads the settings topics from one
+//! [`Settings`], the inventories from one [`Inventories`], and runs its jobs through one
+//! [`Jobs`], whose sudo prompt the shell draws.
 //!
 //! The view holds what the backend has said and draws it. The client's notices arrive on a
 //! channel that one task awaits, so the view is drawn when something happened and not on a clock.
@@ -13,13 +14,16 @@ use std::rc::Rc;
 use async_channel::Receiver;
 use odk::prelude::*;
 
+use crate::catalog;
 use crate::client::{Client, Link, Notice};
+use crate::feed::Live;
 use crate::hubs;
 use crate::inventory::{self, Inventories};
 use crate::jobs::Jobs;
+use crate::pages::catalog::CatalogPage;
 use crate::pages::defaults::DefaultsPage;
 use crate::pages::drivers::DriversPage;
-use crate::pages::favorites::FavoritesPage;
+use crate::pages::favorites::{FavoritesPage, Open};
 use crate::pages::sentinel::SentinelPage;
 use crate::pages::sudo;
 use crate::pages::tweaks::TweaksPage;
@@ -27,7 +31,7 @@ use crate::protocol::{self, Daemon, Event};
 use crate::settings::{self, Settings};
 use crate::{defaults, drivers, favorites, status, tweaks};
 
-/// The hubs that have a page in this window; every other hub says it has not been ported.
+/// The hubs that have been ported; every other hub and hub page is drawn from the catalog.
 pub const PORTED: &[&str] = &["sentinel", "tweaks", "defaults", "favorites", "drivers"];
 
 /// How often the daemon samples `live` for a page that reads it, in milliseconds: the QML window's.
@@ -37,7 +41,7 @@ const LIVE_MS: u64 = 2000;
 /// holds none, and nothing is sampled for it. A settings topic is held at 0, "when it changes":
 /// the daemon collects it when it is first held and again when something changes it
 /// (docs/adr/0011).
-fn wanted(page: &str) -> Vec<(&'static str, u64)> {
+fn wanted(page: &str, live: &Live) -> Vec<(&'static str, u64)> {
     match page {
         "sentinel" => vec![("live", LIVE_MS)],
         "tweaks" => starred(tweaks::HELD),
@@ -48,7 +52,15 @@ fn wanted(page: &str) -> Vec<(&'static str, u64)> {
             held.push(("hardware", 0));
             held
         }
-        _ => Vec::new(),
+        page => catalog::page(page).map_or_else(Vec::new, |p| {
+            let mut held = starred(&p.held());
+            held.extend(p.inventories().into_iter().map(|kind| (kind, 0)));
+            // A page that reads samples holds them at the window's interval, unless paused.
+            if let Some(ms) = live.held().filter(|_| p.live()) {
+                held.push(("live", ms));
+            }
+            held
+        }),
     }
 }
 
@@ -61,7 +73,7 @@ fn starred(held: &[settings::Held]) -> Vec<(&'static str, u64)> {
 
 pub struct Atmos {
     client: Client,
-    /// The hub on show.
+    /// The page on show: a hub, or one of its pages.
     page: SharedString,
     link: Link,
     /// What the server last said of the daemon; unknown until it does, and again after a restart.
@@ -74,16 +86,24 @@ pub struct Atmos {
     jobs: Entity<Jobs>,
     /// The five inventories, for every page that reads one.
     inventories: Entity<Inventories>,
+    /// The live samples the catalog's pages read, and the interval they are held at.
+    live: Entity<Live>,
+    /// The interval and Pause the feed was last held for.
+    held_live: (u64, bool),
     sentinel: Entity<SentinelPage>,
     tweaks: Entity<TweaksPage>,
     defaults: Entity<DefaultsPage>,
     favorites: Entity<FavoritesPage>,
     drivers: Entity<DriversPage>,
+    /// Every hub and hub page that has not been ported.
+    catalog: Entity<CatalogPage>,
+    /// The keep-or-revert bar, over every page.
+    guard: Entity<crate::pages::guard::GuardBar>,
 }
 
 impl Atmos {
-    /// A window on `page`, a hub id (the first hub when it names none). It follows `notices` for
-    /// as long as it lives.
+    /// A window on `page`, a hub or a hub's page (the first hub when it names none). It follows
+    /// `notices` for as long as it lives.
     pub fn new(
         client: Client,
         notices: Receiver<Notice>,
@@ -91,7 +111,7 @@ impl Atmos {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
-        let page = hubs::resolve(page).map_or(hubs::HUBS[0].id, |hub| hub.id);
+        let page = hubs::open(page).unwrap_or(hubs::HUBS[0].id);
         let version = client.request(&protocol::version());
         let sentinel = {
             let client = client.clone();
@@ -105,6 +125,24 @@ impl Atmos {
         // The shell draws the sudo prompt, so it is drawn again whenever the jobs change.
         cx.observe(&jobs, |_, _, cx| cx.notify()).detach();
         let inventories = cx.new(|_| Inventories::default());
+        let live = cx.new(|_| Live::default());
+        // A new interval, or Pause, holds the feed again for the page in view.
+        cx.observe(&live, |atmos: &mut Self, live, cx| {
+            let (interval, paused) = {
+                let l = live.read(cx);
+                (l.interval_ms, l.paused)
+            };
+            if atmos.held_live != (interval, paused) {
+                atmos.held_live = (interval, paused);
+                let now = wanted(&atmos.page, live.read(cx));
+                drop(atmos.client.hold(&now));
+            }
+        })
+        .detach();
+        let guard = {
+            let (settings, client) = (settings.clone(), client.clone());
+            cx.new(|cx| crate::pages::guard::GuardBar::new(settings, client, cx))
+        };
         let drivers = {
             let (client, settings) = (client.clone(), settings.clone());
             let (inventories, jobs) = (inventories.clone(), jobs.clone());
@@ -118,16 +156,33 @@ impl Atmos {
             let (client, settings) = (client.clone(), settings.clone());
             cx.new(|cx| DefaultsPage::new(client, settings, cx))
         };
-        let favorites = {
-            let (client, settings) = (client.clone(), settings.clone());
+        let open: Open = {
             let atmos = cx.weak_entity();
-            let open = Rc::new(move |hub: &str, cx: &mut App| {
-                let _ = atmos.update(cx, |atmos, cx| atmos.show(hub, cx));
-            });
+            Rc::new(move |page: &str, cx: &mut App| {
+                let _ = atmos.update(cx, |atmos, cx| atmos.show(page, cx));
+            })
+        };
+        let favorites = {
+            let (client, settings, open) = (client.clone(), settings.clone(), open.clone());
             cx.new(|cx| FavoritesPage::new(client, settings, open, cx))
         };
+        let catalog = {
+            let (client, settings, jobs) = (client.clone(), settings.clone(), jobs.clone());
+            let (inventories, live) = (inventories.clone(), live.clone());
+            // A page that is not in the catalog leaves it on the first, unshown.
+            let shown = catalog::page(page)
+                .or_else(|| catalog::pages().next())
+                .expect("the catalog has pages");
+            cx.new(|cx| {
+                CatalogPage::new(client, settings, jobs, (inventories, live), shown, open, cx)
+            })
+        };
+        // What the page it opens on reads for itself.
+        if catalog::page(page).is_some() {
+            catalog.update(cx, |c, cx| c.loaded(cx));
+        }
         // The topics of the page it opens on. The server holds them again after a restart.
-        drop(client.hold(&wanted(page)));
+        drop(client.hold(&wanted(page, &Live::default())));
         cx.spawn_in(window, async move |this, cx| {
             while let Ok(notice) = notices.recv().await {
                 if this
@@ -160,11 +215,15 @@ impl Atmos {
             settings,
             jobs,
             inventories,
+            live,
+            held_live: (2000, false),
             sentinel,
             tweaks,
             defaults,
             favorites,
             drivers,
+            catalog,
+            guard,
         }
     }
 
@@ -206,15 +265,23 @@ impl Atmos {
         &self.favorites
     }
 
-    /// Shows the hub `page` names, or the hub a page of it is under: the window has no hub pages
-    /// of its own yet.
+    /// The page that draws the catalog, for what a test asks of it.
+    pub fn catalog(&self) -> &Entity<CatalogPage> {
+        &self.catalog
+    }
+
+    /// Shows the page `page` names: a hub, one of its pages, or the hub a path is under.
     pub fn show(&mut self, page: &str, cx: &mut Context<Self>) {
-        if let Some(hub) = hubs::resolve(page) {
-            let before = wanted(&self.page);
-            self.page = hub.id.into();
+        if let Some(page) = hubs::open(page) {
+            let live = self.live.read(cx).clone();
+            let before = wanted(&self.page, &live);
+            self.page = page.into();
+            if let Some(shown) = catalog::page(page) {
+                self.catalog.update(cx, |c, cx| c.show(shown, cx));
+            }
             // The daemon samples for the page in view and for no other: `hold` replaces what was
             // held, and a page with nothing live to read releases the feed.
-            let now = wanted(&self.page);
+            let now = wanted(&self.page, &live);
             if now != before {
                 drop(self.client.hold(&now));
             }
@@ -251,6 +318,11 @@ impl Atmos {
             }) if kind == "live" => {
                 self.sentinel
                     .update(cx, |page, cx| page.adopt(at as f64, &result, cx));
+                self.live.update(cx, |live, cx| {
+                    if live.adopt(at as f64, &result) {
+                        cx.notify();
+                    }
+                });
             }
             Notice::Event(Event::Sample {
                 kind,
@@ -314,8 +386,9 @@ impl Atmos {
 
     fn sidebar(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let this = cx.entity();
+        let hub = hubs::hub_of(&self.page).map_or("", |hub| hub.id);
         let nav = hubs::clusters().into_iter().fold(
-            NavList::new("nav", "Pages").value(self.page.clone()),
+            NavList::new("nav", "Pages").value(hub),
             |nav, (heading, list)| {
                 let nav = if heading.is_empty() {
                     nav
@@ -349,20 +422,15 @@ impl Atmos {
                 )
                 .into_any_element();
         }
-        // The pages that have been ported; every other hub says it has not.
+        // The pages that have been ported; every other is the catalog's.
         match self.page() {
-            "sentinel" => return self.sentinel.clone().into_any_element(),
-            "tweaks" => return self.tweaks.clone().into_any_element(),
-            "defaults" => return self.defaults.clone().into_any_element(),
-            "favorites" => return self.favorites.clone().into_any_element(),
-            "drivers" => return self.drivers.clone().into_any_element(),
-            _ => {}
+            "sentinel" => self.sentinel.clone().into_any_element(),
+            "tweaks" => self.tweaks.clone().into_any_element(),
+            "defaults" => self.defaults.clone().into_any_element(),
+            "favorites" => self.favorites.clone().into_any_element(),
+            "drivers" => self.drivers.clone().into_any_element(),
+            _ => self.catalog.clone().into_any_element(),
         }
-        let title = hubs::find(&self.page).map_or("Atmos", |hub| hub.title);
-        content_column()
-            .child(Heading::new(title).level(1))
-            .child(Text::new("This page is not in the new window yet.").muted())
-            .into_any_element()
     }
 }
 
@@ -371,7 +439,10 @@ impl Render for Atmos {
         root()
             .child(sidebar_frame(
                 self.sidebar(cx),
-                scroll_y("page").child(self.content()),
+                v_flex()
+                    .size_full()
+                    .child(self.guard.clone())
+                    .child(scroll_y("page").child(self.content())),
             ))
             .child(sudo::prompt(&self.jobs, cx))
     }

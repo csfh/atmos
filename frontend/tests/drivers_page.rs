@@ -181,6 +181,13 @@ fn a_job_that_needs_root_waits_for_the_password_then_for_sudo_mode() {
     w.until("the refusal said", |w| w.drawn("sudo-error/alert"));
     assert!(prompting(&mut w));
     assert_eq!(starts(&w).len(), 1);
+    // The dialog grows to take the refusal in, and moves while it does: a click before it stops
+    // can miss the field.
+    let last = std::cell::Cell::new(None);
+    w.until("the dialog still", |w| {
+        let now = w.bounds("sudo-continue/button");
+        last.replace(now) == now
+    });
 
     w.click("sudo-password/box");
     w.cx.simulate_input("right");

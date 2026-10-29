@@ -76,8 +76,35 @@ fn sources(dir: &Path, out: &mut Vec<PathBuf>) {
     }
 }
 
-fn code_of(line: &str) -> &str {
-    line.split("//").next().unwrap_or("")
+/// What a line says as code: not its comment, and not the text inside its string literals, so a
+/// hint such as `decoration.shadow` is not a call.
+fn code_of(line: &str) -> String {
+    let mut out = String::new();
+    let (mut in_string, mut escaped) = (false, false);
+    let mut chars = line.chars().peekable();
+    while let Some(c) = chars.next() {
+        if in_string {
+            match (escaped, c) {
+                (true, _) => escaped = false,
+                (false, '\\') => escaped = true,
+                (false, '"') => {
+                    in_string = false;
+                    out.push(c);
+                }
+                _ => {}
+            }
+            continue;
+        }
+        match c {
+            '"' => {
+                in_string = true;
+                out.push(c);
+            }
+            '/' if chars.peek() == Some(&'/') => break,
+            _ => out.push(c),
+        }
+    }
+    out
 }
 
 fn is_word_char(c: char) -> bool {
@@ -113,6 +140,7 @@ fn violations(text: &str) -> Vec<String> {
     let mut found = Vec::new();
     for (n, line) in text.lines().enumerate() {
         let code = code_of(line);
+        let code = code.as_str();
         for (needle, why) in FORBIDDEN {
             if mentions(code, needle) {
                 found.push(format!("line {}: `{needle}`: {why}", n + 1));
@@ -159,6 +187,7 @@ fn the_check_sees_what_it_forbids() {
         "div().child(a)",
         "x.text_color(c)",
         "let t = unsafe { f() };",
+        "line(\"Shadow\", \"a \\\" quote\").shadow_lg()",
     ];
     for line in bad {
         assert!(!violations(line).is_empty(), "missed: {line}");
@@ -169,6 +198,7 @@ fn the_check_sees_what_it_forbids() {
         "let width = 8; x.w(width)",
         "// div(px(1.)) is only a comment",
         "v_flex().child(Heading::new(\"A\").level(1))",
+        "line(\"Shadow\", \"looknfeel.lua · decoration.shadow\", &[\"px(\", \"//\"])",
     ];
     for line in good {
         assert!(

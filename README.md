@@ -116,7 +116,7 @@ npm install
 ./tests/run
 ```
 
-`./tests/run` is the whole suite, and pull requests and pushes to `main` and `stable` run it on GitHub Actions. `npm install` points Git at `.githooks/`, whose pre-commit hook runs the lint, format, Rust, and file-size checks and refuses a commit that has staged files with later unstaged edits (`git commit --no-verify` skips it). [AGENTS.md](AGENTS.md) lists the checks and the rules for the code.
+`./tests/run` is the whole suite, and it runs locally: there is no CI. `npm install` points Git at `.githooks/`, whose pre-commit hook runs the lint, format, Rust, and file-size checks and refuses a commit that has staged files with later unstaged edits (`git commit --no-verify` skips it). [AGENTS.md](AGENTS.md) lists the checks and the rules for the code.
 
 ## License
 

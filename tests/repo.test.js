@@ -247,13 +247,6 @@ assert(
     snapshotSrc.indexOf("ATMOS_XWAYLAND_ZERO_SCALING=0") !== -1,
   "the snapshot reads the XWayland zero-scaling opt-out from the env file",
 );
-const workflow = fs.readFileSync(
-  path.join(__dirname, "..", ".github", "workflows", "tests.yml"),
-  "utf8",
-);
-assert(workflow.indexOf("./tests/run") !== -1, "GitHub Actions runs ./tests/run");
-assert(workflow.indexOf("npm ci") !== -1, "GitHub Actions installs with npm ci");
-assert(workflow.indexOf("ubuntu-latest") !== -1, "GitHub Actions uses ubuntu-latest");
 
 const themeQml = fs.readFileSync(path.join(__dirname, "..", "services", "Theme.qml"), "utf8");
 assert(

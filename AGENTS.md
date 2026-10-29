@@ -18,7 +18,6 @@ The design (one daemon authority, a sampling bus behind a CPU governor, a comman
 - `./tests/file-budget` — source files stay under 800 lines. A file already past that is listed in `tests/file-budget.baseline` and may only shrink; run `./tests/file-budget --update` after a shrink, and split a file instead of raising its line.
 - `./tests/bench-atmosd` — opt-in backend footprint; put new numbers in `docs/benchmarks.md` and the README Footprint table with the date, version and commit.
 - pre-commit (`.githooks/pre-commit`) — `tests/partial-index-guard` (a staged file edited again fails), oxlint, oxfmt --check, `tests/file-budget`, and `cargo fmt --check` plus clippy when `backend/` is staged; skip with `git commit --no-verify`
-- GitHub Actions (`.github/workflows/tests.yml`) — `npm ci` and `./tests/run` on pull requests and on `main` / `stable`. Live snapshot stays skipped without `omarchy`.
 
 ## Rules
 

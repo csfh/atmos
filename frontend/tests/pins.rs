@@ -218,9 +218,17 @@ fn oma_toml_builds_the_window_and_puts_atmosd_where_the_manifest_runs_the_daemon
     );
     assert!(manifest.contains("executable = \"atmos-ui\""), "{manifest}");
     assert!(
-        dev.contains("include = [\"../backend/target/release/atmosd=bin/atmosd\"]"),
+        dev.contains("\"../backend/target/release/atmosd=bin/atmosd\""),
         "{dev}"
     );
+    // The Bundle carries Atmos's licence and those of what its two programs contain.
+    for licence in [
+        "\"../LICENSE=share/licenses/LICENSE\"",
+        "\"target/release/THIRD-PARTY-LICENSES-atmosd=share/licenses/THIRD-PARTY-LICENSES-atmosd\"",
+        "\"target/release/THIRD-PARTY-LICENSES-atmos-ui=share/licenses/THIRD-PARTY-LICENSES-atmos-ui\"",
+    ] {
+        assert!(dev.contains(licence), "{licence} is not in the Bundle");
+    }
     assert!(
         manifest.contains("executable = \"bin/atmosd\""),
         "{manifest}"

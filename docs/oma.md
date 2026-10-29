@@ -17,9 +17,14 @@ What `odk oma dev` does, one step at a time, for a build that is not the project
 ```
 cargo build --release --manifest-path backend/Cargo.toml
 cargo build --release --manifest-path frontend/Cargo.toml
+../odk/tools/third-party-licenses backend/Cargo.toml frontend/target/release/THIRD-PARTY-LICENSES-atmosd atmosd
+../odk/tools/third-party-licenses frontend/Cargo.toml frontend/target/release/THIRD-PARTY-LICENSES-atmos-ui atmos-ui
 odk oma bundle frontend/target/release/atmos-ui \
   --manifest frontend/manifest.toml \
   --include backend/target/release/atmosd=bin/atmosd \
+  --include LICENSE=share/licenses/LICENSE \
+  --include frontend/target/release/THIRD-PARTY-LICENSES-atmosd=share/licenses/THIRD-PARTY-LICENSES-atmosd \
+  --include frontend/target/release/THIRD-PARTY-LICENSES-atmos-ui=share/licenses/THIRD-PARTY-LICENSES-atmos-ui \
   -o dist
 odk oma inspect dist/Atmos.oma
 ```

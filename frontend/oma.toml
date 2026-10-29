@@ -3,6 +3,14 @@
 build = [
   ["cargo", "build", "--release", "--manifest-path", "../backend/Cargo.toml"],
   ["cargo", "build", "--release"],
+  # The licences of what each program is made of, which the Bundle carries (ODK's ADR 0081).
+  ["../../odk/tools/third-party-licenses", "../backend/Cargo.toml", "target/release/THIRD-PARTY-LICENSES-atmosd", "atmosd"],
+  ["../../odk/tools/third-party-licenses", "Cargo.toml", "target/release/THIRD-PARTY-LICENSES-atmos-ui", "atmos-ui"],
 ]
 executable = "target/release/atmos-ui"
-include = ["../backend/target/release/atmosd=bin/atmosd"]
+include = [
+  "../backend/target/release/atmosd=bin/atmosd",
+  "../LICENSE=share/licenses/LICENSE",
+  "target/release/THIRD-PARTY-LICENSES-atmosd=share/licenses/THIRD-PARTY-LICENSES-atmosd",
+  "target/release/THIRD-PARTY-LICENSES-atmos-ui=share/licenses/THIRD-PARTY-LICENSES-atmos-ui",
+]

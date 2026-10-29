@@ -1,6 +1,5 @@
 # Atmos
 
-[![Tests](https://github.com/csfh/atmos/actions/workflows/tests.yml/badge.svg)](https://github.com/csfh/atmos/actions/workflows/tests.yml)
 [![Latest release](https://img.shields.io/github/v/release/csfh/atmos?include_prereleases)](https://github.com/csfh/atmos/releases)
 [![License: MIT](https://img.shields.io/github/license/csfh/atmos)](LICENSE)
 

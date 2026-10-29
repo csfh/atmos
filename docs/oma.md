@@ -10,6 +10,8 @@ odk oma dev frontend
 
 `frontend/oma.toml` (ODK's ADR 0073; it was `dev.toml`) says how: it builds `atmosd` and the window with cargo, makes the Bundle with `atmosd` in it, installs it over the installed copy (the one place `oma` replaces an installed application, ODK's ADR 0051) and runs it. It shows the consent dialog only when the Bundle asks for more than the record holds, and stops the daemon of the copy it replaces before it installs, so the window never talks to a `atmosd` from an earlier build. It says so if something else, such as the user unit of an installed `atmosd`, is still serving `$XDG_RUNTIME_DIR/atmos/atmosd.sock`. It replaces `~/Applications/Atmos.oma`, and runs the build commands in `oma.toml` as you.
 
+The Bundle is one signed file, signed with a dev key `odk oma dev` makes for this computer the first time (ODK's ADR 0085). The manifest's `publisher` is display text there. The first `dev` after an older `odk` installed Atmos as a directory asks for its permissions once, and moves Atmos's data to the dev build's own directory.
+
 ## Make it by hand
 
 What `odk oma dev` does, one step at a time, for a build that is not the project's own:

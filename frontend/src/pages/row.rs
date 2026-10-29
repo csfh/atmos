@@ -7,7 +7,7 @@ use serde_json::Value;
 
 use crate::actions;
 use crate::client::Client;
-use crate::favorites::{self, Item};
+use crate::favorites;
 use crate::settings::Settings;
 
 /// One setting: its label, what it does, the command or file it writes (none when empty), its
@@ -19,13 +19,7 @@ pub fn setting(
     control: impl IntoElement,
     star: impl IntoElement,
 ) -> impl IntoElement {
-    h_flex()
-        .gap(Space::Md)
-        .py(Space::Sm)
-        .child(words(label, description, hint))
-        // A control that takes its parent's width (a select) would leave the words none.
-        .child(h_flex().flex_none().child(control))
-        .child(star)
+    item(label, description, hint).action(control).action(star)
 }
 
 /// One setting with a muted caption under its words (`SettingRow.caption`): a count or a status.
@@ -38,19 +32,10 @@ pub fn captioned(
     star: impl IntoElement,
 ) -> impl IntoElement {
     let caption = caption.into();
-    h_flex()
-        .gap(Space::Md)
-        .py(Space::Sm)
-        .child(
-            v_flex()
-                .flex_1()
-                .min_w_0()
-                .gap(Space::Xs)
-                .child(words(label, description, hint))
-                .children((!caption.is_empty()).then(|| Text::new(caption).muted())),
-        )
-        .child(h_flex().flex_none().child(control))
-        .child(star)
+    item(label, description, hint)
+        .children((!caption.is_empty()).then(|| Text::new(caption).muted()))
+        .action(control)
+        .action(star)
 }
 
 /// A setting whose control takes the row's width, under its words, as a QML slider row does
@@ -62,33 +47,23 @@ pub fn stacked(
     control: impl IntoElement,
     star: impl IntoElement,
 ) -> impl IntoElement {
-    v_flex()
-        .gap(Space::Sm)
-        .py(Space::Sm)
-        .child(
-            h_flex()
-                .gap(Space::Md)
-                .child(words(label, description, hint))
-                .child(star),
-        )
-        .child(control)
+    item(label, description, hint).action(star).footer(control)
 }
 
-/// A row's label, what it does and the command it runs: a description or a hint that is empty
-/// (one the QML builds at run time) takes no line.
-fn words(
+/// A row's label, what it does and the command it runs, as ODK's `Item`: a description or a hint
+/// that is empty (one the QML builds at run time) takes no line.
+fn item(
     label: impl Into<SharedString>,
     description: impl Into<SharedString>,
     hint: impl Into<SharedString>,
-) -> impl IntoElement {
+) -> Item {
     let (description, hint) = (description.into(), hint.into());
-    v_flex()
-        .flex_1()
-        .min_w_0()
-        .gap(Space::Xs)
-        .child(Text::new(label))
-        .children((!description.is_empty()).then(|| Text::new(description).muted()))
-        .children((!hint.is_empty()).then(|| Text::new(hint).mono().muted()))
+    let row = Item::new(label).children((!hint.is_empty()).then(|| Text::new(hint).mono().muted()));
+    if description.is_empty() {
+        row
+    } else {
+        row.description(description)
+    }
 }
 
 /// What a row's star needs: the window's settings, which hold the list, and the way to write it.
@@ -123,7 +98,7 @@ impl Stars {
             favorites::row_key(hub, label).unwrap_or_default()
         ));
         let stars = self.clone();
-        let row = Item::of_row(hub, label, description);
+        let row = favorites::Item::of_row(hub, label, description);
         Button::icon(id, if on { Icon::StarFilled } else { Icon::Star }, name)
             .variant(ButtonVariant::Ghost)
             .disabled(list.is_none() || row.is_none())
@@ -176,7 +151,7 @@ pub fn copy(client: &Client, text: &str, window: &mut Window, cx: &mut App) {
 }
 
 /// The favorites list as the window holds it, empty until read.
-pub fn favorite_items(settings: &Settings) -> Vec<Item> {
+pub fn favorite_items(settings: &Settings) -> Vec<favorites::Item> {
     settings
         .value(&favorites::HELD)
         .map_or_else(Vec::new, |list: &Value| favorites::items(list))

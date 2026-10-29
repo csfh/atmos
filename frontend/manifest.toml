@@ -8,6 +8,10 @@ version = "0.4.0"
 description = "Preferences for Omarchy"
 executable = "atmos-ui"
 categories = ["Settings"]
+# Display text, and for a release the host that serves the publisher's key set (ODK's ADR 0060).
+# A placeholder until Atmos has a release host: `odk oma dev` signs with this computer's dev key and
+# never fetches a key set (ODK's ADR 0085).
+publisher = "odk.example.com"
 
 [permissions]
 gpu = true

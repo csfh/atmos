@@ -26,3 +26,5 @@ opt-level = 3
 
 [patch.crates-io]
 xattr = { path = "../../odk/patches/xattr" }
+# ODK patches gpui 0.2.2 so truncated text keeps its font (its ADR 0079).
+gpui = { path = "../../odk/patches/gpui" }

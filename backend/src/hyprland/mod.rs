@@ -217,6 +217,33 @@ pub fn apply_file(kind: Kind, path: &Path, payload: &Value, reset: bool) -> Resu
     })
 }
 
+/// Put Atmos's own rule for `output`, when it has one, on `scale`, under the
+/// file's writer lock. Says whether the file changed: it is left alone when no
+/// rule in the block names the output or the rule already says that scale.
+pub fn rule_scale(path: &Path, output: &str, scale: f64) -> Result<bool> {
+    if !path.is_file() {
+        return Ok(false);
+    }
+    crate::store::with_lock(path, || {
+        let text = read_or_empty(path)?;
+        let mut rows = monitors::parse(&text);
+        let mut changed = false;
+        for row in rows.as_array_mut().into_iter().flatten() {
+            let had = row["scale"].as_f64().unwrap_or(1.0);
+            if row["output"] == output && lua::lua_number(had) != lua::lua_number(scale) {
+                row["scale"] = serde_json::json!(scale);
+                changed = true;
+            }
+        }
+        if changed {
+            let payload = serde_json::json!({ "items": rows });
+            let updated = apply_text(Kind::Monitors, &text, &payload, false);
+            crate::fsutil::atomic_write_text(path, &with_final_newline(&updated))?;
+        }
+        Ok(changed)
+    })
+}
+
 pub fn list_file(kind: Kind, path: &Path) -> Result<Value> {
     Ok(list(kind, &read_or_empty(path)?))
 }
@@ -225,6 +252,44 @@ pub fn list_file(kind: Kind, path: &Path) -> Result<Value> {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn a_scale_moves_only_atmos_rule_for_that_output() {
+        let dir = std::env::temp_dir().join(format!("atmos-rule-scale-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("monitors.lua");
+        let fallback =
+            "hl.monitor({ output = \"\", mode = \"preferred\", position = \"auto\", scale = 2 })\n";
+        let rules = json!({"items": [
+            {"output": "eDP-1", "mode": "2880x1800@120", "position": "0x0", "scale": 1.5},
+            {"output": "DP-3", "mode": "preferred", "position": "auto", "scale": 2},
+        ]});
+        let text = apply_text(Kind::Monitors, fallback, &rules, false);
+        std::fs::write(&path, &text).unwrap();
+
+        assert!(
+            !rule_scale(&path, "HDMI-A-1", 2.0).unwrap(),
+            "no rule names it"
+        );
+        assert!(!rule_scale(&path, "eDP-1", 1.5).unwrap(), "already on it");
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), text);
+
+        assert!(rule_scale(&path, "eDP-1", 5.0 / 3.0).unwrap());
+        let after = std::fs::read_to_string(&path).unwrap();
+        assert!(
+            after.starts_with(fallback),
+            "the line outside the block stays"
+        );
+        let rows = monitors::parse(&after);
+        assert_eq!(rows[0]["output"], "eDP-1");
+        assert_eq!(rows[0]["scale"], 1.667);
+        assert_eq!(rows[0]["mode"], "2880x1800@120");
+        assert_eq!(rows[1]["scale"], 2.0);
+
+        assert!(!rule_scale(&dir.join("absent.lua"), "eDP-1", 2.0).unwrap());
+        assert!(!dir.join("absent.lua").exists());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 
     #[test]
     fn windows_flag_and_rules_do_not_overwrite_each_other() {

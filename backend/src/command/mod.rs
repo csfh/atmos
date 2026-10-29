@@ -20,6 +20,7 @@ use std::time::Duration;
 use serde_json::{json, Value};
 
 use crate::error::{Error, Result};
+use crate::platform::Backend;
 use crate::request::Request;
 use crate::runner::Run;
 use crate::snapshot::{hypr, sh};
@@ -66,10 +67,15 @@ pub fn plan(request: &Request) -> Option<Plan> {
             affects: vec![MONITORS.into(), SETTINGS.into()],
         }),
         Request::DisplayScale { .. } => Some(Plan {
-            // The focused monitor's scale and the monitor list move together.
+            // The focused monitor's scale and the monitor list move together,
+            // and so does Atmos's rule for it, which a window holds as monitorRules.
             lane: "hypr:monitors".into(),
             key: Some("scale".into()),
-            affects: vec![MONITORS.into(), SETTINGS.into()],
+            affects: vec![
+                MONITORS.into(),
+                SETTINGS.into(),
+                crate::snapshot::topics::topic_of_domain("monitorRules").into(),
+            ],
         }),
         // Every write the server used to make in its own process goes through
         // a lane too (docs/adr/0011). A lane names the whole target, so two
@@ -221,8 +227,10 @@ pub fn brightness(root: Option<&Path>, monitor: &str, percent: u32) -> Result<Va
 }
 
 /// `omarchy hyprland monitor scaling`, then the monitors as the machine now
-/// reports them.
-pub fn scale(root: Option<&Path>, scale: &str) -> Result<Value> {
+/// reports them. The script keeps only Omarchy's fallback scale in
+/// monitors.lua, and a rule of Atmos's own for the focused output would put the
+/// old scale back on the next reload, so that rule takes the scale the script set.
+pub fn scale(backend: Backend, root: Option<&Path>, scale: &str) -> Result<Value> {
     let valid = scale
         .parse::<f64>()
         .is_ok_and(|n| n.is_finite() && n > 0.0 && n <= 8.0)
@@ -235,6 +243,12 @@ pub fn scale(root: Option<&Path>, scale: &str) -> Result<Value> {
     if root.is_some() {
         return Ok(json!({"scale": scale}));
     }
+    // Read before the script runs, as it does: its own write to monitors.lua
+    // reloads Hyprland, and a read after that can show the rule's old scale.
+    let focused = hypr::monitors_with(false)
+        .into_iter()
+        .flatten()
+        .find(|m| m["focused"] == true);
     let done = Run::new("omarchy")
         .args(["hyprland", "monitor", "scaling", scale])
         .timeout(Duration::from_secs(30))
@@ -249,11 +263,42 @@ pub fn scale(root: Option<&Path>, scale: &str) -> Result<Value> {
         )
         .with_context("omarchy hyprland monitor scaling"));
     }
+    if let Some(m) = focused {
+        let (width, height) = (m["width"].as_u64(), m["height"].as_u64());
+        if let (Some(output), Some(width), Some(height)) = (m["name"].as_str(), width, height) {
+            let set = clean_scale(scale.parse().unwrap_or(1.0), width, height);
+            let place = crate::place_for(backend, "monitorRules")?;
+            let path = crate::store::place_path(None, &place.rel);
+            crate::hyprland::rule_scale(&path, output, set)
+                .map_err(|err| err.with_context("keep the monitor rule on the new scale"))?;
+        }
+    }
     let mut result = json!({"scale": scale});
     if let Some(rows) = hypr::monitors() {
         result["snapshot"] = json!({"monitors": rows});
     }
     Ok(result)
+}
+
+/// `clean_scale` in `omarchy-hyprland-monitor-scaling`: Hyprland takes a
+/// scale only when the mode divides into whole logical pixels in 1/120 steps,
+/// so the script rounds the asked-for scale up to the nearest clean one.
+pub fn clean_scale(scale: f64, width: u64, height: u64) -> f64 {
+    let gcd = |mut a: u64, mut b: u64| {
+        while b != 0 {
+            (a, b) = (b, a % b);
+        }
+        a
+    };
+    let g = gcd(width * 120, height * 120);
+    if g == 0 {
+        return scale;
+    }
+    let mut k = ((scale * 120.0 + 0.5) as u64).clamp(1, g);
+    while g % k != 0 {
+        k += 1;
+    }
+    k as f64 / 120.0
 }
 
 /// Reads of a monitor made after a write, and how long between them.
@@ -343,19 +388,34 @@ mod tests {
         let plan = plan(&parse(json!({"op": "display.scale", "scale": "1.5"}))).unwrap();
         assert_eq!(plan.lane, "hypr:monitors");
         assert_eq!(plan.key.as_deref(), Some("scale"));
-        assert_eq!(plan.affects, ["monitors", "settings"]);
+        // The rule the scale moves is read again for a window that holds it.
+        assert_eq!(plan.affects, ["monitors", "settings", "settings.system"]);
+        assert_eq!(
+            crate::snapshot::keys::topic_of_key("monitorRules"),
+            Some("settings.system")
+        );
     }
 
     #[test]
     fn a_bad_scale_is_refused_before_anything_runs() {
         for bad in ["", "0", "-1", "1.5x", "9", "abc", "1e2", " 2"] {
-            let err = scale(None, bad).unwrap_err();
+            let err = scale(Backend::Omarchy, None, bad).unwrap_err();
             assert_eq!(err.kind, crate::error::Kind::BadRequest, "{bad:?}");
         }
         assert_eq!(
-            scale(Some(Path::new("/nonexistent")), "1.25").unwrap(),
+            scale(Backend::Omarchy, Some(Path::new("/nonexistent")), "1.25").unwrap(),
             json!({"scale": "1.25"})
         );
+    }
+
+    #[test]
+    fn a_scale_is_rounded_up_to_a_clean_one_as_omarchy_rounds_it() {
+        // Each expected value is what the script's awk printed for these.
+        assert_eq!(clean_scale(1.3, 1920, 1080), 160.0 / 120.0);
+        assert_eq!(clean_scale(1.6, 2560, 1600), 1.6);
+        assert_eq!(clean_scale(1.25, 1366, 768), 2.0);
+        assert_eq!(clean_scale(1.6, 2880, 1800), 1.6);
+        assert_eq!(clean_scale(2.0, 1920, 1080), 2.0);
     }
 
     #[test]

@@ -383,9 +383,9 @@ pub(crate) fn handle(backend: Backend, root: Option<&Path>, body: &Value) -> Res
                 command::writes::execute(root, &built)
             })?
         }
-        Request::DisplayScale { scale } => {
-            route_command(backend, root, direct, body, || command::scale(root, &scale))?
-        }
+        Request::DisplayScale { scale } => route_command(backend, root, direct, body, || {
+            command::scale(backend, root, &scale)
+        })?,
         Request::DisplayBrightness { monitor, percent } => {
             route_command(backend, root, direct, body, || {
                 command::brightness(root, &monitor, percent)

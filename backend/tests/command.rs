@@ -301,6 +301,58 @@ fn scale_runs_the_tool_and_returns_the_monitor_list() {
     assert_eq!(bad["error"]["code"], "bad_request");
 }
 
+/// Omarchy's script keeps only its fallback scale; Atmos's rule for the focused
+/// output would win on the next reload unless it moves too (#99).
+#[test]
+fn scale_moves_atmos_rule_for_the_focused_output_with_it() {
+    let scene = Scene::new("cmd-scale-rule");
+    let omarchy = scene.fakes.join("omarchy");
+    fs::write(
+        &omarchy,
+        format!("#!/bin/sh\necho \"$*\" >> {}\n", scene.log.display()),
+    )
+    .unwrap();
+    let lua = scene.run.join(".config/hypr/monitors.lua");
+    fs::create_dir_all(lua.parent().unwrap()).unwrap();
+    let mine =
+        "hl.monitor({ output = \"\", mode = \"preferred\", position = \"auto\", scale = 1 })\n";
+    let block = "-- atmos:monitors begin\n\
+        hl.monitor({ output = \"DP-3\", mode = \"1920x1080@60\", position = \"0x0\", scale = 1 })\n\
+        hl.monitor({ output = \"HDMI-A-1\", mode = \"preferred\", position = \"auto\", scale = 2 })\n\
+        -- atmos:monitors end\n";
+    fs::write(&lua, format!("{mine}{block}")).unwrap();
+    let _daemon = scene.daemon();
+
+    // The fake hyprctl still reports DP-3 at 1, as a reload onto the old rule would.
+    let reply = scene.request(&json!({"op": "display.scale", "scale": "1.3"}));
+    assert_eq!(reply["ok"], true, "{reply}");
+    let text = fs::read_to_string(&lua).unwrap();
+    assert!(text.starts_with(mine), "the user's line stays: {text}");
+    assert!(
+        text.contains(
+            r#"output = "DP-3", mode = "1920x1080@60", position = "0x0", scale = 1.333 "#
+        ),
+        "1.3 on 1920x1080 is 1.33333 to the script, and the rule says so: {text}"
+    );
+    assert!(
+        text.contains(r#"output = "HDMI-A-1", mode = "preferred", position = "auto", scale = 2 "#)
+    );
+
+    fs::write(
+        &lua,
+        format!("{mine}-- atmos:monitors begin\n-- atmos:monitors end\n"),
+    )
+    .unwrap();
+    let before = fs::read_to_string(&lua).unwrap();
+    let reply = scene.request(&json!({"op": "display.scale", "scale": "2"}));
+    assert_eq!(reply["ok"], true, "{reply}");
+    assert_eq!(
+        fs::read_to_string(&lua).unwrap(),
+        before,
+        "no rule for DP-3, nothing to move"
+    );
+}
+
 /// A window's `ratmos serve`, in the scene's environment, talking to its daemon.
 struct Window {
     child: Child,

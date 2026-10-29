@@ -1,6 +1,7 @@
 //! The password prompt a job that needs root waits behind (`shell.qml`'s "Administrator
 //! password" box): open while `Jobs` has a prompt, with the password field, why the last try
-//! failed, and Cancel and Continue. While `sudo.enable` runs it cannot be closed.
+//! failed, and Cancel and Continue. While `sudo.enable` runs it cannot be closed: Escape still
+//! asks, as ODK wants a dialog to have a way out, and `Jobs::cancel` does nothing until it ends.
 
 use odk::prelude::*;
 
@@ -48,7 +49,6 @@ pub fn prompt(jobs: &Entity<Jobs>, cx: &App) -> impl IntoElement {
     Dialog::new("sudo-prompt", "Administrator password")
         .open(open)
         .description(description)
-        .close_on_escape(!busy)
         .close_on_backdrop(!busy)
         .close_button(!busy)
         .on_close(move |_, cx| closed.update(cx, |jobs, cx| jobs.cancel(cx)))

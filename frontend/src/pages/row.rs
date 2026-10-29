@@ -124,7 +124,7 @@ impl Stars {
         ));
         let stars = self.clone();
         let row = Item::of_row(hub, label, description);
-        Button::icon(id, if on { "★" } else { "☆" }, name)
+        Button::icon(id, if on { Icon::StarFilled } else { Icon::Star }, name)
             .variant(ButtonVariant::Ghost)
             .disabled(list.is_none() || row.is_none())
             .on_click(move |_, window, cx| {

@@ -42,6 +42,12 @@ impl Env {
     }
 }
 
+/// Whether sudo mode is on, read as the `security` producer reads it, so that
+/// `settings.get` and the snapshot never disagree.
+pub(crate) fn sudo_mode() -> bool {
+    host::sudo_mode(&Env::read().user)
+}
+
 pub const GROUPS: &[&str] = &[
     "look", "rest", "all", "network", "disks", "accounts", "system",
 ];

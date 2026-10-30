@@ -330,6 +330,75 @@ assertEqual(
 );
 fs.unlinkSync(tmp);
 
+const emptyState = ws.clampState({
+  count: 2,
+  items: [
+    { id: "1", onCreatedEmpty: "alacritty" },
+    { id: "special:notes", onCreatedEmpty: "[workspace special:notes silent] obsidian" },
+  ],
+});
+const emptyLua = ws.serialize(emptyState);
+assert(
+  emptyLua.indexOf("on_created_empty =") === -1,
+  "serialize never writes deprecated on_created_empty rule",
+);
+assert(
+  emptyLua.indexOf('hl.on("workspace.created"') !== -1,
+  "serialize writes workspace.created handler for empty action",
+);
+assert(
+  emptyLua.indexOf('hl.exec_cmd("alacritty", { workspace = "1" })') !== -1,
+  "serialize targets the created workspace for plain commands",
+);
+assert(
+  emptyLua.indexOf('hl.exec_cmd("[workspace special:notes silent] obsidian")') !== -1,
+  "serialize passes bracketed rule commands directly to hl.exec_cmd",
+);
+
+const emptyParsed = ws.parseFile(emptyLua);
+assertEqual(
+  emptyParsed.items[0].onCreatedEmpty,
+  "alacritty",
+  "parseFile reads onCreatedEmpty from handler",
+);
+const notesItem = emptyParsed.items.find(function (r) {
+  return r.id === "special:notes";
+});
+assert(notesItem, "parseFile preserves special workspace");
+assertEqual(
+  notesItem.onCreatedEmpty,
+  "[workspace special:notes silent] obsidian",
+  "parseFile reads rule command",
+);
+
+const legacyText = [
+  "-- atmos:workspaces begin",
+  'hl.workspace_rule({ workspace = "2", persistent = true, on_created_empty = "foot" })',
+  "-- atmos:workspaces end",
+].join("\n");
+const legacyParsed = ws.parseFile(legacyText);
+const ws2 = legacyParsed.items.find(function (r) {
+  return r.id === "2";
+});
+assert(ws2, "parseFile reads legacy workspace rule");
+assertEqual(ws2.onCreatedEmpty, "foot", "parseFile reads legacy on_created_empty property");
+
+const tmpEmpty = path.join(os.tmpdir(), "atmos-ws-empty-" + process.pid + ".lua");
+fs.writeFileSync(tmpEmpty, "");
+const pyEmpty = spawnSync(
+  atmosdBinary(),
+  ["sentinel", "workspaces", "apply", tmpEmpty, JSON.stringify(emptyState)],
+  { encoding: "utf8" },
+);
+assertEqual(pyEmpty.status, 0, "atmosd sentinel workspaces apply with onCreatedEmpty exits 0");
+const pyEmptyText = fs.readFileSync(tmpEmpty, "utf8");
+assertEqual(
+  pyEmptyText.replace(/\s+$/, ""),
+  emptyLua.replace(/\s+$/, ""),
+  "Rust workspaces serialize with onCreatedEmpty matches JS",
+);
+fs.unlinkSync(tmpEmpty);
+
 const hyprlandSrc = fs.readFileSync(
   path.join(__dirname, "..", "backend", "src", "tasks", "user.rs"),
   "utf8",

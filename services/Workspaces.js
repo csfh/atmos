@@ -272,8 +272,27 @@ function serializeRule(row) {
   if (row.name) parts.push("default_name = " + luaString(row.name));
   if (row.monitor) parts.push("monitor = " + luaString(row.monitor));
   if (row.isDefault) parts.push("default = " + luaBool(true));
-  if (row.onCreatedEmpty) parts.push("on_created_empty = " + luaString(row.onCreatedEmpty));
   return "hl.workspace_rule({ " + parts.join(", ") + " })";
+}
+
+function serializeCreatedEmpty(id, cmd) {
+  var isRule = cmd.charAt(0) === "[";
+  var execCall = isRule
+    ? "hl.exec_cmd(" + luaString(cmd) + ")"
+    : "hl.exec_cmd(" + luaString(cmd) + ", { workspace = " + luaString(id) + " })";
+  return (
+    'hl.on("workspace.created", function(ws)\n' +
+    "  if ws and (ws.name == " +
+    luaString(id) +
+    " or tostring(ws.id) == " +
+    luaString(id) +
+    ") and ws.is_empty then\n" +
+    "    " +
+    execCall +
+    "\n" +
+    "  end\n" +
+    "end)"
+  );
 }
 
 function serialize(raw) {
@@ -287,6 +306,9 @@ function serialize(raw) {
   for (i = 0; i < s.items.length; i++) {
     if (!s.items[i].special && Number(s.items[i].id) > s.count) continue;
     lines.push(serializeRule(s.items[i]));
+    if (s.items[i].onCreatedEmpty) {
+      lines.push(serializeCreatedEmpty(s.items[i].id, s.items[i].onCreatedEmpty));
+    }
   }
   var binds = serializeSwitchBinds(s);
   for (i = 0; i < binds.length; i++) lines.push(binds[i]);
@@ -295,6 +317,14 @@ function serialize(raw) {
 }
 
 function parseRules(text) {
+  var src = String(text || "");
+  var onCreatedEmptyMap = {};
+  var reHandler =
+    /hl\.on\(\s*"workspace\.created"\s*,\s*function\s*\(\s*ws\s*\)[\s\S]*?(?:ws\.name|tostring\(ws\.id\))\s*==\s*"((?:\\.|[^"\\])*)"[\s\S]*?hl\.exec_cmd\(\s*"((?:\\.|[^"\\])*)"[\s\S]*?end\s*\)/g;
+  var hm;
+  while ((hm = reHandler.exec(src))) {
+    onCreatedEmptyMap[hm[1]] = hm[2];
+  }
   var out = [];
   liveCalls(text, "hl.workspace_rule(", function (args) {
     var table = args[0];
@@ -306,7 +336,8 @@ function parseRules(text) {
       monitor: table.monitor,
       persistent: table.persistent === true,
       default: table.default === true,
-      on_created_empty: table.on_created_empty,
+      on_created_empty:
+        table.on_created_empty || (table.workspace && onCreatedEmptyMap[table.workspace]),
     });
     if (n) out.push(n);
   });

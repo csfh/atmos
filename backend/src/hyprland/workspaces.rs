@@ -7,6 +7,24 @@ use std::collections::HashSet;
 pub const BEGIN: &str = "-- atmos:workspaces begin";
 pub const END: &str = "-- atmos:workspaces end";
 
+fn serialize_created_empty(id: &str, cmd: &str) -> String {
+    let is_rule = cmd.starts_with('[');
+    let exec_call = if is_rule {
+        format!("hl.exec_cmd({})", lua_string(cmd))
+    } else {
+        format!(
+            "hl.exec_cmd({}, {{ workspace = {} }})",
+            lua_string(cmd),
+            lua_string(id)
+        )
+    };
+    format!(
+        "hl.on(\"workspace.created\", function(ws)\n  if ws and (ws.name == {id_lua} or tostring(ws.id) == {id_lua}) and ws.is_empty then\n    {exec_call}\n  end\nend)",
+        id_lua = lua_string(id),
+        exec_call = exec_call,
+    )
+}
+
 pub fn serialize(src: &Map<String, Value>) -> String {
     let items = src.get("items").and_then(Value::as_array);
     let count = 10;
@@ -66,6 +84,7 @@ pub fn serialize(src: &Map<String, Value>) -> String {
         {
             parts.push("default = true".into());
         }
+        lines.push(format!("hl.workspace_rule({{ {} }})", parts.join(", ")));
         let empty = {
             let first = str_or_empty(item.get("onCreatedEmpty"));
             if first.is_empty() {
@@ -76,9 +95,8 @@ pub fn serialize(src: &Map<String, Value>) -> String {
         };
         let empty = empty.trim();
         if !empty.is_empty() {
-            parts.push(format!("on_created_empty = {}", lua_string(empty)));
+            lines.push(serialize_created_empty(&wid, empty));
         }
-        lines.push(format!("hl.workspace_rule({{ {} }})", parts.join(", ")));
     }
     lines.push(r#"hl.unbind("SUPER + TAB")"#.into());
     lines.push(r#"hl.unbind("SUPER + SHIFT + TAB")"#.into());
@@ -125,9 +143,28 @@ pub fn parse(text: &str) -> Value {
         Some((start, stop)) => &text[start..stop],
         None => "",
     };
+    let mut on_created_empty_map = std::collections::HashMap::new();
+    let re_handler = re!(
+        r#"hl\.on\(\s*"workspace\.created"\s*,\s*function\s*\(\s*ws\s*\)[\s\S]*?(?:ws\.name|tostring\(ws\.id\))\s*==\s*"((?:\\.|[^"\\])*)"[\s\S]*?hl\.exec_cmd\(\s*"((?:\\.|[^"\\])*)"[\s\S]*?end\s*\)"#
+    );
+    for cap in re_handler.captures_iter(body) {
+        on_created_empty_map.insert(cap[1].to_string(), cap[2].to_string());
+    }
     let mut out = Vec::new();
     live_calls(body, "hl.workspace_rule(", |args| {
-        if let Some(row) = workspace_row(args.first()) {
+        if let Some(mut row) = workspace_row(args.first()) {
+            if let Some(id) = row.get("id").and_then(Value::as_str) {
+                if row
+                    .get("onCreatedEmpty")
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
+                    .is_empty()
+                {
+                    if let Some(empty) = on_created_empty_map.get(id) {
+                        row["onCreatedEmpty"] = json!(empty);
+                    }
+                }
+            }
             out.push(row);
         }
     });

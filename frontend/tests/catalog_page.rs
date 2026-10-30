@@ -129,6 +129,13 @@ fn a_switch_waits_for_its_key_then_writes_the_other_value() {
         !w.drawn("ctl-accessibility/animations/track"),
         "not read yet"
     );
+    let waiting = w
+        .bounds("odk-skeleton")
+        .expect("a stand-in where the switch will be");
+    assert!(
+        f32::from(waiting.size.width) > 0.0,
+        "the stand-in is drawn, not squeezed to nothing: {waiting:?}"
+    );
     w.sample(
         "settings.look",
         1,

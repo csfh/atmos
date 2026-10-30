@@ -158,9 +158,9 @@ pub fn favorite_items(settings: &Settings) -> Vec<favorites::Item> {
 }
 
 /// In place of a control, while its key is being read: never a control with a state made up for
-/// it (docs/adr/0006).
+/// it (docs/adr/0006). A control's height and three times as wide, where the control will be.
 pub fn reading(label: &str) -> impl IntoElement {
-    Skeleton::line().label(format!("Reading {label}"))
+    Skeleton::control().label(format!("Reading {label}"))
 }
 
 /// In place of a control whose key could not be read.

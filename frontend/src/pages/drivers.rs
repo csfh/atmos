@@ -121,7 +121,12 @@ impl Render for DriversPage {
         let gpus = match hardware {
             Known::Value(doc) => drivers::gpus(doc),
             Known::Waiting => {
-                graphics.push(row::reading("the GPUs").into_any_element());
+                // A whole row, not a control: a line across the group.
+                graphics.push(
+                    Skeleton::line()
+                        .label("Reading the GPUs")
+                        .into_any_element(),
+                );
                 Vec::new()
             }
             Known::Unknown(why) => {

@@ -326,30 +326,32 @@ impl Render for SentinelPage {
 }
 
 impl SentinelPage {
+    /// Nothing to show: waiting for a sample, a search that matches nothing, or nothing wrong.
     fn empty(&self) -> impl IntoElement {
         let waiting = self.feed.latest().is_none();
-        let (title, why) = if waiting {
+        let (icon, title, why) = if waiting {
             (
+                Icon::Info,
                 "Reading the first sample".to_owned(),
                 "CPU findings need a few samples, about every two seconds.",
             )
         } else {
-            (
-                if self.filter == Filter::Port {
-                    "No listening ports".to_owned()
-                } else {
-                    "Nothing looks wrong".to_owned()
-                },
-                if self.query.is_empty() {
-                    "No process is over its limits, and no long-running process holds a port open."
-                } else {
-                    "Nothing matches that search."
-                },
-            )
+            let title = if self.filter == Filter::Port {
+                "No listening ports".to_owned()
+            } else {
+                "Nothing looks wrong".to_owned()
+            };
+            if self.query.is_empty() {
+                (
+                    Icon::Success,
+                    title,
+                    "No process is over its limits, and no long-running process holds a port open.",
+                )
+            } else {
+                (Icon::Search, title, "Nothing matches that search.")
+            }
         };
-        v_flex()
-            .child(Heading::new(title).level(3))
-            .child(Text::new(why).muted())
+        Empty::new(title).icon(icon).description(why)
     }
 
     /// One finding: the name, what is wrong, the command line, and what can be done to it.

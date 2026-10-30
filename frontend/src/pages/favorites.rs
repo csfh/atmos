@@ -80,7 +80,9 @@ impl Render for FavoritesPage {
                 .child(row::group(
                     "Favorites",
                     "Star a setting on any hub. It shows up here.",
-                    [Text::new("No favorites yet. Star a setting on any page.").muted()],
+                    [Empty::new("No favorites yet")
+                        .icon(Icon::Star)
+                        .description("Star a setting on any page.")],
                 ))
                 .into_any_element();
         }

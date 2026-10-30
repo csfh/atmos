@@ -655,14 +655,13 @@ pub fn table(
             .map(|(i, r)| process_row(i, "ps", r, this).into_any_element()),
     );
     if rows.is_empty() {
-        let says = if h.is_empty() {
-            "Waiting for the first sample."
+        let (icon, says) = if h.is_empty() {
+            (Icon::Info, "Waiting for the first sample.")
         } else {
-            "Nothing matches that search or filter."
+            (Icon::Search, "Nothing matches that search or filter.")
         };
-        out.push(
-            row::setting("No matching processes", says, "", v_flex(), v_flex()).into_any_element(),
-        );
+        let empty = Empty::new("No matching processes").icon(icon);
+        out.push(empty.description(says).into_any_element());
     }
     out
 }

@@ -378,14 +378,12 @@ pub fn procs(
             .map(|(i, r)| process_row(i, prefix, r, this).into_any_element()),
     );
     if rows.is_empty() {
-        let says = if latest.is_some() {
-            "Nothing matches that search."
-        } else {
-            "Waiting for the first sample."
+        let (icon, says) = match latest {
+            Some(_) => (Icon::Search, "Nothing matches that search."),
+            None => (Icon::Info, "Waiting for the first sample."),
         };
-        out.push(
-            row::setting("No matching processes", says, "", v_flex(), v_flex()).into_any_element(),
-        );
+        let empty = Empty::new("No matching processes").icon(icon);
+        out.push(empty.description(says).into_any_element());
     }
     out
 }

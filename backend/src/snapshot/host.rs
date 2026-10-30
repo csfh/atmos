@@ -305,11 +305,20 @@ pub fn security(f: &mut Map<String, Value>, user: &str) {
     }
     f.insert("sshdEnabled".into(), json!(enabled));
     f.insert("sshdActive".into(), json!(active));
-    // `/etc/sudoers.d` is root-only, so the file cannot be seen from here. The
-    // `sudo-on` task also starts a transient timer that removes it, and the
-    // timer is visible to every user without a `sudo` probe in the journal.
-    // Only a timer still `waiting` counts: one that has fired reads `active`
-    // while its `rm` runs.
+    f.insert("passwordlessSudo".into(), json!(sudo_mode(user)));
+    let groups = out("id", &["-nG"]);
+    f.insert(
+        "sudolessDocker".into(),
+        json!(groups.split_whitespace().any(|g| g == "docker")),
+    );
+}
+
+/// Whether sudo mode is on for `user`. `/etc/sudoers.d` is root-only, so the
+/// file cannot be seen from here. The `sudo-on` task also starts a transient
+/// timer that removes it, and the timer is visible to every user without a
+/// `sudo` probe in the journal. Only a timer still `waiting` counts: one that
+/// has fired reads `active` while its `rm` runs.
+pub fn sudo_mode(user: &str) -> bool {
     let timed = present("systemctl")
         && out(
             "systemctl",
@@ -321,15 +330,7 @@ pub fn security(f: &mut Map<String, Value>, user: &str) {
                 &format!("omarchy-nopasswd-expire-{user}.timer"),
             ],
         ) == "waiting";
-    f.insert(
-        "passwordlessSudo".into(),
-        json!(timed || Path::new(&format!("/etc/sudoers.d/99-omarchy-nopasswd-{user}")).is_file()),
-    );
-    let groups = out("id", &["-nG"]);
-    f.insert(
-        "sudolessDocker".into(),
-        json!(groups.split_whitespace().any(|g| g == "docker")),
-    );
+    timed || Path::new(&format!("/etc/sudoers.d/99-omarchy-nopasswd-{user}")).is_file()
 }
 
 pub fn omarchy_info(f: &mut Map<String, Value>) {

@@ -13,7 +13,7 @@ use crate::error::{Error, Result};
 use crate::fsutil::atomic_write_text as atomic_text;
 use crate::runner::Run;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::time::Duration;
 
 use serde_json::{Map, Value};

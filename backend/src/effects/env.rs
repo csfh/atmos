@@ -82,6 +82,7 @@ pub(super) fn write_env(path: &Path, key: &str, value: &Value) -> Result<()> {
 mod tests {
     use super::*;
     use serde_json::json;
+    use std::path::PathBuf;
 
     fn scratch(name: &str) -> PathBuf {
         let dir = std::env::temp_dir().join(format!("atmosd-env-{name}-{}", std::process::id()));

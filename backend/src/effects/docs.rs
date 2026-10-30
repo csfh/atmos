@@ -3,15 +3,14 @@ use super::*;
 pub fn read_doc(root: Option<&Path>, path: &Path, key: &str) -> Result<Value> {
     match key {
         "passwordlessSudo" => {
-            let check = if root.is_none() {
-                passwordless_live_path()
-            } else {
-                path.to_path_buf()
-            };
-            if !check.is_file() {
+            // Live, the drop-in is out of reach: read what the snapshot reads.
+            if root.is_none() {
+                return Ok(Value::Bool(crate::snapshot::sudo_mode()));
+            }
+            if !path.is_file() {
                 return Ok(missing_bool(root));
             }
-            let text = fs::read_to_string(&check)?;
+            let text = fs::read_to_string(path)?;
             Ok(Value::Bool(text.contains("NOPASSWD")))
         }
         "fingerprintConfigured" | "fido2Configured" => {
@@ -190,11 +189,6 @@ pub(super) fn missing_bool(root: Option<&Path>) -> Value {
     } else {
         Value::Null
     }
-}
-
-pub(super) fn passwordless_live_path() -> PathBuf {
-    let user = std::env::var("USER").unwrap_or_default();
-    PathBuf::from(format!("/etc/sudoers.d/99-omarchy-nopasswd-{user}"))
 }
 
 pub(super) fn systemctl_enabled(unit: &str) -> Result<Value> {

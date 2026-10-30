@@ -268,7 +268,7 @@ pub fn monitors(
                 rows.push(row::stacked("Brightness", says, "omarchy brightness display", control, star("Brightness", says)).into_any_element());
             }
 
-            row::group(
+            row::list_group(
                 display::title(m),
                 "Mode, scale, rotation, and disable write a monitor rule in ~/.config/hypr/monitors.lua. Brightness works on the built-in panel and on some external monitors.",
                 rows,

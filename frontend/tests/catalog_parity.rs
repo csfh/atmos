@@ -190,6 +190,34 @@ fn every_group_that_takes_the_whole_width_is_named() {
     assert_eq!(ours, theirs);
 }
 
+/// The groups whose QML says `framed: true` are the ones `FRAMED` names. A group whose title is
+/// worked out (one per disk, monitor or hook) is framed by the page module that draws it.
+#[test]
+fn every_group_drawn_in_a_box_is_named() {
+    let mut theirs = BTreeSet::new();
+    for page in catalog::pages() {
+        let src = std::fs::read_to_string(qml::repo().join("pages").join(page.file)).unwrap();
+        for (at, _) in src.match_indices("PrefsGroup {") {
+            let (s, e) = span(&src, at);
+            let own = own(&src[s..=e]);
+            let framed = own.lines().any(|l| l.trim() == "framed: true");
+            let title = own
+                .split("title: \"")
+                .nth(1)
+                .and_then(|t| t.split('"').next())
+                .unwrap_or_default();
+            if framed && !title.is_empty() {
+                theirs.insert((page.id.to_owned(), title.to_owned()));
+            }
+        }
+    }
+    let ours: BTreeSet<(String, String)> = catalog::FRAMED
+        .iter()
+        .map(|(p, g)| ((*p).to_owned(), (*g).to_owned()))
+        .collect();
+    assert_eq!(ours, theirs);
+}
+
 /// The values a field of a condition can read, as the condition reads it: a switch's booleans,
 /// or a text that is empty or not.
 fn domains(w: When, out: &mut BTreeMap<String, Value>) {

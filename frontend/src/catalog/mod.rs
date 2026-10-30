@@ -12,6 +12,7 @@ mod apps;
 pub mod control;
 pub mod custom;
 mod device;
+mod framed;
 mod general;
 mod home;
 mod input;
@@ -27,6 +28,7 @@ mod wide;
 pub mod words;
 
 pub use control::{Control, Field, When};
+pub use framed::{FRAMED, framed};
 pub use models::MODEL_LISTS;
 pub use wide::{WIDE, wide};
 

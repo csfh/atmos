@@ -183,7 +183,7 @@ pub fn drives(
                 .children((!error.is_empty()).then(|| Alert::new(SharedString::from(format!("disk-{i}-error")), error).variant(Tone::Danger)));
             let star = page.stars.star(page.page().id, "Speed test", &says, cx);
             rows.push(row::stacked("Speed test", says, "omarchy disk speedtest", control, star).into_any_element());
-            row::group(
+            row::list_group(
                 disks::title(disk),
                 "Usage bars come from df on each mount. Speed test reads for about eight seconds, then writes for about eight, on this disk.",
                 rows,

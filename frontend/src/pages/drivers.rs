@@ -262,7 +262,12 @@ impl Render for DriversPage {
                 .muted(),
             )
             .children(alerts)
-            .child(row::group("Graphics", drivers::GRAPHICS_DETAIL, graphics))
+            // The QML frames the graphics drivers' group, a list of the GPUs and their drivers.
+            .child(row::list_group(
+                "Graphics",
+                drivers::GRAPHICS_DETAIL,
+                graphics,
+            ))
             .child(row::group("Firmware", drivers::FIRMWARE_DETAIL, firmware))
             .child(self.confirmation(&g, &this))
     }

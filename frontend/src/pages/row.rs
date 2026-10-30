@@ -174,7 +174,7 @@ pub fn group(
     title: impl Into<SharedString>,
     detail: impl Into<SharedString>,
     rows: impl IntoIterator<Item = impl IntoElement>,
-) -> impl IntoElement {
+) -> ItemGroup {
     let (group, detail) = (ItemGroup::new(title), detail.into());
     let group = if detail.is_empty() {
         group
@@ -182,4 +182,34 @@ pub fn group(
         group.description(detail)
     };
     group.children(rows)
+}
+
+/// A catalog page's group: a list group when the QML frames it (`catalog::FRAMED`).
+pub fn catalog_group(
+    page: &str,
+    title: &'static str,
+    detail: impl Into<SharedString>,
+    rows: impl IntoIterator<Item = impl IntoElement>,
+) -> ItemGroup {
+    if crate::catalog::framed(page, title) {
+        list_group(title, detail, rows)
+    } else {
+        group(title, detail, rows)
+    }
+}
+
+/// List groups, one box under another the page's gap apart, as one row of the group they are
+/// listed in, whose rows sit closer; nothing when there are none.
+pub fn stack<E: IntoElement>(groups: Vec<E>) -> Option<impl IntoElement + use<E>> {
+    (!groups.is_empty()).then(|| v_flex().gap(Space::Xl).children(groups))
+}
+
+/// A group that lists things (a disk, a monitor, the hooks of one kind, paired devices), drawn in
+/// a box with its title inside: an outline `ItemGroup`.
+pub fn list_group(
+    title: impl Into<SharedString>,
+    detail: impl Into<SharedString>,
+    rows: impl IntoIterator<Item = impl IntoElement>,
+) -> ItemGroup {
+    group(title, detail, rows).variant(ItemGroupVariant::Outline)
 }

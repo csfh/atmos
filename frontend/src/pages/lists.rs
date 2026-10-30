@@ -5,7 +5,9 @@ use odk::prelude::*;
 use super::catalog::CatalogPage;
 use super::custom::reminders;
 use crate::catalog::List;
-use crate::pages::{agents, capture, environment, hardware, rules, software, startup, workspaces};
+use crate::pages::{
+    agents, capture, environment, hardware, row, rules, software, startup, workspaces,
+};
 use crate::profiles::PROFILES;
 
 /// The rows of a group's list, as its page draws them.
@@ -53,7 +55,7 @@ pub fn list_rows(
             .into_iter()
             .map(|r| r.into_any_element())
             .collect(),
-        List::Hooks => crate::pages::hooks::groups(page, this, cx)
+        List::Hooks => row::stack(crate::pages::hooks::groups(page, this, cx))
             .into_iter()
             .map(|r| r.into_any_element())
             .collect(),
@@ -70,7 +72,7 @@ pub fn list_rows(
             .map(|r| r.into_any_element())
             .collect(),
         List::Disk(which) => match which {
-            "drives" => crate::pages::disks::drives(page, this, cx)
+            "drives" => row::stack(crate::pages::disks::drives(page, this, cx))
                 .into_iter()
                 .map(|r| r.into_any_element())
                 .collect(),
@@ -164,7 +166,7 @@ pub fn list_rows(
             .into_iter()
             .map(|r| r.into_any_element())
             .collect(),
-        List::Display("monitors") => crate::pages::display::monitors(page, this, cx)
+        List::Display("monitors") => row::stack(crate::pages::display::monitors(page, this, cx))
             .into_iter()
             .map(|r| r.into_any_element())
             .collect(),

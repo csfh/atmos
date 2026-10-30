@@ -683,17 +683,14 @@ impl CatalogPage {
                         .children(rows)
                         .into_any_element()
                 } else {
-                    row::group(*title, *detail, rows).into_any_element()
+                    row::catalog_group(id, title, *detail, rows).into_any_element()
                 };
                 (drawn, catalog::wide(id, title))
             });
+        let detail = list.and_then(|l| agents::detail(l, self));
+        let detail = detail.unwrap_or_else(|| group.detail.to_owned());
         let drawn = column
-            .child(row::group(
-                group.title,
-                list.and_then(|l| agents::detail(l, self))
-                    .unwrap_or_else(|| group.detail.to_owned()),
-                rows,
-            ))
+            .child(row::catalog_group(id, group.title, detail, rows))
             .children(empty);
         std::iter::once((drawn.into_any_element(), catalog::wide(id, group.title)))
             .chain(unlisted)

@@ -177,7 +177,7 @@ pub fn groups(
             for (i, item) in items.into_iter().enumerate() {
                 rows.push(script(&kind, i, &item, page, this, cx).into_any_element());
             }
-            row::group(label, blurb, rows).into_any_element()
+            row::list_group(label, blurb, rows).into_any_element()
         })
         .collect()
 }

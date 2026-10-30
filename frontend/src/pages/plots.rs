@@ -15,6 +15,7 @@ pub fn plot(which: &str, h: &[Value], generation: u64) -> impl IntoElement + use
         "cpuhist" => {
             let bins = meters::histogram(&latest_list(h, "processes"));
             let chart = Chart::new("cpu-histogram", "Processes by CPU share")
+                .height(ChartHeight::Regular)
                 .description("CPU histogram")
                 .transition(generation)
                 .paint(move |scene, _| {
@@ -24,15 +25,12 @@ pub fn plot(which: &str, h: &[Value], generation: u64) -> impl IntoElement + use
                         scene.fill_rect(x, y, w, hh, Ink::Series(0));
                     }
                 });
-            v_flex()
-                .w_full()
-                .h(Space::Xl)
-                .child(chart)
-                .into_any_element()
+            chart.into_any_element()
         }
         "stream" => {
             let series = crate::charts::disk_stream(h);
             let chart = Chart::new("disk-stream", "Blockdev I/O streamgraph")
+                .height(ChartHeight::Regular)
                 .description("Blockdev I/O streamgraph")
                 .transition(generation)
                 .paint(move |scene, _| {
@@ -68,15 +66,12 @@ pub fn plot(which: &str, h: &[Value], generation: u64) -> impl IntoElement + use
                         }
                     }
                 });
-            v_flex()
-                .w_full()
-                .h(Space::Xl)
-                .child(chart)
-                .into_any_element()
+            chart.into_any_element()
         }
         "calendar" => {
             let days = crate::charts::thermal_days(h);
             let chart = Chart::new("thermal-calendar", "Hwmon thermal calendar")
+                .height(ChartHeight::Tall)
                 .description("Hwmon thermal calendar")
                 .transition(generation)
                 .paint(move |scene, _| {
@@ -107,11 +102,7 @@ pub fn plot(which: &str, h: &[Value], generation: u64) -> impl IntoElement + use
                         }
                     }
                 });
-            v_flex()
-                .w_full()
-                .h(Space::Xl)
-                .child(chart)
-                .into_any_element()
+            chart.into_any_element()
         }
         "waterfall" => {
             let steps = match h {
@@ -119,6 +110,7 @@ pub fn plot(which: &str, h: &[Value], generation: u64) -> impl IntoElement + use
                 _ => Vec::new(),
             };
             let chart = Chart::new("rapl-waterfall", "RAPL energy waterfall")
+                .height(ChartHeight::Regular)
                 .description("RAPL energy waterfall")
                 .transition(generation)
                 .paint(move |scene, _| {
@@ -156,15 +148,12 @@ pub fn plot(which: &str, h: &[Value], generation: u64) -> impl IntoElement + use
                         }
                     }
                 });
-            v_flex()
-                .w_full()
-                .h(Space::Xl)
-                .child(chart)
-                .into_any_element()
+            chart.into_any_element()
         }
         "bees" => {
             let items = crate::layouts::tcp_bees(latest);
             let chart = Chart::new("tcp-beeswarm", "TCP state beeswarm")
+                .height(ChartHeight::Tall)
                 .description("TCP state beeswarm")
                 .transition(generation)
                 .paint(move |scene, _| {
@@ -191,15 +180,12 @@ pub fn plot(which: &str, h: &[Value], generation: u64) -> impl IntoElement + use
                         );
                     }
                 });
-            v_flex()
-                .w_full()
-                .h(Space::Xl)
-                .child(chart)
-                .into_any_element()
+            chart.into_any_element()
         }
         "radar" => {
             let series = crate::layouts::netdev_radar(&latest_list(h, "ifaces"));
             let chart = Chart::new("netdev-radar", "Netdev counter radar")
+                .height(ChartHeight::Tall)
                 .description("Netdev counter radar")
                 .transition(generation)
                 .paint(move |scene, _| {
@@ -262,11 +248,7 @@ pub fn plot(which: &str, h: &[Value], generation: u64) -> impl IntoElement + use
                         );
                     }
                 });
-            v_flex()
-                .w_full()
-                .h(Space::Xl)
-                .child(chart)
-                .into_any_element()
+            chart.into_any_element()
         }
         _ => v_flex().into_any_element(),
     }

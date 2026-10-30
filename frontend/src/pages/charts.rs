@@ -1,6 +1,7 @@
 //! The marks the Monitor and Home pages draw on ODK's chart canvas, in named inks: a sparkline
 //! (one series, or two, the first filled under unless asked not to), the core bars, and the
-//! memory bar. Each takes the height of a `Space::Xl`: ODK has no chart height of its own yet.
+//! memory bar. A sparkline and the memory bar are compact charts and the core bars a regular one,
+//! at ODK's chart heights.
 
 use odk::prelude::*;
 
@@ -26,10 +27,6 @@ fn line(values: &[f64], w: f32, h: f32) -> Option<ChartPath> {
     )
 }
 
-fn frame(chart: Chart) -> impl IntoElement {
-    v_flex().w_full().h(Space::Xl).child(chart)
-}
-
 /// A sparkline of the last minute, named `name` and described by `says`.
 pub fn spark(
     id: String,
@@ -38,7 +35,8 @@ pub fn spark(
     s: Spark,
     generation: u64,
 ) -> impl IntoElement {
-    let chart = Chart::new(SharedString::from(id), name)
+    Chart::new(SharedString::from(id), name)
+        .height(ChartHeight::Compact)
         .description(says)
         .transition(generation)
         .paint(move |scene, _| {
@@ -61,21 +59,20 @@ pub fn spark(
             if let Some(path) = line(&s.second, w, h) {
                 scene.stroke(&path, Ink::Series(1), StrokeWidth::Regular);
             }
-        });
-    frame(chart)
+        })
 }
 
 /// A bar per core, from 0 to 100% busy; a hot one in the ramp's top ink.
 pub fn core_bars(id: String, says: String, values: Vec<f64>, generation: u64) -> impl IntoElement {
-    let chart = Chart::new(SharedString::from(id), "Busy share of each core")
+    Chart::new(SharedString::from(id), "Busy share of each core")
+        .height(ChartHeight::Regular)
         .description(says)
         .transition(generation)
         .paint(move |scene, _| {
             for ((x, y, w, h), hot) in monitor::bars(&values, scene.width(), scene.height()) {
                 scene.fill_rect(x, y, w, h, if hot { Ink::Heat(4) } else { Ink::Series(0) });
             }
-        });
-    frame(chart)
+        })
 }
 
 /// Memory as one bar: used, buffers, cached and free, each its share.
@@ -85,7 +82,8 @@ pub fn memory(
     parts: Vec<(&'static str, &'static str, f64)>,
     generation: u64,
 ) -> impl IntoElement {
-    let chart = Chart::new(SharedString::from(id), "Memory by use")
+    Chart::new(SharedString::from(id), "Memory by use")
+        .height(ChartHeight::Compact)
         .description(says)
         .transition(generation)
         .paint(move |scene, _| {
@@ -95,6 +93,5 @@ pub fn memory(
             {
                 scene.fill_rect(x, y, w, h, Ink::Series(i));
             }
-        });
-    frame(chart)
+        })
 }

@@ -670,7 +670,8 @@ pub fn table(
 pub fn parallel(page: &CatalogPage, cx: &App) -> impl IntoElement + use<> {
     let (h, generation) = history(page, cx);
     let rows = crate::layouts::process_parallel(&table_rows(page, h));
-    let chart = Chart::new("process-parallel", "Process parallel coordinates")
+    Chart::new("process-parallel", "Process parallel coordinates")
+        .height(ChartHeight::Tall)
         .description("Process parallel coordinates")
         .transition(generation)
         .paint(move |scene, _| {
@@ -713,6 +714,5 @@ pub fn parallel(page: &CatalogPage, cx: &App) -> impl IntoElement + use<> {
                     scene.stroke(&path, Ink::Series(i), StrokeWidth::Thin);
                 }
             }
-        });
-    v_flex().w_full().h(Space::Xl).child(chart)
+        })
 }

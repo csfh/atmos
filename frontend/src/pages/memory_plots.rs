@@ -19,11 +19,6 @@ use crate::memory_charts::{self, tone_id};
 use crate::treemap::{self, Rect, View};
 
 const VIEW: &str = "rss-view";
-
-fn framed(chart: Chart) -> impl IntoElement + use<> {
-    v_flex().w_full().h(Space::Xl).child(chart)
-}
-
 fn boxes(scene: &mut Scene, rects: &[Rect]) {
     for r in rects {
         let (w, h) = ((r.w as f32).max(1.0), (r.h as f32).max(1.0));
@@ -84,6 +79,7 @@ fn rss(page: &CatalogPage, this: &Entity<CatalogPage>, h: &[Value], generation: 
     };
     let painted = (size.clone(), layout.clone(), focus.clone());
     let chart = Chart::new("rss-treemap", "Process RSS treemap")
+        .height(ChartHeight::Tall)
         .description("Process RSS treemap")
         .transition(generation)
         .paint(move |scene, _| {
@@ -152,115 +148,109 @@ pub fn plot(
     match which {
         "horizon" => {
             let series = memory_charts::buddy_series(h);
-            framed(
-                Chart::new("buddy-horizon", "Buddy-order horizon")
-                    .description("Buddy-order horizon")
-                    .transition(generation)
-                    .paint(move |scene, _| {
-                        let (w, hh) = (scene.width() as f64, scene.height() as f64);
-                        let (bands, labels) = memory_charts::horizon_layout(&series, w, hh, 3);
-                        for b in &bands {
-                            let (Some(first), Some(last)) = (b.points.first(), b.points.last())
-                            else {
-                                continue;
-                            };
-                            let path = b
-                                .points
-                                .iter()
-                                .fold(
-                                    ChartPath::new().move_to(first.0 as f32, hh as f32),
-                                    |p, (x, y)| p.line_to(*x as f32, *y as f32),
-                                )
-                                .line_to(last.0 as f32, hh as f32)
-                                .close();
-                            let level = (b.fill * 4.0).round().clamp(0.0, 4.0) as usize;
-                            scene.fill(&path, Ink::Heat(level));
-                        }
-                        for l in &labels {
-                            caption(scene, l);
-                        }
-                    }),
-            )
-            .into_any_element()
+            Chart::new("buddy-horizon", "Buddy-order horizon")
+                .height(ChartHeight::Regular)
+                .description("Buddy-order horizon")
+                .transition(generation)
+                .paint(move |scene, _| {
+                    let (w, hh) = (scene.width() as f64, scene.height() as f64);
+                    let (bands, labels) = memory_charts::horizon_layout(&series, w, hh, 3);
+                    for b in &bands {
+                        let (Some(first), Some(last)) = (b.points.first(), b.points.last()) else {
+                            continue;
+                        };
+                        let path = b
+                            .points
+                            .iter()
+                            .fold(
+                                ChartPath::new().move_to(first.0 as f32, hh as f32),
+                                |p, (x, y)| p.line_to(*x as f32, *y as f32),
+                            )
+                            .line_to(last.0 as f32, hh as f32)
+                            .close();
+                        let level = (b.fill * 4.0).round().clamp(0.0, 4.0) as usize;
+                        scene.fill(&path, Ink::Heat(level));
+                    }
+                    for l in &labels {
+                        caption(scene, l);
+                    }
+                })
+                .into_any_element()
         }
-        "treemap" => framed(rss(page, this, h, generation)).into_any_element(),
+        "treemap" => rss(page, this, h, generation).into_any_element(),
         "sankey" => {
             let (nodes, flows) = memory_charts::meminfo_sankey(h.last());
-            framed(
-                Chart::new("meminfo-sankey", "Meminfo composition Sankey")
-                    .description("Meminfo composition Sankey")
-                    .transition(generation)
-                    .paint(move |scene, _| {
-                        let (w, hh) = (scene.width() as f64, scene.height() as f64);
-                        let (blocks, links) = memory_charts::sankey_layout(&nodes, &flows, w, hh);
-                        for (i, b) in blocks.iter().enumerate() {
-                            scene.fill_rect(
-                                b.x as f32,
-                                b.y as f32,
-                                (b.w as f32).max(1.0),
-                                (b.h as f32).max(1.0),
-                                Ink::Series(i),
-                            );
-                        }
-                        // A flow as the band its stroke would cover: its top edge out, its
-                        // bottom edge back.
-                        for l in &links {
-                            let half = (l.width.max(1.0) / 2.0) as f32;
-                            let (x0, y0, x1, y1) =
-                                (l.x0 as f32, l.y0 as f32, l.x1 as f32, l.y1 as f32);
-                            let mid = (x0 + x1) / 2.0;
-                            let path = ChartPath::new()
-                                .move_to(x0, y0 - half)
-                                .curve_to(mid, y0 - half, mid, y1 - half, x1, y1 - half)
-                                .line_to(x1, y1 + half)
-                                .curve_to(mid, y1 + half, mid, y0 + half, x0, y0 + half)
-                                .close();
-                            scene.fill(&path, Ink::SeriesFill(tone_id(&l.source)));
-                        }
-                        for b in &blocks {
-                            caption(scene, &b.label);
-                        }
-                    }),
-            )
-            .into_any_element()
+            Chart::new("meminfo-sankey", "Meminfo composition Sankey")
+                .height(ChartHeight::Tall)
+                .description("Meminfo composition Sankey")
+                .transition(generation)
+                .paint(move |scene, _| {
+                    let (w, hh) = (scene.width() as f64, scene.height() as f64);
+                    let (blocks, links) = memory_charts::sankey_layout(&nodes, &flows, w, hh);
+                    for (i, b) in blocks.iter().enumerate() {
+                        scene.fill_rect(
+                            b.x as f32,
+                            b.y as f32,
+                            (b.w as f32).max(1.0),
+                            (b.h as f32).max(1.0),
+                            Ink::Series(i),
+                        );
+                    }
+                    // A flow as the band its stroke would cover: its top edge out, its
+                    // bottom edge back.
+                    for l in &links {
+                        let half = (l.width.max(1.0) / 2.0) as f32;
+                        let (x0, y0, x1, y1) = (l.x0 as f32, l.y0 as f32, l.x1 as f32, l.y1 as f32);
+                        let mid = (x0 + x1) / 2.0;
+                        let path = ChartPath::new()
+                            .move_to(x0, y0 - half)
+                            .curve_to(mid, y0 - half, mid, y1 - half, x1, y1 - half)
+                            .line_to(x1, y1 + half)
+                            .curve_to(mid, y1 + half, mid, y0 + half, x0, y0 + half)
+                            .close();
+                        scene.fill(&path, Ink::SeriesFill(tone_id(&l.source)));
+                    }
+                    for b in &blocks {
+                        caption(scene, &b.label);
+                    }
+                })
+                .into_any_element()
         }
         "sunburst" => {
             let tree = h.last().and_then(|l| l.get("cgroups")).cloned();
-            framed(
-                Chart::new("cgroup-sunburst", "Cgroup memory sunburst")
-                    .description("Cgroup memory sunburst")
-                    .transition(generation)
-                    .paint(move |scene, _| {
-                        let (w, hh) = (scene.width() as f64, scene.height() as f64);
-                        let arcs = memory_charts::sunburst_arcs(tree.as_ref(), w, hh);
-                        for a in &arcs {
-                            let (cx, cy) = (a.cx as f32, a.cy as f32);
-                            let path = ChartPath::new()
-                                .arc(cx, cy, a.outer as f32, a.start as f32, a.end as f32)
-                                .arc(cx, cy, a.inner as f32, a.end as f32, a.start as f32)
-                                .close();
-                            scene.fill(&path, Ink::Series(tone_id(&a.id)));
-                            scene.stroke(&path, Ink::Canvas, StrokeWidth::Thin);
-                        }
-                        for l in arcs.iter().filter_map(|a| a.label.as_ref()) {
-                            caption(scene, l);
-                        }
-                    }),
-            )
-            .into_any_element()
+            Chart::new("cgroup-sunburst", "Cgroup memory sunburst")
+                .height(ChartHeight::Tall)
+                .description("Cgroup memory sunburst")
+                .transition(generation)
+                .paint(move |scene, _| {
+                    let (w, hh) = (scene.width() as f64, scene.height() as f64);
+                    let arcs = memory_charts::sunburst_arcs(tree.as_ref(), w, hh);
+                    for a in &arcs {
+                        let (cx, cy) = (a.cx as f32, a.cy as f32);
+                        let path = ChartPath::new()
+                            .arc(cx, cy, a.outer as f32, a.start as f32, a.end as f32)
+                            .arc(cx, cy, a.inner as f32, a.end as f32, a.start as f32)
+                            .close();
+                        scene.fill(&path, Ink::Series(tone_id(&a.id)));
+                        scene.stroke(&path, Ink::Canvas, StrokeWidth::Thin);
+                    }
+                    for l in arcs.iter().filter_map(|a| a.label.as_ref()) {
+                        caption(scene, l);
+                    }
+                })
+                .into_any_element()
         }
         "icicle" => {
             let tree = memory_charts::slab_tree(&latest_list(h, "slabs"));
-            framed(
-                Chart::new("slab-icicle", "Slab cache icicle")
-                    .description("Slab cache icicle")
-                    .transition(generation)
-                    .paint(move |scene, _| {
-                        let (w, hh) = (scene.width() as f64, scene.height() as f64);
-                        boxes(scene, &memory_charts::icicle_rects(tree.as_ref(), w, hh));
-                    }),
-            )
-            .into_any_element()
+            Chart::new("slab-icicle", "Slab cache icicle")
+                .height(ChartHeight::Tall)
+                .description("Slab cache icicle")
+                .transition(generation)
+                .paint(move |scene, _| {
+                    let (w, hh) = (scene.width() as f64, scene.height() as f64);
+                    boxes(scene, &memory_charts::icicle_rects(tree.as_ref(), w, hh));
+                })
+                .into_any_element()
         }
         _ => v_flex().into_any_element(),
     }

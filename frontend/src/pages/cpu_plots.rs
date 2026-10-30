@@ -55,11 +55,6 @@ fn wedge(w: &cpu_charts::Wedge) -> ChartPath {
         )
         .close()
 }
-
-fn framed(chart: Chart) -> impl IntoElement + use<> {
-    v_flex().w_full().h(Space::Xl).child(chart)
-}
-
 /// The chart `which` names, from the live rows `h`.
 pub fn plot(which: &str, h: &[Value], generation: u64) -> impl IntoElement + use<> {
     let last_two = match h {
@@ -71,95 +66,91 @@ pub fn plot(which: &str, h: &[Value], generation: u64) -> impl IntoElement + use
             let m = last_two.map_or_else(Vec::new, |(p, n)| {
                 cpu_charts::irq_rate_matrix(p.get("interrupts"), n.get("interrupts"))
             });
-            framed(
-                Chart::new("irq-heatmap", "IRQ land heatmap")
-                    .description("IRQ land heatmap")
-                    .transition(generation)
-                    .paint(move |scene, _| {
-                        let (w, hh) = (scene.width() as f64, scene.height() as f64);
-                        let (cells, labels) = cpu_charts::heatmap_layout(&m, w, hh);
-                        for c in &cells {
-                            let level = (c.fill * 4.0).round().clamp(0.0, 4.0) as usize;
-                            scene.fill_rect(
-                                c.x as f32,
-                                c.y as f32,
-                                (c.w as f32).max(1.0),
-                                (c.h as f32).max(1.0),
-                                Ink::Heat(level),
-                            );
-                        }
-                        for l in &labels {
-                            caption(scene, l);
-                        }
-                    }),
-            )
-            .into_any_element()
+            Chart::new("irq-heatmap", "IRQ land heatmap")
+                .height(ChartHeight::Regular)
+                .description("IRQ land heatmap")
+                .transition(generation)
+                .paint(move |scene, _| {
+                    let (w, hh) = (scene.width() as f64, scene.height() as f64);
+                    let (cells, labels) = cpu_charts::heatmap_layout(&m, w, hh);
+                    for c in &cells {
+                        let level = (c.fill * 4.0).round().clamp(0.0, 4.0) as usize;
+                        scene.fill_rect(
+                            c.x as f32,
+                            c.y as f32,
+                            (c.w as f32).max(1.0),
+                            (c.h as f32).max(1.0),
+                            Ink::Heat(level),
+                        );
+                    }
+                    for l in &labels {
+                        caption(scene, l);
+                    }
+                })
+                .into_any_element()
         }
         "ridgeline" => {
             let series = cpu_charts::psi_ridges(h);
-            framed(
-                Chart::new("psi-ridgeline", "PSI stall ridgeline")
-                    .description("PSI stall ridgeline")
-                    .transition(generation)
-                    .paint(move |scene, _| {
-                        let (w, hh) = (scene.width() as f64, scene.height() as f64);
-                        let (ridges, labels) = cpu_charts::ridgeline_layout(&series, w, hh);
-                        for (i, r) in ridges.iter().enumerate() {
-                            if let Some(path) = outline(&r.points, false) {
-                                scene.stroke(&path, Ink::Series(i), StrokeWidth::Thin);
-                            }
+            Chart::new("psi-ridgeline", "PSI stall ridgeline")
+                .height(ChartHeight::Regular)
+                .description("PSI stall ridgeline")
+                .transition(generation)
+                .paint(move |scene, _| {
+                    let (w, hh) = (scene.width() as f64, scene.height() as f64);
+                    let (ridges, labels) = cpu_charts::ridgeline_layout(&series, w, hh);
+                    for (i, r) in ridges.iter().enumerate() {
+                        if let Some(path) = outline(&r.points, false) {
+                            scene.stroke(&path, Ink::Series(i), StrokeWidth::Thin);
                         }
-                        for l in &labels {
-                            caption(scene, l);
-                        }
-                    }),
-            )
-            .into_any_element()
+                    }
+                    for l in &labels {
+                        caption(scene, l);
+                    }
+                })
+                .into_any_element()
         }
         "violin" => {
             let series = cpu_charts::freq_violins(h);
-            framed(
-                Chart::new("freq-violin", "Core-freq violin")
-                    .description("Core-freq violin")
-                    .transition(generation)
-                    .paint(move |scene, _| {
-                        let (w, hh) = (scene.width() as f64, scene.height() as f64);
-                        let violins = cpu_charts::violin_paths(&series, w, hh);
-                        for (i, v) in violins.iter().enumerate() {
-                            if let Some(path) = outline(&v.points, true) {
-                                scene.fill(&path, Ink::SeriesFill(i));
-                                scene.stroke(&path, Ink::Series(i), StrokeWidth::Thin);
-                            }
+            Chart::new("freq-violin", "Core-freq violin")
+                .height(ChartHeight::Regular)
+                .description("Core-freq violin")
+                .transition(generation)
+                .paint(move |scene, _| {
+                    let (w, hh) = (scene.width() as f64, scene.height() as f64);
+                    let violins = cpu_charts::violin_paths(&series, w, hh);
+                    for (i, v) in violins.iter().enumerate() {
+                        if let Some(path) = outline(&v.points, true) {
+                            scene.fill(&path, Ink::SeriesFill(i));
+                            scene.stroke(&path, Ink::Series(i), StrokeWidth::Thin);
                         }
-                        for v in &violins {
-                            caption(scene, &v.label);
-                        }
-                    }),
-            )
-            .into_any_element()
+                    }
+                    for v in &violins {
+                        caption(scene, &v.label);
+                    }
+                })
+                .into_any_element()
         }
         "rose" => {
             let items = last_two.map_or_else(Vec::new, |(p, n)| {
                 cpu_charts::softirq_wedges(p.get("softirqs"), n.get("softirqs"))
             });
-            framed(
-                Chart::new("softirq-rose", "Softirq Nightingale rose")
-                    .description("Softirq Nightingale rose")
-                    .transition(generation)
-                    .paint(move |scene, _| {
-                        let (w, hh) = (scene.width() as f64, scene.height() as f64);
-                        let wedges = cpu_charts::nightingale_wedges(&items, w, hh);
-                        for (i, wd) in wedges.iter().enumerate() {
-                            let path = wedge(wd);
-                            scene.fill(&path, Ink::Series(i));
-                            scene.stroke(&path, Ink::Canvas, StrokeWidth::Thin);
-                        }
-                        for wd in &wedges {
-                            caption(scene, &wd.label);
-                        }
-                    }),
-            )
-            .into_any_element()
+            Chart::new("softirq-rose", "Softirq Nightingale rose")
+                .height(ChartHeight::Regular)
+                .description("Softirq Nightingale rose")
+                .transition(generation)
+                .paint(move |scene, _| {
+                    let (w, hh) = (scene.width() as f64, scene.height() as f64);
+                    let wedges = cpu_charts::nightingale_wedges(&items, w, hh);
+                    for (i, wd) in wedges.iter().enumerate() {
+                        let path = wedge(wd);
+                        scene.fill(&path, Ink::Series(i));
+                        scene.stroke(&path, Ink::Canvas, StrokeWidth::Thin);
+                    }
+                    for wd in &wedges {
+                        caption(scene, &wd.label);
+                    }
+                })
+                .into_any_element()
         }
         _ => v_flex().into_any_element(),
     }

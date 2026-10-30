@@ -568,3 +568,29 @@ fn a_press_on_the_treemap_focuses_a_process_and_goes_back_out() {
     w.cx.run_until_parked();
     assert_eq!(focus(&mut w), "1", "a press on the breadcrumb goes out");
 }
+
+/// The Memory page's charts stand at ODK's chart heights (ADR 0075 there): the sparkline and the
+/// composition bar compact, the buddy horizon regular, and the treemap tall.
+#[test]
+fn the_memory_page_draws_its_charts_at_odks_chart_heights() {
+    let mut app = TestAppContext::single();
+    let mut w = open(&mut app, "monitor/memory", ordinary);
+    w.cx.simulate_resize(size(px(1400.0), px(9000.0)));
+    for at in [1000u64, 3000] {
+        w.daemon.say(json!({
+            "event": "sample", "kind": "live", "sampledAt": at, "tookMs": 1,
+            "result": {"uid": 1000, "cpuIdle": at, "cpuTotal": at * 2, "clkTck": 100,
+                "mem": 40.0, "memTotal": 16000000, "processes": []},
+        }));
+    }
+    let [compact, regular, tall] = odk::ui::components().chart().heights;
+    for (chart, height) in [
+        ("memory-spark/chart", compact),
+        ("memory-mix/chart", compact),
+        ("buddy-horizon/chart", regular),
+        ("rss-treemap/chart", tall),
+    ] {
+        w.until(chart, |w| w.drawn(chart));
+        assert_eq!(w.bounds(chart).unwrap().size.height, px(height), "{chart}");
+    }
+}

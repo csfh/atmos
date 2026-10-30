@@ -168,15 +168,18 @@ pub fn unknown() -> impl IntoElement {
     Text::new("Unknown").muted()
 }
 
-/// A group of rows under its title and what it says of them.
+/// A group of rows under its title and what it says of them, as ODK's `ItemGroup`: a line
+/// between one row and the next. What it says takes no line when it is empty.
 pub fn group(
     title: impl Into<SharedString>,
     detail: impl Into<SharedString>,
     rows: impl IntoIterator<Item = impl IntoElement>,
 ) -> impl IntoElement {
-    v_flex()
-        .gap(Space::Xs)
-        .child(Heading::new(title).level(2))
-        .child(Text::new(detail).muted())
-        .children(rows)
+    let (group, detail) = (ItemGroup::new(title), detail.into());
+    let group = if detail.is_empty() {
+        group
+    } else {
+        group.description(detail)
+    };
+    group.children(rows)
 }

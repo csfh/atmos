@@ -23,10 +23,12 @@ mod sample_forms;
 mod sample_pages;
 pub mod samples;
 pub mod setter;
+mod wide;
 pub mod words;
 
 pub use control::{Control, Field, When};
 pub use models::MODEL_LISTS;
+pub use wide::{WIDE, wide};
 
 use crate::hubs;
 use crate::search::Row;

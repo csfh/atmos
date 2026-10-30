@@ -626,12 +626,16 @@ impl CatalogPage {
         row::setting(p.title, p.description, profiles::HINT, apply, star)
     }
 
+    /// The group as the page's grid holds it, each with whether it takes a row of its own: the
+    /// group, then each group the QML keeps out of the catalog that follows it. None when the
+    /// group is hidden.
     fn group(
         &self,
         group: &'static Group,
         this: &Entity<Self>,
         cx: &App,
-    ) -> impl IntoElement + use<> {
+    ) -> Vec<(impl IntoElement + use<>, bool)> {
+        let id = self.page.id;
         let list = catalog::list(self.page.id, group.title);
         let mut labels = Vec::new();
         let mut rows: Vec<_> = group
@@ -659,20 +663,20 @@ impl CatalogPage {
         }
         let column = v_flex().gap(Space::Xs);
         if rows.is_empty() && !custom::group_shows(self, group.title, cx) {
-            return column;
+            return Vec::new();
         }
         if group.title.is_empty() {
-            return column.children(rows);
+            return vec![(column.children(rows).into_any_element(), true)];
         }
         let empty = (group.rows.is_empty() && list.is_none()).then(|| Text::new(LISTED).muted());
         // A group the QML keeps out of the catalog, drawn after the one it follows.
         let unlisted = catalog::UNLISTED
             .iter()
-            .filter(|(p, after, ..)| *p == self.page.id && *after == group.title)
+            .filter(|(p, after, ..)| *p == id && *after == group.title)
             .map(|(_, _, title, detail, list)| {
                 let rows = crate::pages::lists::list_rows(*list, self, this, cx);
                 // One with no title is its words and rows, as the QML draws a group of none.
-                if title.is_empty() {
+                let drawn = if title.is_empty() {
                     v_flex()
                         .gap(Space::Xs)
                         .child(Text::new(*detail).muted())
@@ -680,25 +684,45 @@ impl CatalogPage {
                         .into_any_element()
                 } else {
                     row::group(*title, *detail, rows).into_any_element()
-                }
-            })
-            .collect::<Vec<_>>();
-        column
+                };
+                (drawn, catalog::wide(id, title))
+            });
+        let drawn = column
             .child(row::group(
                 group.title,
                 list.and_then(|l| agents::detail(l, self))
                     .unwrap_or_else(|| group.detail.to_owned()),
                 rows,
             ))
-            .children(empty)
-            .children(unlisted)
+            .children(empty);
+        std::iter::once((drawn.into_any_element(), catalog::wide(id, group.title)))
+            .chain(unlisted)
+            .collect()
     }
 }
 
 impl Render for CatalogPage {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let page = self.page;
         let this = cx.entity();
+        // The groups two side by side once the window has room, as `PrefsPage.qml` puts them; the
+        // id is the same on every page, so a page opened from another keeps the count.
+        let groups: Vec<_> = page
+            .groups
+            .iter()
+            .flat_map(|g| self.group(g, &this, cx))
+            .collect();
+        let cells = groups.iter().filter(|(_, wide)| !wide).count();
+        let column = content_column_for_grid("catalog-page", 2, cells, window, cx);
+        let grid = groups
+            .into_iter()
+            .fold(Grid::new(column.columns()), |grid, (group, wide)| {
+                if wide {
+                    grid.wide(group)
+                } else {
+                    grid.child(group)
+                }
+            });
         let settings = self.stars.settings.read(cx);
         let held = page.held();
         // Keys that failed for one reason (one tool that did not answer) are said once.
@@ -731,9 +755,9 @@ impl Render for CatalogPage {
             .child(Text::new(page.description()).muted())
             .children(notice)
             .children(alerts)
-            .children(page.groups.iter().map(|g| self.group(g, &this, cx)))
+            .child(grid)
             .into_any_element();
-        let column = content_column().child(Heading::new(page.title()).level(1));
+        let column = column.child(Heading::new(page.title()).level(1));
         let asked = (self.asked.as_ref()).map(|a| (a.title.clone(), a.message.clone(), a.action));
         let dialogs = [
             confirm(self.asking.and_then(|(b, _)| b.confirm), asked, &this).into_any_element(),

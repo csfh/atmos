@@ -144,6 +144,52 @@ fn every_group_that_builds_rows_from_a_model_is_named() {
     assert_eq!(ours, theirs);
 }
 
+/// The text of a QML block that is its own, outside the blocks nested in it.
+fn own(block: &str) -> String {
+    let mut depth = 0;
+    let mut out = String::new();
+    for c in block.chars() {
+        match c {
+            '{' => depth += 1,
+            '}' => depth -= 1,
+            _ if depth == 1 => out.push(c),
+            _ => {}
+        }
+    }
+    out
+}
+
+/// The groups whose QML says `wide: true` are the ones `WIDE` names, and a group the QML leaves
+/// without a title is wide: the window gives every group with no title a row of its own. A group
+/// whose title is worked out (one per monitor, from a model) is in a list the window draws.
+#[test]
+fn every_group_that_takes_the_whole_width_is_named() {
+    let mut theirs = BTreeSet::new();
+    for page in catalog::pages() {
+        let src = std::fs::read_to_string(qml::repo().join("pages").join(page.file)).unwrap();
+        for (at, _) in src.match_indices("PrefsGroup {") {
+            let (s, e) = span(&src, at);
+            let own = own(&src[s..=e]);
+            let wide = own.lines().any(|l| l.trim() == "wide: true");
+            let title = own
+                .split("title: \"")
+                .nth(1)
+                .and_then(|t| t.split('"').next())
+                .unwrap_or_default();
+            if !own.contains("title:") {
+                assert!(wide, "{}: a group with no title is not wide", page.id);
+            } else if wide && !title.is_empty() {
+                theirs.insert((page.id.to_owned(), title.to_owned()));
+            }
+        }
+    }
+    let ours: BTreeSet<(String, String)> = catalog::WIDE
+        .iter()
+        .map(|(p, g)| ((*p).to_owned(), (*g).to_owned()))
+        .collect();
+    assert_eq!(ours, theirs);
+}
+
 /// The values a field of a condition can read, as the condition reads it: a switch's booleans,
 /// or a text that is empty or not.
 fn domains(w: When, out: &mut BTreeMap<String, Value>) {

@@ -44,22 +44,13 @@ Home, Monitor, Sentinel, Favorites, Appearance, Displays, Windows, Workspaces, B
 
 ## Install
 
-Needs an [Omarchy](https://omarchy.org) system (Hyprland) and `~/.local/bin` on `PATH`.
+Needs an [Omarchy](https://omarchy.org) system (Hyprland) and `~/.local/bin` on `PATH`. The install script follows the `stable` branch and updates from inside the app:
 
-- **Install script** follows the `stable` branch and updates from inside the app:
+```bash
+curl -fsSL https://raw.githubusercontent.com/csfh/atmos/stable/install.sh | bash
+```
 
-  ```bash
-  curl -fsSL https://raw.githubusercontent.com/csfh/atmos/stable/install.sh | bash
-  ```
-
-  It needs `git`, `cargo`, and `quickshell`, and checks for them.
-
-- **Omarchy package** updates with `omarchy update`. Hyprland integration is opt-in per user:
-
-  ```bash
-  sudo pacman -S omarchy-atmos
-  atmos --setup
-  ```
+It needs `git`, `cargo`, and `quickshell`, and checks for them. There is no Omarchy package.
 
 Then run `atmos`, or open it from the app launcher. Details, update, and uninstall are in [docs/install.md](docs/install.md).
 
